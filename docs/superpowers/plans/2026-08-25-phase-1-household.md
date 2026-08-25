@@ -14,13 +14,110 @@
 
 - Work only on `codex/phase-1-household`. Do not merge `main`, deploy, link a remote Supabase/Vercel project, run production migrations, or start Phase 2.
 - This document plans future work only. It does not authorize source code, dependencies, migrations, accounts, or infrastructure changes now.
-- Before implementation, the approved Phase 0 foundation must be in the execution branch. At plan-writing time this branch comes from `origin/main`, which does not contain the Phase 0 scaffold. If it is still absent, report `PHASE_1_BLOCKED_FOUNDATION_NOT_INTEGRATED`; do not silently recreate, merge, or cherry-pick it.
+- Before implementation, complete the separate Phase 0 integration prerequisite in Section 0. At plan-writing time this branch comes from `origin/main` and does not contain the Phase 0 scaffold. Do not recreate Phase 0 files or start any Phase 1 task until `git merge-base --is-ancestor b5d68ed248ab215b55bb76949dd0d77c8b08d688 HEAD` succeeds.
 - Node 24 is mandatory. Docker is capability detection locally. Database/RLS verification is mandatory locally when available, otherwise in exact-final-HEAD GitHub Actions. Never substitute a remote Supabase database.
 - Collect no names, child/member accounts, birth dates, sex, weight, diagnoses, health conditions, or free-text dietary notes. Account email/password belongs only to Supabase Auth.
 - Allergies/exclusions are structured hard rules. Preferences are structurally separate soft rules. No AI or free-text interpretation is permitted.
 - Budget is integer VND for exactly seven planned primary meals. Phase 1 stores it but performs no cost calculation.
 - Store member groups only. Do not calculate adult equivalents or add `PortionConfigV1`; those belong to later deterministic engines.
 - No foods, recipes, catalog lineage, nutrition, prices, planner, shopping list, pantry, admin, or AI behavior enters this phase.
+
+---
+
+## 0. Prerequisite: Integrate the Approved Phase 0 HEAD
+
+This is a branch-foundation prerequisite, not a Phase 1 implementation task. It must be performed and committed separately before Gate 0 or Task 1. The current planning-only revision does **not** perform this merge.
+
+The only approved foundation input is the exact commit:
+
+```text
+b5d68ed248ab215b55bb76949dd0d77c8b08d688
+```
+
+Do not merge `main`, merge an unverified moving branch tip, recreate Phase 0 files, or copy files by hand. A future approved Phase 1 implementation run uses this safe procedure:
+
+- [ ] Fetch and verify the exact commit without changing the worktree:
+
+  ```powershell
+  git branch --show-current
+  git fetch origin
+  $phase0Head = "b5d68ed248ab215b55bb76949dd0d77c8b08d688"
+  if ((git branch --show-current) -ne "codex/phase-1-household") { throw "PHASE_1_BLOCKED_WRONG_BRANCH" }
+  git cat-file -e "$phase0Head^{commit}"
+  if ($LASTEXITCODE -ne 0) { throw "PHASE_1_BLOCKED_PHASE_0_COMMIT_UNAVAILABLE" }
+  git merge-base --is-ancestor $phase0Head origin/codex/phase-0-foundation
+  if ($LASTEXITCODE -ne 0) { throw "PHASE_1_BLOCKED_UNVERIFIED_PHASE_0_COMMIT" }
+  git show --no-patch --format="%H %s" $phase0Head
+  ```
+
+  The displayed SHA must be exact. A later remote branch tip does not broaden the approved input.
+
+- [ ] Require no tracked changes and detect untracked paths that the Phase 0 merge would overwrite:
+
+  ```powershell
+  if (@(git status --porcelain --untracked-files=no).Count -ne 0) { throw "PHASE_1_BLOCKED_TRACKED_WORKTREE_NOT_CLEAN" }
+  $mergeBase = git merge-base HEAD $phase0Head
+  $phase0Paths = @(git diff --name-only "$mergeBase..$phase0Head")
+  $untrackedPaths = @(git ls-files --others --exclude-standard)
+  $collisions = @($untrackedPaths | Where-Object { $phase0Paths -contains $_ })
+  if ($collisions.Count -ne 0) { throw "PHASE_1_BLOCKED_UNTRACKED_PATH_COLLISION: $($collisions -join ', ')" }
+  ```
+
+  Preserve all unrelated files. Do not use `git clean`, delete artifacts, or overwrite a collision. Report the exact paths and wait for direction.
+
+- [ ] If the ancestry check already succeeds, do not create a redundant merge commit. Otherwise merge only the approved SHA without auto-committing:
+
+  ```powershell
+  git merge-base --is-ancestor $phase0Head HEAD
+  if ($LASTEXITCODE -ne 0) {
+    git merge --no-ff --no-commit $phase0Head
+    if ($LASTEXITCODE -ne 0 -or @(git diff --name-only --diff-filter=U).Count -ne 0) {
+      git rev-parse -q --verify MERGE_HEAD *> $null
+      if ($LASTEXITCODE -eq 0) { git merge --abort }
+      throw "PHASE_1_BLOCKED_PHASE_0_MERGE_CONFLICT"
+    }
+    $mergeBase = git merge-base HEAD $phase0Head
+    $phase0Paths = @(git diff --name-only "$mergeBase..$phase0Head")
+    $unexpectedPaths = @(git diff --cached --name-only | Where-Object { $phase0Paths -notcontains $_ })
+    if ($unexpectedPaths.Count -ne 0) {
+      git merge --abort
+      throw "PHASE_1_BLOCKED_UNEXPECTED_FOUNDATION_PATH: $($unexpectedPaths -join ', ')"
+    }
+    git diff --cached --check
+    git status --short
+    git commit -m "chore: integrate approved Phase 0 foundation"
+  }
+  ```
+
+  Inspect the staged merge before committing. It may contain only the reviewed Phase 0 delta plus Git's merge metadata; no conflict resolution, unrelated cleanup, Phase 1 implementation, or main-branch content is folded into this commit.
+
+- [ ] Prove ancestry and rerun the inherited Phase 0 baseline on the integration commit:
+
+  ```powershell
+  git merge-base --is-ancestor $phase0Head HEAD
+  if ($LASTEXITCODE -ne 0) { throw "PHASE_1_BLOCKED_FOUNDATION_NOT_INTEGRATED" }
+  npm ci
+  npm run preflight
+  npm run verify:non-db
+  git diff --check
+  ```
+
+  When local database capability is available, also run `npm run verify:db` and stop the local stack afterward. When it is unavailable, retain the approved Phase 0 CI database-verification model.
+
+- [ ] Push this prerequisite commit separately and require the inherited `web` and `database` GitHub Actions jobs to pass for its exact HEAD before starting Task 1:
+
+  ```powershell
+  git push --set-upstream origin codex/phase-1-household
+  $integrationHead = git rev-parse HEAD
+  $integrationRun = gh run list --workflow ci.yml --branch codex/phase-1-household --commit $integrationHead --limit 1 --json databaseId,headSha,status,conclusion,url | ConvertFrom-Json
+  if ($integrationRun.Count -ne 1 -or $integrationRun.headSha -ne $integrationHead) { throw "PHASE_1_BLOCKED_NO_EXACT_HEAD_FOUNDATION_CI" }
+  gh run watch $integrationRun.databaseId --exit-status
+  $integrationJobs = (gh run view $integrationRun.databaseId --json jobs | ConvertFrom-Json).jobs
+  if (($integrationJobs | Where-Object name -eq "web").conclusion -ne "success") { throw "PHASE_1_BLOCKED_FOUNDATION_WEB_CI" }
+  if (($integrationJobs | Where-Object name -eq "database").conclusion -ne "success") { throw "PHASE_1_BLOCKED_FOUNDATION_DATABASE_CI" }
+  ```
+
+Only after the ancestry command and inherited Phase 0 gates pass may Gate 0 record `PHASE_0_FOUNDATION_INTEGRATED` and allow Phase 1 implementation. Failure at any prerequisite step is `PHASE_1_BLOCKED`; it is not permission to reconstruct the foundation.
 
 ---
 
@@ -35,7 +132,7 @@ At plan-writing time:
 - Phase 0 supplies Node 24/Vite/React, strict boundaries, Supabase CLI/pgTAP, Vercel health/routing tests, Playwright, and two-job CI;
 - local generated directories are unrelated untracked artifacts and must not be staged.
 
-Implementation checks ancestry rather than filenames:
+Gate 0 checks ancestry rather than filenames after the separate Section 0 integration procedure:
 
 ```powershell
 $phase0Head = "b5d68ed248ab215b55bb76949dd0d77c8b08d688"
@@ -43,7 +140,7 @@ git merge-base --is-ancestor $phase0Head HEAD
 if ($LASTEXITCODE -ne 0) { throw "PHASE_1_BLOCKED_FOUNDATION_NOT_INTEGRATED" }
 ```
 
-If reviewed integration later uses different ancestry, verify the complete Phase 0 file/gate contract and record the actual integrated commit. This plan does not authorize that integration.
+No alternative Phase 0 commit or equivalent file reconstruction satisfies this prerequisite. The exact approved SHA must be an ancestor of every Phase 1 task commit.
 
 ### 1.2 Authentication and session boundary
 
@@ -152,7 +249,7 @@ A private `auth.users` trigger creates the profile. Its `security definer` funct
 - enum band `adult|1_3|4_6|7_9|10_12|13_17|elderly`
 - integer count 1–20, kind/band compatibility check, timestamps
 - unique `(household_id, member_kind, age_band)` and indexed ownership path
-- deferred constraint trigger rejects total above 20 and a completed household with zero supported members at transaction end
+- shared constraint triggers reject totals above 20 and reject every completed household whose supported-member total is outside 1–20, regardless of which table/path caused the state change
 
 `public.household_rule_options`:
 
@@ -167,6 +264,22 @@ A private `auth.users` trigger creates the profile. Its `security definer` funct
 - primary key `(household_id,rule_code)`
 - no free text or nullable catalog-polymorphic columns
 
+#### Authoritative cross-row invariant functions and triggers
+
+Domain validation provides fast typed UI feedback, while the RPC validates authentication, transport shape, canonical references, and optimistic versioning. Neither duplicates or replaces the stored cross-row assertions. The migration creates private, fully schema-qualified `security definer set search_path = ''` assertion/trigger functions with execution revoked from `public`, `anon`, and `authenticated`. They are invoked only by triggers and enforce the same states for RPC calls, direct Data API writes, SQL tests, and future trusted operations:
+
+1. `private.assert_household_member_state(p_household_id uuid) returns void` counts valid stored groups. It raises `check_violation` when total members exceed 20, or when `onboarding_completed_at is not null` and the total is not 1–20.
+2. `private.enforce_household_member_state() returns trigger` invokes that assertion for `NEW.id`/`OLD.id` on `households` and for affected old/new household IDs on member-group mutations.
+3. Constraint trigger `households_require_valid_members` runs `AFTER INSERT OR UPDATE` on `public.households`, `FOR EACH ROW DEFERRABLE INITIALLY IMMEDIATE`.
+4. Constraint trigger `household_member_groups_require_valid_household` runs `AFTER INSERT OR UPDATE OR DELETE` on `public.household_member_groups`, `FOR EACH ROW DEFERRABLE INITIALLY IMMEDIATE`.
+5. `private.assert_household_rule_target_state(p_household_id uuid) returns void` joins selected rules to canonical options and raises `check_violation` when the same household has any `allergen_exclusion`/`food_exclusion` target and any `soft_preference` with the same `target_key`.
+6. `private.enforce_household_rule_target_state() returns trigger` is used by constraint trigger `household_food_rules_no_hard_soft_conflict`, which runs `AFTER INSERT OR UPDATE` on `public.household_food_rules`, `FOR EACH ROW DEFERRABLE INITIALLY IMMEDIATE`.
+7. After the initial seed rows are inserted, a private before-trigger rejects every update/delete of `household_rule_options`; canonical rows are append-only migration data, so an option cannot silently change kind/target beneath stored selections.
+
+Row checks/enums/FKs validate each member and rule row. The unique `households.owner_user_id` index plus owner FK enforces one household per user structurally. A before-update trigger forbids changing `owner_user_id`; RLS `with check` additionally binds direct inserts/updates to `auth.uid()`. Child-table RLS binds every mutation to an owned household. Therefore uniqueness, ownership, supported-member completion, and hard/soft conflict rules do not depend on the caller using the RPC.
+
+The constraint triggers are initially immediate so a direct Data API statement cannot commit an invalid state. The RPC may temporarily defer only `households_require_valid_members` and `household_member_groups_require_valid_household` while replacing a completed household's member rows. It must restore those named constraints to `IMMEDIATE` before returning, which forces authoritative validation inside the RPC. It does not defer the hard/soft conflict trigger.
+
 Atomic browser RPC signature:
 
 ```sql
@@ -179,7 +292,7 @@ public.save_household_setup(
 ) returns public.households
 ```
 
-The function is `plpgsql security invoker set search_path=''`, revoked from `public`/`anon`, granted only to `authenticated`. It validates all fields and conflicts; derives/locks household by `auth.uid()` with no caller household/user ID; inserts only with null expected version; edits only on exact version; atomically replaces owned groups/rules; sets completion once; and returns the authoritative versioned row. Constraints/RLS remain authoritative even for legitimate direct Data API writes.
+The function is `plpgsql security invoker set search_path=''`, revoked from `public`/`anon`, granted only to `authenticated`. It validates authentication, JSON/array shape, canonical references, and expected version; derives/locks household by `auth.uid()` with no caller household/user ID; inserts only with null expected version; edits only on exact version; atomically replaces owned groups/rules; sets completion once; forces the named member constraints back to immediate; and returns the authoritative versioned row. It deliberately relies on row constraints and the shared cross-row triggers for the final member-total and hard/soft-conflict decisions, then maps their stable SQLSTATE/message contracts at the infrastructure boundary. Any trigger failure aborts the entire RPC transaction, including budget/time/version/child changes. The RPC cannot weaken or bypass the authoritative constraints/RLS.
 
 ### 1.6 RLS and grants
 
@@ -194,6 +307,8 @@ Enable RLS on every table; revoke all from `anon` and `authenticated`, then gran
 | food rules | select/insert/delete | indexed owned-household `exists`; insert check |
 
 Never use `for all`. Name `authenticated` in each policy. `anon` has no private/reference access. No client role mutates options and no service key is configured.
+
+Direct Data API writes remain intentionally supported for the grants shown above; the application uses the RPC when replacing the whole setup atomically. Valid direct operations include creating an incomplete owned household, adding valid owned member groups, marking it complete once 1–20 members exist, editing a member without invalidating the completed total, and adding/removing non-conflicting rule selections. Direct writes that would create a second household, change ownership, complete with zero members, exceed 20 members, or create a hard/soft target conflict fail at the database boundary. This is a deliberate direct-write contract, not an accidental side channel.
 
 ### 1.7 UX routes and onboarding
 
@@ -218,11 +333,13 @@ Back preserves in-memory answers. Reload before final save may restart the draft
 
 ## 2. Ordered Implementation Tasks
 
-### Gate 0: Prove branch, foundation, runtime, and database capability
+### Gate 0: Verify the completed foundation prerequisite, runtime, and database capability
 
 **TDD:** No; read-only preflight.
 
 **Expected files:** None.
+
+- [ ] Section 0 must already be complete as a separate prerequisite commit. Gate 0 verifies it; Gate 0 never performs or repairs the integration.
 
 - [ ] Run:
 
@@ -232,6 +349,7 @@ Back preserves in-memory answers. Reload before final save may restart the draft
   git diff --check
   $phase0Head = "b5d68ed248ab215b55bb76949dd0d77c8b08d688"
   git merge-base --is-ancestor $phase0Head HEAD
+  if ($LASTEXITCODE -ne 0) { throw "PHASE_1_BLOCKED_FOUNDATION_NOT_INTEGRATED" }
   node --version
   npm --version
   npm ci
@@ -239,10 +357,10 @@ Back preserves in-memory answers. Reload before final save may restart the draft
   npm run verify:non-db
   ```
 
-- [ ] Require branch `codex/phase-1-household`, Node v24, integrated Phase 0, clean task baseline, and record `LOCAL_DB_VERIFICATION_AVAILABLE` or `LOCAL_DB_VERIFICATION_UNAVAILABLE`.
+- [ ] Require branch `codex/phase-1-household`, Node v24, exact approved Phase 0 ancestry, passing exact-integration-HEAD foundation CI evidence from Section 0, clean task baseline, and record `PHASE_0_FOUNDATION_INTEGRATED` plus `LOCAL_DB_VERIFICATION_AVAILABLE` or `LOCAL_DB_VERIFICATION_UNAVAILABLE`.
 - [ ] Preserve unrelated artifacts. Missing Docker continues non-DB work; missing foundation/Node blocks.
 
-**Safety/rollback:** No source mutation. Do not integrate Phase 0 without separate approval.
+**Safety/rollback:** Gate 0 makes no source mutation and never performs integration; Section 0 must already have completed it as a separately committed prerequisite.
 
 ### Task 1: Add household domain contracts and validation
 
@@ -274,8 +392,17 @@ Back preserves in-memory answers. Reload before final save may restart the draft
 **Expected files:** Modify `supabase/config.toml`; create `supabase/migrations/20260825010000_phase_1_household.sql`, `supabase/tests/database/phase_1_household_schema.test.sql`, `supabase/tests/database/phase_1_household_rls.test.sql`.
 
 - [ ] Configure only local site/redirect URLs and local email-confirmation behavior; no hosted setting.
-- [ ] Schema tests cover all tables/types/checks/FKs/seeds, profile trigger, no prohibited columns, version trigger, RPC signature/security/search path, grants, and RLS on every public table.
-- [ ] RLS tests create users A/B and explicitly switch role/JWT. Cover anon denial and allowed/denied select/insert/update/delete for each table. Prove A cannot read/write B, reassign owner, create a second household, mutate options, target B through RPC, or partially persist stale/invalid input.
+- [ ] Schema tests cover all tables/types/checks/FKs/seeds, profile trigger, no prohibited columns, owner uniqueness/immutability, version trigger, the two assertion helpers, all three constraint triggers, their `DEFERRABLE INITIALLY IMMEDIATE` modes, option append-only trigger, RPC signature/security/search path, grants, and RLS on every public table.
+- [ ] RLS tests create users A/B and explicitly switch role/JWT. Cover anon denial and allowed/denied select/insert/update/delete for each table. Prove A cannot read/write B, reassign owner, create a second household, mutate options, or target B through RPC.
+- [ ] Add direct-write invariant tests under the authenticated role/JWT:
+
+  - a valid direct sequence (owned incomplete household → valid groups → completion → non-conflicting rules) succeeds and returns changed rows;
+  - directly updating an empty household to non-null `onboarding_completed_at` raises `check_violation`, leaves the timestamp null, and does not increment the version;
+  - a direct multi-row insert containing a hard rule and soft preference with the same target raises `check_violation`, and neither inserted row remains;
+  - inserting/updating/deleting valid member/rule rows continues to work when the resulting completed household remains valid;
+  - direct second-household insert, owner reassignment, cross-owner child insert, member total 21, and deleting the final completed-household member fail with the expected constraint/RLS outcome.
+
+- [ ] Add RPC atomicity tests: seed a valid setup, snapshot parent version/budget/time/completion and all child rows, call the RPC with a hard/soft conflict and separately with invalid member state, assert each call fails, then assert the complete snapshot is byte-equivalent. A trigger failure must roll back parent updates, member replacement, rule replacement, version increment, and completion changes together.
 - [ ] When local DB exists, observe missing-schema RED before migration. Implement section 1.5/1.6, then run:
 
   ```powershell
@@ -512,6 +639,11 @@ Back preserves in-memory answers. Reload before final save may restart the draft
   - A creates/loads/edits exactly one household through RPC;
   - second create and stale update fail;
   - B sees/mutates none of A's private rows through Data API;
+  - A can perform each intentionally granted valid direct Data API write;
+  - a direct completion update with zero members is rejected and leaves the parent row/version unchanged;
+  - a direct hard/soft same-target bulk insert is rejected atomically with neither row persisted;
+  - direct owner reassignment, second household, cross-owner child mutation, total above 20, and deletion of the final member from a completed household are rejected;
+  - an RPC request that reaches an authoritative constraint failure rolls back the entire saved setup;
   - canonical options are authenticated-readable and immutable;
   - adapter outputs satisfy strict domain contracts.
 
@@ -701,14 +833,16 @@ git status --short --branch
 
 Phase 1 is complete only when all are true for exact pushed HEAD:
 
-- [ ] Approved Phase 0 is integrated and inherited gates pass on Node 24.
+- [ ] `b5d68ed248ab215b55bb76949dd0d77c8b08d688` is an ancestor of the exact Phase 1 HEAD; the separate foundation integration commit/gates from Section 0 passed before Task 1; no Phase 0 file was reconstructed manually.
 - [ ] Email/password sign-up/sign-in/restore/confirmation-pending/sign-out work without collecting names.
 - [ ] Browser uses public config only; server verifies `getUser(token)` with no service/secret key.
 - [ ] One owned household/account; completed household has 1–20 supported anonymous grouped members.
 - [ ] No child account, name, birth date, sex, weight, diagnosis, health, or free-text rule field exists.
 - [ ] Budget/time/rules validate in domain and database; budget copy always scopes seven primary meals.
 - [ ] Hard allergies/exclusions and soft preferences are canonical and structurally distinct; unknown text cannot become authoritative.
-- [ ] First save is atomic; edits are optimistic; stale writes never overwrite.
+- [ ] Database checks/constraint triggers reject hard/soft same-target conflicts and invalid completed-member states for RPC and direct Data API paths.
+- [ ] Direct authenticated writes preserve one-household ownership and all semantic invariants while every explicitly intended valid direct write still succeeds.
+- [ ] First save is atomic; edits are optimistic; stale/constraint-failing writes never partially persist or overwrite.
 - [ ] Least-privilege grants and separate RLS policies pass anon/cross-user negative tests for every operation.
 - [ ] Clean reset, SQL lint, pgTAP, generated types, integration, and real onboarding smoke pass in approved Docker-backed local/CI Supabase.
 - [ ] Component accessibility/mobile/error/conflict tests, format, lint, strict typecheck, coverage, build, SPA smoke, secret scan, and audit pass.
@@ -722,7 +856,7 @@ Record only when every local non-database gate passes and database/RLS/type/inte
 
 ### `PHASE_1_BLOCKED`
 
-Record when Phase 0 is absent, Node 24 is unavailable, any mandatory verification fails, generated types are missing/stale, or database/RLS/integration has passed nowhere. `LOCAL_DB_VERIFICATION_UNAVAILABLE` alone is not blocked; it requires exact-final-HEAD CI evidence.
+Record when the exact approved Phase 0 SHA is not an ancestor, its separate integration/gates lack exact-HEAD evidence, Node 24 is unavailable, any mandatory verification fails, generated types are missing/stale, or database/RLS/integration has passed nowhere. `LOCAL_DB_VERIFICATION_UNAVAILABLE` alone is not blocked; it requires exact-final-HEAD CI evidence.
 
 ---
 
@@ -733,28 +867,42 @@ Record when Phase 0 is absent, Node 24 is unavailable, any mandatory verificatio
 | Requirement | Coverage |
 |---|---|
 | Auth/session | Sections 1.2; Tasks 3/5/9 |
-| Profiles/one household | Schema, unique owner, trigger, RLS |
+| Phase 0 prerequisite | Separate Section 0 procedure plus Gate 0 ancestry/CI check |
+| Profiles/one household | Schema, unique owner, immutable owner trigger, RLS |
 | Grouped approved bands | Domain/DB checks; Tasks 1/2/6 |
 | Seven-meal budget | Domain/DB/UX copy |
 | Canonical hard/soft rules | Vocabulary, constraints, Tasks 2/7 |
 | Max cooking time | Domain/DB/UI bounds |
 | Mobile onboarding/edit | Routes; Tasks 6–8/10 |
 | Browser/server Supabase | Typed client plus `/api/me` verification |
-| Migrations/RLS | One migration, separate policies, cross-user pgTAP |
+| Migrations/RLS/invariants | One migration, private assertions, constraint triggers, separate policies, direct/RPC/cross-user pgTAP |
 | Typed boundaries | Domain/application contracts; generated DB types infrastructure-only |
 | CI/Docker fallback | Tasks 9/10 and status semantics |
 
 ### Contradiction and ambiguity review
 
 - The design's older local-Docker-only language is superseded only in verification location by the approved Phase 0 correction and this request; every DB/RLS check remains mandatory.
-- Current branch lacks Phase 0 ancestry. Future implementation blocks until reviewed integration; this plan does not import it.
+- Current branch lacks Phase 0 ancestry. Section 0 now defines one separate, reviewed, exact-SHA merge procedure and prerequisite commit; Gate 0 only verifies it. The current plan revision does not import Phase 0, and no Phase 1 task can start until the ancestry command succeeds.
 - Design sketches display/household names, notes, price region, and catalog foreign keys. Explicit Phase 1 constraints prohibit names/free text and exclude prices/catalog, so they are omitted. Later reviewed migrations can add price/catalog mappings without changing stable input codes.
 - Rule options are household vocabulary, not catalog allergen lineage. They cannot support a safety claim. `allergen_other` blocks silent “no allergy” interpretation.
-- Security-invoker RPC provides atomicity without bypassing RLS; constraints/policies protect both RPC and legitimate direct writes.
+- Direct Data API writes are an explicit supported contract, not an accidental bypass. Domain and RPC validation improve feedback; database row constraints/private assertion functions/constraint triggers define valid stored states; RLS plus grants define which user's rows and operations are reachable. The security-invoker RPC uses the same RLS and tables, defers only the named member constraints during replacement, forces them before return, and cannot bypass authoritative validation.
 - Browser session is presentation state; RLS and server `getUser(token)` are authorization boundaries.
 - Budget is stored but not evaluated; no planner/portion/nutrition/cost logic enters early.
 - Local confirmation configuration affects local/CI only. No hosted Auth or production resource changes.
 - A CI verification push is not deployment or PASS. Exact-final-HEAD evidence is required.
+
+### Invariant convergence audit
+
+| Layer/path | Responsibility | Cannot override |
+|---|---|---|
+| Domain validation | Canonical normalization and early typed field/conflict errors | Database constraints or ownership |
+| RPC validation/orchestration | Validate transport/references, derive UID, lock/version, atomically replace rows, force deferred member checks | Constraint triggers or RLS |
+| Row constraints/FKs/unique indexes | Per-row bands/counts, canonical references, one household per owner | Nothing in browser/RPC |
+| Private assertion functions + constraint triggers | Completed-member total and hard/soft target conflict for every write path | RPC/domain prevalidation |
+| Grants + RLS | Expose only intended operations and restrict them to caller-owned rows | Semantic database constraints |
+| Direct Data API | Perform only intentionally granted operations; receive the same constraint/RLS failures | Ownership, uniqueness, member completion, or hard/soft conflict |
+
+The test plan exercises each invariant through both its intended success path and every relevant direct/RPC failure path. No semantic invariant is left solely in TypeScript or RPC code, and no policy is expected to enforce a cross-row semantic rule that belongs in a constraint trigger.
 
 ### YAGNI review
 
@@ -769,3 +917,6 @@ One household domain, one migration/RPC, one feature slice, one protected identi
 - [Supabase local workflow](https://supabase.com/docs/guides/local-development/cli-workflows)
 - [Supabase database testing](https://supabase.com/docs/guides/local-development/testing/overview)
 - [Supabase TypeScript generation](https://supabase.com/docs/guides/api/rest/generating-types)
+- [PostgreSQL constraint triggers](https://www.postgresql.org/docs/current/sql-createtrigger.html)
+- [PostgreSQL deferred constraint control](https://www.postgresql.org/docs/current/sql-set-constraints.html)
+- [PostgreSQL function security](https://www.postgresql.org/docs/current/perm-functions.html)
