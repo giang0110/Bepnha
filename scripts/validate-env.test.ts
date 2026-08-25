@@ -55,7 +55,8 @@ describe("validateClientEnvironment", () => {
   it.each([
     "VITE_SUPABASE_SECRET_KEY",
     "VITE_SUPABASE_SERVICE_ROLE_KEY",
-    "VITE_PRIVATE_KEY"
+    "VITE_PRIVATE_KEY",
+    "vItE_CLIENT_SECRET"
   ])("rejects suspicious client key name %s", (forbiddenKey) => {
     expect(() => validateClientEnvironment({ ...validEnvironment, [forbiddenKey]: "synthetic-value" })).toThrow(
       `Forbidden client environment key: ${forbiddenKey}`

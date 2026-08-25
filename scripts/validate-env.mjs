@@ -47,7 +47,7 @@ export function validateClientEnvironment(values) {
       key === "VITE_SUPABASE_SECRET_KEY" ||
       key === "VITE_SUPABASE_SERVICE_ROLE_KEY" ||
       key === "VITE_PRIVATE_KEY" ||
-      /^VITE_.*(?:SECRET|PRIVATE|SERVICE_ROLE)/u.test(key)
+      /^VITE_.*(?:SECRET|PRIVATE|SERVICE_ROLE)/iu.test(key)
     ) {
       throw new EnvironmentValidationError(`Forbidden client environment key: ${key}`)
     }

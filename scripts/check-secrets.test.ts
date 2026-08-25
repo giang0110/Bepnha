@@ -25,6 +25,12 @@ describe("findSecretFindings", () => {
     expect(findSecretFindings("config.env", contents)).toContain("sensitive-environment-assignment")
   })
 
+  it("detects mixed-case non-empty VITE secret assignments", () => {
+    const contents = assignment("vItE_" + "CLIENT_SECRET", "synthetic-value")
+
+    expect(findSecretFindings("config.env", contents)).toContain("sensitive-environment-assignment")
+  })
+
   it("detects common credential-like token prefixes", () => {
     expect(findSecretFindings("config.txt", syntheticToken("gh" + "p_"))).toContain("credential-token")
   })
