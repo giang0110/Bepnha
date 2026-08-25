@@ -2,7 +2,7 @@
 
 > **Execution requirement:** Use `superpowers:subagent-driven-development` when executing this plan in the current task, or `superpowers:executing-plans` when executing it in a separate task. This document is planning output only; it does not authorize execution.
 
-**Goal:** Establish a production-oriented, locally reproducible foundation for Bếp Nhà with a strict React/TypeScript SPA, a small trusted-function harness, local Supabase migration and RLS verification, and CI-enforced quality gates—without implementing any Phase 1 product behavior.
+**Goal:** Establish a production-oriented, reproducible foundation for Bếp Nhà with a strict React/TypeScript SPA, a small trusted-function harness, authoritative Supabase migration/RLS verification in a Docker-capable local or GitHub Actions environment, and CI-enforced quality gates—without implementing any Phase 1 product behavior.
 
 **Architecture:** Use one npm package and one modular monolith. Browser composition lives in `src/app`; future vertical UI slices live in `src/features`; framework-independent rules live in `src/domain`; use-case orchestration and ports live in `src/application`; Supabase, HTTP, environment, and other adapters live in `src/infrastructure`; trusted Vercel Functions live in `api`. Dependencies point inward, and Phase 0 creates boundary documentation and enforcement without creating speculative business abstractions.
 
@@ -10,7 +10,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-25-bep-nha-design.md`
 
-**Global constraints:** Work only on `codex/phase-0-foundation`; do not merge `main`, deploy, link a remote Supabase project, provision Vercel/Supabase resources, run production migrations, or add Phase 1 behavior. A clean Docker-compatible container-runtime preflight is a non-skippable prerequisite for local database work. If it is unavailable, report `BLOCKED: Docker-compatible container runtime unavailable`, leave the database gate unpassed, and do not claim Phase 0 completion.
+**Global constraints:** Work only on `codex/phase-0-foundation`; do not merge `main`, deploy, link a remote Supabase project, provision Vercel/Supabase resources, run production migrations, or add Phase 1 behavior. Node 24 is mandatory locally. Docker-compatible runtime detection records `LOCAL_DB_VERIFICATION_AVAILABLE` or `LOCAL_DB_VERIFICATION_UNAVAILABLE`; absence of local Docker does not stop non-database tasks. The database/RLS gate remains mandatory and must pass either locally or, when local verification is unavailable, in the GitHub Actions database job before Phase 0 can pass.
+
+**Approved verification correction:** The direct review instruction approving this revision supersedes only the design specification's earlier requirement that Phase 0 database verification must pass on the developer's local machine. Supabase remains the backend; the same clean reset, SQL lint, pgTAP, and RLS checks run against an ephemeral local Supabase stack backed by Docker either on the developer machine or on a GitHub-hosted runner. A remote Supabase production or staging database is never a substitute.
 
 ---
 
@@ -125,7 +127,7 @@ Phase 0 tracks `README.md` boundary contracts in empty future layers instead of 
 - TDD is mandatory for the environment validator and Vercel Function behavior.
 - Use a red/green cycle for the React shell and Playwright deep-link smoke behavior.
 - Scaffold/configuration-only work is not forced through artificial unit tests; validate it with the owning tool's command.
-- Database security tests are written before the baseline migration and observed failing, then the migration is applied and the same tests pass.
+- Database security tests are written before the baseline migration. When local database verification is available, observe the pgTAP test fail before applying the migration and pass afterward. When it is unavailable, preserve test-first file order and require the GitHub Actions database job to prove the clean reset, lint, and final pgTAP/RLS result before Phase 0 can pass; do not claim a local RED/GREEN cycle that was not run.
 - Do not set a misleading global coverage percentage while most domain directories are intentionally empty. Produce a coverage report in Phase 0; add domain-specific thresholds with real domain modules in Phase 2.
 - Every completion claim must be based on fresh command output.
 
@@ -134,9 +136,17 @@ Phase 0 tracks `README.md` boundary contracts in empty future layers instead of 
 - The only committed client environment keys are `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`; both are public configuration. Any `VITE_*` key containing `SECRET`, `SERVICE_ROLE`, or `PRIVATE_KEY` fails validation.
 - Do not introduce a server Supabase credential until a trusted endpoint actually requires it in a later phase.
 - The Phase 0 migration creates no product or user-data table. It establishes a private schema and secure default privileges so future migrations begin from least privilege.
-- Database verification runs against the local Supabase stack only. Never substitute a remote database for a failed local gate.
+- Database verification runs against an ephemeral Supabase stack backed by a Docker-compatible runtime, either on the local machine or on the GitHub-hosted Actions runner. Never substitute a remote Supabase production, staging, preview, or shared database.
 - `supabase db reset --local` is destructive only to the verified local development database. Never use `--linked`, `db push`, or a production connection string.
 - CI contains no deploy job and no production or preview credentials.
+
+### 2.6 Verification-location matrix
+
+| Local capability | Mandatory local verification | Authoritative database/RLS evidence | Permitted final status |
+|---|---|---|---|
+| `LOCAL_DB_VERIFICATION_AVAILABLE` | All non-database gates plus local Supabase start/reset/lint/pgTAP/RLS | `DATABASE_RLS_GATE_PASS_LOCAL`; record GitHub Actions status when available | `PHASE_0_PASS` only after every other required gate passes |
+| `LOCAL_DB_VERIFICATION_UNAVAILABLE` | All non-database gates; no local Supabase command is attempted | Successful GitHub Actions `database` job for the exact final HEAD | `PHASE_0_PASS` only after that CI evidence and every other required gate pass |
+| Database/RLS has passed nowhere | All completed checks retain their factual result | None | `PHASE_0_BLOCKED` |
 
 ## 3. Target repository structure
 
@@ -221,7 +231,7 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
 
 ## 4. Ordered implementation tasks
 
-### Gate 0: Verify the execution environment before changing files
+### Gate 0: Verify the mandatory runtime and detect local database capability
 
 **TDD:** No; this is a mandatory read-only preflight.
 
@@ -246,24 +256,30 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
 
   Require Node `v24.x`. Do not silently continue on an unsupported major.
 
-- [ ] Verify a running Docker-API-compatible container runtime:
+- [ ] Detect whether a running Docker-API-compatible container runtime is available:
 
   ```powershell
   docker version
   docker info
   ```
 
-  Both commands must reach the server, not merely find a client executable.
-
-- [ ] If the container server cannot be reached, stop before Task 1 and report exactly:
+  If both commands reach the server, record exactly:
 
   ```text
-  BLOCKED: Docker-compatible container runtime unavailable
+  LOCAL_DB_VERIFICATION_AVAILABLE
   ```
 
-  Do not create a remote Supabase project, use a shared database, skip pgTAP, or weaken the Phase 0 exit gate.
+  If either the client executable or server is unavailable, record exactly:
 
-**Safety/rollback:** This gate is read-only. No rollback is needed.
+  ```text
+  LOCAL_DB_VERIFICATION_UNAVAILABLE
+  ```
+
+  This is capability detection, not a failure by itself. Continue Tasks 1–7 and the non-runtime parts of Task 8. If unavailable, do not run local Supabase commands and require the GitHub Actions database job to pass on the final Phase 0 commit before reporting `PHASE_0_PASS` or `TASK_COMPLETE_PUSHED`.
+
+- [ ] Record the Gate 0 result in the execution ledger/report. Do not create a remote Supabase project, use a shared database, skip pgTAP/RLS, or weaken the Phase 0 exit gate in either branch.
+
+**Safety/rollback:** This gate is read-only. Node 24 failure stops execution. Missing local Docker changes only the verification location; it never changes the backend, migration, tests, or required database result.
 
 ### Task 1: Create the npm, React, Vite, and strict TypeScript scaffold
 
@@ -805,9 +821,9 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
 
 **Safety/rollback:** Bind the preview server to loopback. Do not add browser tests for onboarding, plans, shopping, or authentication. Playwright against Vite preview proves only that the built SPA accepts a direct deep link. It does not integration-test hosted Vercel Function routing; the ordered `vercel.json` API-preservation and SPA-fallback contract remains separately asserted without deployment.
 
-### Task 8: Add the local Supabase migration and database/RLS harness
+### Task 8: Add the Supabase migration and database/RLS harness
 
-**TDD:** Yes; write and observe the pgTAP security test failing before applying the migration.
+**TDD:** Write the pgTAP security test before the migration. When `LOCAL_DB_VERIFICATION_AVAILABLE`, observe RED before the migration and GREEN after it. When `LOCAL_DB_VERIFICATION_UNAVAILABLE`, do not claim a local RED/GREEN cycle; the GitHub Actions database job in Task 9 becomes the authoritative execution gate.
 
 **Expected files:**
 
@@ -816,7 +832,7 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
 - Create: `supabase/migrations/20260825000000_phase_0_security_baseline.sql`
 - Create: `supabase/tests/database/phase_0_security.test.sql`
 
-- [ ] Re-run the manual Docker gate from Gate 0 immediately before installing/starting Supabase. If it fails now, stop and report `BLOCKED: Docker-compatible container runtime unavailable`.
+- [ ] Re-run Docker capability detection from Gate 0 and record either `LOCAL_DB_VERIFICATION_AVAILABLE` or `LOCAL_DB_VERIFICATION_UNAVAILABLE`. Continue this task in both cases; run container-dependent commands only in the available branch.
 
 - [ ] Install the CLI locally and initialize a local-only project:
 
@@ -836,23 +852,31 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   4. `docker info` succeeds;
   5. the local Supabase CLI is executable.
 
-  On a container failure it writes exactly `BLOCKED: Docker-compatible container runtime unavailable` to stderr and exits non-zero. It never falls back to a remote host.
+  Default capability mode exits zero when Node, npm, and the Supabase CLI are valid, then prints exactly one of:
+
+  ```text
+  LOCAL_DB_VERIFICATION_AVAILABLE
+  LOCAL_DB_VERIFICATION_UNAVAILABLE
+  ```
+
+  A `--require-database` mode prints the same capability token but exits non-zero when Docker is unavailable. CI and `verify:db` use required mode; ordinary local non-database verification uses capability mode. Neither mode falls back to a remote host.
 
 - [ ] Add scripts:
 
   ```json
   {
     "preflight": "node scripts/preflight.mjs",
+    "preflight:db": "node scripts/preflight.mjs --require-database",
     "supabase:start": "supabase start",
     "supabase:reset": "supabase db reset --local",
     "supabase:lint": "supabase db lint --local --level warning",
     "supabase:test": "supabase test db",
     "supabase:stop": "supabase stop --no-backup",
-    "verify:db": "npm run preflight && npm run supabase:start && npm run supabase:reset && npm run supabase:lint && npm run supabase:test"
+    "verify:db": "npm run preflight:db && npm run supabase:start && npm run supabase:reset && npm run supabase:lint && npm run supabase:test"
   }
   ```
 
-- [ ] Start the stack and verify it is explicitly local:
+- [ ] If and only if capability is `LOCAL_DB_VERIFICATION_AVAILABLE`, start the stack and verify it is explicitly local:
 
   ```powershell
   npm run preflight
@@ -860,7 +884,7 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   npx supabase status
   ```
 
-  Inspect the status output for loopback URLs. Stop if it references a linked/remote project.
+  Inspect the status output for loopback URLs. Stop if it references a linked/remote project. If capability is unavailable, do not run these commands and continue to author the test and migration files.
 
 - [ ] Create `supabase/tests/database/phase_0_security.test.sql` before the migration:
 
@@ -903,11 +927,13 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   rollback;
   ```
 
-- [ ] Run RED. The missing `private` schema must fail at least the first three assertions:
+- [ ] In the available branch, run RED. The missing `private` schema must fail at least the first three assertions:
 
   ```powershell
   npm run supabase:test
   ```
+
+  In the unavailable branch, record `LOCAL_DB_VERIFICATION_UNAVAILABLE` and `DATABASE_RLS_GATE_PENDING_CI`; do not report RED, PASS, SKIPPED, or BLOCKED yet.
 
 - [ ] Create the one Phase 0 migration:
 
@@ -930,7 +956,7 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
 
   This migration contains no user table, policy, function, seed data, or product concept.
 
-- [ ] Prove GREEN from a clean database, then rerun the test independently:
+- [ ] In the available branch, prove GREEN from a clean database, then rerun the test independently:
 
   ```powershell
   npm run supabase:reset
@@ -939,11 +965,25 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   npm run verify:db
   ```
 
-- [ ] Stop the local stack after evidence is captured:
+  Record `DATABASE_RLS_GATE_PASS_LOCAL` only after every command succeeds. In the unavailable branch, leave the gate as `DATABASE_RLS_GATE_PENDING_CI`; Task 9 must run the identical start/reset/lint/pgTAP sequence authoritatively in GitHub Actions.
+
+- [ ] In the available branch, stop the local stack after evidence is captured:
 
   ```powershell
   npm run supabase:stop
   ```
+
+- [ ] In both capability branches, run the non-container task checks before commit:
+
+  ```powershell
+  npm run format:check
+  npm run lint
+  npm run typecheck
+  npm run test
+  git diff --check
+  ```
+
+  In the unavailable branch, these checks validate the repository/tooling integration but do not validate SQL execution; retain `DATABASE_RLS_GATE_PENDING_CI`.
 
 - [ ] Review and commit only local configuration, the baseline migration, and tests:
 
@@ -951,14 +991,14 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   git diff --check
   git status --short
   git add package.json package-lock.json .gitignore scripts/preflight.mjs supabase/config.toml supabase/migrations/20260825000000_phase_0_security_baseline.sql supabase/tests/database/phase_0_security.test.sql
-  git commit -m "test: add local Supabase security harness"
+  git commit -m "test: add Supabase security harness"
   ```
 
-**Safety/rollback:** `supabase db reset --local` may destroy local development data, so first verify `supabase status` and the local project ID. Never use `supabase link`, `supabase db push`, `--linked`, a service-role credential, or a production URL. If cleanup is needed, `supabase stop --no-backup` affects only the verified local stack. A missing Docker runtime blocks completion; it is not a reason to remove the database job or mark it optional.
+**Safety/rollback:** `supabase db reset --local` may destroy local development data, so first verify `supabase status` and the local project ID. Never use `supabase link`, `supabase db push`, `--linked`, a service-role credential, or a production URL. If cleanup is needed, `supabase stop --no-backup` affects only the verified local stack. Missing local Docker leaves the database/RLS gate pending for CI; it does not remove, skip, weaken, or make the gate optional.
 
 ### Task 9: Add the non-deploying CI pipeline
 
-**TDD:** No; validate YAML plus run every CI command locally before relying on automation.
+**TDD:** No; validate YAML and run all locally available equivalents before relying on automation. When local Docker is unavailable, the GitHub-hosted `database` job is the authoritative database/RLS execution environment.
 
 **Expected files:**
 
@@ -971,7 +1011,7 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   {
     "security:dependencies": "npm audit --audit-level=high",
     "verify:web": "npm run env:check && npm run secrets:check && npm run security:dependencies && npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build",
-    "verify": "npm run verify:web && npm run test:e2e && npm run verify:db"
+    "verify:non-db": "npm run verify:web && npm run test:e2e"
   }
   ```
 
@@ -1014,7 +1054,7 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
             node-version: 24
             cache: npm
         - run: npm ci
-        - run: npm run preflight
+        - run: npm run preflight:db
         - run: npm run supabase:start
         - run: npm run supabase:reset
         - run: npm run supabase:lint
@@ -1025,17 +1065,19 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
 
 - [ ] Confirm the workflow has no `environment`, deployment, remote Supabase URL, Vercel token, service-role key, write permission, or production command.
 
-- [ ] Run the exact local equivalents before commit:
+- [ ] Run the mandatory non-database equivalents locally before commit:
 
   ```powershell
   npm ci
-  npm run verify:web
   npx playwright install chromium
-  npm run test:e2e
-  npm run verify:db
-  npm run supabase:stop
+  npm run verify:non-db
   git diff --check
   ```
+
+- [ ] Run database equivalents conditionally:
+
+  - for `LOCAL_DB_VERIFICATION_AVAILABLE`, run `npm run verify:db` followed by `npm run supabase:stop` and retain `DATABASE_RLS_GATE_PASS_LOCAL` only if both verification commands pass;
+  - for `LOCAL_DB_VERIFICATION_UNAVAILABLE`, do not invoke local Supabase commands and retain `DATABASE_RLS_GATE_PENDING_CI`.
 
 - [ ] Commit:
 
@@ -1044,7 +1086,7 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   git commit -m "ci: add Phase 0 verification pipeline"
   ```
 
-**Safety/rollback:** GitHub-hosted runners provide the Docker daemon needed by the local Supabase stack, but `preflight` must still prove it. A failing database job remains red; do not add `continue-on-error`. CI never deploys or connects to a remote Supabase/Vercel environment.
+**Safety/rollback:** GitHub-hosted runners provide the Docker daemon needed by the ephemeral Supabase stack, but `preflight:db` must still prove it. A failing database job remains red; do not add `continue-on-error`. CI never deploys, links a Supabase project, or connects to a remote Supabase/Vercel environment.
 
 ### Task 10: Document operation and run the Phase 0 exit gate
 
@@ -1058,12 +1100,15 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
 - [ ] Write `README.md` with:
 
   - the deterministic-planner-first product principle;
-  - Node 24 and Docker-compatible runtime prerequisites;
-  - install, dev, test, build, and local Supabase commands;
+  - Node 24 as a mandatory local prerequisite and Docker as an optional local database-verification capability;
+  - install, dev, test, build, local Supabase, and GitHub Actions database-verification commands;
   - public `.env.example` copying instructions without real credentials;
   - the module-boundary table from section 2.3;
-  - the exact `BLOCKED: Docker-compatible container runtime unavailable` rule;
+  - the exact `LOCAL_DB_VERIFICATION_AVAILABLE` and `LOCAL_DB_VERIFICATION_UNAVAILABLE` capability results;
+  - the rule that unavailable local Docker continues non-database work but requires the final-commit GitHub Actions `database` job to pass;
+  - the `PHASE_0_PASS` and `PHASE_0_BLOCKED` semantics from section 6;
   - the local-only warning for `supabase db reset --local`;
+  - Supabase remains the approved backend; no Turso or alternative database is introduced;
   - the fact that Phase 0 has no product functionality and no deployment step.
 
 - [ ] Run placeholder and scope scans:
@@ -1090,7 +1135,7 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
 
   Confirm no secret file, generated report, `.vercel` data, Supabase runtime state, application feature, or unrelated edit is tracked.
 
-- [ ] Run the full clean exit gate from a fresh dependency install:
+- [ ] Run the mandatory local non-database exit gate from a fresh dependency install:
 
   ```powershell
   npm ci
@@ -1105,17 +1150,26 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   npm run build
   npx playwright install chromium
   npm run test:e2e
+  git diff --check
+  ```
+
+  Every command must pass. `npm run preflight` records local database capability but exits successfully when only Docker is unavailable; Node, npm, or Supabase CLI failure remains fatal.
+
+- [ ] Resolve the mandatory database/RLS gate according to the recorded capability:
+
+  - `LOCAL_DB_VERIFICATION_AVAILABLE`: run the local database sequence below and record `DATABASE_RLS_GATE_PASS_LOCAL` only if every command passes;
+  - `LOCAL_DB_VERIFICATION_UNAVAILABLE`: record `DATABASE_RLS_GATE_PENDING_CI`, do not run local Supabase commands, and continue to the verification push so GitHub Actions can execute the authoritative database job.
+
+  ```powershell
+  npm run preflight:db
   npm run supabase:start
   npm run supabase:reset
   npm run supabase:lint
   npm run supabase:test
   npm run supabase:stop
-  git diff --check
   ```
 
-  Every command must pass. If Docker becomes unavailable, report the database verification `BLOCKED` and do not commit/push or claim Phase 0 completion, as required by `AGENTS.md`.
-
-- [ ] Commit the operations guide only after the full gate passes:
+- [ ] Commit the operations guide after the non-database gate passes and the database state is either `DATABASE_RLS_GATE_PASS_LOCAL` or `DATABASE_RLS_GATE_PENDING_CI`. A pending CI state permits the verification commit/push but is not Phase 0 completion:
 
   ```powershell
   git add README.md
@@ -1131,15 +1185,35 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   git diff --check main...HEAD
   ```
 
-- [ ] Push the approved work branch without force:
+- [ ] Push the approved work branch without force. If the database gate is pending CI, this is a verification push, not a completion claim:
 
   ```powershell
   git push --set-upstream origin codex/phase-0-foundation
   ```
 
-- [ ] Report `TASK_COMPLETE_PUSHED` only after the push succeeds. Report branch, HEAD SHA, commits/files, every verification result, push status, and intentionally deferred work. Stop; do not merge `main` or start Phase 1.
+- [ ] Inspect the GitHub Actions run for the exact pushed HEAD. The following commands are the preferred evidence path when GitHub CLI is available:
 
-**Safety/rollback:** Fix failures only in the task that owns them and rerun the affected focused test before the entire gate. Do not weaken TypeScript, lint, RLS, pgTAP, browser smoke, or Docker checks to obtain green output. No production or preview resources are touched by this plan.
+  ```powershell
+  $phase0Head = git rev-parse HEAD
+  $phase0Run = gh run list --workflow ci.yml --branch codex/phase-0-foundation --commit $phase0Head --limit 1 --json databaseId,headSha,status,conclusion,url | ConvertFrom-Json
+  if ($phase0Run.Count -ne 1 -or $phase0Run.headSha -ne $phase0Head) { throw 'No CI run found for exact Phase 0 HEAD' }
+  gh run watch $phase0Run.databaseId --exit-status
+  $phase0Jobs = (gh run view $phase0Run.databaseId --json jobs | ConvertFrom-Json).jobs
+  if (($phase0Jobs | Where-Object name -eq 'web').conclusion -ne 'success') { throw 'CI web job did not pass' }
+  if (($phase0Jobs | Where-Object name -eq 'database').conclusion -ne 'success') { throw 'CI database job did not pass' }
+  ```
+
+  If GitHub CLI is unavailable, inspect the GitHub Actions run through the GitHub UI/API, match its `headSha` to `git rev-parse HEAD`, and record the run URL plus `web` and `database` conclusions. In the `LOCAL_DB_VERIFICATION_UNAVAILABLE` path, missing or inconclusive CI evidence means `PHASE_0_BLOCKED`.
+
+- [ ] Apply the final status rules:
+
+  - record `PHASE_0_PASS` only when every local non-database gate passes and the database/RLS gate is `DATABASE_RLS_GATE_PASS_LOCAL` or a successful final-HEAD GitHub Actions `database` job;
+  - record `PHASE_0_BLOCKED` when the database/RLS gate has not passed in either approved environment, or any other required verification fails;
+  - never label a database job skipped, optional, or assumed.
+
+- [ ] Report `TASK_COMPLETE_PUSHED` only after `PHASE_0_PASS` and a successful push of the exact verified HEAD. Report branch, HEAD SHA, commits/files, every local verification result, local capability token, database evidence source/result, CI run URL/status when available, push status, and intentionally deferred work. Stop; do not merge `main` or start Phase 1.
+
+**Safety/rollback:** Fix failures only in the task that owns them and rerun the affected focused test before the entire gate. Do not weaken TypeScript, lint, RLS, pgTAP, browser smoke, or Docker checks to obtain green output. A verification push that triggers CI is not a deployment and does not authorize a completion claim. No production or preview resources are touched by this plan.
 
 ## 5. Exact verification command reference
 
@@ -1161,10 +1235,18 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-### Local database and RLS verification
+### Local database capability detection
 
 ```powershell
 npm run preflight
+```
+
+The command must print exactly one capability token. `LOCAL_DB_VERIFICATION_UNAVAILABLE` is not a failure of the non-database gate.
+
+### Local database and RLS verification when available
+
+```powershell
+npm run preflight:db
 npm run supabase:start
 npm run supabase:reset
 npm run supabase:lint
@@ -1172,7 +1254,22 @@ npm run supabase:test
 npm run supabase:stop
 ```
 
-### Final Phase 0 gate
+These commands must target only the verified local project and loopback endpoints.
+
+### Authoritative GitHub Actions database verification
+
+The `database` job runs, in order, `preflight:db`, Supabase start, clean reset, SQL lint, pgTAP/RLS tests, and cleanup on a GitHub-hosted Docker environment. When local capability is unavailable, verify the job against the exact final HEAD:
+
+```powershell
+$phase0Head = git rev-parse HEAD
+$phase0Run = gh run list --workflow ci.yml --branch codex/phase-0-foundation --commit $phase0Head --limit 1 --json databaseId,headSha,status,conclusion,url | ConvertFrom-Json
+if ($phase0Run.Count -ne 1 -or $phase0Run.headSha -ne $phase0Head) { throw 'No CI run found for exact Phase 0 HEAD' }
+gh run watch $phase0Run.databaseId --exit-status
+$phase0Jobs = (gh run view $phase0Run.databaseId --json jobs | ConvertFrom-Json).jobs
+if (($phase0Jobs | Where-Object name -eq 'database').conclusion -ne 'success') { throw 'CI database job did not pass' }
+```
+
+### Mandatory local non-database Phase 0 gate
 
 ```powershell
 npm ci
@@ -1187,16 +1284,11 @@ npm run test:coverage
 npm run build
 npx playwright install chromium
 npm run test:e2e
-npm run supabase:start
-npm run supabase:reset
-npm run supabase:lint
-npm run supabase:test
-npm run supabase:stop
 git diff --check
 git status --short --branch
 ```
 
-No command in this reference links, deploys, pushes a database schema remotely, or mutates production.
+After this passes, satisfy exactly one database path: the local sequence when `LOCAL_DB_VERIFICATION_AVAILABLE`, or the exact-final-HEAD GitHub Actions database job when `LOCAL_DB_VERIFICATION_UNAVAILABLE`. No command in this reference links, deploys, pushes a database schema remotely, changes the approved Supabase backend, or mutates production.
 
 ## 6. Phase 0 exit criteria
 
@@ -1209,16 +1301,31 @@ Phase 0 is complete only when all of the following are true on `codex/phase-0-fo
 - [ ] `npm run test:coverage` passes for the shell, validator, Vercel Function, and routing configuration.
 - [ ] `npm run build` produces the Vite production bundle.
 - [ ] `npm run test:e2e` passes the mobile shell and direct deep-link smoke tests against the built preview.
-- [ ] `npm run preflight` proves a running Docker-compatible server and local Supabase CLI.
-- [ ] A clean `npm run supabase:reset` applies the committed migration.
-- [ ] `npm run supabase:lint` passes and `npm run supabase:test` proves the private-schema grants and the invariant that every exposed public table has RLS enabled.
+- [ ] `npm run preflight` proves Node 24, npm, and the local Supabase CLI, and records exactly one local database capability token.
+- [ ] The database/RLS gate runs against an ephemeral Docker-backed Supabase stack in one approved environment: the developer machine when available, or the GitHub-hosted Actions runner when local Docker is unavailable.
+- [ ] In the chosen approved environment, Supabase start succeeds, a clean reset applies the committed migration, SQL lint passes, and pgTAP/RLS tests prove the private-schema grants and the invariant that every exposed public table has RLS enabled.
+- [ ] When capability is `LOCAL_DB_VERIFICATION_UNAVAILABLE`, the GitHub Actions `database` job for the exact final HEAD has conclusion `success`; absence of local Docker alone is not a blocker.
 - [ ] The Vercel health Function typechecks and passes its GET/method tests.
 - [ ] `vercel.json` contains the tested ordered API-preservation and SPA-fallback rewrites; no Vercel or Supabase resource has been provisioned.
 - [ ] CI runs the same web/browser/database gates without deploy steps or production secrets.
 - [ ] The tree contains no Phase 1 feature behavior, product tables, domain-engine logic, remote configuration, secrets, or unrelated edits.
 - [ ] `git diff --check` passes, task commits are coherent, and the approved branch is pushed without force.
 
-An unavailable Docker-compatible container runtime means Phase 0 is `BLOCKED`, not partially complete and not complete with a skipped database/RLS gate.
+### `PHASE_0_PASS`
+
+Record `PHASE_0_PASS` only when:
+
+- every mandatory local non-database gate passes; and
+- the database/RLS gate passes either locally with `DATABASE_RLS_GATE_PASS_LOCAL` or in the GitHub Actions `database` job for the exact final HEAD.
+
+### `PHASE_0_BLOCKED`
+
+Record `PHASE_0_BLOCKED` when:
+
+- the database/RLS gate has not passed in either approved environment; or
+- any other required verification fails or lacks authoritative evidence.
+
+`LOCAL_DB_VERIFICATION_UNAVAILABLE` alone is not `PHASE_0_BLOCKED`. It makes successful exact-final-HEAD GitHub Actions database evidence mandatory. Database/RLS verification is never optional, skipped, assumed, or replaced with a remote Supabase or non-Supabase database.
 
 ## 7. Self-review against the approved design and AGENTS.md
 
@@ -1234,25 +1341,28 @@ An unavailable Docker-compatible container runtime means Phase 0 is `BLOCKED`, n
 | Playwright smoke setup | Task 7 |
 | Lint/format/typecheck | Task 4 and exit gate |
 | Environment validation | Task 5 |
-| Supabase local development | Task 8 |
-| Docker-compatible runtime preflight | Gate 0, Task 8, CI, exit gate |
+| Supabase ephemeral development stack | Task 8 locally when capable; Task 9 GitHub-hosted database job otherwise |
+| Docker-compatible runtime capability and required execution | Gate 0, Task 8, CI, exit gate |
 | Initial migration/testing harness as planned work | Task 8; no migration is created by this planning task |
-| RLS/database verification | Task 8 pgTAP and clean reset |
+| RLS/database verification | Task 8 local pgTAP/clean reset or Task 9 authoritative GitHub Actions database job |
 | Vercel Functions harness | Task 6 |
 | SPA rewrite/deep links | Tasks 6–7 |
 | CI pipeline | Task 9 |
 | Exact verification commands | Each task and section 5 |
+| `PHASE_0_PASS` / `PHASE_0_BLOCKED` semantics | Sections 2.6 and 6 |
 | Exit criteria | Section 6 |
 
 ### Contradiction and ambiguity check
 
 - The plan does not claim that design approval authorizes implementation. It explicitly requires a later execution approval.
+- The approved correction in this revision supersedes the design specification's older local-machine-only Docker completion wording, but only for verification location. It does not change Supabase, the migration, clean reset, SQL lint, pgTAP, RLS assertions, or security gates.
 - The planned database migration does not conflict with the current prohibition on creating migrations: this document specifies future work; this planning task creates only this Markdown file.
 - The baseline migration contains no product schema, so it does not pull household or catalog work into Phase 0.
 - RLS is not weakened. Because Phase 0 intentionally has no product tables, the public-table assertion begins as a future-facing invariant and will fail as soon as any later migration adds an exposed table without RLS; private-schema access is already tested as denied.
 - The Vercel Function harness proves the adapter contract without provisioning. It does not falsely claim a hosted integration test.
 - The ordered routing contract preserves `/api/*` before applying the SPA fallback. Playwright separately proves only direct SPA navigation against the production build preview, not hosted Vercel Function routing.
-- The Docker gate is repeated before database work and in CI. No remote substitute or skip path exists.
+- Docker detection is capability-only on the developer machine and required in the environment that executes database verification. When local Docker is absent, exact-final-HEAD GitHub Actions database success is mandatory; no remote Supabase database, alternative database such as Turso, or skip path exists.
+- A verification push may occur while the database gate is pending solely to trigger GitHub Actions. It is not labeled complete, and `TASK_COMPLETE_PUSHED` remains gated by `PHASE_0_PASS`.
 - `service_role` and other secrets remain server-only by policy and are not introduced as Phase 0 configuration.
 - No deterministic meal-planning calculation is added early; consequently no LLM or other nondeterministic dependency appears.
 - The architecture uses documentation plus native lint restrictions rather than speculative packages or empty business abstractions.
@@ -1273,3 +1383,4 @@ The plan retains a single deployable app, one health Function, one UI primitive,
 - [Supabase database testing](https://supabase.com/docs/guides/local-development/testing/overview)
 - [Supabase row-level security](https://supabase.com/docs/guides/database/postgres/row-level-security)
 - [Vite on Vercel, Functions, and SPA deep links](https://vercel.com/docs/frameworks/frontend/vite)
+- [GitHub-hosted runner images and installed tooling](https://github.com/actions/runner-images)
