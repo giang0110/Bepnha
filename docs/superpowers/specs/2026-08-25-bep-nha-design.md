@@ -63,7 +63,7 @@ The planner selects curated meal options; it does not attempt to invent arbitrar
 For a supported household and complete catalog:
 
 - onboarding can be completed on a narrow mobile viewport without domain knowledge;
-- generation returns seven feasible meals or a precise infeasibility explanation;
+- generation returns seven feasible meals or a typed explanation that distinguishes provable hard-filter exhaustion from a bounded search that did not discover a complete plan;
 - all hard exclusions and allergens are absent from every selected food and recipe;
 - quantities are derived from versioned serving rules and recipe data;
 - weekly cost is based on the consolidated purchase basket and identifies missing or stale price coverage;
@@ -210,6 +210,8 @@ Every calculation request includes:
 - the week start date in the household time zone;
 - a canonical ordering for all collections.
 
+The catalog fingerprint hashes the sorted IDs and immutable content hashes of all referenced food-fact versions, recipe versions, meal-option versions, and price-book records. Moving a food's current-fact pointer changes future eligibility/fingerprints but cannot change an already fingerprinted calculation.
+
 Every calculation response includes:
 
 - output data;
@@ -239,14 +241,19 @@ Members are stored as anonymous groups to minimize personal data:
 
 Age under one is unsupported because infant feeding needs a separate safety model. A household containing an infant may still plan for the remaining members, but the UI must state that the infant is excluded from quantities. Coefficients estimate shared-meal portions only; they are not nutrient recommendations.
 
-The coefficients live in versioned configuration records and are copied into the generation input snapshot. A later appetite adjustment can be added only with evidence that the default causes systematic waste or shortage.
+For MVP, these coefficients are an immutable `PortionConfigV1` constant in the code-versioned deterministic engine, not rows in a database table. Generation copies the exact coefficient map and its configuration version into `input_snapshot`; changing a coefficient requires a new engine/configuration version and golden-test review. A database-managed coefficient table is deferred unless operations later demonstrate a real need to change coefficients independently of an engine release. A later appetite adjustment can be added only with evidence that the default causes systematic waste or shortage.
 
 ### 8.2 Catalog publication invariants
 
-A food can be used in a published recipe only if it has:
+A `food` is a stable shopping identity with a permanent base dimension. Mutable scientific and dietary facts do not live on that identity. They live in immutable `food_fact_versions`, each of which owns the food category, edible fraction, nutrient values, allergen assessment/relations, dietary facts, and food-specific unit conversions used by a calculation. `foods.current_fact_version_id` points to the fact version offered to new recipe drafts; moving this pointer never changes an existing recipe ingredient reference.
 
-- a canonical Vietnamese name and stable ID;
-- a base dimension and base unit;
+Every recipe ingredient stores both stable `food_id` and immutable `food_fact_version_id`, protected by a composite foreign key proving that the version belongs to that food. Calculations and safety filters use the referenced fact version; shopping aggregation uses the stable food identity after each ingredient has been converted to that food's permanent base dimension. Plan snapshots copy both IDs and all derived canonical quantities.
+
+Publishing a replacement food-fact version produces a dependency-impact report. Allergen or dietary-suitability corrections require affected published recipe/meal-option versions to be explicitly reviewed and, when newly unsafe, retired before the new current pointer becomes active. Publication never silently rebinds a recipe.
+
+A food fact version can be used in a published recipe only if it has:
+
+- a parent food with a canonical Vietnamese name, stable ID, and permanent base dimension;
 - an allergen assessment, including an explicit “none known” result rather than missing data;
 - a food category and dietary flags;
 - a gram conversion when it contributes nutrition;
@@ -274,7 +281,7 @@ A meal option can be published only if:
 - it has 100% coverage for the six launch nutrients across all required edible ingredients;
 - every required food has a usable price in the target generation price book. Price availability is checked again at generation time because it is region- and date-specific.
 
-Published recipe versions, meal-option versions, and price books are immutable. Corrections create new versions and retire old versions for new plans; old plans retain their snapshots. Corrections to canonical food facts are audited and change the catalog content fingerprint, so they cannot masquerade as the same calculation input.
+Published recipe versions, meal-option versions, food-fact versions, and price books are immutable. Corrections create new immutable versions; they never update payload fields used by an existing published recipe. Old plans retain their authoritative input/output snapshots, while the catalog fingerprint identifies the exact version set used for new calculations.
 
 ### 8.3 Hard and soft preferences
 
@@ -359,7 +366,7 @@ Notes are deliberately separate from executable food rules.
 - `to_dimension_base numeric(18,6) not null check (> 0)`
 - `display_name_vi text not null`
 
-Dimension bases are gram, millilitre, and item. Generic mass/volume conversions belong here; food-specific conversions do not.
+Dimension bases are gram, millilitre, and item. Generic mass/volume conversions belong here; food-specific conversions do not. After a unit is referenced by any published fact, recipe, or price book, its `code`, `dimension`, and `to_dimension_base` are immutable; a correction creates a new unit ID. Display-label corrections do not affect calculations and old plan snapshots retain their label.
 
 #### `food_categories`
 
@@ -368,30 +375,48 @@ Dimension bases are gram, millilitre, and item. Generic mass/volume conversions 
 - `name_vi text not null`
 - `parent_id uuid null references food_categories(id)`
 
-The launch taxonomy remains shallow and is used for UI grouping and planner diversity.
+The launch taxonomy remains shallow and is used for UI grouping and planner diversity. Category `code` and `parent_id` become immutable after a published food fact references the category; semantic corrections create a new category ID.
 
 #### `foods`
 
 - `id uuid primary key`
 - `code text unique not null`
 - `name_vi text not null`
-- `category_id uuid not null references food_categories(id)`
-- `nutrition_basis text check in ('per_100g_edible')`
-- `default_edible_fraction numeric(6,5) not null default 1 check (> 0 and <= 1)`
+- `base_dimension text check in ('mass','volume','count')`
+- `base_unit_id uuid not null references units(id)` with a matching dimension
+- `current_fact_version_id uuid null`
 - `status text check in ('draft','published','retired')`
-- `data_source text not null`
-- `source_reference text null`
 - `created_at`, `updated_at`
 
-Preparation forms that materially change nutrition, cost, or aggregation—such as dry versus cooked noodles—are separate food records.
+`foods` is the permanent identity used to consolidate shopping needs. Its base dimension/unit cannot change after any fact or recipe references the food. Preparation forms that materially change nutrition, cost, or aggregation—such as dry versus cooked noodles—are separate food identities.
 
-#### `food_unit_conversions`
+#### `food_fact_versions`
 
-- `food_id uuid references foods(id)`
+- `id uuid primary key`
+- `food_id uuid not null references foods(id)`
+- `version_number integer not null check (> 0)`
+- `category_id uuid not null references food_categories(id)`
+- `nutrition_basis text not null check (nutrition_basis = 'per_100g_edible')`
+- `edible_fraction numeric(6,5) not null check (> 0 and <= 1)`
+- `allergen_assessed_at timestamptz not null`
+- `publication_status text check in ('draft','published')`
+- `content_hash text null`
+- `data_source text not null`
+- `source_reference text null`
+- `published_at timestamptz null`
+- `created_by uuid references auth.users(id)`
+- `created_at`, `updated_at`
+- unique `(food_id, version_number)` and unique `(food_id, id)` for composite references
+
+Draft facts may be edited. Publishing computes `content_hash` over the canonical fact row plus its nutrient, allergen, dietary-tag, and unit-conversion children, then performs the single allowed `draft -> published` transition. Database triggers reject later update/delete of a published fact row and reject insert/update/delete of its child nutrient, allergen, dietary-tag, or conversion rows, including attempts through privileged catalog paths; corrections require a new version. `foods.current_fact_version_id` is constrained with `(foods.id, current_fact_version_id) -> food_fact_versions(food_id, id)`; only the trusted publication transaction may move the pointer.
+
+#### `food_fact_unit_conversions`
+
+- `food_fact_version_id uuid references food_fact_versions(id)`
 - `unit_id uuid references units(id)`
 - `grams_per_unit numeric(18,6) not null check (> 0)`
 - `source_note text not null`
-- primary key `(food_id, unit_id)`
+- primary key `(food_fact_version_id, unit_id)`
 
 Examples include grams per egg, bunch, tablespoon of fish sauce, or millilitre of cooking oil. Generic volume-to-gram conversion is not assumed across foods.
 
@@ -401,18 +426,23 @@ Examples include grams per egg, bunch, tablespoon of fish sauce, or millilitre o
 - `code text unique not null`
 - `name_vi text not null`
 
-#### `food_allergens`
+Allergen code/identity is immutable after a published fact references it; display-name corrections do not change safety semantics.
 
-- `food_id uuid references foods(id)`
+#### `food_fact_allergens`
+
+- `food_fact_version_id uuid references food_fact_versions(id)`
 - `allergen_id uuid references allergens(id)`
 - `presence text check in ('contains','may_contain')`
-- primary key `(food_id, allergen_id)`
+- primary key `(food_fact_version_id, allergen_id)`
 
-`foods` also carries an `allergen_assessed_at` timestamp. Zero allergen rows plus a present assessment timestamp means “assessed, none known”; a null assessment means unknown and blocks publication.
+Zero allergen rows plus `food_fact_versions.allergen_assessed_at` means “assessed, none known.” A draft without a completed assessment cannot be published.
 
-#### `dietary_tags` and `food_dietary_tags`
+#### `dietary_tags` and `food_fact_dietary_tags`
 
-These model deterministic facts such as vegetarian suitability. They do not model subjective health claims.
+- `dietary_tags`: `id`, unique stable `code`, and `name_vi`
+- `food_fact_dietary_tags`: `food_fact_version_id`, `dietary_tag_id`, primary key on both IDs
+
+Presence means the immutable fact version satisfies the deterministic tag, such as vegetarian suitability. Absence means it does not; these tables do not model subjective health claims. A dietary tag's code/meaning is immutable after reference; semantic corrections create a new tag ID.
 
 #### `nutrients`
 
@@ -424,13 +454,15 @@ These model deterministic facts such as vegetarian suitability. They do not mode
 
 Launch nutrients are energy, protein, carbohydrate, fat, fibre, and sodium. Additional micronutrients can be loaded later without changing the engine.
 
-#### `food_nutrients`
+Nutrient `code` and `unit_code` are immutable after a published food fact references the nutrient; corrections create a new nutrient ID.
 
-- `food_id uuid references foods(id)`
+#### `food_fact_nutrients`
+
+- `food_fact_version_id uuid references food_fact_versions(id)`
 - `nutrient_id uuid references nutrients(id)`
 - `amount_per_100g numeric(18,6) not null check (>= 0)`
 - `source_reference text not null`
-- primary key `(food_id, nutrient_id)`
+- primary key `(food_fact_version_id, nutrient_id)`
 
 ### 9.4 Recipe and meal catalog
 
@@ -460,11 +492,14 @@ Launch nutrients are energy, protein, carbohydrate, fat, fibre, and sodium. Addi
 - `id uuid primary key`
 - `recipe_version_id uuid not null references recipe_versions(id) on delete restrict`
 - `food_id uuid not null references foods(id)`
+- `food_fact_version_id uuid not null references food_fact_versions(id)`
 - `quantity numeric(18,6) not null check (> 0)`
 - `unit_id uuid not null references units(id)`
 - `preparation_note_vi text null`
 - `sort_order smallint not null`
 - unique `(recipe_version_id, sort_order)`
+
+A composite foreign key `(food_id, food_fact_version_id) -> food_fact_versions(food_id, id)` prevents mismatched stable identities and fact versions. Publication requires the referenced fact version to be published. Later changes to `foods.current_fact_version_id` do not alter the recipe.
 
 Every stored ingredient is required and participates in authoritative nutrition, cost, and shopping calculations. Optional garnish may appear in instruction text but is not a structured ingredient in the MVP; it therefore cannot affect totals.
 
@@ -547,15 +582,18 @@ Exactly one region is the launch default. The UI describes it as a baseline esti
 - `id uuid primary key`
 - `price_book_id uuid not null references price_books(id)`
 - `food_id uuid not null references foods(id)`
+- `food_fact_version_id uuid not null references food_fact_versions(id)`
 - `package_quantity numeric(18,6) not null check (> 0)`
 - `package_unit_id uuid not null references units(id)`
+- `package_base_quantity numeric(18,6) not null check (> 0)`
+- `package_base_unit_id uuid not null references units(id)` and equal to the food's permanent base unit
 - `package_price_vnd bigint not null check (> 0)`
 - `purchase_increment smallint not null default 1 check (> 0)`
 - `observed_at date not null`
 - `source_label text not null`
 - unique `(price_book_id, food_id)`
 
-The MVP holds one representative package per food per price book. Brand/retailer comparison is deferred.
+A composite foreign key `(food_id, food_fact_version_id) -> food_fact_versions(food_id, id)` validates the relationship. `package_base_quantity` is an immutable normalized snapshot derived from the referenced fact conversion when the price book is published, so later fact versions cannot alter an old price book's package math. The MVP holds one representative package per food per price book. Brand/retailer comparison is deferred.
 
 ### 9.6 Plans and calculation snapshots
 
@@ -568,6 +606,7 @@ The MVP holds one representative package per food per price book. Brand/retailer
 - `engine_version text not null`
 - `catalog_fingerprint text not null`
 - `input_fingerprint text not null`
+- `calculation_fingerprint text not null`
 - `input_snapshot jsonb not null`
 - `total_estimated_cost_vnd bigint not null check (>= 0)`
 - `cost_coverage_percent numeric(5,2) not null check (= 100)`
@@ -595,16 +634,23 @@ The MVP holds one representative package per food per price book. Brand/retailer
 - `created_at`
 - partial unique index on `(meal_plan_id, day_index, meal_slot)` where `is_active = true`
 
-The immutable calculation snapshot includes scaled canonical ingredients, nutrients, meal cost contribution, coverage, price IDs, and explanation codes. It makes old plans stable when source data changes. Replacement marks the old item inactive and inserts a new active item that references it, preserving a traceable chain without violating slot uniqueness.
+The immutable calculation snapshot includes each stable food ID, referenced food-fact-version ID/content hash, scaled canonical ingredient quantity, nutrients, meal cost contribution, coverage, price IDs, and explanation codes. It makes old plans reproducible when the current catalog pointer changes. Replacement marks the old item inactive and inserts a new active item that references it, preserving a traceable chain without violating slot uniqueness.
 
 #### `shopping_lists`
 
 - `id uuid primary key`
 - `meal_plan_id uuid not null unique references meal_plans(id) on delete cascade`
+- `calculation_fingerprint text not null`
 - `generated_at timestamptz not null`
 - `estimated_purchase_cost_vnd bigint not null check (>= 0)`
 - `cost_coverage_percent numeric(5,2) not null check (= 100)`
 - `warnings jsonb not null default '[]'`
+
+The restricted persistence RPC derives `shopping_lists.estimated_purchase_cost_vnd` by summing the authoritative shopping line costs, writes that same integer to `meal_plans.total_estimated_cost_vnd`, and writes the same `calculation_fingerprint` to both rows. It rejects any mismatch before commit. Therefore, for every ready plan:
+
+`meal_plans.total_estimated_cost_vnd = shopping_lists.estimated_purchase_cost_vnd`
+
+for the same authoritative calculation snapshot. Browser roles cannot bypass this invariant because they have no write grant on either result.
 
 #### `shopping_list_items`
 
@@ -631,20 +677,23 @@ Checked state is user state; regeneration preserves it only when food identity a
 - `id uuid primary key`
 - `household_id uuid not null references households(id) on delete cascade`
 - `food_id uuid not null references foods(id)`
+- `food_fact_version_id uuid not null references food_fact_versions(id)`
 - `quantity numeric(18,6) not null check (>= 0)`
 - `unit_id uuid not null references units(id)`
 - `version integer not null default 1`
 - `updated_at`
 - unique `(household_id, food_id)`
 
-No lots, expiry dates, consumption ledger, or automatic decrement in the MVP. Generation takes a pantry snapshot; checking a shopping item does not mutate pantry.
+The composite food/fact-version relationship is enforced so count/volume pantry quantities retain their original conversion meaning. No lots, expiry dates, consumption ledger, or automatic decrement are added. Generation takes a pantry snapshot; checking a shopping item does not mutate pantry.
 
 ### 9.8 Administration and audit
 
 #### `admin_audit_log`
 
 - `id uuid primary key`
-- `actor_user_id uuid not null references auth.users(id)`
+- `actor_kind text check in ('admin_user','trusted_operation')`
+- `actor_user_id uuid null references auth.users(id)`
+- `actor_identifier text not null`
 - `action text not null`
 - `entity_type text not null`
 - `entity_id uuid not null`
@@ -652,7 +701,7 @@ No lots, expiry dates, consumption ledger, or automatic decrement in the MVP. Ge
 - `after_summary jsonb null`
 - `created_at timestamptz not null`
 
-Audit summaries exclude secrets and minimize copied catalog content. The log is append-only to clients.
+`actor_identifier` records the authenticated operator/service principal used for trusted bootstrap even when no administrator user exists yet; `actor_user_id` is required when `actor_kind = 'admin_user'`. Audit summaries exclude secrets and minimize copied catalog content. The log is append-only to clients.
 
 ## 10. Deterministic engine definitions
 
@@ -673,7 +722,7 @@ Audit summaries exclude secrets and minimize copied catalog content. The log is 
 #### Inputs
 
 - household member groups;
-- versioned adult-equivalent coefficient table;
+- code-versioned `PortionConfigV1` copied into the request input snapshot;
 - meal option adult-serving yield;
 - each recipe version yield and meal-option quantity multiplier;
 - ingredient quantity, unit, food conversion, and purchase rounding metadata.
@@ -714,7 +763,7 @@ Audit summaries exclude secrets and minimize copied catalog content. The log is 
 
 #### Failures
 
-Missing coefficient, invalid yield, dimension mismatch, or missing food-specific conversion returns a typed calculation failure. No default `1 piece = 100 g` behavior exists.
+An unsupported member band/missing code configuration, invalid yield, dimension mismatch, or missing conversion on the ingredient's referenced food-fact version returns a typed calculation failure. No database fallback and no default `1 piece = 100 g` behavior exists.
 
 ### 10.3 Nutrition engine
 
@@ -729,7 +778,7 @@ For each ingredient and nutrient:
 1. Convert scaled recipe quantity to gross grams using generic or food-specific conversion.
 2. Calculate edible grams:
 
-   `edibleGrams = grossGrams × food.defaultEdibleFraction`
+   `edibleGrams = grossGrams × referencedFoodFactVersion.edibleFraction`
 
 3. Calculate nutrient amount:
 
@@ -753,7 +802,7 @@ Water and zero-calorie seasonings still require explicit assessment so missing r
 The planner uses modest, explainable signals:
 
 - each meal is assessed for three curated composition roles: staple, main, and vegetable-or-soup;
-- the nutrition penalty is `round(2,000 × missingRoleAssignments / 21)`, where 21 is three roles across seven meals;
+- the nutrition-composition penalty is `round(2,500 × missingRoleAssignments / 21)`, where 21 is three roles across seven meals;
 - weekly protein-group repetition and cooking-style similarity are handled separately by the diversity score;
 - energy, protein, carbohydrate, fat, fibre, and sodium are calculated and displayed, but version 1 does not optimize against numeric nutrient targets;
 - no individualized daily nutrient target is inferred from age alone.
@@ -764,7 +813,14 @@ This makes version 1 nutrition-aware without turning unvalidated numeric thresho
 
 #### Price selection
 
-Generation locks one published price book for the household region and week. A food has either one applicable package price or missing coverage. Engine version 1 uses a 30-day freshness window: an older price remains usable with a `STALE_PRICE` warning, while absence is `MISSING_PRICE_DATA`.
+Generation locks one immutable published price book for the household region and week. Freshness is evaluated against the generation date using code-versioned `PriceFreshnessConfigV1 { currentMaxAgeDays: 30, usableMaxAgeDays: 90 }`, copied verbatim into `input_snapshot` and included in the calculation fingerprint:
+
+- **current:** age 0–30 days; usable without a freshness warning;
+- **stale-but-usable:** age 31–90 days; usable with `STALE_PRICE` and the observation date;
+- **too-old/unusable:** age greater than 90 days; treated as unavailable and returns `MISSING_PRICE_DATA` if the food is required;
+- a future `observed_at` date is invalid catalog data and unusable.
+
+Changing either threshold requires a new price-freshness/engine configuration version and golden-test review. A database-editable threshold table is not introduced for MVP.
 
 #### Weekly basket algorithm
 
@@ -824,7 +880,13 @@ Preferences do not alter eligibility unless explicitly stored as exclusions.
 - all locked items remain on their original day;
 - every item satisfies hard household rules and time limit.
 
-Budget is a target with an explicit fallback, not an absolute feasibility constraint. If no complete plan fits, the engine returns the cheapest otherwise-feasible plan with `budget_status = over` and its exact overage. This is more useful than returning no food plan.
+Budget is a target with an explicit lexicographic fallback, not a hard eligibility constraint. Selection considers only complete valid plans actually discovered by the bounded deterministic search:
+
+1. If at least one discovered complete plan is within budget, discard all over-budget plans from final ranking and choose among the within-budget plans by quality score.
+2. If the search discovers complete plans but none within budget, choose the plan with the minimum **exact package-rounded consolidated purchase-basket cost**. Quality score is only the first tie-breaker after equal exact cost; stable ID sequence is the final tie-breaker.
+3. A weighted quality score can never select a more expensive over-budget fallback over a cheaper discovered fallback.
+
+The second outcome is still a successful ready plan with `budget_status = over`, exact overage, and warning codes `PLAN_OVER_BUDGET` and `NO_UNDER_BUDGET_PLAN_FOUND_IN_DETERMINISTIC_SEARCH`.
 
 #### Search
 
@@ -834,25 +896,25 @@ Use deterministic bounded beam search rather than randomness or a general solver
 2. Precompute household-scaled ingredients, nutrition, theoretical basket contribution, and tags.
 3. Expand partial plans one day at a time.
 4. Reject partial plans that already violate hard variety constraints.
-5. Retain the best 250 partial plans at each depth, ordered by lower-bound score then stable ID sequence.
+5. At each depth, retain the union of two deterministic frontiers: the first 125 partial plans by quality lower-bound then stable ID sequence, and the first 125 by exact package-rounded partial-basket cost then quality lower-bound then stable ID sequence. Duplicate states are stored once, so the beam contains at most 250 states.
 6. For each complete plan, run exact weekly shopping aggregation and package-rounded cost.
-7. Select the lowest penalty complete plan; ties use the lexicographically smallest ordered meal-option-version ID sequence.
+7. If no complete plan survives to the final beam, return `NO_COMPLETE_PLAN_FOUND_IN_DETERMINISTIC_SEARCH` and state that the bounded search did not find a plan; do not claim global infeasibility.
+8. Otherwise, apply the budget partition and lexicographic selection rules above.
 
-Beam width is versioned engine configuration. The catalog launch-size target must be performance-tested; if 250 is insufficient for plan quality, change it only with golden-test review and a new engine version.
+Beam search is incomplete: failure to discover a complete or under-budget plan does not prove that none exists in the full combinatorial space. User-facing copy must say “Không tìm thấy thực đơn trong ngân sách trong phạm vi tìm kiếm xác định” (“No under-budget plan found within the deterministic search”), never “No under-budget plan exists.” Beam width/frontier allocation are code-versioned engine configuration. The catalog launch-size target must be performance-tested; if the 125/125 allocation is insufficient for plan quality or low-cost discovery, change it only with golden-test review and a new engine version. A complete general solver is not added for MVP.
 
 #### Scoring
 
-Scores are integer penalties; lower is better. The default version allocates 10,000 basis points:
+Quality scores are integer penalties; lower is better. Budget is not a weighted score component. The default quality version allocates 10,000 basis points:
 
 | Component | Weight | Meaning |
 |---|---:|---|
-| Budget | 3,500 | Penalize over-budget plans strongly; below-budget distance has a small penalty so “cheapest possible” does not dominate quality. |
-| Diversity | 2,500 | Penalize repeated protein groups, categories, cooking styles, and adjacent similar meals. |
-| Nutrition composition | 2,000 | Apply the exact missing staple/main/vegetable-or-soup role penalty defined in Section 10.3. Ready-plan nutrient data coverage itself is always 100%. |
-| Ingredient reuse/waste | 1,500 | Reward reuse of canonical perishables and lower package leftovers without rewarding repeated meals. |
-| Preferences | 500 | Reward preferred foods/tags after safety, time, budget, and diversity. |
+| Diversity | 3,500 | Penalize repeated protein groups, categories, cooking styles, and adjacent similar meals. |
+| Nutrition composition | 2,500 | Apply the exact missing staple/main/vegetable-or-soup role penalty from Section 10.3. Ready-plan nutrient data coverage itself is always 100%. |
+| Ingredient reuse/waste | 2,500 | Reward reuse of canonical perishables and lower package leftovers without rewarding repeated meals. |
+| Preferences | 1,500 | Reward preferred foods/tags after safety, time, and diversity. |
 
-Every component produces explanation codes and raw metrics. Scoring configuration is versioned and included in the plan fingerprint.
+Every component produces explanation codes and raw metrics. Scoring configuration is versioned and included in the plan fingerprint. For within-budget plans, exact basket cost is only a tie-breaker after equal quality; for over-budget fallback, exact basket cost is primary and quality is only a tie-breaker.
 
 #### Determinism guarantee
 
@@ -867,15 +929,15 @@ Replacement is a constrained one-slot planning operation:
 3. Exclude the current meal-option version.
 4. Reject candidates that would violate weekly hard constraints against locked items.
 5. Recalculate the whole consolidated basket for each candidate because package rounding and reuse are non-additive.
-6. Rank candidates with the weekly scoring function plus a small change penalty for large budget deviation.
-7. Present the best candidates with cost delta and explanation; selection replaces only the target item.
+6. If any candidate produces a complete within-budget week, rank only those candidates by quality score, then exact basket cost and stable ID. Otherwise rank all candidates by minimum exact package-rounded weekly basket cost, then quality score and stable ID.
+7. Present candidates with cost delta, budget outcome, and bounded-search explanation; selection replaces only the target item.
 
 The persistence operation is transactional and optimistic: it checks the plan version so two devices cannot silently overwrite one another. The new item references `replacement_of_item_id`; the old calculation remains in the audit trail or event record, while the active slot is unique.
 
 ### 10.7 Shopping-list engine
 
 1. Read immutable scaled ingredient snapshots from all active plan items.
-2. Group only by canonical `food_id`; preparation text never creates accidental duplicates.
+2. Convert each ingredient with its referenced immutable food-fact version, then group by stable canonical `food_id` in the food's permanent base dimension; preparation text never creates accidental duplicates. Preserve the contributing fact-version IDs in the authoritative snapshot for traceability.
 3. Convert compatible quantities to the food's canonical shopping dimension.
 4. Sum before any display or purchase rounding.
 5. In Phase 5, subtract the generation-time pantry snapshot.
@@ -919,7 +981,15 @@ Generation is idempotent for `(household, week, input_fingerprint, idempotency_k
 
 ## 12. Error handling and product behavior
 
-Domain outcomes and failures are tagged unions, not thrown strings. Categories include:
+Domain outcomes and failures are tagged unions, not thrown strings.
+
+Successful ready-plan warnings include:
+
+- `PLAN_OVER_BUDGET` — generation succeeded; carries exact `overage_vnd`;
+- `NO_UNDER_BUDGET_PLAN_FOUND_IN_DETERMINISTIC_SEARCH` — no discovered complete plan was within budget; this is not a global infeasibility claim;
+- `STALE_PRICE` — every required price remains within the usable maximum age, with observation dates included.
+
+Fatal/blocked generation categories include:
 
 - `INVALID_HOUSEHOLD_INPUT`
 - `UNSUPPORTED_MEMBER_AGE`
@@ -929,7 +999,7 @@ Domain outcomes and failures are tagged unions, not thrown strings. Categories i
 - `INCOMPLETE_ALLERGEN_LINEAGE`
 - `MISSING_NUTRITION_DATA`
 - `MISSING_PRICE_DATA`
-- `PLAN_OVER_BUDGET`
+- `NO_COMPLETE_PLAN_FOUND_IN_DETERMINISTIC_SEARCH`
 - `STALE_PLAN_VERSION`
 - `UNAUTHORIZED`
 - `TRANSIENT_DEPENDENCY_FAILURE`
@@ -937,7 +1007,7 @@ Domain outcomes and failures are tagged unions, not thrown strings. Categories i
 Expected domain failures produce specific Vietnamese UI messages and corrective actions. Examples:
 
 - no meals after an allergy filter → identify the filter category without exposing private notes;
-- no plan under budget → show the cheapest feasible plan and overage;
+- no under-budget plan discovered by the bounded search → return the discovered valid plan with minimum exact package-rounded basket cost, exact overage, and precise bounded-search warning without claiming none exists globally;
 - incomplete pricing → do not persist a ready plan; identify that the price catalog is incomplete and provide a retry/contact action without exposing admin internals;
 - missing conversion/allergen assessment → block the affected candidate and alert admins through structured telemetry;
 - stale replacement write → reload the current plan and preserve the user's attempted selection for confirmation.
@@ -974,13 +1044,15 @@ MVP ownership is deliberately simple. A future household-membership table requir
 
 ### 13.3 Catalog and admin policies
 
-- authenticated users can select only `published` foods, recipe versions, meal options, active price books, and their required reference data;
+- authenticated users can select only published foods, immutable published food-fact versions required by published recipes or their own plan snapshots, published recipe/meal-option versions, active price books, and required reference data; drafts remain inaccessible;
 - drafts, retirement operations, publication validation, and audit logs require admin authorization;
 - admin status is stored in signed `app_metadata`, not user-editable metadata or `profiles`;
+- initial administrator bootstrap and every later administrator assignment/removal are trusted server/operations actions using the Supabase Admin API or an equivalently protected server command with a service credential; normal client APIs, browser code, profile editing, and the MVP admin UI cannot grant or revoke administrator status;
+- every administrator-role change records an operational audit event naming the trusted actor and target user; removal also revokes the target's active sessions;
 - publishing occurs through a trusted transactional use case that reruns all lineage and coverage checks;
 - service credentials are used for migrations and the narrowly scoped trusted plan-persistence operation, never interactive browser administration.
 
-Because JWT role claims can remain valid until token refresh, removing an administrator also revokes active sessions as an operational step.
+Because JWT role claims can remain valid until token refresh, the trusted removal operation is not complete until active sessions are revoked.
 
 ### 13.4 Data minimization and privacy
 
@@ -1016,7 +1088,10 @@ Most tests belong at the pure domain layer, where they are fast and exhaustive. 
 - edible-fraction and per-100-g nutrient formulas;
 - missing data produces unknown/typed warnings, never numeric zero;
 - deterministic tie resolution;
-- budget fallback chooses cheapest feasible plan;
+- when any discovered plan is within budget, every over-budget plan is excluded before quality ranking;
+- when none discovered is within budget, fallback chooses minimum exact package-rounded basket cost even when a more expensive plan has a better quality score;
+- current/stale/too-old price boundaries at 30, 31, 90, and 91 days;
+- changing the current food-fact pointer leaves published recipe calculations and old plan snapshots byte-equivalent;
 - replacement leaves six item IDs and snapshots unchanged;
 - aggregation occurs before purchase rounding;
 - pantry deduction floors at zero.
@@ -1031,6 +1106,7 @@ Use generated fixtures without requiring a separate property-testing library ini
 - no selected plan contains excluded/allergenic lineage;
 - same canonical inputs produce identical fingerprints and results across repeated runs;
 - ingredient order and candidate query order do not affect results;
+- bounded-search miss outcomes never use global-infeasibility message keys;
 - known shopping cost never decreases when a required amount crosses into an additional package, absent pantry changes;
 - applying a replacement changes exactly one active slot;
 - plan score/explanations correspond to recomputed component metrics.
@@ -1046,7 +1122,7 @@ Maintain small, reviewed Vietnamese catalog fixtures and expected seven-day resu
 - common allergen exclusion;
 - tight but feasible budget;
 - infeasible time/catalog combination;
-- cheapest plan over budget;
+- minimum-exact-cost discovered over-budget fallback;
 - high ingredient-reuse opportunity.
 
 Golden output changes require an intentional engine/catalog version note, not blind snapshot updates.
@@ -1067,7 +1143,7 @@ Tests assert user-visible behavior rather than implementation details.
 
 ### 14.4 Database and RLS tests
 
-Run local Supabase migrations from a clean reset and test with pgTAP and/or client integration tests. Supabase documents pgTAP support specifically for schema, constraints, functions, and RLS [in its testing guidance](https://supabase.com/docs/guides/local-development/testing/overview).
+Local Supabase verification requires a working Docker-compatible container runtime. Phase 0 preflight must verify the runtime before relying on `supabase start`, `supabase db reset`, or pgTAP. If unavailable, report `BLOCKED: Docker-compatible container runtime unavailable`; do not silently skip local database/RLS verification, substitute an unapproved remote database, weaken the release gate, or mark Phase 0 complete. Once available, run local Supabase migrations from a clean reset and test with pgTAP and/or client integration tests. Supabase documents pgTAP support specifically for schema, constraints, functions, and RLS [in its testing guidance](https://supabase.com/docs/guides/local-development/testing/overview).
 
 Required cases:
 
@@ -1080,7 +1156,9 @@ Required cases:
 - `security_invoker` views preserve underlying RLS;
 - function execution grants are restricted;
 - published-version immutability constraints hold;
+- published food-fact rows and nutrient/allergen/dietary/conversion children reject mutation, while current-pointer updates do not rewrite recipe references;
 - unique active plan/week and recipe-version constraints hold;
+- initial/admin role assignment and removal are unavailable to normal client roles;
 - cascades remove user-owned data but not referenced catalog history.
 
 ### 14.5 API integration tests
@@ -1090,9 +1168,11 @@ Required cases:
 - idempotent generation retry;
 - authoritative totals ignore client-supplied computed fields;
 - transactional rollback on snapshot/list failure;
+- persistence rejects any mismatch between the sum of authoritative shopping lines, shopping-list basket estimate, and meal-plan total;
 - stale plan version replacement conflict;
 - rate/size limits and typed errors;
 - catalog fingerprint changes when an eligible version changes.
+- Docker-compatible runtime preflight reports the database gate as blocked rather than skipped when the runtime is unavailable.
 
 ### 14.6 Playwright critical paths
 
@@ -1167,7 +1247,7 @@ Alerts cover sustained generation failures, authorization anomalies, elevated la
 
 ### Phase 0 — Foundation
 
-After explicit approval only: initialize the repository, strict TypeScript/Vite/React/Tailwind/shadcn foundation, Vitest/RTL/Playwright, Supabase local development/migrations, Vercel Function harness, CI, environment validation, and architecture boundaries. Exit when clean install, build, unit test, browser smoke, and clean database reset pass.
+After explicit approval only: initialize the repository, strict TypeScript/Vite/React/Tailwind/shadcn foundation, Vitest/RTL/Playwright, Supabase local development/migrations, Vercel Function harness, CI, environment validation, and architecture boundaries. Environment preflight first verifies a Docker-compatible container runtime. If it is unavailable, local database verification is explicitly `BLOCKED` and the phase cannot satisfy its exit gate; the gate is never skipped or weakened. Exit only when clean install, build, unit test, browser smoke, and clean local database reset/RLS verification all pass.
 
 ### Phase 1 — Household and onboarding
 
@@ -1175,7 +1255,7 @@ Profiles, owned household, grouped members, plan-budget scope, canonical rules, 
 
 ### Phase 2 — Food and recipe engine
 
-Units, foods, allergens, nutrients, prices, immutable recipe versions, curated meal options, admin publication validation, portion/nutrition/cost engines, and launch fixtures. Exit when golden calculations and publication/RLS gates pass.
+Units, stable foods, immutable food-fact versions, allergens, nutrients, prices, immutable recipe versions, curated meal options, admin publication validation, portion/nutrition/cost engines, and launch fixtures. Exit when golden calculations, fact-version dependency/immutability checks, and publication/RLS gates pass.
 
 ### Phase 3 — Meal planner
 
@@ -1209,23 +1289,23 @@ The launch gate is scenario-based rather than an arbitrary row count:
 - each supported primary protein group has enough options to satisfy the two-per-week cap;
 - every published option has complete allergen lineage and unit conversions;
 - every launch option has 100% coverage for all six launch nutrients across required edible ingredients;
-- every candidate counted as eligible for a launch scenario has a current or explicitly stale price for every required shopping line in the scenario's price book;
+- every candidate counted as eligible for a launch scenario has a current or stale-but-usable price within `PriceFreshnessConfigV1.usableMaxAgeDays` for every required shopping line in the scenario's price book;
 - editor review confirms Vietnamese culinary coherence and that published complete-meal elapsed times are plausible.
 
-Allergen, unit conversion, six-launch-nutrient, and selected-price-book completeness are absolute gates for a ready plan. Stale but usable prices remain visible with observation dates and warnings.
+Allergen, unit conversion, six-launch-nutrient, and selected-price-book completeness are absolute gates for a ready plan. Stale-but-usable prices remain visible with observation dates and warnings; too-old prices fail the gate.
 
 ## 19. Key risks and mitigations
 
 | Risk | Mitigation |
 |---|---|
-| Portion coefficients feel too small/large | Make coefficients versioned, preserve snapshots, instrument replacements/waste feedback later, and change only with tested evidence. |
-| Price estimate loses trust | Display region/date/coverage, use package-rounded basket cost, alert on stale books, and avoid retailer-quote language. |
+| Portion coefficients feel too small/large | Keep coefficients code-versioned with the deterministic engine, copy them into snapshots, instrument replacements/waste feedback later, and change only with tested evidence. |
+| Price estimate loses trust | Display region/date/freshness state, reject prices beyond the versioned maximum age, use package-rounded basket cost, alert on stale books, and avoid retailer-quote language. |
 | Catalog cannot satisfy exclusions and variety | Enforce scenario-based launch gates and typed catalog-insufficiency errors. |
 | Allergy metadata is incomplete | Require explicit assessment and full derived closure before publication; unknown means ineligible. |
 | “Healthy” becomes a medical claim | Keep signals recipe-level and explainable; no personalized targets or diagnoses. |
-| Beam search misses a better plan | Benchmark against exhaustive search on small fixtures, retain deterministic golden cases, and version width/scoring changes. |
+| Beam search misses a better or under-budget plan | State bounded-search outcomes precisely, keep separate quality/cost frontiers, benchmark against exhaustive search on small fixtures, retain deterministic golden cases, and version width/frontier changes. |
 | Ingredient reuse rewards monotony | Enforce hard diversity constraints before applying the smaller reuse score. |
-| Old plans drift after catalog edits | Immutable versions plus stored input and calculation snapshots. |
+| Old plans drift after catalog edits | Stable food identity plus immutable food-fact/recipe/meal/price versions, composite recipe references, content fingerprints, and stored calculation snapshots. |
 | Client tampers with calculations | Execute authoritative use cases in trusted functions and ignore client totals. |
 | RLS policy gaps expose household data | Default-deny grants/RLS, negative pgTAP tests for every operation, and reviewed migrations. |
 | Admin workflow expands into a CMS project | Limit to structured CRUD, validation, publish, retire, and audit; no media workflow in MVP. |
@@ -1242,10 +1322,11 @@ Approval of this specification approves the following design defaults, not imple
 5. one transparent baseline price region/book at launch;
 6. recipe-level estimated nutrition and diversity signals, with no clinical adequacy claims;
 7. shared pure TypeScript engines executed authoritatively in trusted Vercel Functions;
-8. immutable catalog versions and immutable plan calculation snapshots;
-9. deterministic bounded beam search with explicit hard constraints and versioned scoring;
-10. least-privilege Supabase grants/RLS and server-side verified identity;
-11. phase-specific implementation plans and approval gates after this design.
+8. stable food identities with immutable food-fact, recipe, meal-option, and price versions plus immutable plan calculation snapshots;
+9. deterministic bounded beam search with separate quality/cost frontiers, precise non-proof language, within-budget quality ranking, and minimum-exact-cost over-budget fallback;
+10. least-privilege Supabase grants/RLS, server-side verified identity, and trusted-operations-only administrator bootstrap/removal;
+11. Docker-compatible runtime as a non-skippable local Supabase verification prerequisite;
+12. phase-specific implementation plans and approval gates after this design.
 
 If any decision changes, update this specification before creating the corresponding implementation plan.
 
