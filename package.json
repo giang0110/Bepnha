@@ -17,7 +17,7 @@
     "preflight:db": "node scripts/preflight.mjs --require-database",
     "supabase:start": "supabase start",
     "supabase:reset": "supabase db reset --local",
-    "supabase:lint": "supabase db lint --local --level warning",
+    "supabase:lint": "supabase db lint --local --level warning --fail-on warning",
     "supabase:test": "supabase test db",
     "supabase:stop": "supabase stop --no-backup",
     "verify:db": "npm run preflight:db && npm run supabase:start && npm run supabase:reset && npm run supabase:lint && npm run supabase:test",
