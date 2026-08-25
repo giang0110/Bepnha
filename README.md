@@ -24,10 +24,15 @@ Create a public local environment file from the template. Do not add real creden
 Copy-Item .env.example .env
 ```
 
-Start local development, run tests, and create a production build:
+Start local development in a separate terminal. This is a blocking development-server process; leave it running only while developing.
 
 ```powershell
 npm run dev
+```
+
+Run tests and create a production build from another terminal after the development server is stopped (or on a different port):
+
+```powershell
 npm run test
 npm run build
 ```
