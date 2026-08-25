@@ -32,7 +32,7 @@
     "vitest.config.ts",
     "eslint.config.js",
     "playwright.config.ts",
-    "scripts/**/*.ts",
+    "scripts/**/*",
     "tests/**/*.ts"
   ]
 }

@@ -1,0 +1,42 @@
+// @vitest-environment node
+
+import { describe, expect, it } from "vitest"
+
+import { findSecretFindings } from "./check-secrets.mjs"
+
+const assignment = (name: string, value: string) => `${name}=${value}`
+const secretName = (suffix: string) => `SUPABASE_${suffix}`
+const syntheticToken = (prefix: string) => `${prefix}${"x".repeat(32)}`
+
+describe("findSecretFindings", () => {
+  it("detects PEM private-key headers", () => {
+    const pemHeader = ["-----BEGIN", "PRIVATE", "KEY-----"].join(" ")
+
+    expect(findSecretFindings("config.txt", pemHeader)).toContain("pem-private-key")
+  })
+
+  it("detects non-empty sensitive Supabase and VITE assignments", () => {
+    const contents = [
+      assignment(secretName("SERVICE_ROLE_KEY"), "synthetic-value"),
+      assignment(secretName("SECRET_KEY"), "synthetic-value"),
+      assignment("VITE_" + "CLIENT_SECRET", "synthetic-value")
+    ].join("\n")
+
+    expect(findSecretFindings("config.env", contents)).toContain("sensitive-environment-assignment")
+  })
+
+  it("detects common credential-like token prefixes", () => {
+    expect(findSecretFindings("config.txt", syntheticToken("gh" + "p_"))).toContain("credential-token")
+  })
+
+  it("does not flag policy prose, empty assignments, or a public placeholder", () => {
+    const contents = [
+      "Do not commit SUPABASE_SECRET_KEY values.",
+      assignment(secretName("SECRET_KEY"), ""),
+      assignment("VITE_" + "CLIENT_SECRET", ""),
+      assignment("VITE_SUPABASE_PUBLISHABLE_KEY", "replace-with-local-publishable-key")
+    ].join("\n")
+
+    expect(findSecretFindings("docs/policy.txt", contents)).toEqual([])
+  })
+})
