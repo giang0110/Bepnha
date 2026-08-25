@@ -1,3 +1,6 @@
+import { readdirSync } from "node:fs"
+import { resolve } from "node:path"
+
 import js from "@eslint/js"
 import prettier from "eslint-config-prettier"
 import globals from "globals"
@@ -38,6 +41,55 @@ const browserGlobals = [
   "window",
   "Worker"
 ]
+
+const platformSdkPattern = {
+  group: ["@supabase/*", "@vercel/*"],
+  message: "This layer must not import platform SDKs."
+}
+
+const reactImportPattern = {
+  group: ["react", "react/**", "react-dom", "react-dom/**"],
+  message: "This layer must not import React."
+}
+
+const featureImportPatterns = [
+  { group: ["@/infrastructure/*", "@/features/*/*"] },
+  platformSdkPattern,
+  relativeLayerPattern(["infrastructure"])
+]
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+const featureRoot = resolve(import.meta.dirname, "src/features")
+const featureOwners = readdirSync(featureRoot, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+
+const featureOwnerConfigs = featureOwners.flatMap((owner) => {
+  const otherOwners = featureOwners.filter((candidate) => candidate !== owner)
+  if (otherOwners.length === 0) {
+    return []
+  }
+
+  return [
+    {
+      files: [`src/features/${owner}/**/*.{ts,tsx}`],
+      rules: {
+        "no-restricted-imports": restrictedImports({
+          patterns: [
+            ...featureImportPatterns,
+            {
+              regex: `^\\.\\.(?:/\\.\\.)*/(?:${otherOwners.map(escapeRegex).join("|")})(?:/|$)`,
+              message: "Feature relative imports must not cross into another feature boundary."
+            }
+          ]
+        })
+      }
+    }
+  ]
+})
 
 export default tseslint.config(
   {
@@ -114,7 +166,7 @@ export default tseslint.config(
             message: "Domain modules must not import React."
           },
           {
-            group: ["@supabase/*", "@vercel/*"],
+            ...platformSdkPattern,
             message: "Domain modules must not import platform SDKs."
           },
           relativeLayerPattern(["app", "features", "application", "infrastructure"])
@@ -143,10 +195,8 @@ export default tseslint.config(
       "no-restricted-imports": restrictedImports({
         patterns: [
           { group: ["@/app/*", "@/features/*", "@/infrastructure/*"] },
-          {
-            group: ["react", "react/**", "react-dom", "react-dom/**"],
-            message: "Application modules must not import React."
-          },
+          { ...reactImportPattern, message: "Application modules must not import React." },
+          { ...platformSdkPattern, message: "Application modules must not import platform SDKs." },
           relativeLayerPattern(["app", "features", "infrastructure"])
         ]
       })
@@ -166,6 +216,7 @@ export default tseslint.config(
       "no-restricted-imports": restrictedImports({
         patterns: [
           { group: ["@/app/*", "@/features/*"] },
+          { ...reactImportPattern, message: "Infrastructure modules must not import React." },
           relativeLayerPattern(["app", "features"])
         ]
       })
@@ -175,14 +226,7 @@ export default tseslint.config(
     files: ["src/features/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": restrictedImports({
-        patterns: [
-          { group: ["@/infrastructure/*", "@/features/*/*"] },
-          relativeLayerPattern(["infrastructure"]),
-          {
-            regex: "^\\.\\./",
-            message: "Feature relative imports must stay within the same feature boundary."
-          }
-        ]
+        patterns: featureImportPatterns
       })
     }
   },
@@ -192,10 +236,12 @@ export default tseslint.config(
       "no-restricted-imports": restrictedImports({
         patterns: [
           { group: ["@/app/*", "@/features/*"] },
+          { ...reactImportPattern, message: "API modules must not import React." },
           relativeLayerPattern(["app", "features"])
         ]
       })
     }
   },
-  prettier
+  prettier,
+  ...featureOwnerConfigs
 )

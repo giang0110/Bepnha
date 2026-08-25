@@ -4,13 +4,15 @@ import { dirname, resolve } from "node:path"
 import { ESLint } from "eslint"
 import { afterAll, beforeAll, describe, expect, test } from "vitest"
 
-const eslint = new ESLint({ cwd: process.cwd() })
+let eslint: ESLint | undefined
 const fixturePaths = [
   "src/domain/architecture-lint.fixture.ts",
   "src/application/architecture-lint.fixture.ts",
   "src/app/architecture-lint.fixture.ts",
   "src/infrastructure/architecture-lint.fixture.ts",
-  "src/features/example/architecture-lint.fixture.ts",
+  "src/features/architecture-lint-alpha/architecture-lint.fixture.ts",
+  "src/features/architecture-lint-alpha/nested/architecture-lint.fixture.ts",
+  "src/features/architecture-lint-beta/architecture-lint.fixture.ts",
   "api/architecture-lint.fixture.ts"
 ]
 
@@ -23,13 +25,21 @@ beforeAll(async () => {
       await writeFile(absolutePath, "export {}\n")
     })
   )
+  eslint = new ESLint({ cwd: process.cwd() })
 })
 
 afterAll(async () => {
   await Promise.all(fixturePaths.map((filePath) => rm(resolve(filePath), { force: true })))
+  await Promise.all([
+    rm(resolve("src/features/architecture-lint-alpha"), { recursive: true, force: true }),
+    rm(resolve("src/features/architecture-lint-beta"), { recursive: true, force: true })
+  ])
 })
 
 async function lintRuleIds(code: string, filePath: string): Promise<string[]> {
+  if (eslint === undefined) {
+    throw new Error("ESLint must be created after fixture directories exist")
+  }
   const results = await eslint.lintText(code, { filePath })
   const result = results[0]
   if (result === undefined) {
@@ -71,6 +81,41 @@ describe("architecture lint boundaries", () => {
       "import { createRoot } from 'react-dom/client'",
       "src/application/architecture-lint.fixture.ts"
     )
+    await expectRejected(
+      "import { createClient } from '@supabase/supabase-js'",
+      "src/application/architecture-lint.fixture.ts"
+    )
+    await expectRejected(
+      "import type { VercelRequest } from '@vercel/node'",
+      "src/application/architecture-lint.fixture.ts"
+    )
+  })
+
+  test("rejects platform SDK imports in feature modules", async () => {
+    await expectRejected(
+      "import { createClient } from '@supabase/supabase-js'",
+      "src/features/architecture-lint-alpha/architecture-lint.fixture.ts"
+    )
+    await expectRejected(
+      "import type { VercelRequest } from '@vercel/node'",
+      "src/features/architecture-lint-alpha/architecture-lint.fixture.ts"
+    )
+  })
+
+  test("rejects React imports in infrastructure and API modules", async () => {
+    await expectRejected(
+      "import { useState } from 'react'",
+      "src/infrastructure/architecture-lint.fixture.ts"
+    )
+    await expectRejected(
+      "import { createRoot } from 'react-dom/client'",
+      "src/infrastructure/architecture-lint.fixture.ts"
+    )
+    await expectRejected("import { useState } from 'react'", "api/architecture-lint.fixture.ts")
+    await expectRejected(
+      "import { createRoot } from 'react-dom/client'",
+      "api/architecture-lint.fixture.ts"
+    )
   })
 
   test("rejects server API imports from app modules", async () => {
@@ -80,30 +125,38 @@ describe("architecture lint boundaries", () => {
 
   test.each([
     ["domain", "src/domain/architecture-lint.fixture.ts", "../../app/App"],
-    ["domain", "src/domain/architecture-lint.fixture.ts", "../../features/example/internal"],
+    [
+      "domain",
+      "src/domain/architecture-lint.fixture.ts",
+      "../../features/architecture-lint-alpha/internal"
+    ],
     ["domain", "src/domain/architecture-lint.fixture.ts", "../../application/use-case"],
     ["domain", "src/domain/architecture-lint.fixture.ts", "../../infrastructure/adapter"],
     ["application", "src/application/architecture-lint.fixture.ts", "../../app/App"],
     [
       "application",
       "src/application/architecture-lint.fixture.ts",
-      "../../features/example/internal"
+      "../../features/architecture-lint-alpha/internal"
     ],
     ["application", "src/application/architecture-lint.fixture.ts", "../../infrastructure/adapter"],
     ["infrastructure", "src/infrastructure/architecture-lint.fixture.ts", "../../app/App"],
     [
       "infrastructure",
       "src/infrastructure/architecture-lint.fixture.ts",
-      "../../features/example/internal"
+      "../../features/architecture-lint-alpha/internal"
     ],
     [
       "features",
-      "src/features/example/architecture-lint.fixture.ts",
+      "src/features/architecture-lint-alpha/architecture-lint.fixture.ts",
       "../../infrastructure/adapter"
     ],
-    ["features", "src/features/example/architecture-lint.fixture.ts", "../other/internal"],
+    [
+      "features",
+      "src/features/architecture-lint-alpha/architecture-lint.fixture.ts",
+      "../architecture-lint-beta/internal"
+    ],
     ["api", "api/architecture-lint.fixture.ts", "../src/app/App"],
-    ["api", "api/architecture-lint.fixture.ts", "../src/features/example/internal"]
+    ["api", "api/architecture-lint.fixture.ts", "../src/features/architecture-lint-alpha/internal"]
   ])("rejects %s relative layer escape to %s", async (_boundary, filePath, importPath) => {
     await expectRejected(`import '${importPath}'`, filePath)
   })
@@ -116,6 +169,12 @@ describe("architecture lint boundaries", () => {
       lintRuleIds(
         "import type { Recipe } from '@/domain/recipe'",
         "src/application/architecture-lint.fixture.ts"
+      )
+    ).resolves.not.toContain("no-restricted-imports")
+    await expect(
+      lintRuleIds(
+        "import '../shared'",
+        "src/features/architecture-lint-alpha/nested/architecture-lint.fixture.ts"
       )
     ).resolves.not.toContain("no-restricted-imports")
   })
