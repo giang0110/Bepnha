@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.vercel/
+supabase/.temp/
+AGENTS.md
+docs/superpowers/**

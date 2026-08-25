@@ -4,7 +4,7 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "target": "ES2024",
     "lib": ["ES2024"],
-    "allowJs": false,
+    "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -30,6 +30,7 @@
   "include": [
     "vite.config.ts",
     "vitest.config.ts",
+    "eslint.config.js",
     "playwright.config.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts"
