@@ -3,13 +3,13 @@ import { expect, test } from 'vitest'
 
 import App from '@/app/App'
 
-test('renders the Phase 0 weekly meal-planning shell without product controls', () => {
+test('renders the disabled Phase 1 start button in the Phase 0 shell', () => {
   render(<App />)
 
   expect(screen.getByRole('heading', { level: 1, name: 'Bếp Nhà' })).toBeInTheDocument()
   expect(screen.getByText(/lập kế hoạch bữa ăn hằng tuần/i)).toBeInTheDocument()
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
-  expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Bắt đầu ở Giai đoạn 1' })).toBeDisabled()
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   expect(screen.queryByRole('link')).not.toBeInTheDocument()
 })
