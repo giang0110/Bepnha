@@ -9,7 +9,10 @@ const rules = [
     "sensitive-environment-assignment",
     /^(?:SUPABASE_(?:SERVICE_ROLE_KEY|SECRET_KEY)|VITE_[A-Z0-9_]*SECRET[A-Z0-9_]*)[\t ]*=[\t ]*[^\s#].*$/imu
   ],
-  ["credential-token", /\b(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16})\b/u]
+  [
+    "credential-token",
+    /\b(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16})\b/u
+  ]
 ]
 
 /** @param {string} _path @param {string} contents @returns {string[]} */

@@ -30,13 +30,21 @@ describe("validateClientEnvironment", () => {
   it("accepts both expected non-empty public values when the URL is HTTP(S)", () => {
     expect(() => validateClientEnvironment(validEnvironment)).not.toThrow()
     expect(() =>
-      validateClientEnvironment({ ...validEnvironment, VITE_SUPABASE_URL: "http://127.0.0.1:54321" })
+      validateClientEnvironment({
+        ...validEnvironment,
+        VITE_SUPABASE_URL: "http://127.0.0.1:54321"
+      })
     ).not.toThrow()
   })
 
   it("fails a missing URL with a named validation error", () => {
-    expect(() => validateClientEnvironment({ VITE_SUPABASE_PUBLISHABLE_KEY: "local-public-placeholder" })).toThrow(
-      expect.objectContaining({ name: "EnvironmentValidationError", message: "Missing VITE_SUPABASE_URL" })
+    expect(() =>
+      validateClientEnvironment({ VITE_SUPABASE_PUBLISHABLE_KEY: "local-public-placeholder" })
+    ).toThrow(
+      expect.objectContaining({
+        name: "EnvironmentValidationError",
+        message: "Missing VITE_SUPABASE_URL"
+      })
     )
   })
 
@@ -58,9 +66,9 @@ describe("validateClientEnvironment", () => {
     "VITE_PRIVATE_KEY",
     "vItE_CLIENT_SECRET"
   ])("rejects suspicious client key name %s", (forbiddenKey) => {
-    expect(() => validateClientEnvironment({ ...validEnvironment, [forbiddenKey]: "synthetic-value" })).toThrow(
-      `Forbidden client environment key: ${forbiddenKey}`
-    )
+    expect(() =>
+      validateClientEnvironment({ ...validEnvironment, [forbiddenKey]: "synthetic-value" })
+    ).toThrow(`Forbidden client environment key: ${forbiddenKey}`)
   })
 
   it("accepts the committed public example", async () => {

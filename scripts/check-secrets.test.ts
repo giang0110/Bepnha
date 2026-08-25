@@ -32,7 +32,9 @@ describe("findSecretFindings", () => {
   })
 
   it("detects common credential-like token prefixes", () => {
-    expect(findSecretFindings("config.txt", syntheticToken("gh" + "p_"))).toContain("credential-token")
+    expect(findSecretFindings("config.txt", syntheticToken("gh" + "p_"))).toContain(
+      "credential-token"
+    )
   })
 
   it("does not flag policy prose, empty assignments, or a public placeholder", () => {
