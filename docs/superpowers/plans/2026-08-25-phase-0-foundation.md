@@ -38,7 +38,7 @@ There is no application code, package manifest, database migration, CI configura
 - Vitest, React Testing Library, and Playwright harnesses with foundation smoke coverage;
 - deterministic environment-file validation that rejects client-side secret names;
 - a typed, side-effect-free Vercel health Function with unit coverage;
-- the documented Vercel SPA rewrite and a direct deep-link browser test;
+- the ordered Vercel API-preservation and SPA-fallback rewrites plus a direct deep-link browser test;
 - a local Supabase project, one security-baseline migration, and pgTAP/RLS harness tests;
 - deterministic lint, formatting, typecheck, build, unit/component, browser, and database commands;
 - a non-deploying GitHub Actions CI workflow;
@@ -706,6 +706,10 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
     "$schema": "https://openapi.vercel.sh/vercel.json",
     "rewrites": [
       {
+        "source": "/api/(.*)",
+        "destination": "/api/$1"
+      },
+      {
         "source": "/(.*)",
         "destination": "/index.html"
       }
@@ -713,7 +717,12 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   }
   ```
 
-- [ ] Add a test that reads `vercel.json` and asserts the exact single rewrite. This catches accidental removal or broad configuration drift without deploying.
+- [ ] Add a test that reads `vercel.json` and asserts the exact ordered pair of rewrites. The test must verify both routing outcomes without deploying:
+
+  1. `/api/health` matches the first rule and remains `/api/health`, preserving `/api/*` for Vercel Functions;
+  2. a non-API path such as `/phase-0/deep-link` falls through to the second rule and resolves to `/index.html`.
+
+  The order is part of the contract: API preservation precedes the SPA catch-all. This catches accidental removal, reordering, or broad configuration drift.
 
 - [ ] Run GREEN and boundary checks:
 
@@ -794,7 +803,7 @@ Generated and ignored output includes `node_modules`, `dist`, `coverage`, `playw
   git commit -m "test: add browser and deep-link smoke coverage"
   ```
 
-**Safety/rollback:** Bind the preview server to loopback. Do not add browser tests for onboarding, plans, shopping, or authentication. The Vite preview fallback proves the built SPA accepts a direct path; `vercel.json` is the production hosting contract and remains separately asserted.
+**Safety/rollback:** Bind the preview server to loopback. Do not add browser tests for onboarding, plans, shopping, or authentication. Playwright against Vite preview proves only that the built SPA accepts a direct deep link. It does not integration-test hosted Vercel Function routing; the ordered `vercel.json` API-preservation and SPA-fallback contract remains separately asserted without deployment.
 
 ### Task 8: Add the local Supabase migration and database/RLS harness
 
@@ -1204,7 +1213,7 @@ Phase 0 is complete only when all of the following are true on `codex/phase-0-fo
 - [ ] A clean `npm run supabase:reset` applies the committed migration.
 - [ ] `npm run supabase:lint` passes and `npm run supabase:test` proves the private-schema grants and the invariant that every exposed public table has RLS enabled.
 - [ ] The Vercel health Function typechecks and passes its GET/method tests.
-- [ ] `vercel.json` contains the tested SPA rewrite; no Vercel or Supabase resource has been provisioned.
+- [ ] `vercel.json` contains the tested ordered API-preservation and SPA-fallback rewrites; no Vercel or Supabase resource has been provisioned.
 - [ ] CI runs the same web/browser/database gates without deploy steps or production secrets.
 - [ ] The tree contains no Phase 1 feature behavior, product tables, domain-engine logic, remote configuration, secrets, or unrelated edits.
 - [ ] `git diff --check` passes, task commits are coherent, and the approved branch is pushed without force.
@@ -1242,7 +1251,7 @@ An unavailable Docker-compatible container runtime means Phase 0 is `BLOCKED`, n
 - The baseline migration contains no product schema, so it does not pull household or catalog work into Phase 0.
 - RLS is not weakened. Because Phase 0 intentionally has no product tables, the public-table assertion begins as a future-facing invariant and will fail as soon as any later migration adds an exposed table without RLS; private-schema access is already tested as denied.
 - The Vercel Function harness proves the adapter contract without provisioning. It does not falsely claim a hosted integration test.
-- The SPA rewrite follows the Vercel Vite-SPA contract, while Playwright separately proves direct navigation against the production build preview.
+- The ordered routing contract preserves `/api/*` before applying the SPA fallback. Playwright separately proves only direct SPA navigation against the production build preview, not hosted Vercel Function routing.
 - The Docker gate is repeated before database work and in CI. No remote substitute or skip path exists.
 - `service_role` and other secrets remain server-only by policy and are not introduced as Phase 0 configuration.
 - No deterministic meal-planning calculation is added early; consequently no LLM or other nondeterministic dependency appears.
