@@ -7,7 +7,7 @@ const rules = [
   ["pem-private-key", /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/u],
   [
     "sensitive-environment-assignment",
-    /^(?:SUPABASE_(?:SERVICE_ROLE_KEY|SECRET_KEY)|VITE_[A-Z0-9_]*SECRET[A-Z0-9_]*)[\t ]*=[\t ]*[^\s#].*$/imu
+    /^(?:SUPABASE_(?:SERVICE_ROLE_KEY|SECRET_KEY)|VITE_[A-Z0-9_]*(?:SECRET|PRIVATE|SERVICE_ROLE)[A-Z0-9_]*)[\t ]*=[\t ]*[^\s#].*$/imu
   ],
   [
     "credential-token",

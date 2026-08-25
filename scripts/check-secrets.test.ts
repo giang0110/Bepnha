@@ -31,6 +31,15 @@ describe("findSecretFindings", () => {
     expect(findSecretFindings("config.env", contents)).toContain("sensitive-environment-assignment")
   })
 
+  it.each([
+    "VITE_" + "SUPABASE_SERVICE_ROLE_KEY",
+    "vItE_" + "PRIVATE_KEY"
+  ])("detects non-empty forbidden client assignment %s", (name) => {
+    expect(findSecretFindings("config.env", assignment(name, "synthetic-value"))).toContain(
+      "sensitive-environment-assignment"
+    )
+  })
+
   it("detects common credential-like token prefixes", () => {
     expect(findSecretFindings("config.txt", syntheticToken("gh" + "p_"))).toContain(
       "credential-token"
