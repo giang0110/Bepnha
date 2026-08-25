@@ -9,12 +9,29 @@ export default defineConfig({
     }
   },
   test: {
-    environment: "jsdom",
     globals: false,
-    setupFiles: "./src/test/setup.ts",
     coverage: {
       provider: "v8",
       reporter: ["text", "html"]
-    }
+    },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "app",
+          include: ["src/**/*.test.{ts,tsx}"],
+          environment: "jsdom",
+          setupFiles: "./src/test/setup.ts"
+        }
+      },
+      {
+        extends: true,
+        test: {
+          name: "api",
+          include: ["api/**/*.test.ts"],
+          environment: "node"
+        }
+      }
+    ]
   }
 })
