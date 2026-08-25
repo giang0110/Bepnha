@@ -31,6 +31,14 @@ export default defineConfig({
           include: ["api/**/*.test.ts"],
           environment: "node"
         }
+      },
+      {
+        extends: true,
+        test: {
+          name: "scripts",
+          include: ["scripts/**/*.test.ts"],
+          environment: "node"
+        }
       }
     ]
   }
