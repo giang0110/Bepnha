@@ -10,6 +10,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --maxWorkers=1",
     "test:e2e": "playwright test",
+    "test:e2e:onboarding": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/household-onboarding.spec.ts",
+    "test:integration": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx vitest run --config vitest.integration.config.ts",
     "lint": "eslint . --max-warnings 0",
     "env:check": "node scripts/validate-env.mjs .env.example",
     "secrets:check": "node scripts/check-secrets.mjs",
@@ -26,8 +28,8 @@
     "security:dependencies": "npm audit --audit-level=high",
     "verify:web": "npm run env:check && npm run secrets:check && npm run security:dependencies && npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build",
     "verify:non-db": "npm run verify:web && npm run test:e2e",
-    "format": "prettier --write --no-error-on-unmatched-pattern src api scripts .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json vite.config.ts vitest.config.ts playwright.config.ts eslint.config.js components.json vercel.json",
-    "format:check": "prettier --check --no-error-on-unmatched-pattern src api scripts .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json vite.config.ts vitest.config.ts playwright.config.ts eslint.config.js components.json vercel.json"
+    "format": "prettier --write --no-error-on-unmatched-pattern src api scripts tests .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json tsconfig.integration.json vite.config.ts vitest.config.ts vitest.integration.config.ts playwright.config.ts eslint.config.js components.json vercel.json",
+    "format:check": "prettier --check --no-error-on-unmatched-pattern src api scripts tests .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json tsconfig.integration.json vite.config.ts vitest.config.ts vitest.integration.config.ts playwright.config.ts eslint.config.js components.json vercel.json"
   },
   "private": true,
   "type": "module",

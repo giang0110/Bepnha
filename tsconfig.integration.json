@@ -1,19 +1,18 @@
 {
   "compilerOptions": {
     "composite": true,
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.integration.tsbuildinfo",
     "target": "ES2024",
-    "lib": ["ES2024"],
-    "allowJs": true,
+    "lib": ["ES2024", "DOM"],
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "types": ["node", "@playwright/test"],
+    "types": ["node", "vitest/globals"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -28,13 +27,13 @@
     }
   },
   "include": [
-    "vite.config.ts",
-    "vitest.config.ts",
-    "vitest.integration.config.ts",
-    "eslint.config.js",
-    "playwright.config.ts",
-    "scripts/**/*",
-    "tests/**/*.ts"
+    "tests/integration/**/*.ts",
+    "src/application/household/**/*.ts",
+    "src/domain/household/**/*.ts",
+    "src/infrastructure/supabase/browser-client.ts",
+    "src/infrastructure/supabase/database.types.ts",
+    "src/infrastructure/supabase/server-auth.ts",
+    "src/infrastructure/supabase/supabase-household-repository.ts"
   ],
-  "exclude": ["tests/integration"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

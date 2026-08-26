@@ -37,7 +37,12 @@ jobs:
       - run: npm run preflight:db
       - run: npm run supabase:start
       - run: npm run supabase:reset
+      - run: npm run supabase:lint
+      - run: npm run supabase:test
       - run: npm run db:types:check
+      - run: npm run test:integration
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:onboarding
       - if: always()
         run: npm run db:types:generate
       - if: always()
@@ -45,7 +50,5 @@ jobs:
         with:
           name: database-types-${{ github.sha }}
           path: src/infrastructure/supabase/database.types.ts
-      - run: npm run supabase:lint
-      - run: npm run supabase:test
       - if: always()
         run: npm run supabase:stop
