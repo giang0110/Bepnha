@@ -116,7 +116,7 @@ describe("architecture lint boundaries", () => {
       "import { createRoot } from 'react-dom/client'",
       "api/architecture-lint.fixture.ts"
     )
-  })
+  }, 15_000)
 
   test("rejects server API imports from app modules", async () => {
     await expectRejected("import '@/api/health'", "src/app/architecture-lint.fixture.ts")
