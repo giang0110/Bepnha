@@ -40,6 +40,7 @@
     "src/domain/shared/**/*.ts",
     "src/infrastructure/server/**/*.ts",
     "src/infrastructure/supabase/server-auth.ts",
+    "src/infrastructure/supabase/server-admin-auth.ts",
     "src/infrastructure/supabase/browser-client.ts",
     "src/infrastructure/supabase/database.types.ts"
   ],

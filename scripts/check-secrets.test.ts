@@ -56,4 +56,15 @@ describe("findSecretFindings", () => {
 
     expect(findSecretFindings("docs/policy.txt", contents)).toEqual([])
   })
+
+  it("allows the server secret variable name in documentation but never a committed value", () => {
+    const variableName = secretName("SECRET_KEY")
+
+    expect(
+      findSecretFindings("README.md", `Configure ${variableName} in server runtime only.`)
+    ).toEqual([])
+    expect(findSecretFindings("config.env", assignment(variableName, "synthetic-value"))).toContain(
+      "sensitive-environment-assignment"
+    )
+  })
 })

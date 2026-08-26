@@ -99,5 +99,7 @@ describe("validateClientEnvironment", () => {
     const contents = await readFile(resolve(import.meta.dirname, "../.env.example"), "utf8")
 
     expect(() => validateClientEnvironment(parseEnvFile(contents))).not.toThrow()
+    expect(contents).not.toContain("SUPABASE_" + "SECRET_KEY")
+    expect(contents).not.toMatch(/VITE_[A-Z0-9_]*(?:SECRET|PRIVATE|SERVICE_ROLE)/u)
   })
 })
