@@ -105,16 +105,30 @@ function basketFor(
   return result.ok ? result.value : null
 }
 
-function violatesWeeklyHardRules(selected: readonly EligibleMealOption[]): boolean {
-  const latest = selected.at(-1)
-  if (latest === undefined) return false
-  if (selected.slice(0, -1).some((option) => option.mealOptionId === latest.mealOptionId))
-    return true
-  const previous = selected.at(-2)
-  return (
-    previous !== undefined &&
-    previous.mainRecipeVersionIds.some((id) => latest.mainRecipeVersionIds.includes(id))
-  )
+export function violatesWeeklyHardRules(selected: readonly EligibleMealOption[]): boolean {
+  if (new Set(selected.map((option) => option.mealOptionId)).size !== selected.length) return true
+  return selected.slice(1).some((option, index) => {
+    const previous = selected[index]
+    return previous?.mainRecipeVersionIds.some((id) => option.mainRecipeVersionIds.includes(id))
+  })
+}
+
+export function calculateCompletedPlanCandidate(
+  selected: readonly EligibleMealOption[],
+  softPreferenceCodes: readonly string[],
+  calculationDate: string,
+  freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1,
+  config: PlannerConfigV1 = PLANNER_CONFIG_V1
+): CompletedPlanCandidate | null {
+  if (selected.length !== config.dayCount || violatesWeeklyHardRules(selected)) return null
+  const basket = basketFor(selected, calculationDate, freshnessConfig)
+  if (basket === null) return null
+  return {
+    selected,
+    basket,
+    score: scoreWeeklyPlan(selected, basket, softPreferenceCodes, config),
+    stableIdSequence: stableSequence(selected)
+  }
 }
 
 function lowerBound(
@@ -276,15 +290,16 @@ export function searchWeek(
 
   const complete: CompletedPlanCandidate[] = frontier
     .filter((state) => state.selected.length === config.dayCount)
-    .map((state) => {
-      const basket = basketFor(state.selected, calculationDate, freshnessConfig)!
-      return {
-        selected: state.selected,
-        basket,
-        score: scoreWeeklyPlan(state.selected, basket, softPreferenceCodes, config),
-        stableIdSequence: state.stableIdSequence
-      }
-    })
+    .map((state) =>
+      calculateCompletedPlanCandidate(
+        state.selected,
+        softPreferenceCodes,
+        calculationDate,
+        freshnessConfig,
+        config
+      )
+    )
+    .filter((candidate): candidate is CompletedPlanCandidate => candidate !== null)
   if (complete.length === 0) {
     return {
       ok: false,
