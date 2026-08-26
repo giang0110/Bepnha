@@ -8,8 +8,8 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
@@ -30,8 +30,18 @@
   "include": [
     "api",
     "vite.config.ts",
+    "src/application/catalog/**/*.ts",
+    "src/domain/calculation/**/*.ts",
+    "src/domain/catalog/**/*.ts",
+    "src/domain/household/**/*.ts",
+    "src/domain/portion/**/*.ts",
+    "src/domain/pricing/**/*.ts",
+    "src/domain/recipe/**/*.ts",
+    "src/domain/shared/**/*.ts",
+    "src/infrastructure/server/**/*.ts",
     "src/infrastructure/supabase/server-auth.ts",
     "src/infrastructure/supabase/browser-client.ts",
     "src/infrastructure/supabase/database.types.ts"
-  ]
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

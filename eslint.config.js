@@ -207,7 +207,14 @@ export default tseslint.config(
     files: ["src/app/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": restrictedImports({
-        patterns: [{ group: ["@/api/*"] }, relativeLayerPattern(["api"])]
+        patterns: [
+          { group: ["@/api/*", "@/infrastructure/server/*"] },
+          relativeLayerPattern(["api"]),
+          {
+            regex: "^\\.\\.(?:/[^/]+)*?/infrastructure/server(?:/|$)",
+            message: "Browser app modules must not import server infrastructure."
+          }
+        ]
       })
     }
   },

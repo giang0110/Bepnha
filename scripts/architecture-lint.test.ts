@@ -121,6 +121,23 @@ describe("architecture lint boundaries", () => {
   test("rejects server API imports from app modules", async () => {
     await expectRejected("import '@/api/health'", "src/app/architecture-lint.fixture.ts")
     await expectRejected("import '../../api/health'", "src/app/architecture-lint.fixture.ts")
+    await expectRejected(
+      "import '@/infrastructure/server/node-content-hasher'",
+      "src/app/architecture-lint.fixture.ts"
+    )
+    await expectRejected(
+      "import '../../infrastructure/server/node-content-hasher'",
+      "src/app/architecture-lint.fixture.ts"
+    )
+  })
+
+  test("permits API composition to import server infrastructure", async () => {
+    await expect(
+      lintRuleIds(
+        "import '@/infrastructure/server/node-content-hasher'",
+        "api/architecture-lint.fixture.ts"
+      )
+    ).resolves.not.toContain("no-restricted-imports")
   })
 
   test.each([

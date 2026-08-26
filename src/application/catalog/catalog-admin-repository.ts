@@ -4,6 +4,7 @@ import type {
   RecipeDraftIngredient,
   RecipeVersionDraftInput
 } from "@/application/catalog/catalog-admin-command"
+import type { CatalogDimension } from "@/domain/catalog/catalog"
 
 export interface FoodFactPublicationAggregate {
   readonly aggregateType: "food_fact_version"
@@ -11,7 +12,7 @@ export interface FoodFactPublicationAggregate {
     readonly foodId: string
     readonly code: string
     readonly nameVi: string
-    readonly baseDimension: string
+    readonly baseDimension: CatalogDimension
     readonly baseUnitId: string
     readonly revision: number
   }
@@ -50,7 +51,11 @@ export interface RecipePublicationAggregate {
     readonly publicationStatus: "draft" | "published"
     readonly contentHash: string | null
   }
-  readonly ingredients: readonly RecipeDraftIngredient[]
+  readonly ingredients: readonly (RecipeDraftIngredient & {
+    readonly foodFactContentHash: string
+    readonly foodFactPublicationStatus: "draft" | "published"
+    readonly hasPinnedConversion: boolean
+  })[]
   readonly steps: readonly {
     readonly recipeStepId: string
     readonly order: number
@@ -81,7 +86,10 @@ export interface PriceBookPublicationAggregate {
     readonly publicationStatus: "draft" | "published"
     readonly contentHash: string | null
   }
-  readonly prices: PriceBookDraftInput["prices"]
+  readonly prices: readonly (PriceBookDraftInput["prices"][number] & {
+    readonly foodFactContentHash: string
+    readonly foodFactPublicationStatus: "draft" | "published"
+  })[]
 }
 
 export type CatalogPublicationAggregate =
@@ -114,7 +122,7 @@ export interface CatalogAdminRepository {
   readonly createFood: (input: {
     readonly code: string
     readonly nameVi: string
-    readonly baseDimension: string
+    readonly baseDimension: CatalogDimension
     readonly baseUnitId: string
   }) => Promise<CatalogAdminResult>
   readonly saveFoodFactDraft: (input: FoodFactDraftInput) => Promise<CatalogAdminResult>

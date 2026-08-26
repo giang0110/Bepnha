@@ -83,6 +83,16 @@ const recipeAggregate = {
   tags: []
 }
 
+const recipeDraftIngredients = recipeAggregate.ingredients.map((ingredient) => ({
+  recipeIngredientId: ingredient.recipeIngredientId,
+  foodId: ingredient.foodId,
+  foodFactVersionId: ingredient.foodFactVersionId,
+  quantity: ingredient.quantity,
+  unitId: ingredient.unitId,
+  preparationNoteVi: ingredient.preparationNoteVi,
+  order: ingredient.order
+}))
+
 const foodAggregate = {
   aggregateType: "food_fact_version" as const,
   food: {
@@ -115,11 +125,13 @@ const foodAggregate = {
   ],
   assessments: SUPPORTED_ALLERGEN_CODES.map((allergenCode) => ({
     allergenCode,
-    status: "absent" as const
+    status: "absent" as const,
+    provenance: "Reviewed baseline"
   })),
   nutrients: REQUIRED_NUTRIENT_CODES.map((nutrientCode) => ({
     nutrientCode,
-    amountPer100g: nutrientCode === "energy_kcal" ? "350" : "0"
+    amountPer100g: nutrientCode === "energy_kcal" ? "350" : "0",
+    provenance: "Reviewed baseline"
   })),
   dietaryTags: [{ dietaryTagId: "tag-vegetarian", code: "vegetarian" }]
 }
@@ -236,7 +248,7 @@ describe("executeCatalogAdminCommand", () => {
         contentHash:
           type === "recipe_version"
             ? "6603770e050e45a55559c252c5bb7f655cd3f4f95d1c43767611d67204793a86"
-            : "2a3ce91bc4bda223f3e5749a44c713ad2e1d73ae00a78aae0d3ce51cb3bee3a8"
+            : "f68aabe3e5c282864ffb1135da9a2c559b6aa1468a70c7c849e43d4a28af3e31"
       })
     }
   )
@@ -269,10 +281,12 @@ describe("executeCatalogAdminCommand", () => {
         input: {
           recipeVersionId: "recipe-v1",
           expectedRevision: 1,
+          recipeId: "recipe",
+          versionNumber: 1,
           yieldAdultEquivalent: "4",
           activeMinutes: 10,
           elapsedMinutes: 20,
-          ingredients: recipeAggregate.ingredients,
+          ingredients: recipeDraftIngredients,
           steps: [{ order: 1, instructionVi, timerMinutes: null, ingredientIds: [] }],
           tagIds: []
         }
@@ -288,10 +302,12 @@ describe("executeCatalogAdminCommand", () => {
     const input = {
       recipeVersionId: "recipe-v1",
       expectedRevision: 1,
+      recipeId: "recipe",
+      versionNumber: 1,
       yieldAdultEquivalent: "4",
       activeMinutes: 10,
       elapsedMinutes: 20,
-      ingredients: recipeAggregate.ingredients,
+      ingredients: recipeDraftIngredients,
       steps: [
         {
           order: 1,

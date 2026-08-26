@@ -4,13 +4,10 @@ export interface RecipeDraftIngredient {
   readonly recipeIngredientId: string
   readonly foodId: string
   readonly foodFactVersionId: string
-  readonly foodFactContentHash: string
-  readonly foodFactPublicationStatus: "draft" | "published"
   readonly quantity: string
   readonly unitId: string
   readonly preparationNoteVi: string | null
   readonly order: number
-  readonly hasPinnedConversion: boolean
 }
 
 export interface RecipeDraftStep {
@@ -31,8 +28,13 @@ export interface FoodFactDraftInput {
   readonly allergenAssessments: readonly {
     readonly allergenCode: string
     readonly status: "absent" | "contains" | "may_contain" | "unknown"
+    readonly provenance: string
   }[]
-  readonly nutrients: readonly { readonly nutrientCode: string; readonly amountPer100g: string }[]
+  readonly nutrients: readonly {
+    readonly nutrientCode: string
+    readonly amountPer100g: string
+    readonly provenance: string
+  }[]
   readonly categoryAncestry: readonly string[]
   readonly dietaryTagCodes: readonly string[]
   readonly conversions: readonly {
@@ -47,6 +49,8 @@ export interface FoodFactDraftInput {
 export interface RecipeVersionDraftInput {
   readonly recipeVersionId: string
   readonly expectedRevision: number
+  readonly recipeId: string
+  readonly versionNumber: number
   readonly yieldAdultEquivalent: string
   readonly activeMinutes: number
   readonly elapsedMinutes: number
@@ -64,8 +68,6 @@ export interface PriceBookDraftInput {
     readonly foodPriceId: string
     readonly foodId: string
     readonly foodFactVersionId: string
-    readonly foodFactContentHash: string
-    readonly foodFactPublicationStatus: "draft" | "published"
     readonly packageQuantity: string
     readonly packageUnitId: string
     readonly packageBaseQuantity: string

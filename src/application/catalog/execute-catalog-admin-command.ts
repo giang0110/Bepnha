@@ -70,9 +70,6 @@ function validateRecipeDraft(input: RecipeVersionDraftInput): boolean {
   if (
     input.ingredients.some(
       (ingredient) =>
-        ingredient.foodFactPublicationStatus !== "published" ||
-        !HASH_PATTERN.test(ingredient.foodFactContentHash) ||
-        !ingredient.hasPinnedConversion ||
         !validPositiveDecimal(ingredient.quantity) ||
         ingredient.order < 1 ||
         !Number.isSafeInteger(ingredient.order)
@@ -90,6 +87,9 @@ function validateFoodFactDraft(input: FoodFactDraftInput): boolean {
     !validRevision(input.expectedRevision) ||
     input.versionNumber < 1 ||
     !Number.isSafeInteger(input.versionNumber) ||
+    !validLabel(input.provenance, 500) ||
+    input.allergenAssessments.some((assessment) => !validLabel(assessment.provenance, 500)) ||
+    input.nutrients.some((nutrient) => !validLabel(nutrient.provenance, 500)) ||
     input.conversions.length === 0 ||
     hasDuplicate(input.conversions.map((conversion) => conversion.unitId)) ||
     input.conversions.some(
@@ -133,8 +133,6 @@ function validatePriceBookDraft(input: PriceBookDraftInput): boolean {
   }
   return input.prices.every(
     (price) =>
-      price.foodFactPublicationStatus === "published" &&
-      HASH_PATTERN.test(price.foodFactContentHash) &&
       validPositiveDecimal(price.packageQuantity) &&
       validPositiveDecimal(price.packageBaseQuantity) &&
       validPositiveDecimal(price.purchaseIncrement) &&
@@ -155,10 +153,20 @@ function recipeAggregateAsDraft(aggregate: RecipePublicationAggregate): RecipeVe
   return {
     recipeVersionId: aggregate.version.recipeVersionId,
     expectedRevision: aggregate.version.revision,
+    recipeId: aggregate.recipe.recipeId,
+    versionNumber: aggregate.version.versionNumber,
     yieldAdultEquivalent: aggregate.version.yieldAdultEquivalent,
     activeMinutes: aggregate.version.activeMinutes,
     elapsedMinutes: aggregate.version.elapsedMinutes,
-    ingredients: aggregate.ingredients,
+    ingredients: aggregate.ingredients.map((ingredient) => ({
+      recipeIngredientId: ingredient.recipeIngredientId,
+      foodId: ingredient.foodId,
+      foodFactVersionId: ingredient.foodFactVersionId,
+      quantity: ingredient.quantity,
+      unitId: ingredient.unitId,
+      preparationNoteVi: ingredient.preparationNoteVi,
+      order: ingredient.order
+    })),
     steps: aggregate.steps.map((step) => ({
       order: step.order,
       instructionVi: step.instructionVi,
@@ -196,18 +204,41 @@ function aggregateIsComplete(aggregate: CatalogPublicationAggregate): boolean {
     return (
       aggregate.version.publicationStatus === "draft" &&
       aggregate.version.contentHash === null &&
+      aggregate.ingredients.every(
+        (ingredient) =>
+          ingredient.foodFactPublicationStatus === "published" &&
+          HASH_PATTERN.test(ingredient.foodFactContentHash) &&
+          ingredient.hasPinnedConversion
+      ) &&
       validateRecipeDraft(recipeAggregateAsDraft(aggregate))
     )
   }
   return (
     aggregate.book.publicationStatus === "draft" &&
     aggregate.book.contentHash === null &&
+    aggregate.prices.every(
+      (price) =>
+        price.foodFactPublicationStatus === "published" &&
+        HASH_PATTERN.test(price.foodFactContentHash)
+    ) &&
     validatePriceBookDraft({
       priceBookId: aggregate.book.priceBookId,
       expectedRevision: aggregate.book.revision,
       effectiveFrom: aggregate.book.effectiveFrom,
       effectiveTo: aggregate.book.effectiveTo,
-      prices: aggregate.prices
+      prices: aggregate.prices.map((price) => ({
+        foodPriceId: price.foodPriceId,
+        foodId: price.foodId,
+        foodFactVersionId: price.foodFactVersionId,
+        packageQuantity: price.packageQuantity,
+        packageUnitId: price.packageUnitId,
+        packageBaseQuantity: price.packageBaseQuantity,
+        baseUnitId: price.baseUnitId,
+        packagePriceVnd: price.packagePriceVnd,
+        purchaseIncrement: price.purchaseIncrement,
+        observedAt: price.observedAt,
+        sourceReference: price.sourceReference
+      }))
     })
   )
 }
