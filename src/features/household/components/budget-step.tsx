@@ -3,13 +3,20 @@ import { Button } from "@/app/components/ui/button"
 import { formatVnd, parseVnd } from "../budget-vnd"
 
 interface BudgetStepProps {
+  heading?: string
   onBack: () => void
   onChange: (value: string) => void
   onContinue: () => void
   value: string
 }
 
-export function BudgetStep({ value, onBack, onChange, onContinue }: BudgetStepProps) {
+export function BudgetStep({
+  heading = "Ngân sách cho 7 bữa chính",
+  value,
+  onBack,
+  onChange,
+  onContinue
+}: BudgetStepProps) {
   const parsed = parseVnd(value)
   const valid = parsed !== null && parsed >= 1 && parsed <= 100_000_000
   const showError = value !== "" && !valid
@@ -18,7 +25,7 @@ export function BudgetStep({ value, onBack, onChange, onContinue }: BudgetStepPr
     <section aria-labelledby="budget-step-heading" className="flex flex-col gap-5">
       <div>
         <h1 id="budget-step-heading" className="text-2xl font-semibold">
-          Ngân sách cho 7 bữa chính
+          {heading}
         </h1>
         <p className="mt-2 text-sm text-slate-600">
           Ngân sách này chỉ áp dụng cho 7 bữa chính trong tuần.

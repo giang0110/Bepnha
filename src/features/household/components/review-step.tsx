@@ -9,9 +9,11 @@ export type SaveState = "idle" | "saving" | "retryable-error" | "stale-error" | 
 interface ReviewStepProps {
   budgetVnd: number
   hardRuleCodes: readonly string[]
+  heading?: string
   maxElapsedMinutes: number
   memberGroups: readonly HouseholdMemberGroup[]
   preferenceCodes: readonly string[]
+  saveLabel?: string
   saveState: SaveState
   onBack: () => void
   onSave: () => void
@@ -31,9 +33,11 @@ function RuleList({ codes, empty }: Readonly<{ codes: readonly string[]; empty: 
 export function ReviewStep({
   budgetVnd,
   hardRuleCodes,
+  heading = "Kiểm tra thông tin",
   maxElapsedMinutes,
   memberGroups,
   preferenceCodes,
+  saveLabel = "Lưu thông tin",
   saveState,
   onBack,
   onSave
@@ -50,7 +54,7 @@ export function ReviewStep({
   return (
     <section aria-labelledby="review-step-heading" className="flex flex-col gap-5">
       <h1 id="review-step-heading" className="text-2xl font-semibold">
-        Kiểm tra thông tin
+        {heading}
       </h1>
       <div>
         <h2 className="font-semibold">Thành viên</h2>
@@ -97,7 +101,7 @@ export function ReviewStep({
             ? "Đang lưu…"
             : saveState === "retryable-error"
               ? "Thử lưu lại"
-              : "Lưu thông tin"}
+              : saveLabel}
         </Button>
       </div>
     </section>

@@ -2,6 +2,7 @@ import { Button } from "@/app/components/ui/button"
 import { HOUSEHOLD_RULE_OPTIONS, type HouseholdRuleCode } from "@/domain/household/household-rules"
 
 interface HardRulesStepProps {
+  heading?: string
   selectedCodes: readonly string[]
   onBack: () => void
   onContinue: () => void
@@ -15,7 +16,13 @@ const FOOD_EXCLUSION_OPTIONS = HOUSEHOLD_RULE_OPTIONS.filter(
   (option) => option.ruleKind === "food_exclusion"
 )
 
-export function HardRulesStep({ selectedCodes, onBack, onContinue, onToggle }: HardRulesStepProps) {
+export function HardRulesStep({
+  heading = "Dị ứng và loại trừ",
+  selectedCodes,
+  onBack,
+  onContinue,
+  onToggle
+}: HardRulesStepProps) {
   const selected = new Set(selectedCodes)
 
   const optionList = (options: typeof ALLERGEN_OPTIONS | typeof FOOD_EXCLUSION_OPTIONS) =>
@@ -39,7 +46,7 @@ export function HardRulesStep({ selectedCodes, onBack, onContinue, onToggle }: H
     <section aria-labelledby="hard-rules-step-heading" className="flex flex-col gap-5">
       <div>
         <h1 id="hard-rules-step-heading" className="text-2xl font-semibold">
-          Dị ứng và loại trừ
+          {heading}
         </h1>
         <p className="mt-2 text-sm text-slate-600">
           Đây là các quy tắc bắt buộc. Kế hoạch sẽ lọc theo các loại trừ đã lưu.

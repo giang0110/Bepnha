@@ -55,11 +55,14 @@ describe("authenticated app shell", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Đang kiểm tra phiên đăng nhập")
   })
 
-  it("redirects signed-out protected routes to sign in", async () => {
-    renderRoutes(createAuthPort(null).port, "/onboarding")
+  it.each(["/onboarding", "/settings/household"])(
+    "redirects signed-out protected route %s to sign in",
+    async (route) => {
+      renderRoutes(createAuthPort(null).port, route)
 
-    expect(await screen.findByRole("heading", { name: "Đăng nhập" })).toBeInTheDocument()
-  })
+      expect(await screen.findByRole("heading", { name: "Đăng nhập" })).toBeInTheDocument()
+    }
+  )
 
   it("renders the protected onboarding shell for an authenticated session", async () => {
     renderRoutes(createAuthPort(session).port, "/onboarding")

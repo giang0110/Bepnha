@@ -5,10 +5,10 @@ import { useAuth } from "@/app/auth/auth-context"
 import { RequireAuth } from "@/app/auth/require-auth"
 import { NotFoundPage } from "@/app/not-found-page"
 import { SignInPage } from "@/features/auth/sign-in-page"
-import { SignOutButton } from "@/features/auth/sign-out-button"
 import { SignUpPage } from "@/features/auth/sign-up-page"
-import { OnboardingPage } from "@/features/household/onboarding/onboarding-page"
 import { HouseholdSummaryPage } from "@/features/household/household-summary-page"
+import { OnboardingPage } from "@/features/household/onboarding/onboarding-page"
+import { HouseholdSettingsPage } from "@/features/household/settings/household-settings-page"
 
 function HomeRedirect() {
   const auth = useAuth()
@@ -16,16 +16,6 @@ function HomeRedirect() {
     return <p role="status">Đang kiểm tra phiên đăng nhập…</p>
   }
   return <Navigate replace to={auth.status === "authenticated" ? "/onboarding" : "/sign-in"} />
-}
-
-function ProtectedPlaceholder({ heading }: Readonly<{ heading: string }>) {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-8">
-      <h1 className="text-2xl font-semibold">{heading}</h1>
-      <p>Nội dung thiết lập sẽ được hoàn thiện trong các tác vụ tiếp theo của Giai đoạn 1.</p>
-      <SignOutButton />
-    </main>
-  )
 }
 
 export function AppRouter({
@@ -44,7 +34,7 @@ export function AppRouter({
         />
         <Route
           path="/settings/household"
-          element={<ProtectedPlaceholder heading="Cài đặt gia đình" />}
+          element={<HouseholdSettingsPage repository={householdRepository} />}
         />
       </Route>
       <Route path="*" element={<NotFoundPage />} />

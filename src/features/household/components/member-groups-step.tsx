@@ -14,11 +14,17 @@ const MEMBER_FIELDS: ReadonlyArray<{ key: MemberCountKey; label: string }> = [
 
 interface MemberGroupsStepProps {
   counts: MemberCounts
+  heading?: string
   onChange: (key: MemberCountKey, count: number) => void
   onContinue: () => void
 }
 
-export function MemberGroupsStep({ counts, onChange, onContinue }: MemberGroupsStepProps) {
+export function MemberGroupsStep({
+  counts,
+  heading = "Thành viên trong gia đình",
+  onChange,
+  onContinue
+}: MemberGroupsStepProps) {
   const total = totalMemberCount(counts)
   const valid = total >= 1 && total <= 20
 
@@ -26,7 +32,7 @@ export function MemberGroupsStep({ counts, onChange, onContinue }: MemberGroupsS
     <section aria-labelledby="member-step-heading" className="flex flex-col gap-5">
       <div>
         <h1 id="member-step-heading" className="text-2xl font-semibold">
-          Thành viên trong gia đình
+          {heading}
         </h1>
         <p className="mt-2 text-sm text-slate-600">
           Chỉ nhập số lượng theo nhóm tuổi, không cần tên hay ngày sinh.

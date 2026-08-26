@@ -1,4 +1,4 @@
-import type { HouseholdMemberGroup } from "@/domain/household/household"
+import type { HouseholdMemberGroup, HouseholdSetup } from "@/domain/household/household"
 import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
@@ -114,4 +114,29 @@ export function memberGroupsFromCounts(counts: MemberCounts): readonly Household
 
 export function totalMemberCount(counts: MemberCounts): number {
   return MEMBER_COUNT_KEYS.reduce((total, key) => total + counts[key], 0)
+}
+
+export function householdFormStateFromSetup(household: HouseholdSetup): HouseholdFormState {
+  const memberCounts: Record<MemberCountKey, number> = { ...EMPTY_MEMBER_COUNTS }
+  for (const group of household.memberGroups) {
+    const key: MemberCountKey =
+      group.memberKind === "child" ? `child_${group.ageBand}` : group.memberKind
+    memberCounts[key] = group.memberCount
+  }
+  const hardRuleCodes: HouseholdRuleCode[] = []
+  const preferenceCodes: HouseholdRuleCode[] = []
+  for (const rawCode of household.ruleCodes) {
+    const code = rawCode as HouseholdRuleCode
+    const option = HOUSEHOLD_RULE_OPTION_BY_CODE.get(code)
+    if (option?.ruleKind === "soft_preference") preferenceCodes.push(code)
+    else if (option !== undefined) hardRuleCodes.push(code)
+  }
+  return {
+    budgetInput: household.weeklyPlanBudgetVnd.toLocaleString("vi-VN"),
+    hardRuleCodes,
+    maxElapsedMinutes: household.maxElapsedMinutes,
+    memberCounts,
+    preferenceCodes,
+    step: 1
+  }
 }

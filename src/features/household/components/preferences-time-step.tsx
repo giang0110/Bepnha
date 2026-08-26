@@ -11,6 +11,7 @@ const PREFERENCE_OPTIONS = HOUSEHOLD_RULE_OPTIONS.filter(
 )
 
 interface PreferencesTimeStepProps {
+  heading?: string
   hardRuleCodes: readonly string[]
   maxElapsedMinutes: number
   selectedCodes: readonly string[]
@@ -21,6 +22,7 @@ interface PreferencesTimeStepProps {
 }
 
 export function PreferencesTimeStep({
+  heading = "Sở thích và thời gian nấu",
   hardRuleCodes,
   maxElapsedMinutes,
   selectedCodes,
@@ -44,7 +46,7 @@ export function PreferencesTimeStep({
     <section aria-labelledby="preferences-step-heading" className="flex flex-col gap-5">
       <div>
         <h1 id="preferences-step-heading" className="text-2xl font-semibold">
-          Sở thích và thời gian nấu
+          {heading}
         </h1>
         <p className="mt-2 text-sm text-slate-600">
           Sở thích là ưu tiên mềm, không thay thế các loại trừ bắt buộc.
