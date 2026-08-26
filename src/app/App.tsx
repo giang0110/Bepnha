@@ -1,11 +1,23 @@
-import { Button } from "@/app/components/ui/button"
+import { BrowserRouter } from "react-router"
 
-export default function App() {
+import type { AuthSessionPort } from "@/application/auth/auth-session-port"
+import { AuthProvider } from "@/app/auth/auth-provider"
+import { AppRouter } from "@/app/router"
+
+export function AppRoutes() {
+  return <AppRouter />
+}
+
+export interface AppProps {
+  authSession: AuthSessionPort
+}
+
+export default function App({ authSession }: AppProps) {
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-8">
-      <h1 className="text-2xl font-semibold">Bếp Nhà</h1>
-      <p>Lập kế hoạch bữa ăn hằng tuần cho gia đình.</p>
-      <Button disabled>Bắt đầu ở Giai đoạn 1</Button>
-    </main>
+    <BrowserRouter>
+      <AuthProvider port={authSession}>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
   )
 }
