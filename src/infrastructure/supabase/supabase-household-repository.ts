@@ -168,9 +168,9 @@ export function createSupabaseHouseholdRepository(
         p_weekly_plan_budget_vnd: input.weeklyPlanBudgetVnd,
         p_max_elapsed_minutes: input.maxElapsedMinutes,
         p_member_groups: input.memberGroups.map((group) => ({
-          member_kind: group.memberKind,
-          age_band: group.ageBand,
-          member_count: group.memberCount
+          memberKind: group.memberKind,
+          ageBand: group.ageBand,
+          memberCount: group.memberCount
         })),
         p_rule_codes: [...input.ruleCodes]
       })

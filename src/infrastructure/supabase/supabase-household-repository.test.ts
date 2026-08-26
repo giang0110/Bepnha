@@ -112,7 +112,7 @@ describe("Supabase household repository save", () => {
         p_expected_version: version,
         p_weekly_plan_budget_vnd: 1_500_000,
         p_max_elapsed_minutes: 30,
-        p_member_groups: [{ member_kind: "adult", age_band: "adult", member_count: 2 }],
+        p_member_groups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }],
         p_rule_codes: ["exclude_beef"]
       })
     }
