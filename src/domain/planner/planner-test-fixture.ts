@@ -17,6 +17,8 @@ export function plannerCandidate(id = "option-v1"): PlannerCandidateInput {
   const stableId = id.replace("-v1", "")
   return {
     identityStatus: "published",
+    mealOptionCode: stableId,
+    mealOptionNameVi: `Bữa ăn ${stableId}`,
     mealOptionContentHash: "a".repeat(64),
     priceBookStatus: "published",
     priceBookContentHash: "b".repeat(64),
@@ -91,6 +93,7 @@ export function plannerCandidate(id = "option-v1"): PlannerCandidateInput {
         foodFactVersionId: `${id}-fact-v1`,
         foodFactContentHash: "d".repeat(64),
         foodFactStatus: "published",
+        edibleFraction: "1",
         baseUnitId: "unit-g",
         allergenAssessments: allergenCodes.map((allergenCode) => ({
           allergenCode,

@@ -42,6 +42,9 @@ export interface ReadyPlan {
     readonly mealSlot: "primary"
     readonly mealOptionId: string
     readonly mealOptionVersionId: string
+    readonly adultEquivalent: string
+    readonly scaleFactor: string
+    readonly snapshot: EligibleMealOption
   }[]
   readonly selected: readonly EligibleMealOption[]
   readonly purchaseBasket: PurchaseBasket
@@ -318,7 +321,10 @@ export function searchWeek(
         dayIndex,
         mealSlot: "primary",
         mealOptionId: option.mealOptionId,
-        mealOptionVersionId: option.mealOptionVersionId
+        mealOptionVersionId: option.mealOptionVersionId,
+        adultEquivalent: option.adultEquivalent,
+        scaleFactor: option.mealScaleFactor,
+        snapshot: option
       })),
       selected: selected.plan.selected,
       purchaseBasket: selected.plan.basket,

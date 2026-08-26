@@ -39,6 +39,11 @@ export interface PersistPlannerRevisionCommand {
   readonly revisionKind: "generation" | "regeneration" | "replacement"
   readonly replacementDayIndex: number | null
   readonly householdSetupVersion: number
+  readonly engineVersion: "planner-engine-v1"
+  readonly portionConfigVersion: "portion-v1"
+  readonly priceFreshnessConfigVersion: "price-freshness-v1"
+  readonly plannerConfigVersion: "planner-v1"
+  readonly calculationDate: string
   readonly catalogFingerprint: string
   readonly inputFingerprint: string
   readonly calculationFingerprint: string
@@ -214,6 +219,11 @@ export async function generateMealPlan(
     revisionKind: "generation",
     replacementDayIndex: null,
     householdSetupVersion: normalized.value.householdSetupVersion,
+    engineVersion: "planner-engine-v1",
+    portionConfigVersion: normalized.value.portionConfig.version,
+    priceFreshnessConfigVersion: normalized.value.priceFreshnessConfig.version,
+    plannerConfigVersion: normalized.value.plannerConfig.version,
+    calculationDate: normalized.value.calculationDate,
     ...evidence,
     budgetVnd: normalized.value.weeklyPlanBudgetVnd,
     totalEstimatedCostVnd: planned.plan.totalEstimatedCostVnd,
@@ -228,7 +238,14 @@ export async function generateMealPlan(
   return persisted.ok
     ? {
         ok: true as const,
-        value: { ...persisted.value, plan: planned.plan, warnings: planned.warnings, ...evidence }
+        value: {
+          ...persisted.value,
+          status: planned.status,
+          budgetVnd: normalized.value.weeklyPlanBudgetVnd,
+          plan: planned.plan,
+          warnings: planned.warnings,
+          ...evidence
+        }
       }
     : persisted
 }
@@ -339,6 +356,11 @@ export async function applyMealReplacement(
     revisionKind: "replacement",
     replacementDayIndex: command.targetDayIndex,
     householdSetupVersion: normalized.householdSetupVersion,
+    engineVersion: "planner-engine-v1",
+    portionConfigVersion: normalized.portionConfig.version,
+    priceFreshnessConfigVersion: normalized.priceFreshnessConfig.version,
+    plannerConfigVersion: normalized.plannerConfig.version,
+    calculationDate: normalized.calculationDate,
     ...evidence,
     budgetVnd: normalized.weeklyPlanBudgetVnd,
     totalEstimatedCostVnd: plan.totalEstimatedCostVnd,
@@ -348,6 +370,16 @@ export async function applyMealReplacement(
     items: plan.items
   })
   return persisted.ok
-    ? { ok: true as const, value: { ...persisted.value, plan, warnings: preview.value.warnings } }
+    ? {
+        ok: true as const,
+        value: {
+          ...persisted.value,
+          status: preview.value.status,
+          budgetVnd: normalized.weeklyPlanBudgetVnd,
+          costDeltaVnd: preview.value.weeklyCostDeltaVnd,
+          plan,
+          warnings: preview.value.warnings
+        }
+      }
     : persisted
 }

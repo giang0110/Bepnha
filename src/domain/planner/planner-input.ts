@@ -14,6 +14,7 @@ export interface PlannerIngredientLineageInput {
   readonly foodFactVersionId: string
   readonly foodFactContentHash: string
   readonly foodFactStatus: "draft" | "published"
+  readonly edibleFraction: string
   readonly baseUnitId: string
   readonly allergenAssessments: readonly AllergenAssessment[]
   readonly categoryAncestry: readonly string[]
@@ -23,6 +24,8 @@ export interface PlannerIngredientLineageInput {
 
 export interface PlannerCandidateInput {
   readonly identityStatus: "draft" | "published" | "retired"
+  readonly mealOptionCode: string
+  readonly mealOptionNameVi: string
   readonly mealOptionContentHash: string
   readonly priceBookStatus: "draft" | "published" | "retired"
   readonly priceBookContentHash: string

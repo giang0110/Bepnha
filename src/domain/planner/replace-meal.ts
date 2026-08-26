@@ -93,7 +93,10 @@ export function previewMealReplacement(input: {
         dayIndex,
         mealSlot: "primary",
         mealOptionId: option.mealOptionId,
-        mealOptionVersionId: option.mealOptionVersionId
+        mealOptionVersionId: option.mealOptionVersionId,
+        adultEquivalent: option.adultEquivalent,
+        scaleFactor: option.mealScaleFactor,
+        snapshot: option
       })),
       selected: chosen.plan.selected,
       purchaseBasket: chosen.plan.basket,

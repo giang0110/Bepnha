@@ -7,6 +7,7 @@ import { evaluateHardRules } from "@/domain/catalog/evaluate-hard-rules"
 import { isHardRuleCode } from "@/domain/catalog/hard-rule-mapping"
 import { scaleMealOption } from "@/domain/meal-option/scale-meal-option"
 import { validateMealOptionVersion } from "@/domain/meal-option/validate-meal-option"
+import { calculateRecipeNutrition } from "@/domain/nutrition/calculate-recipe-nutrition"
 import { calculatePurchaseBasket } from "@/domain/pricing/calculate-purchase-basket"
 import type { CanonicalFoodRequirement, PurchaseBasketLine } from "@/domain/pricing/pricing"
 
@@ -17,7 +18,24 @@ export interface EligibleMealOption {
   readonly mealOptionId: string
   readonly mealOptionVersionId: string
   readonly mealOptionContentHash: string
+  readonly mealOptionCode: string
+  readonly mealOptionNameVi: string
   readonly elapsedMinutes: number
+  readonly adultEquivalent: string
+  readonly mealScaleFactor: string
+  readonly mealOption: PlannerCandidateInput["mealOption"]
+  readonly scaledIngredients: readonly {
+    readonly sourceId: string
+    readonly foodId: string
+    readonly foodFactVersionId: string
+    readonly baseUnitId: string
+    readonly baseQuantity: string
+    readonly grossGrams: string
+  }[]
+  readonly nutrition: Extract<
+    ReturnType<typeof calculateRecipeNutrition>,
+    { readonly ok: true }
+  >["value"]
   readonly primaryProteinGroup: string
   readonly cookingStyleCodes: readonly string[]
   readonly mainRecipeVersionIds: readonly string[]
@@ -172,6 +190,35 @@ export function evaluatePlannerEligibility(input: NormalizedPlannerInputV1): Eli
       rejected.push(reject(candidate, 6, "INCOMPLETE_NUTRITION"))
       continue
     }
+    const lineageBySource = new Map(
+      candidate.ingredientLineage.map((item) => [
+        `${item.mealOptionRecipeId}:${item.recipeIngredientId}`,
+        item
+      ])
+    )
+    const nutritionInput = scaled.value.ingredients.flatMap((ingredient, index) => {
+      const ingredientLineage = lineageBySource.get(ingredient.sourceId)
+      return ingredientLineage === undefined
+        ? []
+        : [
+            {
+              recipeIngredientId: ingredient.sourceId,
+              order: index + 1,
+              grossGrams: ingredient.grossGrams,
+              edibleFraction: ingredientLineage.edibleFraction,
+              nutrients: ingredientLineage.nutrients
+            }
+          ]
+    })
+    if (nutritionInput.length !== scaled.value.ingredients.length) {
+      rejected.push(reject(candidate, 6, "INCOMPLETE_NUTRITION_LINEAGE"))
+      continue
+    }
+    const nutrition = calculateRecipeNutrition(nutritionInput)
+    if (!nutrition.ok) {
+      rejected.push(reject(candidate, 6, nutrition.error.code))
+      continue
+    }
     const structure = validateMealOptionVersion(candidate.mealOption)
     if (!structure.ok) {
       rejected.push(reject(candidate, 7, structure.error.code))
@@ -181,7 +228,14 @@ export function evaluatePlannerEligibility(input: NormalizedPlannerInputV1): Eli
       mealOptionId: structure.value.mealOptionId,
       mealOptionVersionId: structure.value.mealOptionVersionId,
       mealOptionContentHash: structure.value.contentHash,
+      mealOptionCode: candidate.mealOptionCode,
+      mealOptionNameVi: candidate.mealOptionNameVi,
       elapsedMinutes: structure.value.elapsedMinutes,
+      adultEquivalent: scaled.value.adultEquivalent,
+      mealScaleFactor: scaled.value.mealScaleFactor,
+      mealOption: candidate.mealOption,
+      scaledIngredients: scaled.value.ingredients,
+      nutrition: nutrition.value,
       primaryProteinGroup: structure.value.primaryProteinGroup,
       cookingStyleCodes: structure.value.cookingStyleCodes,
       mainRecipeVersionIds: structure.value.mainRecipeVersionIds,

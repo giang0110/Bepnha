@@ -86,7 +86,7 @@ describe("planner use cases", () => {
       [
         "9dae903c9dcb73ad958492932def63a2e5082a10a68f095c01790961437a9a7d",
         "b03deacf03aa485e07a138678fb4f672e04fbcd11d363dcf0aba8c847f960322",
-        "0967b02d5fc66794820327571d07de606c70eb6b7e486e9ca89b810a688543d6",
+        "eed690d203bff531398c1378026dc4beea060cfedce2776d8a7aeda3c2841fe1",
       ]
     `)
     expect(repo.loadGenerationInput).toHaveBeenCalledWith({
