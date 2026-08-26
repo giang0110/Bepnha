@@ -30,6 +30,8 @@
   "include": [
     "api",
     "vite.config.ts",
+    "src/application/meal-option/**/*.ts",
+    "src/application/shared/**/*.ts",
     "src/application/catalog/**/*.ts",
     "src/domain/calculation/**/*.ts",
     "src/domain/catalog/**/*.ts",

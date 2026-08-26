@@ -11,7 +11,7 @@ import type {
   FoodFactPublicationAggregate,
   RecipePublicationAggregate
 } from "@/application/catalog/catalog-admin-repository"
-import type { ContentHasher } from "@/application/catalog/content-hasher"
+import type { ContentHasher } from "@/application/shared/content-hasher"
 import { normalizeFoodFactLineage } from "@/domain/catalog/normalize-catalog"
 import { normalizeRecipeSteps } from "@/domain/recipe/recipe"
 import { canonicalUtf8 } from "@/domain/shared/canonical-json"

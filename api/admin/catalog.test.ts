@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node"
 import { describe, expect, test, vi } from "vitest"
 
 import type { CatalogAdminRepository } from "@/application/catalog/catalog-admin-repository"
-import type { ContentHasher } from "@/application/catalog/content-hasher"
+import type { ContentHasher } from "@/application/shared/content-hasher"
 
 import { createCatalogAdminHandler } from "./catalog.js"
 

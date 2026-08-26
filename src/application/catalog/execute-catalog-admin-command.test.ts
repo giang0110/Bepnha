@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest"
 
 import type { CatalogAdminRepository } from "@/application/catalog/catalog-admin-repository"
 import { executeCatalogAdminCommand } from "@/application/catalog/execute-catalog-admin-command"
-import type { ContentHasher } from "@/application/catalog/content-hasher"
+import type { ContentHasher } from "@/application/shared/content-hasher"
 import { REQUIRED_NUTRIENT_CODES, SUPPORTED_ALLERGEN_CODES } from "@/domain/catalog/catalog"
 
 const success = {

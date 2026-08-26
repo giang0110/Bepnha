@@ -29,8 +29,11 @@
   "include": [
     "tests/integration/**/*.ts",
     "api/admin/catalog.ts",
+    "api/admin/meal-options.ts",
     "src/application/household/**/*.ts",
     "src/application/catalog/**/*.ts",
+    "src/application/meal-option/**/*.ts",
+    "src/application/shared/**/*.ts",
     "src/domain/calculation/**/*.ts",
     "src/domain/catalog/**/*.ts",
     "src/domain/household/**/*.ts",

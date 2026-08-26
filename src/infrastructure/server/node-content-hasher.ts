@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto"
 
-import type { ContentHasher } from "@/application/catalog/content-hasher"
+import type { ContentHasher } from "@/application/shared/content-hasher"
 
 export class NodeContentHasher implements ContentHasher {
   readonly sha256 = (content: Uint8Array): Promise<string> => {
