@@ -15,7 +15,7 @@ function HomeRedirect() {
   if (auth.status === "loading") {
     return <p role="status">Đang kiểm tra phiên đăng nhập…</p>
   }
-  return <Navigate replace to={auth.status === "authenticated" ? "/onboarding" : "/sign-in"} />
+  return <Navigate replace to={auth.status === "authenticated" ? "/household" : "/sign-in"} />
 }
 
 export function AppRouter({

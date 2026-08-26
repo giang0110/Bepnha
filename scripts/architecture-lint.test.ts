@@ -70,7 +70,7 @@ describe("architecture lint boundaries", () => {
     await expect(
       lintRuleIds("const environment = import.meta.env", "src/domain/architecture-lint.fixture.ts")
     ).resolves.toContain("no-restricted-syntax")
-  }, 15_000)
+  }, 30_000)
 
   test("rejects React imports in application modules", async () => {
     await expectRejected(

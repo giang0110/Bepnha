@@ -1,14 +1,16 @@
 # BepNha
 
-BepNha is being built planner-first: its future meal-planning decisions must be deterministic, testable domain logic. An AI model must never author or override serving quantities, nutrition, prices, shopping quantities, allergy safety, meal eligibility, or authoritative budgets.
+BepNha is a deterministic meal-planning application for Vietnamese households. Phase 1 provides Supabase Auth, one owned household per user, grouped household members, structured exclusions/preferences, a seven-primary-meal weekly budget, maximum elapsed cooking time, onboarding, and household settings. It does not contain foods, recipes, nutrition, prices, planning, shopping, pantry, admin catalog, or AI behavior.
 
-Phase 0 establishes the development and verification foundation only. It contains no product functionality, no product tables, and no deployment step. Supabase remains the approved backend; this phase introduces neither Turso nor another database.
+An AI model must never author or override serving quantities, nutrition, prices, shopping quantities, allergy safety, meal eligibility, or authoritative budgets.
 
 ## Prerequisites
 
-- **Node 24** is mandatory (`>=24 <25`). Use the version recorded by the project before installing dependencies.
-- npm is required.
-- Docker is an optional local _database-verification capability_, not an optional database/RLS gate. When local Docker is unavailable, GitHub Actions performs that authoritative gate.
+- Node 24 (`>=24 <25`) and npm are mandatory.
+- The committed Supabase CLI is installed by `npm ci`.
+- A Docker-compatible runtime is optional for local database verification, but the database/RLS gate is mandatory. If Docker is unavailable locally, the exact-final-HEAD GitHub Actions `database` job must pass.
+
+No command in this repository links, provisions, deploys, or migrates a remote Supabase/Vercel project. Production migrations and production data changes require separate explicit approval.
 
 ## Install and run
 
@@ -16,47 +18,63 @@ Install from the committed lockfile:
 
 ```powershell
 npm ci
+npm run preflight
 ```
 
-Create a public local environment file from the template. Do not add real credentials or any secret to `.env.example`.
+The app uses only four public configuration variables:
+
+- `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for server verification;
+- `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` for the browser.
+
+Never place a service-role, secret, or private key in a `VITE_*` variable. `.env.example` contains placeholders only.
+
+With local Docker available, start and reset the ephemeral local stack, then launch Vite with values read directly from `supabase status -o env`:
 
 ```powershell
-Copy-Item .env.example .env
+npm run supabase:start
+npm run supabase:reset
+node scripts/local-supabase-env.mjs -- npm run dev
 ```
 
-Start local development in a separate terminal. This is a blocking development-server process; leave it running only while developing.
+The wrapper fails closed unless the Supabase API URL is loopback-only, passes only the four public variables to its child command, and does not print the public key. Stop the local stack without retaining test data:
 
 ```powershell
-npm run dev
+npm run supabase:stop
 ```
 
-Run tests and create a production build from another terminal after the development server is stopped (or on a different port):
+## Phase 1 routes and data semantics
 
-```powershell
-npm run test
-npm run build
-```
+| Route                  | Purpose                                                        |
+| ---------------------- | -------------------------------------------------------------- |
+| `/sign-up`, `/sign-in` | Supabase email/password Auth without household-member accounts |
+| `/onboarding`          | Five-step mobile household setup                               |
+| `/household`           | Authoritative saved household summary                          |
+| `/settings/household`  | Version-checked editing of the single owned household          |
 
-The only client environment values are public configuration. Server credentials (including any service-role credential) are forbidden in client environment configuration and source.
+Children are counts in approved age bands, never user accounts. The application does not collect names, birth dates, sex, weight, diagnoses, health fields, or free-text dietary rules.
+
+Allergies and exclusions are canonical hard rules. Preferences are canonical soft rules. A hard rule and preference with the same target cannot coexist. `allergen_other` is structured unsupported intent with fixed guidance; no AI or free text interprets it, and the UI never promises allergy safety.
+
+The weekly budget applies only to the seven planned primary meals. It does not cover breakfast, snacks, drinks, pantry replenishment, or other meals.
 
 ## Module boundaries
 
 Cross-boundary imports use the `@/...` alias. Relative imports are limited to files within the same boundary.
 
-| From             | May depend on                                              | Must not depend on                                                                                               |
-| ---------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `domain`         | Other `domain` modules and pure language/library utilities | React, `app`, `features`, `application`, `infrastructure`, Supabase, Vercel, browser APIs, environment variables |
-| `application`    | `domain` and application-owned ports                       | React, `app`, `features`, concrete `infrastructure` adapters                                                     |
-| `infrastructure` | `application`, `domain`, platform SDKs                     | `app`, `features`, product UI                                                                                    |
-| `features`       | `application`, `domain`, approved app UI primitives        | Concrete `infrastructure`; feature-to-feature internals                                                          |
-| `app`            | All browser-side modules needed for composition            | Server-only `api` modules                                                                                        |
-| `api`            | `application`, `domain`, server-side `infrastructure`      | React, browser-only `app` or `features` modules                                                                  |
+| From             | May depend on                                       | Must not depend on                                                                                               |
+| ---------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `domain`         | Other `domain` modules and pure utilities           | React, `app`, `features`, `application`, `infrastructure`, Supabase, Vercel, browser APIs, environment variables |
+| `application`    | `domain` and application-owned ports                | React, `app`, `features`, concrete `infrastructure` adapters                                                     |
+| `infrastructure` | `application`, `domain`, platform SDKs              | `app`, `features`, product UI                                                                                    |
+| `features`       | `application`, `domain`, approved app UI primitives | Concrete `infrastructure`; feature-to-feature internals                                                          |
+| `app`            | Browser-side modules needed for composition         | Server-only `api` modules                                                                                        |
+| `api`            | `application`, `domain`, server infrastructure      | React, browser-only `app` or `features` modules                                                                  |
 
-`app` is the composition root and shell, `features` will hold vertical presentation slices, `application` owns use cases and ports, `domain` holds pure deterministic rules, and `infrastructure` implements application ports. The `api` directory is for trusted HTTP entry points and never imports React or browser-only modules.
+Domain validation is framework-independent. PostgreSQL constraints/constraint triggers and RLS remain authoritative for RPC and intentionally granted direct Data API writes. The browser uses no service-role access.
 
-## Local verification
+## Verification
 
-Run the non-database Phase 0 gate from a fresh install:
+Run the mandatory non-database gate:
 
 ```powershell
 npm ci
@@ -74,12 +92,12 @@ npm run test:e2e
 git diff --check
 ```
 
-`npm run preflight` validates Node 24, npm, and the locally installed Supabase CLI, then prints exactly one capability result:
+`npm run preflight` records exactly one capability result:
 
-- `LOCAL_DB_VERIFICATION_AVAILABLE` — Docker is usable. Run the local database/RLS sequence below and record `DATABASE_RLS_GATE_PASS_LOCAL` only when every command succeeds.
-- `LOCAL_DB_VERIFICATION_UNAVAILABLE` — Docker cannot be used locally. Continue the non-database work without running local Supabase commands, record `DATABASE_RLS_GATE_PENDING_CI`, and require the GitHub Actions `database` job for the final commit to pass.
+- `LOCAL_DB_VERIFICATION_AVAILABLE` — run the local database sequence below;
+- `LOCAL_DB_VERIFICATION_UNAVAILABLE` — continue non-database work, record `DATABASE_RLS_GATE_PENDING_CI`, and require exact-final-HEAD CI database success.
 
-When local capability is available, use the local Supabase sequence:
+When Docker is available, the authoritative local database/Auth sequence is:
 
 ```powershell
 npm run preflight:db
@@ -87,29 +105,34 @@ npm run supabase:start
 npm run supabase:reset
 npm run supabase:lint
 npm run supabase:test
+npm run db:types:check
+npm run test:integration
+npm run test:e2e:onboarding
 npm run supabase:stop
 ```
 
-`npm run supabase:reset` runs `supabase db reset --local`. It is local-only: never use it against a remote or production database.
+`supabase:reset` is explicitly local-only. Never substitute a remote production or staging database. `src/infrastructure/supabase/database.types.ts` is generated from the clean local migration state; `db:types:check` rejects drift.
 
-## GitHub Actions database verification
+The ordinary `test:e2e` command proves Vite-preview SPA/deep-link behavior only. Hosted Vercel Function routing is covered by configuration/handler tests, not claimed as deployed integration coverage. The Docker-backed onboarding command proves real local Auth, RPC, RLS, persistence, and editing.
 
-When the local result is `LOCAL_DB_VERIFICATION_UNAVAILABLE`, a successful final-commit GitHub Actions `database` job is mandatory. A verification push is not a deployment and does not make Phase 0 complete by itself. With GitHub CLI available, match the run to the exact current SHA:
+## GitHub Actions evidence
+
+CI keeps independent `web` and `database` jobs. The database job uses GitHub-hosted Docker to run Supabase start/reset, SQL lint, pgTAP/RLS, generated-type drift, public-key-only integration tests, and the real onboarding browser journey. It uses no remote database, deployment environment, or application secret.
+
+Match evidence to the exact final Phase 1 SHA:
 
 ```powershell
-$phase0Head = git rev-parse HEAD
-$phase0Run = gh run list --workflow ci.yml --branch codex/phase-0-foundation --commit $phase0Head --limit 1 --json databaseId,headSha,status,conclusion,url | ConvertFrom-Json
-if ($phase0Run.Count -ne 1 -or $phase0Run.headSha -ne $phase0Head) { throw 'No CI run found for exact Phase 0 HEAD' }
-gh run watch $phase0Run.databaseId --exit-status
-$phase0Jobs = (gh run view $phase0Run.databaseId --json jobs | ConvertFrom-Json).jobs
-if (($phase0Jobs | Where-Object name -eq 'web').conclusion -ne 'success') { throw 'CI web job did not pass' }
-if (($phase0Jobs | Where-Object name -eq 'database').conclusion -ne 'success') { throw 'CI database job did not pass' }
+$phase1Head = git rev-parse HEAD
+$phase1Run = gh run list --workflow ci.yml --branch codex/phase-1-household --commit $phase1Head --limit 1 --json databaseId,headSha,status,conclusion,url | ConvertFrom-Json
+if ($phase1Run.Count -ne 1 -or $phase1Run.headSha -ne $phase1Head) { throw 'No CI run found for exact Phase 1 HEAD' }
+gh run watch $phase1Run.databaseId --exit-status
+$phase1Jobs = (gh run view $phase1Run.databaseId --json jobs | ConvertFrom-Json).jobs
+if (($phase1Jobs | Where-Object name -eq 'web').conclusion -ne 'success') { throw 'CI web job did not pass' }
+if (($phase1Jobs | Where-Object name -eq 'database').conclusion -ne 'success') { throw 'CI database job did not pass' }
 ```
 
-The GitHub-hosted database job runs the required Docker-backed Supabase start, clean reset, SQL lint, pgTAP/RLS tests, and cleanup. Never treat that job as skipped, optional, or assumed.
+Record `PHASE_1_PASS` only when all mandatory local non-database gates pass, the exact HEAD is pushed, and database/RLS verification passes locally or in exact-HEAD GitHub Actions. Otherwise record `PHASE_1_BLOCKED` with the exact failed or pending gate.
 
-## Phase 0 status
+## Intentionally deferred
 
-Record `PHASE_0_PASS` only when every mandatory local non-database command passes and the database/RLS gate passes either as `DATABASE_RLS_GATE_PASS_LOCAL` or through a successful GitHub Actions `database` job for the exact final HEAD.
-
-Record `PHASE_0_BLOCKED` when any required local gate fails, or when the database/RLS gate has not passed in either approved environment. `LOCAL_DB_VERIFICATION_UNAVAILABLE` alone is not `PHASE_0_BLOCKED`; it makes exact-final-HEAD GitHub Actions database evidence required.
+Phase 2+ owns foods, recipes, immutable food facts, nutrients, allergens/catalog lineage, unit conversions, prices, portion/cost engines, meal planning, shopping lists, pantry, admin catalog, and any future AI interface. Phase 1 code must not infer or simulate those capabilities.

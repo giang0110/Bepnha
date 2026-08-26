@@ -72,6 +72,12 @@ describe("authenticated app shell", () => {
     ).toBeInTheDocument()
   })
 
+  it("routes an authenticated return visit through the authoritative household summary", async () => {
+    renderRoutes(createAuthPort(session).port, "/")
+
+    expect(await screen.findByRole("heading", { name: "Gia đình của bạn" })).toBeInTheDocument()
+  })
+
   it("unsubscribes from auth changes on unmount", async () => {
     const auth = createAuthPort(session)
     const view = renderRoutes(auth.port, "/onboarding")
