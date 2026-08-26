@@ -27,5 +27,10 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["api", "vite.config.ts"]
+  "include": [
+    "api",
+    "vite.config.ts",
+    "src/infrastructure/supabase/server-auth.ts",
+    "src/infrastructure/supabase/browser-client.ts"
+  ]
 }

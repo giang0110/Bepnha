@@ -8,8 +8,16 @@ import { describe, expect, it } from "vitest"
 import { parseEnvFile, validateClientEnvironment } from "./validate-env.mjs"
 
 const validEnvironment = {
+  SUPABASE_PUBLISHABLE_KEY: "server-public-placeholder",
+  SUPABASE_URL: "https://example.test",
   VITE_SUPABASE_URL: "https://example.test",
   VITE_SUPABASE_PUBLISHABLE_KEY: "local-public-placeholder"
+}
+
+function withoutEnvironmentKey(key: keyof typeof validEnvironment): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(validEnvironment).filter(([entryKey]) => entryKey !== key)
+  )
 }
 
 describe("parseEnvFile", () => {
@@ -27,7 +35,7 @@ describe("parseEnvFile", () => {
 })
 
 describe("validateClientEnvironment", () => {
-  it("accepts both expected non-empty public values when the URL is HTTP(S)", () => {
+  it("accepts all four expected non-empty public values when both URLs are HTTP(S)", () => {
     expect(() => validateClientEnvironment(validEnvironment)).not.toThrow()
     expect(() =>
       validateClientEnvironment({
@@ -38,9 +46,7 @@ describe("validateClientEnvironment", () => {
   })
 
   it("fails a missing URL with a named validation error", () => {
-    expect(() =>
-      validateClientEnvironment({ VITE_SUPABASE_PUBLISHABLE_KEY: "local-public-placeholder" })
-    ).toThrow(
+    expect(() => validateClientEnvironment(withoutEnvironmentKey("VITE_SUPABASE_URL"))).toThrow(
       expect.objectContaining({
         name: "EnvironmentValidationError",
         message: "Missing VITE_SUPABASE_URL"
@@ -55,17 +61,35 @@ describe("validateClientEnvironment", () => {
   })
 
   it("fails a missing publishable key", () => {
-    expect(() => validateClientEnvironment({ VITE_SUPABASE_URL: "https://example.test" })).toThrow(
-      "Missing VITE_SUPABASE_PUBLISHABLE_KEY"
-    )
+    expect(() =>
+      validateClientEnvironment(withoutEnvironmentKey("VITE_SUPABASE_PUBLISHABLE_KEY"))
+    ).toThrow("Missing VITE_SUPABASE_PUBLISHABLE_KEY")
+  })
+
+  it.each([
+    ["SUPABASE_URL", "Missing SUPABASE_URL"],
+    ["SUPABASE_PUBLISHABLE_KEY", "Missing SUPABASE_PUBLISHABLE_KEY"]
+  ])("fails missing server value %s", (key, message) => {
+    expect(() =>
+      validateClientEnvironment(withoutEnvironmentKey(key as keyof typeof validEnvironment))
+    ).toThrow(message)
+  })
+
+  it("rejects a malformed server URL", () => {
+    expect(() =>
+      validateClientEnvironment({ ...validEnvironment, SUPABASE_URL: "file:///tmp/supabase" })
+    ).toThrow("SUPABASE_URL must be an HTTP(S) URL")
   })
 
   it.each([
     "VITE_SUPABASE_SECRET_KEY",
     "VITE_SUPABASE_SERVICE_ROLE_KEY",
     "VITE_PRIVATE_KEY",
-    "vItE_CLIENT_SECRET"
-  ])("rejects suspicious client key name %s", (forbiddenKey) => {
+    "vItE_CLIENT_SECRET",
+    "SUPABASE_SECRET_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SERVER_PRIVATE_KEY"
+  ])("rejects suspicious key name %s", (forbiddenKey) => {
     expect(() =>
       validateClientEnvironment({ ...validEnvironment, [forbiddenKey]: "synthetic-value" })
     ).toThrow(`Forbidden client environment key: ${forbiddenKey}`)

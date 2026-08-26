@@ -43,35 +43,40 @@ export function parseEnvFile(contents) {
 /** @param {Readonly<Record<string, string>>} values */
 export function validateClientEnvironment(values) {
   for (const key of Object.keys(values)) {
-    if (
-      key === "VITE_SUPABASE_SECRET_KEY" ||
-      key === "VITE_SUPABASE_SERVICE_ROLE_KEY" ||
-      key === "VITE_PRIVATE_KEY" ||
-      /^VITE_.*(?:SECRET|PRIVATE|SERVICE_ROLE)/iu.test(key)
-    ) {
+    if (/(?:SECRET|PRIVATE|SERVICE_ROLE)/iu.test(key)) {
       throw new EnvironmentValidationError(`Forbidden client environment key: ${key}`)
     }
   }
 
-  const url = values.VITE_SUPABASE_URL
+  validatePublicEnvironmentPair(values, "SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY")
+  validatePublicEnvironmentPair(values, "VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY")
+}
+
+/**
+ * @param {Readonly<Record<string, string>>} values
+ * @param {string} urlKey
+ * @param {string} publishableKeyName
+ */
+function validatePublicEnvironmentPair(values, urlKey, publishableKeyName) {
+  const url = values[urlKey]
   if (url === undefined || url.trim() === "") {
-    throw new EnvironmentValidationError("Missing VITE_SUPABASE_URL")
+    throw new EnvironmentValidationError(`Missing ${urlKey}`)
   }
 
   let parsedUrl
   try {
     parsedUrl = new URL(url)
   } catch {
-    throw new EnvironmentValidationError("VITE_SUPABASE_URL must be an HTTP(S) URL")
+    throw new EnvironmentValidationError(`${urlKey} must be an HTTP(S) URL`)
   }
 
   if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-    throw new EnvironmentValidationError("VITE_SUPABASE_URL must be an HTTP(S) URL")
+    throw new EnvironmentValidationError(`${urlKey} must be an HTTP(S) URL`)
   }
 
-  const publishableKey = values.VITE_SUPABASE_PUBLISHABLE_KEY
+  const publishableKey = values[publishableKeyName]
   if (publishableKey === undefined || publishableKey.trim() === "") {
-    throw new EnvironmentValidationError("Missing VITE_SUPABASE_PUBLISHABLE_KEY")
+    throw new EnvironmentValidationError(`Missing ${publishableKeyName}`)
   }
 }
 
