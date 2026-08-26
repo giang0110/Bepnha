@@ -73,7 +73,7 @@ insert into public.food_fact_allergen_assessments (
   food_fact_version_id, allergen_id, assessment, provenance
 )
 select
-  '53000000-0000-0000-000000000001', id, 'absent', 'Test assessment'
+  '53000000-0000-0000-0000-000000000001', id, 'absent', 'Test assessment'
 from public.allergens;
 
 insert into public.food_fact_nutrients (

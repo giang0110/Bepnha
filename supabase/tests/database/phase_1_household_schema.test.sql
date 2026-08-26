@@ -38,12 +38,11 @@ select is(
         'weight',
         'diagnosis',
         'health_data',
-        'dietary_notes',
-        'price_region_id'
+        'dietary_notes'
       )
   ),
   0,
-  'Phase 1 stores no prohibited personal, free-text, or Phase 2 fields'
+  'household tables store no prohibited personal or free-text fields'
 );
 
 select is(
