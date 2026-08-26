@@ -89,7 +89,8 @@ function setup() {
     auth: { verify: vi.fn().mockResolvedValue({ userId: "user-1" }) },
     repositoryFor: vi.fn(() => repository),
     hasher: { sha256: vi.fn() },
-    operations: { generate, preview, apply }
+    operations: { generate, preview, apply },
+    calculationDate: () => "2026-08-26"
   })
   return { handlers, generate, preview, apply }
 }
@@ -102,7 +103,6 @@ describe("authoritative planner HTTP handlers", () => {
       request({
         householdId: "20000000-0000-0000-0000-000000000001",
         weekStart: "2026-08-31",
-        calculationDate: "2026-08-26",
         idempotencyKey: "30000000-0000-0000-0000-000000000001"
       }),
       response
@@ -126,7 +126,6 @@ describe("authoritative planner HTTP handlers", () => {
       request({
         householdId: "20000000-0000-0000-0000-000000000001",
         weekStart: "2026-08-31",
-        calculationDate: "2026-08-26",
         idempotencyKey: "30000000-0000-0000-0000-000000000001",
         totalEstimatedCostVnd: 1
       }),
@@ -137,7 +136,6 @@ describe("authoritative planner HTTP handlers", () => {
       request({
         householdId: "bad",
         weekStart: "2026-08-31",
-        calculationDate: "2026-08-26",
         idempotencyKey: "bad"
       }),
       400,
@@ -156,12 +154,12 @@ describe("authoritative planner HTTP handlers", () => {
     const { handlers, preview, apply } = setup()
     const planId = "40000000-0000-0000-0000-000000000001"
     const previewBody = {
+      planId,
       targetDayIndex: 2,
-      expectedPlanVersion: 1,
-      expectedCurrentRevisionId: "50000000-0000-0000-0000-000000000001"
+      expectedPlanVersion: 1
     }
     const previewResponse = responseDouble()
-    await handlers.preview(request(previewBody, { planId }), previewResponse.response)
+    await handlers.preview(request(previewBody), previewResponse.response)
     expect(preview).toHaveBeenCalledOnce()
     expect(apply).not.toHaveBeenCalled()
     expect(previewResponse.state.body).toMatchObject({
@@ -171,14 +169,12 @@ describe("authoritative planner HTTP handlers", () => {
 
     const applyResponse = responseDouble()
     await handlers.apply(
-      request(
-        {
-          ...previewBody,
-          previewFingerprint: "d".repeat(64),
-          idempotencyKey: "30000000-0000-0000-0000-000000000002"
-        },
-        { planId }
-      ),
+      request({
+        ...previewBody,
+        expectedCurrentRevisionId: "50000000-0000-0000-0000-000000000001",
+        previewCalculationFingerprint: "d".repeat(64),
+        idempotencyKey: "30000000-0000-0000-0000-000000000002"
+      }),
       applyResponse.response
     )
     expect(apply).toHaveBeenCalledOnce()
@@ -191,14 +187,14 @@ describe("authoritative planner HTTP handlers", () => {
     for (const [handler, body] of [
       [
         (req: VercelRequest, res: VercelResponse) => handlers.preview(req, res),
-        { targetDayIndex: 7, expectedPlanVersion: 1, expectedCurrentRevisionId: planId }
+        { planId, targetDayIndex: 7, expectedPlanVersion: 1 }
       ],
       [
         (req: VercelRequest, res: VercelResponse) => handlers.preview(req, res),
         {
           targetDayIndex: 2,
+          planId,
           expectedPlanVersion: 1,
-          expectedCurrentRevisionId: planId,
           score: 999
         }
       ],
@@ -206,15 +202,16 @@ describe("authoritative planner HTTP handlers", () => {
         (req: VercelRequest, res: VercelResponse) => handlers.apply(req, res),
         {
           targetDayIndex: 2,
+          planId,
           expectedPlanVersion: 1,
           expectedCurrentRevisionId: planId,
-          previewFingerprint: "not-a-hash",
+          previewCalculationFingerprint: "not-a-hash",
           idempotencyKey: planId
         }
       ]
     ] as const) {
       const result = responseDouble()
-      await handler(request(body, { planId }), result.response)
+      await handler(request(body), result.response)
       expect(result.state.status).toHaveBeenCalledWith(400)
     }
     const oversized = responseDouble()
@@ -232,7 +229,6 @@ describe("authoritative planner HTTP handlers", () => {
       request({
         householdId: "20000000-0000-0000-0000-000000000001",
         weekStart: "2026-08-31",
-        calculationDate: "2026-08-26",
         idempotencyKey: "30000000-0000-0000-0000-000000000001"
       }),
       unauthorized.response
@@ -246,7 +242,6 @@ describe("authoritative planner HTTP handlers", () => {
       request({
         householdId: "20000000-0000-0000-0000-000000000001",
         weekStart: "2026-08-31",
-        calculationDate: "2026-08-26",
         idempotencyKey: "30000000-0000-0000-0000-000000000001"
       }),
       unavailable.response

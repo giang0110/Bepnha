@@ -255,7 +255,7 @@ export interface ReplacementCommand {
   readonly planId: string
   readonly targetDayIndex: number
   readonly expectedPlanVersion: number
-  readonly expectedCurrentRevisionId: string
+  readonly expectedCurrentRevisionId?: string
   readonly expectedHouseholdSetupVersion?: number
 }
 
@@ -271,7 +271,8 @@ async function replacementPreview(
   if (!loaded.ok) return loaded
   if (
     loaded.value.planVersion !== command.expectedPlanVersion ||
-    loaded.value.currentRevisionId !== command.expectedCurrentRevisionId
+    (command.expectedCurrentRevisionId !== undefined &&
+      loaded.value.currentRevisionId !== command.expectedCurrentRevisionId)
   ) {
     return fatal("STALE_PLAN_VERSION")
   }

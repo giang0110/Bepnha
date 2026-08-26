@@ -22,6 +22,7 @@ interface PlannerHttpDependencies {
   readonly repositoryFor: (actorUserId: string, accessToken: string) => PlannerRepository
   readonly hasher: ContentHasher
   readonly operations?: PlannerOperations
+  readonly calculationDate?: () => string
 }
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu
@@ -52,18 +53,13 @@ function optionalExactKeys(
 }
 
 function generationCommand(body: unknown) {
-  if (
-    !isRecord(body) ||
-    !exactKeys(body, ["householdId", "weekStart", "calculationDate", "idempotencyKey"])
-  )
+  if (!isRecord(body) || !exactKeys(body, ["householdId", "weekStart", "idempotencyKey"]))
     return null
   if (
     typeof body.householdId !== "string" ||
     !UUID.test(body.householdId) ||
     typeof body.weekStart !== "string" ||
     !DATE.test(body.weekStart) ||
-    typeof body.calculationDate !== "string" ||
-    !DATE.test(body.calculationDate) ||
     typeof body.idempotencyKey !== "string" ||
     !UUID.test(body.idempotencyKey)
   )
@@ -71,18 +67,25 @@ function generationCommand(body: unknown) {
   return {
     householdId: body.householdId,
     weekStart: body.weekStart,
-    calculationDate: body.calculationDate,
     idempotencyKey: body.idempotencyKey
   }
 }
 
 function replacementCommand(body: unknown, apply: boolean) {
-  const required = ["targetDayIndex", "expectedPlanVersion", "expectedCurrentRevisionId"]
-  const optional = apply
-    ? ["expectedHouseholdSetupVersion", "previewFingerprint", "idempotencyKey"]
-    : ["expectedHouseholdSetupVersion"]
-  if (!isRecord(body) || !optionalExactKeys(body, required, optional)) return null
+  const required = apply
+    ? [
+        "planId",
+        "targetDayIndex",
+        "expectedPlanVersion",
+        "expectedCurrentRevisionId",
+        "previewCalculationFingerprint",
+        "idempotencyKey"
+      ]
+    : ["planId", "targetDayIndex", "expectedPlanVersion"]
+  if (!isRecord(body) || !optionalExactKeys(body, required, [])) return null
   if (
+    typeof body.planId !== "string" ||
+    !UUID.test(body.planId) ||
     typeof body.targetDayIndex !== "number" ||
     !Number.isSafeInteger(body.targetDayIndex) ||
     body.targetDayIndex < 0 ||
@@ -90,32 +93,27 @@ function replacementCommand(body: unknown, apply: boolean) {
     typeof body.expectedPlanVersion !== "number" ||
     !Number.isSafeInteger(body.expectedPlanVersion) ||
     body.expectedPlanVersion < 1 ||
-    typeof body.expectedCurrentRevisionId !== "string" ||
-    !UUID.test(body.expectedCurrentRevisionId) ||
-    (body.expectedHouseholdSetupVersion !== undefined &&
-      (typeof body.expectedHouseholdSetupVersion !== "number" ||
-        !Number.isSafeInteger(body.expectedHouseholdSetupVersion) ||
-        body.expectedHouseholdSetupVersion < 1))
+    (apply &&
+      (typeof body.expectedCurrentRevisionId !== "string" ||
+        !UUID.test(body.expectedCurrentRevisionId)))
   )
     return null
   if (
     apply &&
-    (typeof body.previewFingerprint !== "string" ||
-      !SHA256.test(body.previewFingerprint) ||
+    (typeof body.previewCalculationFingerprint !== "string" ||
+      !SHA256.test(body.previewCalculationFingerprint) ||
       typeof body.idempotencyKey !== "string" ||
       !UUID.test(body.idempotencyKey))
   )
     return null
   return {
+    planId: body.planId,
     targetDayIndex: body.targetDayIndex,
     expectedPlanVersion: body.expectedPlanVersion,
-    expectedCurrentRevisionId: body.expectedCurrentRevisionId,
-    ...(typeof body.expectedHouseholdSetupVersion === "number"
-      ? { expectedHouseholdSetupVersion: body.expectedHouseholdSetupVersion }
-      : {}),
     ...(apply
       ? {
-          previewFingerprint: body.previewFingerprint as string,
+          expectedCurrentRevisionId: body.expectedCurrentRevisionId as string,
+          previewFingerprint: body.previewCalculationFingerprint as string,
           idempotencyKey: body.idempotencyKey as string
         }
       : {})
@@ -128,11 +126,6 @@ function bodyIsTooLarge(body: unknown): boolean {
   } catch {
     return true
   }
-}
-
-function planId(request: VercelRequest): string | null {
-  const value = request.query.planId
-  return typeof value === "string" && UUID.test(value) ? value : null
 }
 
 function publicItems(value: unknown): unknown[] {
@@ -264,6 +257,18 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
     preview: previewMealReplacementUseCase,
     apply: applyMealReplacement
   }
+  const calculationDate =
+    dependencies.calculationDate ??
+    (() => {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(new Date())
+      const value = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+      return `${value.year}-${value.month}-${value.day}`
+    })
   return {
     async generate(request: VercelRequest, response: VercelResponse) {
       if (!preflight(request, response)) return
@@ -275,7 +280,7 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
         const result = await operations.generate(
           dependencies.repositoryFor(actor.userId, actor.accessToken),
           dependencies.hasher,
-          { actorUserId: actor.userId, ...command }
+          { actorUserId: actor.userId, calculationDate: calculationDate(), ...command }
         )
         sendResult(response, result, "generate")
       } catch {
@@ -286,15 +291,13 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
       if (!preflight(request, response)) return
       const actor = await identity(request, response, dependencies.auth)
       if (actor === null) return
-      const id = planId(request)
       const command = replacementCommand(request.body, false)
-      if (id === null || command === null)
-        return void response.status(400).json({ error: "VALIDATION_FAILED" })
+      if (command === null) return void response.status(400).json({ error: "VALIDATION_FAILED" })
       try {
         const result = await operations.preview(
           dependencies.repositoryFor(actor.userId, actor.accessToken),
           dependencies.hasher,
-          { actorUserId: actor.userId, planId: id, ...command }
+          { actorUserId: actor.userId, ...command }
         )
         sendResult(response, result as Awaited<ReturnType<typeof generateMealPlan>>, "preview")
       } catch {
@@ -305,10 +308,8 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
       if (!preflight(request, response)) return
       const actor = await identity(request, response, dependencies.auth)
       if (actor === null) return
-      const id = planId(request)
       const command = replacementCommand(request.body, true)
-      if (id === null || command === null)
-        return void response.status(400).json({ error: "VALIDATION_FAILED" })
+      if (command === null) return void response.status(400).json({ error: "VALIDATION_FAILED" })
       if (
         typeof command.previewFingerprint !== "string" ||
         typeof command.idempotencyKey !== "string"
@@ -321,7 +322,6 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
           dependencies.hasher,
           {
             actorUserId: actor.userId,
-            planId: id,
             ...command,
             previewFingerprint: command.previewFingerprint,
             idempotencyKey: command.idempotencyKey
