@@ -8,6 +8,11 @@ import { promisify } from "node:util"
 const execFileAsync = promisify(execFile)
 const outputPath = resolve("src/infrastructure/supabase/database.types.ts")
 
+/** @param {string} contents */
+function normalizeTrailingNewline(contents) {
+  return `${contents.replace(/(?:\r?\n)+$/u, "")}\n`
+}
+
 /** @param {readonly string[]} arguments_ */
 async function runSupabase(arguments_) {
   const executable = process.platform === "win32" ? "npx.cmd" : "npx"
@@ -32,15 +37,9 @@ export async function generateDatabaseTypes({
   runCommand = runSupabase,
   writeOutput = (contents) => writeFile(outputPath, contents, "utf8")
 }) {
-  const generated = await runCommand([
-    "supabase",
-    "gen",
-    "types",
-    "typescript",
-    "--local",
-    "--schema",
-    "public"
-  ])
+  const generated = normalizeTrailingNewline(
+    await runCommand(["supabase", "gen", "types", "typescript", "--local", "--schema", "public"])
+  )
 
   if (mode === "generate") {
     await writeOutput(generated)

@@ -6,7 +6,7 @@ import { generateDatabaseTypes } from "./generate-database-types.mjs"
 
 describe("generateDatabaseTypes", () => {
   it("uses only the local public schema command and writes generated output", async () => {
-    const runCommand = vi.fn(() => Promise.resolve("export type Database = {}\n"))
+    const runCommand = vi.fn(() => Promise.resolve("export type Database = {}\n\n"))
     const writeOutput = vi.fn(() => Promise.resolve())
 
     await generateDatabaseTypes({ mode: "generate", runCommand, writeOutput })
@@ -22,6 +22,16 @@ describe("generateDatabaseTypes", () => {
     ])
     expect(writeOutput).toHaveBeenCalledWith("export type Database = {}\n")
     expect(JSON.stringify(runCommand.mock.calls)).not.toMatch(/linked|project-id|db-url/i)
+  })
+
+  it("compares a normalized single trailing newline", async () => {
+    await expect(
+      generateDatabaseTypes({
+        mode: "check",
+        readOutput: vi.fn(() => Promise.resolve("generated\n")),
+        runCommand: vi.fn(() => Promise.resolve("generated\n\n"))
+      })
+    ).resolves.toBeUndefined()
   })
 
   it("passes when committed database types exactly match local generation", async () => {
