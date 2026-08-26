@@ -85,8 +85,8 @@ Run inherited Phase 1 non-database verification, push that integration commit, a
 2. Draft aggregate fields/children change only through allowlisted server commands and optimistic `revision`.
 3. Publication validates the complete aggregate, computes/stores canonical hash, records `published_at`, moves the current pointer, and appends an audit event atomically.
 4. Published versions and calculation-bearing children reject update/delete/late insert even through service-role SQL/Data API. Corrections create the next positive version.
-5. Current pointers move only inside matching restricted publication RPCs. Moving a pointer never rewrites older references.
-6. Retirement removes stable identity/book from new discovery; it never deletes historical IDs/versions.
+5. Current pointers move only inside matching restricted publication/lifecycle RPCs. Moving or clearing a pointer never rewrites older references.
+6. Retirement removes a stable identity/book from default discovery only; it never deletes historical IDs/versions or revokes exact-ID calculation reads of a previously published price book.
 7. Food `code`, `base_dimension`, and `base_unit_id` lock when its first fact exists. Recipe `code` locks when its first version exists. Display labels may be corrected, while later snapshots retain copied labels.
 
 There is no generic unpublish or hard-delete command.
@@ -166,9 +166,11 @@ The pure evaluator returns `eligible`, `excluded`, `unknown_lineage`, or `unsupp
 
 `recipe_versions` has positive version/revision/yield, positive active time, elapsed time between active and 180, publication status/hash/creator/timestamps, and a composite current-version pointer from stable recipe.
 
-Each ingredient references stable `food_id`, exact `food_fact_version_id`, positive decimal quantity, exact unit, bounded optional Vietnamese preparation label, and positive order. Enforce composite `(food_id,food_fact_version_id)`, unique food and order per version, and published fact before recipe publication. Every structured ingredient is authoritative; optional garnish may appear only in steps.
+Each ingredient references stable `food_id`, exact `food_fact_version_id`, positive decimal quantity, exact unit, bounded optional Vietnamese preparation label, and positive order. Enforce composite `(food_id,food_fact_version_id)`, unique food and order per version, and published fact before recipe publication. Every ingredient that may be consumed—including garnish, seasoning, cooking oil, sauce, and finishing ingredients—must be a `recipe_ingredients` row and therefore participates in allergen, nutrition, conversion, and cost lineage.
 
-Steps have positive contiguous order, bounded non-empty Vietnamese instruction, and nullable timer between zero and elapsed time. Publication requires at least one ingredient/step.
+Recipe steps cannot contain arbitrary instruction/ingredient text. Each step stores a code-versioned `action_code`, positive contiguous order, nullable timer between zero and elapsed time, and zero or more references through `recipe_step_ingredients` to structured ingredients on the same recipe version. Ingredient-consuming actions (`rinse`, `cut`, `mix`, `marinate`, `cook`, `season`, `garnish`) require at least one reference; action-only operations (`preheat`, `rest`, `serve`) may have none. A pure renderer uses fixed Vietnamese templates plus referenced structured ingredient labels/preparation notes. Steps describe actions only and cannot introduce an edible noun/value outside pinned ingredient rows.
+
+Publication requires at least one ingredient and one step; contiguous orders; every step reference bound by composite FK to the same version; action/reference cardinality valid; and every consumed ingredient present in `recipe_ingredients`. The admin command schema contains no free-text step field. Tests must prove an unknown action, raw step instruction field, unpinned ingredient reference, or reference to another recipe version is rejected before publication. No AI, keyword scan, or human-only semantic check is an authoritative safety gate.
 
 Add controlled immutable `recipe_tags` and versioned joins. Seed inert metadata only: cooking styles `style_boil`, `style_braise`, `style_fry`, `style_grill`, `style_steam`, `style_stir_fry`; protein hints `protein_pork`, `protein_beef`, `protein_poultry`, `protein_fish`, `protein_seafood`, `protein_plant`; dish roles `role_staple`, `role_main`, `role_vegetable`, `role_soup`, `role_side`. Tags cannot override ingredient-derived safety. Meal options, protein caps, and scoring wait for Phase 3.
 
@@ -197,7 +199,7 @@ No artificial minimum authoritative quantity exists. Display-only minimum is one
 
 Seed immutable launch region `vn_baseline`. Add/backfill non-null `households.price_region_id` with this default and prevent client changes away from it during MVP. There is no onboarding/UI change.
 
-Price books are immutable versions with effective range, status/hash/revision/current-region pointer. Each `food_prices` row carries exact book, stable food, fact provenance, package quantity/unit, normalized stable-base quantity/unit, positive safe-integer VND price, positive purchase increment, non-future observation date, and source. Unique one price per food/book. Publication recomputes/validates normalization from the pinned fact. A price fact may differ from the recipe fact because normalized price provenance and both hashes remain pinned to the stable food.
+Price books separate immutable publication from mutable discovery: `publication_status` is only `draft|published`, while nullable `retired_at` controls discovery. A published book never becomes unpublished. Published calculation-bearing fields and `food_prices` children never change; `retired_at` and the region current pointer are excluded from content hash/fingerprint. `price_regions.current_price_book_id` is nullable, may reference only a published non-retired book in the same region, and is used only for default selection. Retiring the current book clears that pointer atomically unless another publish has already moved it. A retired published book remains immutable and readable by exact ID. Each price row carries exact book, stable food, fact provenance, package quantity/unit, normalized stable-base quantity/unit, positive safe-integer VND price, positive purchase increment, non-future observation date, and source. Unique one price per food/book. Publication recomputes/validates normalization from the pinned fact. A price fact may differ from the recipe fact because normalized price provenance and both hashes remain pinned to the stable food.
 
 ```typescript
 export const PRICE_FRESHNESS_CONFIG_V1 = {
@@ -207,15 +209,33 @@ export const PRICE_FRESHNESS_CONFIG_V1 = {
 } as const
 ```
 
-With explicit ISO calculation date and calendar days: future is invalid; age 0–30 is current; 31–90 is stale usable with warning/date; >90 or missing is unusable. Domain never reads wall clock. Threshold changes create a new code version.
+With explicit ISO calculation date and calendar days: future is unusable; age 0–30 inclusive is current usable; 31–90 inclusive is stale but usable and returns a successful calculation plus explicit `STALE_PRICE` warning/date; >90 or missing is unusable/fatal. Domain never reads wall clock. Threshold changes create a new code version.
 
-Consumption cost aggregates scaled base quantity by stable food, then calculates `requiredBaseQuantity / packageBaseQuantity × packagePriceVnd`. Return raw contributions, warnings, and total rounded half-up once to VND. Wrong/missing/duplicate/future/too-old prices fail; none contribute zero. Ignore `purchase_increment`, ceiling, weekly consolidation, packages, leftovers, and basket cost until Phase 4.
+Freshness uses separate success/warning and fatal result types:
+
+```typescript
+type PriceFreshnessResult =
+  | { ok: true; freshness: "current"; warnings: readonly [] }
+  | {
+      ok: true
+      freshness: "stale_usable"
+      warnings: readonly [{ code: "STALE_PRICE"; observedAt: string; ageDays: number }]
+    }
+  | {
+      ok: false
+      error: { code: "MISSING_PRICE" | "PRICE_TOO_OLD" | "FUTURE_PRICE" }
+    }
+```
+
+`STALE_PRICE` is never a fatal domain error and never changes `ok: true` to failure.
+
+Consumption cost aggregates scaled base quantity by stable food, then calculates `requiredBaseQuantity / packageBaseQuantity × packagePriceVnd`. Return raw contributions, non-fatal warnings, and total rounded half-up once to VND. A stale-but-usable input returns the complete successful cost with `STALE_PRICE`; wrong/missing/duplicate/future/too-old inputs return fatal typed failure and none contribute zero. Ignore `purchase_increment`, ceiling, weekly consolidation, packages, leftovers, and basket cost until Phase 4.
 
 ### 1.9 Reproducibility and fingerprint input
 
-`RecipeCalculationInputV1` includes calculation version, full portion/freshness configs, canonical anonymous member groups, recipe identity/version/hash/yield/time, ordered ingredients, stable food/base identity/label, exact fact ID/version/hash, edible fraction, conversion, six nutrients, explicit assessments, category ancestry/tags, selected region/book/version/hash/price rows, and explicit date.
+`RecipeCalculationInputV1` includes calculation version, full portion/freshness configs, canonical anonymous member groups, recipe identity/version/hash/yield/time, structured action steps and pinned step-ingredient references, ordered ingredients, stable food/base identity/label, exact fact ID/version/hash, edible fraction, conversion, six nutrients, explicit assessments, category ancestry/tags, selected region/book/version/hash/price rows, and explicit date. It deliberately excludes the region's current-book pointer: that pointer selected a default, but the exact chosen book ID/hash is the reproducible calculation input.
 
-Domain normalizes this object to canonical bytes; application hashing returns SHA-256. Future snapshots copy this input/output rather than re-reading current pointers. Phase 2 creates no plan/snapshot tables.
+Domain normalizes this object to canonical bytes; application hashing returns SHA-256. Future snapshots copy this input/output and original calculation date rather than re-reading current pointers or using today's date. Historical replay reads the exact published/retired price-book ID and evaluates freshness against that captured date, so later pointer/retirement changes do not alter the original result. Phase 2 creates no plan/snapshot tables.
 
 ---
 
@@ -242,9 +262,10 @@ Create `supabase/migrations/20260826010000_phase_2_food_recipe.sql` with:
 | `recipes` | UUID PK, unique code, status/revision/current-version composite pointer, stable code lock |
 | `recipe_versions` | UUID PK, recipe/version uniqueness and `(recipe_id,id)`, yield/time/revision/status/hash; one draft/recipe partial index |
 | `recipe_ingredients` | UUID PK, recipe, composite food/fact, quantity/unit, unique food/order, note; immutable with published parent |
-| `recipe_steps` | UUID PK, recipe, positive unique order, instruction/timer; immutable with published parent |
+| `recipe_steps` | UUID PK, recipe version, positive unique order, controlled `action_code`, nullable timer; no arbitrary instruction/ingredient text; immutable with published parent |
+| `recipe_step_ingredients` | Step/version/ingredient composite FKs prove every referenced ingredient belongs to the same recipe version; unique reference/order; immutable with published parent |
 | `recipe_tags`, `recipe_version_tags` | stable typed metadata vocabulary and versioned join; immutable semantics/published join |
-| `price_books` | UUID PK, region/version uniqueness and `(region_id,id)`, effective range/status/hash/revision; one draft/region partial index |
+| `price_books` | UUID PK, region/version uniqueness and `(region_id,id)`, effective range, `publication_status draft|published`, nullable discovery-only `retired_at`, hash/revision; one draft/region partial index; published calculation fields remain immutable after retirement |
 | `food_prices` | UUID PK, book, composite food/fact, package and normalized quantities/units, VND/increment/date/source, unique food/book; immutable with published parent |
 | `admin_audit_log` | UUID PK, admin/trusted actor check, bounded action/entity/summaries, append-only, entity/time index |
 | `households` | add/backfill non-null launch `price_region_id`; FK/trigger preserve default without Phase 1 UI change |
@@ -260,9 +281,10 @@ Private functions are `security definer set search_path = ''`, fully qualify obj
 - category acyclicity and complete hard-rule mapping;
 - composite fact/current-pointer ownership;
 - draft-only child mutation;
-- published fact/recipe/book aggregate immutability, including service-role attempts;
+- published fact/recipe/book calculation aggregate immutability, including service-role attempts; price-book retirement may alter discovery state only;
+- structured recipe-step action/reference cardinality and same-version ingredient ownership, with no free-text edible ingredient channel;
 - state/hash/timestamp consistency, conversion math, price normalization, and append-only audit;
-- current pointer/status/hash/audit columns have no direct client or service-role write grant; only the matching restricted definer RPC can change them, while pointer ownership/state triggers still validate its result.
+- current pointer/status/hash/audit columns have no direct client or service-role write grant; only the matching restricted publication/lifecycle definer RPC can change them, while pointer ownership/state triggers still validate its result.
 
 Restricted `security definer`, empty-search-path RPCs are owned by the migration owner, revoked from `public`, `anon`, `authenticated`, and executable only by `service_role`:
 
@@ -275,21 +297,22 @@ retire_catalog_identity(text, uuid, uuid, integer)
 
 Each rechecks that `p_actor_user_id` exists with signed Auth app metadata role `admin`, locks the aggregate, checks expected revision/completeness, changes protected status/current-pointer columns, and appends one audit row atomically. Retirement has a closed entity-type allowlist. Draft CRUD uses explicit server repository fields and revision predicates; DB checks/triggers remain authoritative. No RPC accepts arbitrary tables, SQL, roles, actor ownership, hash payload objects, or client audit summaries.
 
-Trusted application reloads under lock-compatible ordering, normalizes, hashes, then passes only the final 64-hex hash. Browser roles cannot write/call RPCs, and published aggregates cannot change afterward.
+Trusted application reloads under lock-compatible ordering, normalizes, hashes, then passes only the final 64-hex hash. Browser roles cannot write catalog data or call publication/lifecycle RPCs. Published calculation content cannot change afterward; price-book retirement changes discovery state only.
 
-Because PostgREST can otherwise decode PostgreSQL `numeric` as JavaScript numbers, add two deterministic read RPCs that cast every calculation-bearing numeric to normalized text and build arrays in explicit order:
+Because PostgREST can otherwise decode PostgreSQL `numeric` as JavaScript numbers, add deterministic security-invoker read RPCs that cast every calculation-bearing numeric to normalized text and build arrays in explicit order:
 
-- `get_published_recipe_calculation_input(uuid, uuid) returns jsonb` is `security invoker`, granted to `authenticated`, and exposes only an RLS-visible published recipe plus the named published price book;
+- `get_current_price_book(uuid) returns jsonb` is granted to `authenticated`, follows the named region's current pointer, and returns only a current non-retired published book for discovery/default selection;
+- `get_published_recipe_calculation_input(uuid, uuid) returns jsonb` is `security invoker`, granted to `authenticated`, and exposes an RLS-visible published recipe plus the named exact-ID price book when that book was published and is now either current/non-retired or retired historical; it never requires the book to equal `price_regions.current_price_book_id`;
 - `get_catalog_aggregate_for_publication(text, uuid) returns jsonb` is service-role-only with a closed aggregate-type allowlist and returns the draft aggregate used for validation/hash.
 
-Both have empty search paths, reject missing/duplicate/unpublished relationships, and perform no calculation or current-pointer substitution. Authoritative domain/adapters use these RPC payloads, never raw numeric table JSON. Direct table `SELECT` remains only a published reference/display contract.
+All three have empty search paths, reject missing/duplicate/unpublished relationships as applicable, and perform no calculation or current-pointer substitution beyond the discovery RPC's explicit pointer lookup. The published calculation RPC returns the exact book/price rows independent of discovery pointer and leaves freshness classification to the domain using the explicit calculation date. Authoritative domain/adapters use these RPC payloads, never raw numeric table JSON. Direct table `SELECT` remains only a published reference/display contract.
 
 ### 2.3 Grants and RLS
 
 - Enable RLS on every public Phase 2 table and `revoke all` from `anon, authenticated` first.
 - `anon` receives no catalog access.
-- `authenticated` receives `SELECT` only. Policies expose active published stable foods/recipes and published children, launch region/current published price book/prices, and reference/mapping vocabularies required to interpret them.
-- Child policies require the published parent/stable identity. Drafts, retired discovery rows, audit rows, and unpublished children return no rows.
+- `authenticated` receives `SELECT` only. Price-book/price RLS allows rows whose book has ever reached published state, including retired historical books, so exact-ID calculation/replay is not coupled to current discovery. A separate security-invoker discovery function/view follows `price_regions.current_price_book_id` and returns only the current non-retired book; RLS itself does not attempt to infer whether a SQL query is “discovery” or “exact ID.”
+- Child policies require a published parent/stable identity. Draft/unpublished books, draft recipe/fact data, admin audit rows, and retired stable food/recipe identities are absent from normal discovery. A retired previously published price book is absent only from the current-book discovery function/view and remains readable by exact ID through table RLS and `get_published_recipe_calculation_input`; retirement never hides historical prices.
 - Even authenticated users with admin app metadata get no catalog `INSERT/UPDATE/DELETE` or publication execute grant. An admin token alone cannot bypass Data API protections.
 - `service_role` exists only in server infrastructure. Revoke its broad Phase 2 table privileges, then grant only required reads, draft inserts, draft-mutable child/parent columns, and execution of closed publication/read functions. It receives no direct grant for current pointers, publication status/hash/timestamps, retirement, or audit mutation. Its RLS bypass does not bypass grants, constraints, or triggers. Server verifies user with public auth client before using the secret client.
 - Existing Phase 1 ownership policies/grants remain unchanged except database-managed launch region default. Clients cannot choose arbitrary regions in Phase 2.
@@ -318,12 +341,12 @@ Verify Bearer token with `auth.getUser`, derive user ID, and accept only signed 
 - `src/domain/shared/decimal.ts`, `canonical-json.ts`
 - `src/domain/catalog/catalog.ts`, `normalize-catalog.ts`, `hard-rule-mapping.ts`, `evaluate-hard-rules.ts`
 - `src/domain/portion/portion-config.ts`, `calculate-adult-equivalent.ts`
-- `src/domain/recipe/recipe.ts`, `scale-recipe.ts`
+- `src/domain/recipe/recipe.ts`, `render-recipe-step.ts`, `scale-recipe.ts`
 - `src/domain/nutrition/calculate-recipe-nutrition.ts`
 - `src/domain/pricing/pricing.ts`, `classify-price-freshness.ts`, `calculate-recipe-consumption-cost.ts`
 - `src/domain/calculation/recipe-calculation-input.ts`
 
-Expected failures are discriminated results, not UI strings. Stable codes include `INVALID_DECIMAL`, `INVALID_PORTION_CONFIG`, `UNSUPPORTED_MEMBER_BAND`, `INVALID_RECIPE_YIELD`, `MISSING_UNIT_CONVERSION`, `DIMENSION_MISMATCH`, `UNKNOWN_NUTRIENT`, `INCOMPLETE_NUTRITION`, `UNKNOWN_ALLERGEN_LINEAGE`, `UNSUPPORTED_HARD_RULE`, `MISSING_PRICE`, `STALE_PRICE`, `PRICE_TOO_OLD`, `FUTURE_PRICE`, `PRICE_FOOD_MISMATCH`, and `DUPLICATE_PRICE`.
+Expected failures are discriminated results, not UI strings. Fatal codes include `INVALID_DECIMAL`, `INVALID_PORTION_CONFIG`, `UNSUPPORTED_MEMBER_BAND`, `INVALID_RECIPE_YIELD`, `MISSING_UNIT_CONVERSION`, `DIMENSION_MISMATCH`, `UNKNOWN_NUTRIENT`, `INCOMPLETE_NUTRITION`, `UNKNOWN_ALLERGEN_LINEAGE`, `UNSUPPORTED_HARD_RULE`, `MISSING_PRICE`, `PRICE_TOO_OLD`, `FUTURE_PRICE`, `PRICE_FOOD_MISMATCH`, and `DUPLICATE_PRICE`. Successful results carry a separate warning array; `STALE_PRICE` exists only as a warning code on `ok: true` price/cost results.
 
 ### 3.2 Application ports/use cases
 
@@ -408,10 +431,11 @@ No commit. Without Docker continue with `DATABASE_RLS_GATE_PENDING_CI`; do not c
 
 **TDD:** Yes.
 
-**Expected files:** Create `src/domain/catalog/catalog.ts`, `src/domain/recipe/recipe.ts`, `src/domain/portion/portion-config.ts`, `calculate-adult-equivalent.ts` and test, `src/domain/recipe/scale-recipe.ts` and test.
+**Expected files:** Create `src/domain/catalog/catalog.ts`, `src/domain/recipe/recipe.ts`, `render-recipe-step.ts` and test, `src/domain/portion/portion-config.ts`, `calculate-adult-equivalent.ts` and test, `src/domain/recipe/scale-recipe.ts` and test.
 
 - [ ] RED-test every coefficient and golden case: two adults + child `4_6` + elderly = `3.4`; four-serving scale = `0.85`; `500 g` becomes `425 g`.
 - [ ] RED-test group reorder determinism, mass/volume/count and explicit cross-dimension conversion, missing conversion, dimension mismatch, invalid yield, duplicate/unsupported bands, total outside 1–20, and positive below display quantum.
+- [ ] RED-test structured step rendering from action code and same-version ingredient IDs, ingredient-required versus action-only codes, deterministic Vietnamese template output, unknown action/reference rejection, and request decoding that rejects every free-text instruction/ingredient field.
 - [ ] Implement frozen config, canonical order, raw/base/gross scaling, and separate display projection. Do not ceil count/packages.
 - [ ] Verify and commit:
 
@@ -459,9 +483,9 @@ No commit. Without Docker continue with `DATABASE_RLS_GATE_PENDING_CI`; do not c
 
 **Expected files:** Create `src/domain/pricing/pricing.ts`, `classify-price-freshness.ts` and test, `calculate-recipe-consumption-cost.ts` and test, `src/domain/calculation/recipe-calculation-input.ts` and test.
 
-- [ ] RED-test ages `-1`, `0`, `30`, `31`, `90`, `91`; future/too-old/missing unusable and 31–90 warning stable.
-- [ ] RED-test proportional cost, stable-food matching across different fact versions, wrong food/base unit, duplicate/missing price, stale warning, sum-then-half-up VND, and reordered input equivalence.
-- [ ] RED-test canonical input includes both configs, all exact IDs/hashes/conversions/nutrients/assessments/prices/date, and changes bytes for any calculation-bearing change.
+- [ ] RED-test ages `-1`, `0`, `30`, `31`, `90`, `91`; current/stale both return `ok: true`, only stale contains `STALE_PRICE`, and future/too-old/missing return `ok: false` fatal codes. Add a type-level assertion that `STALE_PRICE` cannot inhabit the fatal error union.
+- [ ] RED-test proportional cost, stable-food matching across different fact versions, wrong food/base unit, duplicate/missing price, successful stale cost with warning, sum-then-half-up VND, and reordered input equivalence.
+- [ ] RED-test canonical input includes both configs, all exact IDs/hashes/conversions/nutrients/assessments/prices/date, excludes the mutable current-book pointer, and changes bytes for any calculation-bearing change.
 - [ ] Implement consumption cost only. Assert `purchase_increment` does not affect it and no ceiling/basket/week/budget output exists.
 - [ ] Verify and commit:
 
@@ -485,9 +509,9 @@ No commit. Without Docker continue with `DATABASE_RLS_GATE_PENDING_CI`; do not c
 **Expected files:** Create `supabase/migrations/20260826010000_phase_2_food_recipe.sql`, `supabase/tests/database/phase_2_catalog_schema.test.sql`, `phase_2_catalog_integrity.test.sql`, and `phase_2_catalog_rls.test.sql`.
 
 - [ ] Write pgTAP first for tables, enums/checks/unique/index/composite FKs, pointer ownership, canonical vocabulary/mappings, household region backfill, RLS, exact authenticated/service-role table and column grants, definer owner/search-path safety, publication/read RPC execute restrictions, and numeric-to-text ordered read payloads.
-- [ ] Test rejection of mismatched food/fact, pointer, category cycle, dimensions/factors, non-contiguous children, missing nutrients/allergen/conversion, future price, wrong package normalization, and incomplete recipes.
-- [ ] Test atomic immutability: no role/trusted context updates/deletes published aggregate or mutates children; failed multi-row statements persist nothing; new draft version corrects while old ID/hash remains unchanged.
-- [ ] Cross-role test: anon sees nothing; A/B read identical published data but no draft/audit; ordinary and app-metadata-admin authenticated roles cannot write/call publication; service RPC is restricted.
+- [ ] Test rejection of mismatched food/fact, pointer, category cycle, dimensions/factors, non-contiguous children, missing nutrients/allergen/conversion, future price, wrong package normalization, and incomplete recipes. Recipe publication must also reject arbitrary step text fields, unknown actions, ingredient-consuming steps without structured references, missing ingredient IDs, and cross-version step references; a valid action-only step and a valid pinned ingredient action must publish.
+- [ ] Test atomic immutability: no role/trusted context updates/deletes published calculation fields or children; failed multi-row statements persist nothing; new draft version corrects while old ID/hash remains unchanged. For price books, only restricted `retired_at`/current-pointer discovery transitions are allowed, they do not change content hash/prices, retiring current clears or replaces discovery atomically, and exact-ID reads remain valid.
+- [ ] Cross-role test: anon sees nothing; A/B read identical published data but no draft/audit; ordinary and app-metadata-admin authenticated roles cannot write/call publication; service RPC is restricted. After publishing book V1, publishing/moving current to V2, and retiring V1 from discovery, both users can still read immutable V1/prices by exact ID while `get_current_price_book` returns only V2; draft V3 is invisible and cannot be loaded by the calculation RPC.
 - [ ] Implement schema/seeds/triggers/RPCs. Canonical lookup seeds belong in migration; no product recipe/food launch data does.
 - [ ] With Docker run:
 
@@ -521,7 +545,7 @@ No commit. Without Docker continue with `DATABASE_RLS_GATE_PENDING_CI`; do not c
 
 **Expected files:** Create `src/application/catalog/catalog-read-repository.ts`, `catalog-admin-repository.ts`, `content-hasher.ts`, `catalog-admin-command.ts`, `load-recipe-calculation-input.ts` and test, `execute-catalog-admin-command.ts` and test; create `src/infrastructure/server/node-content-hasher.ts` and test.
 
-- [ ] RED-test exact-ID loading, missing/duplicate child rejection, stable sorting, no current-pointer substitution, revision conflict, draft validation, reload-before-publish, canonical SHA-256, publication error mapping, and no write on failed validation.
+- [ ] RED-test exact-ID loading of current and retired published price books, missing/duplicate child rejection, stable sorting, no current-pointer substitution, draft/unpublished book rejection, revision conflict, structured-step publication validation, reload-before-publish, canonical SHA-256, publication error mapping, and no write on failed validation.
 - [ ] Implement injected ports/use cases. Publish client input cannot provide hash, actor, status, pointer, or audit data.
 - [ ] Add golden fact/recipe publication payloads with stable canonical strings/hashes. Fixtures are tests only and do not claim launch breadth.
 - [ ] Verify and commit:
@@ -546,7 +570,7 @@ No commit. Without Docker continue with `DATABASE_RLS_GATE_PENDING_CI`; do not c
 
 **Expected files:** Modify generated `src/infrastructure/supabase/database.types.ts`, `tsconfig.api.json`, `tsconfig.integration.json`, `eslint.config.js`, `scripts/architecture-lint.test.ts`; create `src/infrastructure/supabase/supabase-catalog-read-repository.ts` and test, `src/infrastructure/server/supabase-catalog-admin-repository.ts` and test.
 
-- [ ] RED-test numeric-string mapping, pinned IDs, unordered normalization, zero/missing distinction, draft invisibility, RPC parameter/revision/error mapping, and secret-free errors.
+- [ ] RED-test numeric-string mapping, pinned IDs, unordered normalization, zero/missing distinction, current discovery versus historical exact-ID reads, retired-published readability, draft invisibility, current-pointer independence, RPC parameter/revision/error mapping, and secret-free errors.
 - [ ] RED-test architecture lint rejects app/feature imports from `@/infrastructure/server/**` and permits API composition.
 - [ ] Implement published browser adapter and injected server admin adapter. No environment access in domain/application/browser code.
 - [ ] With Docker regenerate/check types:
@@ -583,7 +607,7 @@ No commit. Without Docker continue with `DATABASE_RLS_GATE_PENDING_CI`; do not c
 
 **Expected files:** Create `src/infrastructure/supabase/server-admin-auth.ts` and test, `api/admin/catalog.ts` and test; modify `scripts/check-secrets.test.ts`, `scripts/validate-env.test.ts`, `README.md`.
 
-- [ ] RED-test missing/forged token, ordinary user, `user_metadata` spoof, signed `app_metadata.role='admin'`, method/action/extra fields, revision conflict, validation/publication outcomes, sanitized failure, and credential non-disclosure.
+- [ ] RED-test missing/forged token, ordinary user, `user_metadata` spoof, signed `app_metadata.role='admin'`, method/action/extra fields, rejection of any free-text step/edible ingredient field, revision conflict, validation/publication outcomes, sanitized failure, and credential non-disclosure.
 - [ ] Implement dependency-injected handler. Runtime verifies with public server config first, then creates server repository with `SUPABASE_SECRET_KEY`; it never forwards/logs the secret.
 - [ ] Strengthen secret tests for any `VITE_*` secret/service key or committed assignment. Keep `.env.example` public-only; README names server runtime variable without a value/deploy step.
 - [ ] README documents immutable versions, unknown data, consumption vs future basket cost, trusted admin bootstrap, local-only testing, and Phase 3+ deferrals. Add no UI route.
@@ -624,6 +648,9 @@ No commit. Without Docker continue with `DATABASE_RLS_GATE_PENDING_CI`; do not c
   - service role still cannot mutate published parents/children/audit;
   - correction creates new version/current pointer while old IDs/children/hashes remain unchanged;
   - exact recipe input survives newer current food fact;
+  - a recipe step cannot publish an edible garnish/seasoning unless it references a pinned `recipe_ingredients` row, and no free-text step property is accepted;
+  - current price-book discovery moves from V1 to V2 without changing V1 exact-ID read/calculation/hash; retiring V1 removes it from discovery only; V1 remains readable, immutable, and replayable with the original calculation date while draft V3 stays invisible;
+  - a 31-day and 90-day price produces a successful cost with `STALE_PRICE`, while 91-day/missing/future prices produce fatal failures;
   - repeated adapter loads yield identical canonical input/hash;
   - Phase 1 Auth/household/onboarding/ownership still pass after region backfill.
 
@@ -793,15 +820,16 @@ git status --short --branch
 - [ ] Approved Phase 1 SHA is an ancestor and inherited regressions pass.
 - [ ] Stable food/recipe identities retain immutable exact published versions; current pointers cannot rewrite history.
 - [ ] Recipe ingredients store stable food and exact same-food fact version through tested composite FK.
+- [ ] Every consumed ingredient, garnish, seasoning, oil, and sauce is a pinned `recipe_ingredients` row; steps contain structured action codes/references only, and publication/API/DB tests prove no free-text edible ingredient bypass.
 - [ ] Published facts own immutable edible fraction, six explicit nutrients, complete assessments, dietary/category lineage, conversions, provenance, and hash.
 - [ ] Published recipe/price aggregates and children remain immutable even for trusted writes; corrections create new versions and preserve old hashes.
 - [ ] All 18 Phase 1 hard rules map unambiguously; `allergen_other` and missing/unknown lineage fail closed; soft preferences never become eligibility constraints.
 - [ ] PortionConfigV1 and PriceFreshnessConfigV1 are code-versioned and copied into calculation input.
 - [ ] Scaling, conversion, nutrition, freshness, and prorated consumption cost use deterministic Decimal arithmetic and byte-equivalent normalized outputs with golden tests.
 - [ ] Unknown nutrient/conversion/allergen/price is distinct from explicit zero/absence and cannot produce a complete published calculation.
-- [ ] Price boundaries 0–30/31–90/>90 and future dates are exact and tested; thresholds are not DB-editable.
+- [ ] Price boundaries 0–30/31–90/>90 and future dates are exact and tested; current and stale are successful, stale carries only non-fatal `STALE_PRICE`, and missing/>90/future are fatal. Thresholds are not DB-editable.
 - [ ] Consumption cost contains no weekly package-rounded purchase-basket/shopping logic.
-- [ ] Fingerprint input carries exact recipe/fact/price IDs/hashes, conversions, configs, and date; current-pointer changes do not affect historical exact-ID loads.
+- [ ] Fingerprint input carries exact recipe/fact/price IDs/hashes, conversions, configs, and date but no mutable current-book pointer. Moving/retiring the discovery pointer does not hide or alter a published historical book or its exact-ID replay; drafts remain inaccessible.
 - [ ] Anon/ordinary/admin-token Data API roles cannot mutate catalog or call publication. Server verifies signed app metadata and leaks no secret.
 - [ ] Constraints/triggers/RPC, domain, application, grants/RLS, direct/trusted tests converge on the same valid states.
 - [ ] Generated types, pgTAP, integrations, inherited onboarding, local non-DB gates, and exact-HEAD `web`/`database` CI pass.
@@ -844,8 +872,11 @@ Use when Phase 1 ancestry is missing, Node 24 unavailable, any required check fa
 - **Conversions:** Generic factors stay within dimensions; cross-dimension units require exact fact-specific base/gram factors. No piece/cup/spoon default.
 - **Rounding/minimum:** Raw decimals are never clamped/rounded. Display-only quantum prevents rendering zero; package ceiling is Phase 4.
 - **Prices:** Date explicit, boundaries inclusive, future/>90/missing unusable, config code-versioned, unknown never zero.
+- **Freshness result types:** Age 31–90 is `ok: true` with a warning; `STALE_PRICE` is absent from fatal unions. Only missing, future, too-old, mismatch, and duplicate conditions fail calculation.
 - **Cost:** Only proportional consumption cost. Stored purchase increment is ignored; no weekly basket is claimed.
 - **Pinning:** Composite FKs and exact-ID adapters prevent current-fact substitution.
+- **Structured steps:** There is no arbitrary instruction text field. Controlled action codes plus same-version ingredient FKs render instructions, so garnish/seasoning cannot escape allergen/nutrition/cost lineage.
+- **Historical price access:** RLS exposes every ever-published book/price by exact ID, including retired history; the discovery RPC alone follows the mutable current pointer. The calculation RPC accepts current or retired published exact IDs, rejects drafts, and uses the captured calculation date.
 - **Direct writes:** Client roles have no mutations/RPC. Trusted paths still face structural checks/triggers and negative tests.
 - **Secret safety:** Runtime server-only secret, no value/example/Vite exposure, architecture lint blocks browser import, signed `app_metadata` only.
 - **Reproducibility:** Hashes cover immutable children; exact IDs/hashes/conversions/config/prices/date form canonical input. Plan snapshots are not prematurely created.
@@ -856,7 +887,7 @@ Use when Phase 1 ancestry is missing, Node 24 unavailable, any required check fa
 
 | Layer | Responsibility | Cannot override |
 |---|---|---|
-| Domain | Decimal normalization, lineage, scaling, nutrition, freshness, cost, diagnostics | DB/auth |
+| Domain | Decimal normalization, structured steps, lineage, scaling, nutrition, freshness success/warnings, fatal cost errors, diagnostics | DB/auth |
 | Application | Closed commands, revision, exact reload/hash, error mapping | DB triggers/grants |
 | DB structure | FKs/checks/unique, ownership, dimensions/ranges | Prevalidation |
 | Private triggers | Immutable publication, semantic locks, mappings/pointers/audit | RLS bypass |
@@ -868,7 +899,7 @@ Every database invariant has direct failure and intended valid success tests. Do
 
 ### 7.4 YAGNI/deferred
 
-One catalog migration, pure calculators, minimal ports, one admin Function, and Decimal.js are sufficient. Defer meal-option composition and 21-option scenario gate; planner/time/diversity/search/budget/replacement; shopping/package/leftovers/pantry; admin UI/bulk import/media/retailer comparisons/region UI/audit dashboard; production catalog curation/deployment; AI/free-text/clinical logic.
+One catalog migration, pure calculators, structured recipe actions, minimal ports, one admin Function, and Decimal.js are sufficient. Defer meal-option composition and 21-option scenario gate; planner/time/diversity/search/budget/replacement; shopping/package/leftovers/pantry; admin UI/bulk import/media/retailer comparisons/region UI/audit dashboard; production catalog curation/deployment; AI/free-text/clinical logic.
 
 Test fixtures prove lifecycle/calculations only, not launch breadth. Phase 3 defines meal options and scenario sufficiency before planner usefulness is claimed.
 
