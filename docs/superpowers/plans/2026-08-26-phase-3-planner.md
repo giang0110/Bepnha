@@ -224,7 +224,6 @@ export const PLANNER_CONFIG_V1 = {
   },
   hard: {
     maxSameMealOptionIdentity: 1,
-    maxPrimaryProteinGroup: 2,
     disallowAdjacentSharedMainRecipe: true
   },
   scoringWeights: {
@@ -232,6 +231,11 @@ export const PLANNER_CONFIG_V1 = {
     nutritionComposition: 2500,
     ingredientReuseAndLeftover: 2500,
     preferences: 1500
+  },
+  diversityWeights: {
+    primaryProteinRepetition: 1500,
+    primaryCookingStyleVariety: 1000,
+    adjacentPrimaryProteinReuse: 1000
   },
   ignoredReuseCategoryCodes: ["staple", "seasoning"]
 } as const
@@ -243,12 +247,11 @@ Hard weekly constraints remain minimal and transparent:
 
 - exactly seven distinct day indexes 0–6, all `primary`;
 - a stable meal-option identity occurs at most once, so two versions of the same editorial meal cannot evade repetition;
-- a primary protein tag occurs at most twice;
 - adjacent days cannot share the same exact main recipe version;
 - locked replacement days remain at their original indexes;
 - every selected option passed all candidate eligibility stages.
 
-Budget and soft preferences are not eligibility constraints.
+Repeating a primary-protein group never makes an otherwise eligible weekly plan invalid. Protein repetition, vegetable/soup/style diversity, and preferences are soft score inputs. Budget is a separate final partition/ranking rule and is neither an eligibility constraint nor part of the quality score.
 
 ### 1.6 Deterministic quality score
 
@@ -257,7 +260,7 @@ Lower integer penalty is better. Budget is never included in this score. Define 
 `scoreWeeklyPlan` returns component penalties, raw metrics, fixed explanation codes, and `totalQualityPenalty` from 0–10,000:
 
 1. **Diversity, 3,500:**
-   - 1,500 × repeated primary-protein pairs / 3; under the hard cap, at most three groups can appear twice in seven days;
+   - 1,500 × repeated primary-protein occurrences / 6, where `repeatedPrimaryProteinOccurrences = 7 - distinctPrimaryProteinGroupCount`; each additional repeated occurrence strictly increases this component and no value rejects a plan;
    - 1,000 × `(7 - distinctPrimaryCookingStyleCount) / 6`;
    - 1,000 × adjacent same-primary-protein count / 6.
 2. **Nutrition composition, 2,500:** exact approved formula `2,500 × missingRoleAssignments / 21`, where each day is assessed for staple, main, and vegetable-or-soup. This is a food-group composition heuristic, not nutrient adequacy or a health claim.
@@ -283,8 +286,8 @@ for dayIndex in 0..6:
   for state in canonicalSort(frontier by stable selected-ID sequence):
     for candidate in eligible:
       next = append candidate to dayIndex
-      if next violates duplicate identity, protein cap,
-         adjacent-main rule, or locked-slot rule:
+      if next violates duplicate identity, adjacent-main rule,
+         or locked-slot rule:
         continue
       next.partialBasket = calculatePurchaseBasket(next.requirements)
       next.qualityLowerBound = deterministic optimistic final penalty
@@ -309,7 +312,7 @@ apply budget partition and final lexicographic ranking
 
 Partial basket cost is monotonic because pantry is absent and requirements only increase. Recomputing complete states prevents incremental-cache drift. Query order, object insertion order, and input array order cannot affect results.
 
-The quality lower bound must never overstate the best possible final quality of a partial state. It includes only penalties that cannot be repaired by later days: primary-protein repeat pairs already created, adjacent-same-protein edges already created, missing composition roles on assigned days, and unmatched preference/day assignments already fixed. Cooking-style repetition assumes every remaining day can add a new style; ingredient-reuse and leftover lower bounds are zero because later requirements may improve them. The exact complete score is always recomputed at depth seven.
+The quality lower bound must never overstate the best possible final quality of a partial state. For protein repetition it uses only `assignedDayCount - distinctAssignedPrimaryProteinGroupCount`, normalized against the complete-week maximum of six; adding a new protein group leaves that committed repetition count unchanged, while adding an already-used group increases it, so later days cannot repair it. The bound also includes adjacent-same-protein edges already created, missing composition roles on assigned days, and unmatched preference/day assignments already fixed. Cooking-style repetition assumes every remaining day can add a new style; ingredient-reuse and leftover lower bounds are zero because later requirements may improve them. The exact complete score is always recomputed at depth seven.
 
 If eligible candidates exist but the bounded frontier yields no complete state, return fatal `NO_COMPLETE_PLAN_FOUND_IN_DETERMINISTIC_SEARCH` with message key equivalent to “Không tìm thấy thực đơn hoàn chỉnh trong phạm vi tìm kiếm xác định.” Never return “no valid plan exists” or imply a proof of global infeasibility.
 
@@ -372,7 +375,7 @@ Algorithm:
 1. lock the six non-target day items and preserve their day indexes and exact meal-option-version IDs;
 2. exclude the target's current stable meal-option identity/version;
 3. evaluate candidate eligibility using the same exact historical price book, calculation date, and configs as the current revision, but only meal-option versions currently discoverable at preview time; the six locked options remain valid exact historical references even if no longer current;
-4. reject candidates violating any whole-week hard constraint against locked items;
+4. reject candidates only when they violate hard eligibility, stable meal-option identity duplication, adjacent exact-main-recipe duplication, or the locked-slot rule; primary-protein repetition is never a rejection and contributes only to the recomputed diversity penalty;
 5. recompute the full seven-day shared basket and quality score for every surviving replacement candidate;
 6. if any candidate yields an under-budget complete week, discard all over-budget candidates and rank by quality, cost, stable ID;
 7. otherwise rank by minimum exact weekly basket cost, then quality, then stable ID;
@@ -758,17 +761,20 @@ No shopping-list/package line UI, grocery categories, checkboxes, pantry, admin 
 **Interfaces:** Consumes only eligible normalized candidates and `PlannerConfigV1`. Produces a `PlannerSuccess` or bounded-search fatal result with deterministic metrics/explanations.
 
 - [ ] RED-test every score component/formula boundary and explanation code. Prove no medical/nutrient-target score exists and no separate soft time preference is invented.
-- [ ] RED-test exact repetition constraints: same stable meal option once, protein group maximum two, adjacent shared exact main recipe rejection; vegetable/soup/style/preference remain soft metrics.
+- [ ] RED-test the two minimal hard duplicate-prevention rules: the same stable meal-option identity occurs at most once and adjacent days cannot share the exact main recipe version. Prove any amount of primary-protein repetition remains eligible and changes only deterministic diversity metrics.
+- [ ] RED-test a catalog whose eligible meals all share one primary-protein group: seven distinct meal-option identities with compatible adjacent main recipe versions must still produce a complete seven-day plan when every true hard constraint passes.
+- [ ] RED-test protein scoring monotonicity and separation: more repeated primary-protein occurrences produce a higher diversity penalty; among discovered equal-budget/equal-feasibility plans the more protein-diverse plan wins; no protein score can make an allergy/exclusion failure eligible.
 - [ ] RED-test frontier sizes at every depth, 125 quality/125 cost selection, stable union/deduplication, canonical tie-breaks, and maximum 250 states.
 - [ ] RED-test same input repeated and every shuffled database/candidate order produce byte-equivalent selected IDs, costs, scores, warnings, and canonical output.
 - [ ] RED-test budget partition with adversarial fixtures:
   - any discovered within-budget plan beats all over-budget plans;
   - among over-budget plans, cheaper always beats costlier even with much worse quality;
+  - a lower protein-repetition penalty never lets a more expensive over-budget plan beat a cheaper fallback;
   - quality breaks only equal-cost over-budget ties;
   - over-budget returns ready success plus exact budget/cost/overage warnings.
 - [ ] RED-test bounded miss returns only `NO_COMPLETE_PLAN_FOUND_IN_DETERMINISTIC_SEARCH` and never global-infeasibility wording.
 - [ ] Implement the pseudocode in Section 1.7 without randomness or solver dependency.
-- [ ] Add reviewed golden households: two adults, child household, multigenerational, vegetarian, allergen exclusion, tight feasible budget, minimum-cost over-budget fallback, hard-filter exhaustion, bounded miss, stale-price success, and ingredient reuse.
+- [ ] Add reviewed golden households: two adults, child household, multigenerational, vegetarian, allergen exclusion, tight feasible budget, minimum-cost over-budget fallback, hard-filter exhaustion, bounded miss, stale-price success, ingredient reuse, a feasible seven-option single-protein catalog, and equal-budget alternatives where the more protein-diverse plan wins.
 - [ ] Add exhaustive enumeration for small fixtures and compare the bounded result where the golden fixture is known to fit; document that equality on small fixtures does not make beam search globally complete.
 - [ ] Add an external benchmark using launch-size synthetic eligible candidates. Domain receives no clock; benchmark records explored states and requires the configured 250-state cap. Keep any latency threshold generous/non-flaky and report measured duration separately.
 - [ ] Verify and commit `feat: add deterministic weekly planner`.
@@ -783,7 +789,7 @@ No shopping-list/package line UI, grocery categories, checkboxes, pantry, admin 
 
 **Interfaces:** Produces generation/replacement commands, immutable snapshot payloads/fingerprints, and repository commands used by server infrastructure.
 
-- [ ] RED-test replacement locks six days, excludes current identity, preserves indexes/exact version IDs, applies whole-week hard constraints, recomputes full basket/quality, and returns signed exact cost delta.
+- [ ] RED-test replacement locks six days, excludes current identity, preserves indexes/exact version IDs, applies only the defined whole-week hard constraints, recomputes full basket/quality, and returns signed exact cost delta. Prove protein repetition is rescored rather than rejected, including a valid replacement when every surviving candidate shares the locked week's protein group.
 - [ ] RED-test replacement budget behavior: any within-budget candidate beats all over-budget candidates; otherwise minimum exact cost wins before quality.
 - [ ] RED-test unavailable replacement wording, stale input/plan version, changed household setup requiring regeneration, and preview/apply fingerprint conflict.
 - [ ] RED-test manifest/input/calculation canonical payloads and golden SHA-256 values. Change each exact meal-option/recipe/fact/price/config/date ID/hash and require the appropriate fingerprint to change; move current pointers and require persisted replay bytes not to change.
@@ -951,9 +957,10 @@ if (($jobs | Where-Object name -eq "database").conclusion -ne "success") { throw
 - [ ] Planner input is exactly seven Monday-start primary meals with explicit date/time zone and full config snapshots.
 - [ ] Eligibility precedes scoring and enforces publication, lineage, hard household rules, time, usable prices, six nutrients/conversions, and structure. Unknown safety/category lineage fails closed.
 - [ ] Unsupported hard rules, incomplete lineage, no usable price, hard-filter exhaustion, bounded search miss, and replacement miss have distinct typed outcomes and precise non-global wording.
-- [ ] `PlannerConfigV1` fixes canonical ordering, candidate cap, 125/125 union, maximum 250 frontier, hard repetition constraints, score formulas, and tie-breaks.
+- [ ] `PlannerConfigV1` fixes canonical ordering, candidate cap, 125/125 union, maximum 250 frontier, the two minimal hard duplicate-prevention rules, protein-repetition/diversity score formulas, and tie-breaks.
 - [ ] Same normalized input and shuffled input/query orders yield byte-identical plan/fingerprints; no randomness or domain wall clock exists.
-- [ ] Exact same meal-option identity cannot repeat; protein cap/adjacent main constraints hold; vegetable/soup/style/preferences remain transparent soft metrics.
+- [ ] Exact same meal-option identity cannot repeat and adjacent exact main recipe duplication is prevented; primary-protein repetition never invalidates a plan and instead incurs a monotonic transparent diversity penalty alongside vegetable/soup/style/preferences.
+- [ ] A seven-day plan can be produced when every eligible distinct meal option shares one primary-protein group; for equal-budget/equal-feasibility discovered plans the more protein-diverse plan is preferred, without overriding any allergy/exclusion or other hard rejection.
 - [ ] Any discovered within-budget plan excludes all over-budget finalists. Without one, minimum exact package-rounded cost wins before quality. `PLAN_OVER_BUDGET` remains successful with exact overage.
 - [ ] Shared purchase-basket primitive aggregates stable foods before package rounding, applies increments/freshness exactly, and alone produces the authoritative total; `meal_plans.total_estimated_cost_vnd`, its current revision total, and the persisted basket snapshot are equal.
 - [ ] Stale 31–90-day prices succeed with warnings; >90-day, future, missing, duplicate, and mismatched prices are unusable.
@@ -1000,7 +1007,8 @@ Use when Phase 2 ancestry is missing, Node 24 is unavailable, any required check
 - **Bounded search:** The plan labels beam search incomplete. Only hard-filter exhaustion is proven against the exact enumerated catalog snapshot; search misses never claim global infeasibility.
 - **Over-budget ranking:** Budget partition is outside quality scoring. Minimum exact basket cost is primary for every over-budget fallback/replacement; weighted quality cannot select a costlier fallback.
 - **Curated composition:** Only admin-published `meal_option_recipes` define dish composition. Planner candidates cannot introduce, remove, or combine recipes.
-- **Hard/soft separation:** Safety, explicit exclusions, publication, time, lineage, price, nutrients, conversions, and minimal weekly repetition are hard. Preferences/diversity/reuse are score-only and run after eligibility.
+- **Hard/soft separation:** Safety, explicit exclusions, publication, time, lineage, price, nutrients, conversions, structural validity, stable meal-option identity duplication, and adjacent exact-main-recipe duplication are hard. Primary-protein repetition, other diversity, preferences, and reuse are score-only and run after eligibility; an all-one-protein eligible catalog can still yield a valid week.
+- **Protein/budget separation:** Protein repetition has a monotonic diversity penalty but no eligibility cap. It can prefer a more diverse equal-budget plan, cannot override safety, and cannot change the rule that minimum exact cost wins among over-budget fallbacks.
 - **Cost ownership:** Phase 2 proportional cost remains diagnostic. Phase 3 adds one shared package-rounded basket primitive, used for search, snapshots, persistence invariant, and future Phase 4. No duplicate calculation is permitted.
 - **Historical immutability:** Every plan result is a sealed revision containing seven immutable item snapshots and exact IDs/hashes. Replacement advances a pointer to a new revision rather than changing history.
 - **Pointer semantics:** Current pointers select defaults only. Exact-ID replay and replacement use persisted manifests and do not substitute current facts/recipes/meal options/price books.
