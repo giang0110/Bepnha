@@ -42,8 +42,10 @@ jobs:
       - run: npm run db:types:check
       - run: npm run test:integration
       - run: npm run test:integration:catalog-admin
+      - run: npm run test:integration:planner
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e:onboarding
+      - run: npm run test:e2e:planner
       - if: always()
         run: npm run db:types:generate
       - if: always()

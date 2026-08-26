@@ -308,6 +308,18 @@ function readyPlanFromRevision(revision: UnknownRecord): ReadyPlan {
   }
 }
 
+export function readHistoricalPlannerPriceBookId(revisionValue: unknown): string {
+  const revision = object(revisionValue)
+  const inputSnapshot = object(revision.input_snapshot)
+  const manifest = array(inputSnapshot.candidateManifest)
+  for (const rawCandidate of manifest) {
+    const prices = array(object(rawCandidate).prices)
+    const first = prices[0]
+    if (first !== undefined) return string(object(first).priceBookId)
+  }
+  throw new Error("INVALID_PLAN_PRICE_BOOK_SNAPSHOT")
+}
+
 export function createSupabasePlannerInputLoader(
   client: SupabaseClient<Database>
 ): PlannerInputLoader {
@@ -325,7 +337,11 @@ export function createSupabasePlannerInputLoader(
         p_week_start: string(plan.week_start),
         p_calculation_date: string(revision.calculation_date)
       })
-      const input = await generation(client, generationRaw)
+      const currentGeneration = object(generationRaw)
+      const input = await generation(client, {
+        ...currentGeneration,
+        priceBook: { priceBookId: readHistoricalPlannerPriceBookId(revision) }
+      })
       return {
         input,
         currentPlan,

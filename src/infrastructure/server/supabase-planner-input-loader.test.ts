@@ -4,9 +4,32 @@ import { describe, expect, test, vi } from "vitest"
 import { plannerCandidate } from "@/domain/planner/planner-test-fixture"
 import type { Database } from "@/infrastructure/supabase/database.types"
 
-import { createSupabasePlannerInputLoader } from "./supabase-planner-input-loader"
+import {
+  createSupabasePlannerInputLoader,
+  readHistoricalPlannerPriceBookId
+} from "./supabase-planner-input-loader"
 
 describe("Supabase planner input loader", () => {
+  test("pins replacement hydration to the historical exact price book instead of a current pointer", () => {
+    expect(
+      readHistoricalPlannerPriceBookId({
+        input_snapshot: {
+          candidateManifest: [
+            {
+              prices: [
+                {
+                  priceBookId: "historical-book-id",
+                  foodPriceId: "historical-price-id"
+                }
+              ]
+            }
+          ]
+        },
+        currentPriceBookId: "must-not-be-used"
+      })
+    ).toBe("historical-book-id")
+  })
+
   test("hydrates exact published recipe/fact/price lineage and separates hard/soft rules", async () => {
     const source = plannerCandidate("option-v1")
     const component = source.mealOption.components[0]
