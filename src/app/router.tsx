@@ -9,6 +9,8 @@ import { SignUpPage } from "@/features/auth/sign-up-page"
 import { HouseholdSummaryPage } from "@/features/household/household-summary-page"
 import { OnboardingPage } from "@/features/household/onboarding/onboarding-page"
 import { HouseholdSettingsPage } from "@/features/household/settings/household-settings-page"
+import type { PlannerApi } from "@/features/plans/planner-api"
+import { WeeklyPlanPage } from "@/features/plans/weekly-plan-page"
 
 function HomeRedirect() {
   const auth = useAuth()
@@ -19,8 +21,9 @@ function HomeRedirect() {
 }
 
 export function AppRouter({
-  householdRepository
-}: Readonly<{ householdRepository: HouseholdRepository }>) {
+  householdRepository,
+  plannerApi
+}: Readonly<{ householdRepository: HouseholdRepository; plannerApi: PlannerApi }>) {
   return (
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
@@ -35,6 +38,12 @@ export function AppRouter({
         <Route
           path="/settings/household"
           element={<HouseholdSettingsPage repository={householdRepository} />}
+        />
+        <Route
+          path="/plan"
+          element={
+            <WeeklyPlanPage householdRepository={householdRepository} plannerApi={plannerApi} />
+          }
         />
       </Route>
       <Route path="*" element={<NotFoundPage />} />

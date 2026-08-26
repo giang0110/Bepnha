@@ -7,6 +7,7 @@ import type { AuthSession, AuthSessionPort } from "@/application/auth/auth-sessi
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import { AppRoutes } from "@/app/App"
 import { AuthProvider } from "@/app/auth/auth-provider"
+import type { PlannerApi } from "@/features/plans/planner-api"
 
 const session: AuthSession = {
   accessToken: "access-token",
@@ -16,6 +17,12 @@ const session: AuthSession = {
 const householdRepository: HouseholdRepository = {
   loadOwn: vi.fn(() => Promise.resolve(null)),
   saveOwn: vi.fn()
+}
+
+const plannerApi: PlannerApi = {
+  generate: vi.fn(),
+  preview: vi.fn(),
+  apply: vi.fn()
 }
 
 function createAuthPort(initialSession: AuthSession | null): {
@@ -39,7 +46,7 @@ function renderRoutes(port: AuthSessionPort, initialEntry: string) {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <AuthProvider port={port}>
-        <AppRoutes householdRepository={householdRepository} />
+        <AppRoutes householdRepository={householdRepository} plannerApi={plannerApi} />
       </AuthProvider>
     </MemoryRouter>
   )

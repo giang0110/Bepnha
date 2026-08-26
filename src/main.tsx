@@ -5,6 +5,7 @@ import App from "@/app/App"
 import { createBrowserSupabaseClient } from "@/infrastructure/supabase/browser-client"
 import { createSupabaseAuthSession } from "@/infrastructure/supabase/supabase-auth-session"
 import { createSupabaseHouseholdRepository } from "@/infrastructure/supabase/supabase-household-repository"
+import { createPlannerApi } from "@/features/plans/planner-api"
 import "@/index.css"
 
 const rootElement = document.getElementById("root")
@@ -19,9 +20,14 @@ const supabase = createBrowserSupabaseClient({
 })
 const authSession = createSupabaseAuthSession(supabase)
 const householdRepository = createSupabaseHouseholdRepository(supabase)
+const plannerApi = createPlannerApi()
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App authSession={authSession} householdRepository={householdRepository} />
+    <App
+      authSession={authSession}
+      householdRepository={householdRepository}
+      plannerApi={plannerApi}
+    />
   </StrictMode>
 )

@@ -123,8 +123,11 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
         <h2 className="font-semibold">Thời gian nấu tối đa</h2>
         <p>{state.household.maxElapsedMinutes} phút</p>
       </section>
+      <Link className="rounded-md bg-slate-900 px-4 py-2 text-center text-white" to="/plan">
+        Lập kế hoạch tuần
+      </Link>
       <Link
-        className="rounded-md bg-slate-900 px-4 py-2 text-center text-white"
+        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-slate-900"
         to="/settings/household"
       >
         Chỉnh sửa thông tin
