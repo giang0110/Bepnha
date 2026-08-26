@@ -100,7 +100,8 @@ export default tseslint.config(
       "playwright-report/**",
       "test-results/**",
       ".vercel/**",
-      "supabase/.temp/**"
+      "supabase/.temp/**",
+      "src/infrastructure/supabase/database.types.ts"
     ]
   },
   js.configs.recommended,

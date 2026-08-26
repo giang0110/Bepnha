@@ -1,4 +1,6 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+
+import type { Database } from "./database.types.js"
 
 export interface PublicSupabaseConfig {
   publishableKey: string
@@ -19,19 +21,27 @@ type BrowserClientFactory<Client> = (
   options: BrowserAuthOptions
 ) => Client
 
-export function createBrowserSupabaseClient<Client = ReturnType<typeof createClient>>(
+export function createBrowserSupabaseClient(config: PublicSupabaseConfig): SupabaseClient<Database>
+export function createBrowserSupabaseClient<Client>(
   config: PublicSupabaseConfig,
-  factory: BrowserClientFactory<Client> = createClient as BrowserClientFactory<Client>
-): Client {
+  factory: BrowserClientFactory<Client>
+): Client
+export function createBrowserSupabaseClient<Client>(
+  config: PublicSupabaseConfig,
+  factory?: BrowserClientFactory<Client>
+): Client | SupabaseClient<Database> {
   assertPublicConfig(config)
 
-  return factory(config.url, config.publishableKey, {
+  const options: BrowserAuthOptions = {
     auth: {
       autoRefreshToken: true,
       detectSessionInUrl: true,
       persistSession: true
     }
-  })
+  }
+  return factory === undefined
+    ? createClient<Database>(config.url, config.publishableKey, options)
+    : factory(config.url, config.publishableKey, options)
 }
 
 function assertPublicConfig(config: PublicSupabaseConfig): void {

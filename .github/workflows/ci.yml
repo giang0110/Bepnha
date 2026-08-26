@@ -37,8 +37,11 @@ jobs:
       - run: npm run preflight:db
       - run: npm run supabase:start
       - run: npm run supabase:reset
-      - run: npm run db:types:generate
-      - uses: actions/upload-artifact@v4
+      - run: npm run db:types:check
+      - if: always()
+        run: npm run db:types:generate
+      - if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: database-types-${{ github.sha }}
           path: src/infrastructure/supabase/database.types.ts
