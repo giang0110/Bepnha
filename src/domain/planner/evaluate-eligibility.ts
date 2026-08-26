@@ -23,6 +23,7 @@ export interface EligibleMealOption {
   readonly mainRecipeVersionIds: readonly string[]
   readonly roles: readonly string[]
   readonly foodCategoryCodes: readonly string[]
+  readonly foodCategoryCodesByFood: Readonly<Record<string, readonly string[]>>
   readonly requirements: readonly CanonicalFoodRequirement[]
   readonly prices: PlannerCandidateInput["prices"]
   readonly basketLines: readonly PurchaseBasketLine[]
@@ -188,6 +189,11 @@ export function evaluatePlannerEligibility(input: NormalizedPlannerInputV1): Eli
       foodCategoryCodes: [
         ...new Set(candidate.ingredientLineage.flatMap((lineage) => lineage.categoryAncestry))
       ].sort(),
+      foodCategoryCodesByFood: Object.fromEntries(
+        candidate.ingredientLineage
+          .map((lineage) => [lineage.foodId, [...lineage.categoryAncestry].sort()] as const)
+          .sort(([left], [right]) => left.localeCompare(right))
+      ),
       requirements,
       prices: candidate.prices,
       basketLines: basket.value.lines,
