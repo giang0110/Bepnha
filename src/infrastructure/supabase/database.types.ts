@@ -667,6 +667,403 @@ export type Database = {
           },
         ]
       }
+      meal_option_recipes: {
+        Row: {
+          id: string
+          meal_option_version_id: string
+          meal_role: Database["public"]["Enums"]["meal_option_role"]
+          quantity_multiplier: number
+          recipe_id: string
+          recipe_version_id: string
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          meal_option_version_id: string
+          meal_role: Database["public"]["Enums"]["meal_option_role"]
+          quantity_multiplier: number
+          recipe_id: string
+          recipe_version_id: string
+          sort_order: number
+        }
+        Update: {
+          id?: string
+          meal_option_version_id?: string
+          meal_role?: Database["public"]["Enums"]["meal_option_role"]
+          quantity_multiplier?: number
+          recipe_id?: string
+          recipe_version_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_option_recipes_meal_option_version_id_fkey"
+            columns: ["meal_option_version_id"]
+            isOneToOne: false
+            referencedRelation: "meal_option_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_option_recipes_recipe_version_fkey"
+            columns: ["recipe_id", "recipe_version_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_versions"
+            referencedColumns: ["recipe_id", "id"]
+          },
+        ]
+      }
+      meal_option_version_tags: {
+        Row: {
+          meal_option_version_id: string
+          recipe_tag_id: string
+        }
+        Insert: {
+          meal_option_version_id: string
+          recipe_tag_id: string
+        }
+        Update: {
+          meal_option_version_id?: string
+          recipe_tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_option_version_tags_meal_option_version_id_fkey"
+            columns: ["meal_option_version_id"]
+            isOneToOne: false
+            referencedRelation: "meal_option_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_option_version_tags_recipe_tag_id_fkey"
+            columns: ["recipe_tag_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_option_versions: {
+        Row: {
+          active_minutes: number
+          content_hash: string | null
+          created_at: string
+          created_by: string
+          elapsed_minutes: number
+          id: string
+          meal_option_id: string
+          publication_status: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at: string | null
+          revision: number
+          updated_at: string
+          version_number: number
+          yield_adult_equivalent: number
+        }
+        Insert: {
+          active_minutes: number
+          content_hash?: string | null
+          created_at?: string
+          created_by: string
+          elapsed_minutes: number
+          id?: string
+          meal_option_id: string
+          publication_status?: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at?: string | null
+          revision?: number
+          updated_at?: string
+          version_number: number
+          yield_adult_equivalent: number
+        }
+        Update: {
+          active_minutes?: number
+          content_hash?: string | null
+          created_at?: string
+          created_by?: string
+          elapsed_minutes?: number
+          id?: string
+          meal_option_id?: string
+          publication_status?: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at?: string | null
+          revision?: number
+          updated_at?: string
+          version_number?: number
+          yield_adult_equivalent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_option_versions_meal_option_id_fkey"
+            columns: ["meal_option_id"]
+            isOneToOne: false
+            referencedRelation: "meal_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_options: {
+        Row: {
+          code: string
+          created_at: string
+          current_version_id: string | null
+          id: string
+          name_vi: string
+          retired_at: string | null
+          revision: number
+          status: Database["public"]["Enums"]["catalog_identity_status"]
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_version_id?: string | null
+          id?: string
+          name_vi: string
+          retired_at?: string | null
+          revision?: number
+          status?: Database["public"]["Enums"]["catalog_identity_status"]
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_version_id?: string | null
+          id?: string
+          name_vi?: string
+          retired_at?: string | null
+          revision?: number
+          status?: Database["public"]["Enums"]["catalog_identity_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_options_current_version_fkey"
+            columns: ["id", "current_version_id"]
+            isOneToOne: false
+            referencedRelation: "meal_option_versions"
+            referencedColumns: ["meal_option_id", "id"]
+          },
+        ]
+      }
+      meal_plan_items: {
+        Row: {
+          adult_equivalent: number
+          calculation_snapshot: Json
+          created_at: string
+          day_index: number
+          id: string
+          meal_option_id: string
+          meal_option_version_id: string
+          meal_plan_revision_id: string
+          meal_slot: string
+          scale_factor: number
+        }
+        Insert: {
+          adult_equivalent: number
+          calculation_snapshot: Json
+          created_at?: string
+          day_index: number
+          id?: string
+          meal_option_id: string
+          meal_option_version_id: string
+          meal_plan_revision_id: string
+          meal_slot?: string
+          scale_factor: number
+        }
+        Update: {
+          adult_equivalent?: number
+          calculation_snapshot?: Json
+          created_at?: string
+          day_index?: number
+          id?: string
+          meal_option_id?: string
+          meal_option_version_id?: string
+          meal_plan_revision_id?: string
+          meal_slot?: string
+          scale_factor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_items_meal_plan_revision_id_fkey"
+            columns: ["meal_plan_revision_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plan_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_items_option_version_fkey"
+            columns: ["meal_option_id", "meal_option_version_id"]
+            isOneToOne: false
+            referencedRelation: "meal_option_versions"
+            referencedColumns: ["meal_option_id", "id"]
+          },
+        ]
+      }
+      meal_plan_revisions: {
+        Row: {
+          budget_status: Database["public"]["Enums"]["meal_plan_budget_status"]
+          budget_vnd: number
+          calculation_date: string
+          calculation_fingerprint: string
+          calculation_snapshot: Json
+          catalog_fingerprint: string
+          created_at: string
+          engine_version: string
+          household_setup_version: number
+          id: string
+          idempotency_key: string
+          input_fingerprint: string
+          input_snapshot: Json
+          meal_plan_id: string
+          overage_vnd: number
+          parent_revision_id: string | null
+          planner_config_version: string
+          portion_config_version: string
+          price_freshness_config_version: string
+          replaced_day_index: number | null
+          revision_kind: Database["public"]["Enums"]["meal_plan_revision_kind"]
+          revision_number: number
+          sealed_at: string | null
+          state: Database["public"]["Enums"]["meal_plan_revision_state"]
+          total_estimated_cost_vnd: number
+          warnings: Json
+        }
+        Insert: {
+          budget_status: Database["public"]["Enums"]["meal_plan_budget_status"]
+          budget_vnd: number
+          calculation_date: string
+          calculation_fingerprint: string
+          calculation_snapshot: Json
+          catalog_fingerprint: string
+          created_at?: string
+          engine_version: string
+          household_setup_version: number
+          id?: string
+          idempotency_key: string
+          input_fingerprint: string
+          input_snapshot: Json
+          meal_plan_id: string
+          overage_vnd: number
+          parent_revision_id?: string | null
+          planner_config_version: string
+          portion_config_version: string
+          price_freshness_config_version: string
+          replaced_day_index?: number | null
+          revision_kind: Database["public"]["Enums"]["meal_plan_revision_kind"]
+          revision_number: number
+          sealed_at?: string | null
+          state?: Database["public"]["Enums"]["meal_plan_revision_state"]
+          total_estimated_cost_vnd: number
+          warnings: Json
+        }
+        Update: {
+          budget_status?: Database["public"]["Enums"]["meal_plan_budget_status"]
+          budget_vnd?: number
+          calculation_date?: string
+          calculation_fingerprint?: string
+          calculation_snapshot?: Json
+          catalog_fingerprint?: string
+          created_at?: string
+          engine_version?: string
+          household_setup_version?: number
+          id?: string
+          idempotency_key?: string
+          input_fingerprint?: string
+          input_snapshot?: Json
+          meal_plan_id?: string
+          overage_vnd?: number
+          parent_revision_id?: string | null
+          planner_config_version?: string
+          portion_config_version?: string
+          price_freshness_config_version?: string
+          replaced_day_index?: number | null
+          revision_kind?: Database["public"]["Enums"]["meal_plan_revision_kind"]
+          revision_number?: number
+          sealed_at?: string | null
+          state?: Database["public"]["Enums"]["meal_plan_revision_state"]
+          total_estimated_cost_vnd?: number
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_revisions_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_revisions_parent_fkey"
+            columns: ["meal_plan_id", "parent_revision_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plan_revisions"
+            referencedColumns: ["meal_plan_id", "id"]
+          },
+        ]
+      }
+      meal_plans: {
+        Row: {
+          budget_status:
+            | Database["public"]["Enums"]["meal_plan_budget_status"]
+            | null
+          calculation_fingerprint: string | null
+          created_at: string
+          current_revision_id: string | null
+          household_id: string
+          id: string
+          status: Database["public"]["Enums"]["meal_plan_status"]
+          timezone: string
+          total_estimated_cost_vnd: number | null
+          updated_at: string
+          version: number
+          week_start: string
+        }
+        Insert: {
+          budget_status?:
+            | Database["public"]["Enums"]["meal_plan_budget_status"]
+            | null
+          calculation_fingerprint?: string | null
+          created_at?: string
+          current_revision_id?: string | null
+          household_id: string
+          id?: string
+          status?: Database["public"]["Enums"]["meal_plan_status"]
+          timezone: string
+          total_estimated_cost_vnd?: number | null
+          updated_at?: string
+          version?: number
+          week_start: string
+        }
+        Update: {
+          budget_status?:
+            | Database["public"]["Enums"]["meal_plan_budget_status"]
+            | null
+          calculation_fingerprint?: string | null
+          created_at?: string
+          current_revision_id?: string | null
+          household_id?: string
+          id?: string
+          status?: Database["public"]["Enums"]["meal_plan_status"]
+          timezone?: string
+          total_estimated_cost_vnd?: number | null
+          updated_at?: string
+          version?: number
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plans_current_revision_fkey"
+            columns: ["id", "current_revision_id"]
+            isOneToOne: true
+            referencedRelation: "meal_plan_revisions"
+            referencedColumns: ["meal_plan_id", "id"]
+          },
+          {
+            foreignKeyName: "meal_plans_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nutrients: {
         Row: {
           code: string
@@ -1130,8 +1527,38 @@ export type Database = {
         Returns: Json
       }
       get_current_price_book: { Args: { p_region_id: string }; Returns: Json }
+      get_meal_option_aggregate_for_publication: {
+        Args: { p_meal_option_version_id: string }
+        Returns: Json
+      }
+      get_plan_replacement_input: { Args: { p_plan_id: string }; Returns: Json }
+      get_planner_generation_input: {
+        Args: {
+          p_calculation_date: string
+          p_household_id: string
+          p_week_start: string
+        }
+        Returns: Json
+      }
+      get_published_meal_option_calculation_input: {
+        Args: { p_meal_option_version_id: string }
+        Returns: Json
+      }
       get_published_recipe_calculation_input: {
         Args: { p_price_book_id: string; p_recipe_version_id: string }
+        Returns: Json
+      }
+      persist_meal_plan_revision: {
+        Args: {
+          p_actor_user_id: string
+          p_expected_current_revision_id: string
+          p_expected_plan_version: number
+          p_household_id: string
+          p_idempotency_key: string
+          p_items: Json
+          p_revision: Json
+          p_week_start: string
+        }
         Returns: Json
       }
       publish_food_fact_version: {
@@ -1161,6 +1588,35 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "food_fact_versions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      publish_meal_option_version: {
+        Args: {
+          p_actor_user_id: string
+          p_content_hash: string
+          p_expected_revision: number
+          p_meal_option_version_id: string
+        }
+        Returns: {
+          active_minutes: number
+          content_hash: string | null
+          created_at: string
+          created_by: string
+          elapsed_minutes: number
+          id: string
+          meal_option_id: string
+          publication_status: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at: string | null
+          revision: number
+          updated_at: string
+          version_number: number
+          yield_adult_equivalent: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meal_option_versions"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1232,6 +1688,30 @@ export type Database = {
         }
         Returns: Json
       }
+      retire_meal_option: {
+        Args: {
+          p_actor_user_id: string
+          p_expected_revision: number
+          p_meal_option_id: string
+        }
+        Returns: {
+          code: string
+          created_at: string
+          current_version_id: string | null
+          id: string
+          name_vi: string
+          retired_at: string | null
+          revision: number
+          status: Database["public"]["Enums"]["catalog_identity_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meal_options"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       save_household_setup: {
         Args: {
           p_expected_version: number
@@ -1289,6 +1769,11 @@ export type Database = {
         | "allergen_exclusion"
         | "food_exclusion"
         | "soft_preference"
+      meal_option_role: "staple" | "main" | "vegetable" | "soup" | "side"
+      meal_plan_budget_status: "within" | "over"
+      meal_plan_revision_kind: "generation" | "regeneration" | "replacement"
+      meal_plan_revision_state: "building" | "ready"
+      meal_plan_status: "ready" | "archived"
       recipe_tag_kind: "cooking_style" | "protein_hint" | "dish_role"
     }
     CompositeTypes: {
@@ -1448,6 +1933,11 @@ export const Constants = {
         "food_exclusion",
         "soft_preference",
       ],
+      meal_option_role: ["staple", "main", "vegetable", "soup", "side"],
+      meal_plan_budget_status: ["within", "over"],
+      meal_plan_revision_kind: ["generation", "regeneration", "replacement"],
+      meal_plan_revision_state: ["building", "ready"],
+      meal_plan_status: ["ready", "archived"],
       recipe_tag_kind: ["cooking_style", "protein_hint", "dish_role"],
     },
   },
