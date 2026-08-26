@@ -41,6 +41,7 @@ jobs:
       - run: npm run supabase:test
       - run: npm run db:types:check
       - run: npm run test:integration
+      - run: npm run test:integration:catalog-admin
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e:onboarding
       - if: always()

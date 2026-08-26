@@ -28,6 +28,7 @@
   },
   "include": [
     "tests/integration/**/*.ts",
+    "api/admin/catalog.ts",
     "src/application/household/**/*.ts",
     "src/application/catalog/**/*.ts",
     "src/domain/calculation/**/*.ts",
@@ -41,6 +42,7 @@
     "src/infrastructure/supabase/browser-client.ts",
     "src/infrastructure/supabase/database.types.ts",
     "src/infrastructure/supabase/server-auth.ts",
+    "src/infrastructure/supabase/server-admin-auth.ts",
     "src/infrastructure/supabase/supabase-household-repository.ts",
     "src/infrastructure/supabase/supabase-catalog-read-repository.ts"
   ],
