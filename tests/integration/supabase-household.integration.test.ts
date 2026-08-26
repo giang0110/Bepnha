@@ -67,6 +67,25 @@ async function snapshot(client: SupabaseClient<Database>, householdId: string) {
 }
 
 describe("local household Supabase integration", () => {
+  it("accepts the canonical household payload through the authenticated RPC", async () => {
+    const owner = await createIdentity("rpc-contract")
+
+    const rpc = await owner.client.rpc("save_household_setup", {
+      p_expected_version: null as unknown as number,
+      p_weekly_plan_budget_vnd: setupInput.weeklyPlanBudgetVnd,
+      p_max_elapsed_minutes: setupInput.maxElapsedMinutes,
+      p_member_groups: setupInput.memberGroups,
+      p_rule_codes: setupInput.ruleCodes
+    })
+
+    expect(rpc.error).toBeNull()
+    expect(rpc.data).toMatchObject({
+      weekly_plan_budget_vnd: setupInput.weeklyPlanBudgetVnd,
+      max_elapsed_minutes: setupInput.maxElapsedMinutes
+    })
+    expect(typeof rpc.data?.onboarding_completed_at).toBe("string")
+  })
+
   it("creates, loads, edits one household through the strict adapter and enforces cross-owner RLS", async () => {
     const owner = await createIdentity("owner")
     const stranger = await createIdentity("stranger")
@@ -238,9 +257,7 @@ describe("local household Supabase integration", () => {
       p_expected_version: created.household.version,
       p_weekly_plan_budget_vnd: 1_900_000,
       p_max_elapsed_minutes: 90,
-      p_member_groups: [
-        { member_kind: "adult", age_band: "adult", member_count: 5 }
-      ] satisfies Json,
+      p_member_groups: [{ memberKind: "adult", ageBand: "adult", memberCount: 5 }] satisfies Json,
       p_rule_codes: ["exclude_pork", "prefer_pork"]
     })
     expect(rpc.error).not.toBeNull()
