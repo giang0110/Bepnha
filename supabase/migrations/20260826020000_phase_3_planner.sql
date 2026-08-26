@@ -435,7 +435,6 @@ set search_path = ''
 as $$
 declare
   v_version public.meal_option_versions;
-  v_identity public.meal_options;
 begin
   perform private.assert_catalog_admin(p_actor_user_id);
   if p_content_hash !~ '^[0-9a-f]{64}$' then
@@ -447,7 +446,8 @@ begin
   if v_version.publication_status <> 'draft' or v_version.revision <> p_expected_revision then
     raise exception using errcode = 'P0001', message = 'STALE_CATALOG_REVISION';
   end if;
-  select * into v_identity from public.meal_options where id = v_version.meal_option_id for update;
+  perform 1 from public.meal_options where id = v_version.meal_option_id for update;
+  if not found then raise exception using errcode = 'P0002', message = 'MEAL_OPTION_NOT_FOUND'; end if;
 
   if (select count(*) from public.meal_option_recipes where meal_option_version_id = v_version.id) < 1
     or exists (
