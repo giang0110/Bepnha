@@ -186,7 +186,6 @@ export function createSupabaseCatalogAdminRepository(
         .eq("id", input.foodFactVersionId)
         .maybeSingle()
       if (loadError !== null) return failure(loadError)
-      const nextRevision = existing === null ? 1 : input.expectedRevision + 1
       const parentResult =
         existing === null
           ? await client
@@ -207,8 +206,7 @@ export function createSupabaseCatalogAdminRepository(
               .update({
                 category_id: input.categoryId,
                 edible_fraction: postgresNumeric(input.edibleFraction),
-                provenance: input.provenance,
-                revision: nextRevision
+                provenance: input.provenance
               })
               .eq("id", input.foodFactVersionId)
               .eq("revision", input.expectedRevision)
@@ -309,8 +307,7 @@ export function createSupabaseCatalogAdminRepository(
               .update({
                 yield_adult_equivalent: postgresNumeric(input.yieldAdultEquivalent),
                 active_minutes: input.activeMinutes,
-                elapsed_minutes: input.elapsedMinutes,
-                revision: input.expectedRevision + 1
+                elapsed_minutes: input.elapsedMinutes
               })
               .eq("id", input.recipeVersionId)
               .eq("revision", input.expectedRevision)
@@ -406,8 +403,7 @@ export function createSupabaseCatalogAdminRepository(
         .from("price_books")
         .update({
           effective_from: input.effectiveFrom,
-          effective_to: input.effectiveTo,
-          revision: input.expectedRevision + 1
+          effective_to: input.effectiveTo
         })
         .eq("id", input.priceBookId)
         .eq("revision", input.expectedRevision)
