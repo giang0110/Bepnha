@@ -13,6 +13,7 @@ as $$
 declare
   v_user_id uuid := auth.uid();
   v_household public.households;
+  v_is_new boolean := false;
 begin
   if v_user_id is null then
     raise exception using errcode = '42501', message = 'UNAUTHORIZED';
@@ -53,6 +54,11 @@ begin
     raise exception using errcode = '23503', message = 'UNKNOWN_HOUSEHOLD_RULE_CODE';
   end if;
 
+  set constraints
+    public.households_require_valid_members,
+    public.household_member_groups_require_valid_household
+  deferred;
+
   select household.*
   into v_household
   from public.households as household
@@ -71,19 +77,17 @@ begin
     insert into public.households (
       owner_user_id,
       weekly_plan_budget_vnd,
-      max_elapsed_minutes
+      max_elapsed_minutes,
+      onboarding_completed_at
     ) values (
       v_user_id,
       p_weekly_plan_budget_vnd,
-      p_max_elapsed_minutes
+      p_max_elapsed_minutes,
+      now()
     )
     returning * into v_household;
+    v_is_new := true;
   end if;
-
-  set constraints
-    public.households_require_valid_members,
-    public.household_member_groups_require_valid_household
-  deferred;
 
   delete from public.household_member_groups
   where household_id = v_household.id;
@@ -108,13 +112,15 @@ begin
   select v_household.id, selected.rule_code
   from unnest(p_rule_codes) as selected(rule_code);
 
-  update public.households
-  set
-    weekly_plan_budget_vnd = p_weekly_plan_budget_vnd,
-    max_elapsed_minutes = p_max_elapsed_minutes,
-    onboarding_completed_at = coalesce(onboarding_completed_at, now())
-  where id = v_household.id
-  returning * into v_household;
+  if not v_is_new then
+    update public.households
+    set
+      weekly_plan_budget_vnd = p_weekly_plan_budget_vnd,
+      max_elapsed_minutes = p_max_elapsed_minutes,
+      onboarding_completed_at = coalesce(onboarding_completed_at, now())
+    where id = v_household.id
+    returning * into v_household;
+  end if;
 
   set constraints
     public.households_require_valid_members,
