@@ -153,6 +153,16 @@ select ok(
   'save_household_setup has an empty search path'
 );
 
+select ok(
+  (
+    select pg_get_functiondef(oid) like '%public.households_require_valid_members%'
+      and pg_get_functiondef(oid) like '%public.household_member_groups_require_valid_household%'
+    from pg_proc
+    where oid = 'public.save_household_setup(integer,bigint,smallint,jsonb,text[])'::regprocedure
+  ),
+  'save_household_setup resolves deferred constraints with an empty search path'
+);
+
 select is(
   has_function_privilege(
     'anon',
