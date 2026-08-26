@@ -6,12 +6,14 @@ test("mobile household onboarding and settings persist through local Supabase Au
   page
 }) => {
   const pageErrors: string[] = []
-  const failedRequests: string[] = []
+  const failedRequests: Array<{ method: string; url: string; errorText: string }> = []
   page.on("pageerror", (error) => pageErrors.push(error.message))
   page.on("requestfailed", (request) => {
-    failedRequests.push(
-      `${request.method()} ${request.url()}: ${request.failure()?.errorText ?? "failed"}`
-    )
+    failedRequests.push({
+      method: request.method(),
+      url: request.url(),
+      errorText: request.failure()?.errorText ?? "failed"
+    })
   })
 
   const email = `phase1-browser-${crypto.randomUUID()}@example.test`
@@ -61,7 +63,8 @@ test("mobile household onboarding and settings persist through local Supabase Au
       response.request().method() === "POST" && response.url().includes("/auth/v1/logout")
   )
   await page.getByRole("button", { name: "Đăng xuất" }).click()
-  expect((await logoutResponsePromise).ok()).toBe(true)
+  const logoutResponse = await logoutResponsePromise
+  expect(logoutResponse.ok()).toBe(true)
   await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible()
   await page.getByRole("textbox", { name: "Email" }).fill(email)
   await page.getByLabel("Mật khẩu").fill(password)
@@ -96,5 +99,18 @@ test("mobile household onboarding and settings persist through local Supabase Au
   expect(viewportMetrics.innerWidth).toBe(390)
   expect(viewportMetrics.scrollWidth).toBeLessThanOrEqual(viewportMetrics.innerWidth)
   expect(pageErrors).toEqual([])
-  expect(failedRequests).toEqual([])
+  const expectedCompletedLogoutAborts = failedRequests.filter((request) => {
+    const requestUrl = new URL(request.url)
+    return (
+      logoutResponse.ok() &&
+      request.method === "POST" &&
+      requestUrl.pathname === "/auth/v1/logout" &&
+      requestUrl.searchParams.get("scope") === "global" &&
+      request.errorText === "net::ERR_ABORTED"
+    )
+  })
+  expect(expectedCompletedLogoutAborts.length).toBeLessThanOrEqual(1)
+  expect(
+    failedRequests.filter((request) => !expectedCompletedLogoutAborts.includes(request))
+  ).toEqual([])
 })
