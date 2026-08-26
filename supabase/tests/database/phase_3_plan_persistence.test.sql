@@ -6,14 +6,17 @@ select no_plan();
 insert into auth.users (id, email)
 values ('91000000-0000-0000-0000-000000000001', 'planner-owner@example.test');
 insert into public.households (
-  id, owner_user_id, weekly_plan_budget_vnd, max_elapsed_minutes, onboarding_completed_at
+  id, owner_user_id, weekly_plan_budget_vnd, max_elapsed_minutes
 )
 values (
   '92000000-0000-0000-0000-000000000001',
-  '91000000-0000-0000-0000-000000000001', 700000, 30, now()
+  '91000000-0000-0000-0000-000000000001', 700000, 30
 );
 insert into public.household_member_groups (household_id, member_kind, age_band, member_count)
 values ('92000000-0000-0000-0000-000000000001', 'adult', 'adult', 2);
+update public.households
+set onboarding_completed_at = now()
+where id = '92000000-0000-0000-0000-000000000001';
 
 insert into public.meal_options (id, code, name_vi)
 select

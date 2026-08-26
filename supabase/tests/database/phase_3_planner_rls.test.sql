@@ -8,11 +8,21 @@ values
   ('81000000-0000-0000-0000-000000000001', 'planner-a@example.test', '{}'),
   ('81000000-0000-0000-0000-000000000002', 'planner-b@example.test', '{}');
 insert into public.households (
-  id, owner_user_id, weekly_plan_budget_vnd, max_elapsed_minutes, onboarding_completed_at
+  id, owner_user_id, weekly_plan_budget_vnd, max_elapsed_minutes
 )
 values
-  ('82000000-0000-0000-0000-000000000001', '81000000-0000-0000-0000-000000000001', 700000, 30, now()),
-  ('82000000-0000-0000-0000-000000000002', '81000000-0000-0000-0000-000000000002', 700000, 30, now());
+  ('82000000-0000-0000-0000-000000000001', '81000000-0000-0000-0000-000000000001', 700000, 30),
+  ('82000000-0000-0000-0000-000000000002', '81000000-0000-0000-0000-000000000002', 700000, 30);
+insert into public.household_member_groups (household_id, member_kind, age_band, member_count)
+values
+  ('82000000-0000-0000-0000-000000000001', 'adult', 'adult', 1),
+  ('82000000-0000-0000-0000-000000000002', 'adult', 'adult', 1);
+update public.households
+set onboarding_completed_at = now()
+where id in (
+  '82000000-0000-0000-0000-000000000001',
+  '82000000-0000-0000-0000-000000000002'
+);
 
 select private.begin_plan_transition();
 insert into public.meal_plans (
