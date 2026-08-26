@@ -1782,6 +1782,7 @@ begin
             'foodId', price.food_id,
             'foodFactVersionId', price.food_fact_version_id,
             'foodFactContentHash', fact.content_hash,
+            'foodFactPublicationStatus', fact.publication_status,
             'packageQuantity', trim(trailing '.' from trim(trailing '0' from price.package_quantity::text)),
             'packageUnitId', price.package_unit_id,
             'packageBaseQuantity', trim(trailing '.' from trim(trailing '0' from price.package_base_quantity::text)),
