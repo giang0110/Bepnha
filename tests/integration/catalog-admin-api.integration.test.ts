@@ -271,6 +271,7 @@ describe("trusted catalog administrator flow", () => {
       .eq("recipe_version_id", recipeVersionId)
     expect(immutable.error).not.toBeNull()
     const audit = await publicClient.from("admin_audit_log").select("id")
-    expect(audit.data).toEqual([])
+    expect(audit.data).toBeNull()
+    expect(audit.error).not.toBeNull()
   }, 30_000)
 })
