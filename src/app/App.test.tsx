@@ -4,12 +4,18 @@ import { MemoryRouter } from "react-router"
 import { describe, expect, it, vi } from "vitest"
 
 import type { AuthSession, AuthSessionPort } from "@/application/auth/auth-session-port"
+import type { HouseholdRepository } from "@/application/household/household-repository"
 import { AppRoutes } from "@/app/App"
 import { AuthProvider } from "@/app/auth/auth-provider"
 
 const session: AuthSession = {
   accessToken: "access-token",
   identity: { userId: "user-a", email: "user@example.test" }
+}
+
+const householdRepository: HouseholdRepository = {
+  loadOwn: vi.fn(() => Promise.resolve(null)),
+  saveOwn: vi.fn()
 }
 
 function createAuthPort(initialSession: AuthSession | null): {
@@ -33,7 +39,7 @@ function renderRoutes(port: AuthSessionPort, initialEntry: string) {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <AuthProvider port={port}>
-        <AppRoutes />
+        <AppRoutes householdRepository={householdRepository} />
       </AuthProvider>
     </MemoryRouter>
   )

@@ -1,5 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router"
 
+import { SignOutButton } from "@/features/auth/sign-out-button"
+
 import { useAuth } from "./auth-context"
 
 export function RequireAuth() {
@@ -16,5 +18,12 @@ export function RequireAuth() {
   if (auth.status === "signed-out") {
     return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />
   }
-  return <Outlet />
+  return (
+    <>
+      <Outlet />
+      <div className="mx-auto w-full max-w-md px-4 pb-6">
+        <SignOutButton />
+      </div>
+    </>
+  )
 }

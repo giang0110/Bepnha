@@ -1,4 +1,8 @@
 import type { HouseholdMemberGroup } from "@/domain/household/household"
+import {
+  HOUSEHOLD_RULE_OPTION_BY_CODE,
+  type HouseholdRuleCode
+} from "@/domain/household/household-rules"
 
 export const MEMBER_COUNT_KEYS = [
   "adult",
@@ -25,19 +29,42 @@ export const EMPTY_MEMBER_COUNTS: MemberCounts = Object.freeze({
 
 export interface HouseholdFormState {
   budgetInput: string
+  hardRuleCodes: readonly HouseholdRuleCode[]
+  maxElapsedMinutes: number
   memberCounts: MemberCounts
+  preferenceCodes: readonly HouseholdRuleCode[]
   step: 1 | 2 | 3 | 4 | 5
 }
 
 export type HouseholdFormAction =
   | { type: "set-member-count"; key: MemberCountKey; count: number }
   | { type: "set-budget"; value: string }
+  | { type: "set-max-elapsed-minutes"; minutes: number }
+  | { type: "toggle-rule"; code: HouseholdRuleCode; selected: boolean }
   | { type: "go-to-step"; step: HouseholdFormState["step"] }
 
 export const INITIAL_HOUSEHOLD_FORM_STATE: HouseholdFormState = {
   budgetInput: "",
+  hardRuleCodes: [],
+  maxElapsedMinutes: 30,
   memberCounts: EMPTY_MEMBER_COUNTS,
+  preferenceCodes: [],
   step: 1
+}
+
+function updateCodes(
+  codes: readonly HouseholdRuleCode[],
+  code: HouseholdRuleCode,
+  selected: boolean
+): readonly HouseholdRuleCode[] {
+  const next = new Set(codes)
+  if (selected) next.add(code)
+  else next.delete(code)
+  return [...next].toSorted(
+    (left, right) =>
+      (HOUSEHOLD_RULE_OPTION_BY_CODE.get(left)?.sortOrder ?? 0) -
+      (HOUSEHOLD_RULE_OPTION_BY_CODE.get(right)?.sortOrder ?? 0)
+  )
 }
 
 export function householdFormReducer(
@@ -52,6 +79,21 @@ export function householdFormReducer(
       }
     case "set-budget":
       return { ...state, budgetInput: action.value }
+    case "set-max-elapsed-minutes":
+      return { ...state, maxElapsedMinutes: action.minutes }
+    case "toggle-rule": {
+      const option = HOUSEHOLD_RULE_OPTION_BY_CODE.get(action.code)
+      if (option?.ruleKind === "soft_preference") {
+        return {
+          ...state,
+          preferenceCodes: updateCodes(state.preferenceCodes, action.code, action.selected)
+        }
+      }
+      return {
+        ...state,
+        hardRuleCodes: updateCodes(state.hardRuleCodes, action.code, action.selected)
+      }
+    }
     case "go-to-step":
       return { ...state, step: action.step }
   }

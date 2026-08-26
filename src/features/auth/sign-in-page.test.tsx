@@ -4,8 +4,14 @@ import { MemoryRouter } from "react-router"
 import { describe, expect, it, vi } from "vitest"
 
 import type { AuthSessionPort } from "@/application/auth/auth-session-port"
+import type { HouseholdRepository } from "@/application/household/household-repository"
 import { AppRoutes } from "@/app/App"
 import { AuthProvider } from "@/app/auth/auth-provider"
+
+const householdRepository: HouseholdRepository = {
+  loadOwn: vi.fn(() => Promise.resolve(null)),
+  saveOwn: vi.fn()
+}
 
 function renderSignIn(signIn: AuthSessionPort["signIn"], initialEntry = "/sign-in") {
   const port = {
@@ -18,7 +24,7 @@ function renderSignIn(signIn: AuthSessionPort["signIn"], initialEntry = "/sign-i
   render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <AuthProvider port={port}>
-        <AppRoutes />
+        <AppRoutes householdRepository={householdRepository} />
       </AuthProvider>
     </MemoryRouter>
   )
