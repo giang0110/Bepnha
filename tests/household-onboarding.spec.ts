@@ -56,7 +56,12 @@ test("mobile household onboarding and settings persist through local Supabase Au
   await page.getByRole("button", { name: "Lưu thay đổi" }).click()
   await expect(page.getByText("1.350.000 VND cho 7 bữa chính")).toBeVisible()
 
+  const logoutResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" && response.url().includes("/auth/v1/logout")
+  )
   await page.getByRole("button", { name: "Đăng xuất" }).click()
+  expect((await logoutResponsePromise).ok()).toBe(true)
   await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible()
   await page.getByRole("textbox", { name: "Email" }).fill(email)
   await page.getByLabel("Mật khẩu").fill(password)
