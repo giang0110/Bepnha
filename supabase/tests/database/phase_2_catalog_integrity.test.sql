@@ -80,7 +80,7 @@ insert into public.food_fact_nutrients (
   food_fact_version_id, nutrient_id, amount_per_100g, provenance
 )
 select
-  '53000000-0000-0000-000000000001',
+  '53000000-0000-0000-0000-000000000001',
   id,
   case code when 'energy_kcal' then 350 else 0 end,
   'Test nutrient'
