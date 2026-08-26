@@ -4,17 +4,25 @@ create extension if not exists pgtap with schema extensions;
 
 select no_plan();
 
-select has_table('public', 'profiles');
-select has_table('public', 'households');
-select has_table('public', 'household_member_groups');
-select has_table('public', 'household_rule_options');
-select has_table('public', 'household_food_rules');
+select has_table('public', 'profiles', 'profiles table exists');
+select has_table('public', 'households', 'households table exists');
+select has_table(
+  'public',
+  'household_member_groups',
+  'household_member_groups table exists'
+);
+select has_table('public', 'household_rule_options', 'household_rule_options table exists');
+select has_table('public', 'household_food_rules', 'household_food_rules table exists');
 
-select has_pk('public', 'profiles');
-select has_pk('public', 'households');
-select has_pk('public', 'household_member_groups');
-select has_pk('public', 'household_rule_options');
-select has_pk('public', 'household_food_rules');
+select has_pk('public', 'profiles', 'profiles has a primary key');
+select has_pk('public', 'households', 'households has a primary key');
+select has_pk(
+  'public',
+  'household_member_groups',
+  'household_member_groups has a primary key'
+);
+select has_pk('public', 'household_rule_options', 'household_rule_options has a primary key');
+select has_pk('public', 'household_food_rules', 'household_food_rules has a primary key');
 
 select is(
   (
@@ -138,7 +146,7 @@ select is(
 
 select ok(
   (
-    select proconfig @> array['search_path=']
+    select array_to_string(proconfig, ',') like '%search_path=%'
     from pg_proc
     where oid = 'public.save_household_setup(integer,bigint,smallint,jsonb,text[])'::regprocedure
   ),
@@ -208,6 +216,8 @@ select throws_ok(
     set label_vi = 'Changed'
     where code = 'prefer_soup'
   $$,
+  '55000',
+  'HOUSEHOLD_RULE_OPTIONS_ARE_APPEND_ONLY',
   'canonical options are append-only even for trusted SQL paths'
 );
 

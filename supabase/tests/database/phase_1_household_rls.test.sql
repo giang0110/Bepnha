@@ -11,9 +11,16 @@ values
 
 set local role anon;
 
-select is((select count(*)::integer from public.household_rule_options), 0, 'anon sees no options');
+select throws_ok(
+  $$ select * from public.household_rule_options $$,
+  null,
+  null,
+  'anon cannot select canonical options'
+);
 select throws_ok(
   $$ select * from public.households $$,
+  null,
+  null,
   'anon cannot select households'
 );
 
@@ -102,6 +109,8 @@ select throws_ok(
     insert into public.households (owner_user_id, weekly_plan_budget_vnd, max_elapsed_minutes)
     values ('20000000-0000-0000-0000-000000000001', 900000, 30)
   $$,
+  null,
+  null,
   'A cannot bypass one-household-per-owner'
 );
 
@@ -111,6 +120,8 @@ select throws_ok(
     set owner_user_id = '20000000-0000-0000-0000-000000000002'
     where id = '30000000-0000-0000-0000-000000000001'
   $$,
+  null,
+  null,
   'A cannot reassign household ownership'
 );
 
@@ -128,6 +139,8 @@ select throws_ok(
       18
     )
   $$,
+  null,
+  null,
   'direct writes cannot take a completed household above 20 members'
 );
 
@@ -146,6 +159,8 @@ select throws_ok(
     delete from public.household_member_groups
     where id = '40000000-0000-0000-0000-000000000001'
   $$,
+  null,
+  null,
   'direct writes cannot delete the final completed-household member'
 );
 
@@ -166,6 +181,8 @@ select throws_ok(
       ('30000000-0000-0000-0000-000000000001', 'exclude_pork'),
       ('30000000-0000-0000-0000-000000000001', 'prefer_pork')
   $$,
+  null,
+  null,
   'direct Data API write rejects a hard/soft same-target conflict'
 );
 
@@ -224,6 +241,8 @@ select throws_ok(
       1
     )
   $$,
+  null,
+  null,
   'B cannot insert a child group into A household'
 );
 
@@ -239,6 +258,8 @@ select throws_ok(
     set onboarding_completed_at = now()
     where id = '30000000-0000-0000-0000-000000000002'
   $$,
+  null,
+  null,
   'direct household update cannot complete onboarding with zero members'
 );
 
@@ -277,6 +298,8 @@ select throws_ok(
       array['prefer_soup']::text[]
     )
   $$,
+  null,
+  null,
   'RPC invalid member state reaches authoritative trigger and fails atomically'
 );
 
@@ -316,6 +339,8 @@ select throws_ok(
       array['exclude_beef', 'prefer_beef']::text[]
     )
   $$,
+  null,
+  null,
   'RPC hard/soft conflict reaches authoritative trigger and fails atomically'
 );
 
@@ -349,6 +374,8 @@ select throws_ok(
       array[]::text[]
     )
   $$,
+  null,
+  null,
   'stale RPC versions cannot overwrite the household'
 );
 
