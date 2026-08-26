@@ -48,7 +48,9 @@ describe("sign up", () => {
     expect(screen.queryByLabelText(/tên|họ/i)).not.toBeInTheDocument()
     await submitSignUp()
 
-    expect(await screen.findByRole("heading", { name: "Thiết lập gia đình" })).toBeInTheDocument()
+    expect(
+      await screen.findByRole("heading", { name: "Thành viên trong gia đình" })
+    ).toBeInTheDocument()
   })
 
   it("shows confirmation-pending status when sign-up has no session", async () => {

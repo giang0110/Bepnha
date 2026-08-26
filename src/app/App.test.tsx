@@ -58,13 +58,15 @@ describe("authenticated app shell", () => {
   it("renders the protected onboarding shell for an authenticated session", async () => {
     renderRoutes(createAuthPort(session).port, "/onboarding")
 
-    expect(await screen.findByRole("heading", { name: "Thiết lập gia đình" })).toBeInTheDocument()
+    expect(
+      await screen.findByRole("heading", { name: "Thành viên trong gia đình" })
+    ).toBeInTheDocument()
   })
 
   it("unsubscribes from auth changes on unmount", async () => {
     const auth = createAuthPort(session)
     const view = renderRoutes(auth.port, "/onboarding")
-    await screen.findByRole("heading", { name: "Thiết lập gia đình" })
+    await screen.findByRole("heading", { name: "Thành viên trong gia đình" })
 
     view.unmount()
 
