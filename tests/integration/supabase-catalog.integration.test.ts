@@ -31,7 +31,8 @@ describe("published catalog Data API boundary", () => {
     expect(signUp.error).toBeNull()
 
     const anonUnits = await anon.from("units").select("id")
-    expect(anonUnits.data).toEqual([])
+    expect(anonUnits.data).toBeNull()
+    expect(anonUnits.error).not.toBeNull()
     const units = await authenticated.from("units").select("code").order("code")
     expect(units.error).toBeNull()
     expect(units.data?.map((row) => row.code)).toContain("g")
