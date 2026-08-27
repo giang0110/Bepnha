@@ -151,7 +151,7 @@ beforeAll(async () => {
       maxElapsedMinutes: 30,
       ruleCodes: []
     },
-    0
+    null
   )
   if (!household.ok) throw new Error(`Unable to create planner household: ${household.reason}`)
   householdId = household.household.householdId
