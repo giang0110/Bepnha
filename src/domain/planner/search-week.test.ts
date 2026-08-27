@@ -3,8 +3,15 @@ import { describe, expect, test } from "vitest"
 import type { EligibleMealOption } from "./evaluate-eligibility"
 import { evaluatePlannerEligibility } from "./evaluate-eligibility"
 import { normalizePlannerInput } from "./normalize-planner-input"
+import { PLANNER_CONFIG_V1 } from "./planner-config"
 import { plannerCandidate, plannerInput } from "./planner-test-fixture"
-import { searchWeek, selectFinalPlan, type CompletedPlanCandidate } from "./search-week"
+import {
+  calculateCompletedPlanCandidate,
+  qualityLowerBound,
+  searchWeek,
+  selectFinalPlan,
+  type CompletedPlanCandidate
+} from "./search-week"
 
 function eligible(count: number, protein = "poultry"): EligibleMealOption[] {
   const candidates = Array.from({ length: count }, (_, index) => {
@@ -60,6 +67,32 @@ function completed(cost: number, quality: number, id: string): CompletedPlanCand
   }
 }
 
+function multiStyleCompletionCandidates(): EligibleMealOption[] {
+  const candidates = eligible(7)
+  const sharedPrice = {
+    ...candidates[0]!.prices[0]!,
+    foodPriceId: "shared-price",
+    foodId: "shared-food",
+    foodFactVersionId: "shared-fact-v1",
+    packageBaseQuantity: "2800"
+  }
+  return candidates.map((candidate, index) => ({
+    ...candidate,
+    primaryProteinGroup: `protein-${index}`,
+    cookingStyleCodes:
+      index === 6 ? ["steam", "fry", "grill", "stir_fry", "braise", "roast"] : ["boil"],
+    roles: ["staple", "main", "vegetable"],
+    foodCategoryCodes: [],
+    foodCategoryCodesByFood: { "shared-food": [] },
+    requirements: candidate.requirements.map((requirement) => ({
+      ...requirement,
+      foodId: "shared-food",
+      foodFactVersionId: "shared-fact-v1"
+    })),
+    prices: [sharedPrice]
+  }))
+}
+
 describe("searchWeek", () => {
   test("produces a seven-day plan when all distinct valid meals share one protein", () => {
     const result = searchWeek(eligible(7), 700_000, [], "2026-08-26")
@@ -87,6 +120,38 @@ describe("searchWeek", () => {
     if (!("plan" in left)) throw new Error("expected plan")
     expect(
       left.plan.frontierMetrics.every(
+        (metric) => metric.qualitySize <= 125 && metric.costSize <= 125 && metric.unionSize <= 250
+      )
+    ).toBe(true)
+  })
+
+  test("keeps the quality lower bound admissible when a later candidate adds many styles", () => {
+    const candidates = multiStyleCompletionCandidates()
+    const complete = calculateCompletedPlanCandidate(candidates, [], "2026-08-26")
+    expect(complete).not.toBeNull()
+    expect(complete?.score.components.cookingStyleVariety).toBe(0)
+    expect(complete?.score.metrics.distinctPrimaryCookingStyleCount).toBe(7)
+
+    if (complete === null) return
+
+    const partialLowerBound = qualityLowerBound(
+      candidates.slice(0, 6),
+      [],
+      PLANNER_CONFIG_V1
+    )
+    expect(partialLowerBound).toBeLessThanOrEqual(complete.score.totalQualityPenalty)
+  })
+
+  test("keeps multi-style search deterministic without changing frontier limits", () => {
+    const candidates = multiStyleCompletionCandidates()
+    const forward = searchWeek(candidates, 700_000, [], "2026-08-26")
+    const reversed = searchWeek([...candidates].reverse(), 700_000, [], "2026-08-26")
+
+    expect(JSON.stringify(forward)).toBe(JSON.stringify(reversed))
+    expect(PLANNER_CONFIG_V1.frontier).toEqual({ maxSize: 250, qualitySize: 125, costSize: 125 })
+    if (!("plan" in forward)) throw new Error("expected plan")
+    expect(
+      forward.plan.frontierMetrics.every(
         (metric) => metric.qualitySize <= 125 && metric.costSize <= 125 && metric.unionSize <= 250
       )
     ).toBe(true)

@@ -134,7 +134,7 @@ export function calculateCompletedPlanCandidate(
   }
 }
 
-function lowerBound(
+export function qualityLowerBound(
   selected: readonly EligibleMealOption[],
   softPreferenceCodes: readonly string[],
   config: PlannerConfigV1
@@ -142,9 +142,6 @@ function lowerBound(
   const proteins = selected.map((option) => option.primaryProteinGroup)
   const repetitions = selected.length - new Set(proteins).size
   const adjacent = proteins.slice(1).filter((protein, index) => protein === proteins[index]).length
-  const assignedStyles = new Set(selected.flatMap((option) => option.cookingStyleCodes)).size
-  const remainingDays = config.dayCount - selected.length
-  const unavoidableMissingStyles = Math.max(0, 7 - (assignedStyles + remainingDays))
   const missingRoles = selected.reduce((sum, option) => {
     const roles = new Set(option.roles)
     return (
@@ -163,7 +160,6 @@ function lowerBound(
   }, 0)
   return (
     scaledPenalty(config.diversityWeights.primaryProteinRepetition, repetitions, 6) +
-    scaledPenalty(config.diversityWeights.primaryCookingStyleVariety, unavoidableMissingStyles, 6) +
     scaledPenalty(config.diversityWeights.adjacentPrimaryProteinReuse, adjacent, 6) +
     scaledPenalty(config.scoringWeights.nutritionComposition, missingRoles, 21) +
     (softPreferenceCodes.length === 0
@@ -270,7 +266,7 @@ export function searchWeek(
         expanded.push({
           selected,
           basket,
-          qualityLowerBound: lowerBound(selected, softPreferenceCodes, config),
+          qualityLowerBound: qualityLowerBound(selected, softPreferenceCodes, config),
           stableIdSequence: stableSequence(selected)
         })
       }
