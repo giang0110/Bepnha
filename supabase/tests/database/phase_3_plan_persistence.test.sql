@@ -49,7 +49,8 @@ select throws_ok(
       '92000000-0000-0000-0000-000000000001', date '2026-08-31', 0, null,
       '95000000-0000-0000-0000-000000000001',
       jsonb_build_object(
-        'revisionKind', 'generation', 'householdSetupVersion', 1,
+        'revisionKind', 'generation', 'householdSetupVersion',
+        (select version from public.households where id = '92000000-0000-0000-0000-000000000001'),
         'engineVersion', 'planner-engine-v1', 'portionConfigVersion', 'portion-v1',
         'priceFreshnessConfigVersion', 'price-freshness-v1',
         'plannerConfigVersion', 'planner-v1', 'calculationDate', '2026-08-26',
@@ -86,7 +87,8 @@ select lives_ok(
       '92000000-0000-0000-0000-000000000001', date '2026-08-31', 0, null,
       '95000000-0000-0000-0000-000000000001',
       jsonb_build_object(
-        'revisionKind', 'generation', 'householdSetupVersion', 1,
+        'revisionKind', 'generation', 'householdSetupVersion',
+        (select version from public.households where id = '92000000-0000-0000-0000-000000000001'),
         'engineVersion', 'planner-engine-v1', 'portionConfigVersion', 'portion-v1',
         'priceFreshnessConfigVersion', 'price-freshness-v1',
         'plannerConfigVersion', 'planner-v1', 'calculationDate', '2026-08-26',
@@ -132,7 +134,8 @@ select lives_ok(
       (select current_revision_id from public.meal_plans),
       '95000000-0000-0000-0000-000000000002',
       jsonb_build_object(
-        'revisionKind', 'replacement', 'replacedDayIndex', 3, 'householdSetupVersion', 1,
+        'revisionKind', 'replacement', 'replacedDayIndex', 3, 'householdSetupVersion',
+        (select version from public.households where id = '92000000-0000-0000-0000-000000000001'),
         'engineVersion', 'planner-engine-v1', 'portionConfigVersion', 'portion-v1',
         'priceFreshnessConfigVersion', 'price-freshness-v1',
         'plannerConfigVersion', 'planner-v1', 'calculationDate', '2026-08-26',
