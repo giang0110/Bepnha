@@ -17,6 +17,7 @@
 - Preserve `calculatePurchaseBasket` in `src/domain/pricing/calculate-purchase-basket.ts` as the sole package/purchase-increment rounding algorithm. Phase 4 may validate and project its output, but must not calculate a second authoritative total.
 - Generate shopping data only from the exact normalized plan input and immutable ready-plan/revision snapshot. Never query `foods.current_fact_version_id`, recipe/meal-option current pointers, or a region current-price-book pointer to reinterpret a revision.
 - Mutable food and recipe display labels are read/presentation data only. They are excluded from canonical shopping snapshots and every calculation fingerprint.
+- Every newly generated, regenerated, or replaced Phase 4 revision uses the single production constant `PLANNER_ENGINE_VERSION = "planner-engine-v2"`. Historical Phase 3 rows remain `planner-engine-v1` and are never rewritten.
 - Domain code remains deterministic and framework-independent: no React, Supabase, Vercel, environment access, wall clock, random ordering, AI, NLP, or free-text interpretation.
 - All authoritative quantities remain canonical, unrounded Decimal strings until presentation. VND values remain safe non-negative integers. Missing/unusable price or incompatible unit dimension fails the whole result; it never becomes zero or a partial total.
 - Use TDD for deterministic shopping behavior and browser state. Write pgTAP assertions before migration implementation when local Docker is available. If Docker is unavailable, record `LOCAL_DB_VERIFICATION_UNAVAILABLE` and `DATABASE_RLS_GATE_PENDING_CI`; do not claim local database RED/GREEN.
@@ -130,12 +131,47 @@ Consequences:
 2. The projection is produced before the calculation fingerprint and included inside `calculation_snapshot`; the fingerprint therefore covers shopping quantities, exact sources, categories, and warnings but no mutable labels or check state.
 3. The existing persistence RPC is extended to derive relational shopping rows from that snapshot in the same transaction. There is no second “recalculate shopping cost” endpoint.
 4. Existing Phase 3 revisions created before the Phase 4 migration are not reconstructed from current catalog data. An exact legacy revision without a stored `shoppingList` projection returns typed `SHOPPING_LIST_NOT_AVAILABLE_FOR_LEGACY_REVISION`; generating/regenerating a new revision produces Phase 4 evidence.
+5. Adding the authoritative shopping projection changes canonical calculation output, so all new Phase 4 revisions use `planner-engine-v2`; the version is part of canonical input before `inputFingerprint` is calculated.
 
 ---
 
 ## 2. Fixed Phase 4 Domain Contracts
 
-### 2.1 Authoritative snapshot
+### 2.1 Engine and fingerprint version boundary
+
+Add `src/domain/planner/planner-engine-version.ts` with the one production-write constant:
+
+```typescript
+export const PLANNER_ENGINE_VERSION = "planner-engine-v2" as const
+export type PersistedPlannerEngineVersion = "planner-engine-v1" | typeof PLANNER_ENGINE_VERSION
+```
+
+Generation, regeneration, and replacement import this constant for both snapshot construction and `PersistPlannerRevisionCommand.engineVersion`; they must not repeat a `planner-engine-v2` string literal. The v1 union member exists only to type/read/replay persisted legacy evidence. No migration updates those rows and no new write uses v1.
+
+Extend `PlannerSnapshotSource` and its canonical `inputPayload` with:
+
+```typescript
+readonly engineVersion: PersistedPlannerEngineVersion
+```
+
+Canonical input construction becomes:
+
+```text
+inputSnapshot = {
+  engineVersion: PLANNER_ENGINE_VERSION,
+  ...normalized household/date/config/catalog input,
+  catalogFingerprint
+}
+inputFingerprint = sha256(canonical(inputSnapshot))
+calculationSnapshot.inputFingerprint = inputFingerprint
+calculationFingerprint = sha256(canonical(calculationSnapshot))
+```
+
+Therefore identical household/catalog/business input evaluated under legacy v1 versus Phase 4 v2 cannot share an `inputFingerprint`, and the calculation fingerprint transitively identifies the engine through its embedded input fingerprint. Persisted `meal_plan_revisions.engine_version`, `input_snapshot.engineVersion`, and the application persistence command must agree or the transaction fails.
+
+Do not change `PortionConfigV1`, `PriceFreshnessConfigV1`, or `PlannerConfigV1`: Phase 4 does not alter their algorithms. The engine-version increment accounts for the new canonical shopping output/input contract.
+
+### 2.2 Authoritative snapshot
 
 Add `ShoppingListSnapshotV1` with only calculation-bearing immutable data:
 
@@ -159,7 +195,7 @@ Each `ShoppingListSnapshotLineV1`, canonically ordered by `foodId`, contains:
 
 The builder consumes normalized exact `PlannerInputV1` plus `ReadyPlan`. It does not call `calculatePurchaseBasket`; it validates that the ready plan's basket has exactly one line for each aggregated stable food and copies those authoritative purchase results.
 
-### 2.2 Canonical consolidation and source integrity
+### 2.3 Canonical consolidation and source integrity
 
 For each of seven selected items:
 
@@ -173,7 +209,7 @@ For each of seven selected items:
 
 Preparation text is never an identity key. Contributions with the same stable `foodId` remain one line even when preparation text, recipes, or pinned historical fact versions differ.
 
-### 2.3 Multiple pinned fact versions and grocery categories
+### 2.4 Multiple pinned fact versions and grocery categories
 
 Add code-versioned `GROCERY_CATEGORY_CONFIG_V1`; do not create an editable database configuration table for MVP. It maps exact pinned Phase 2 category ancestry codes to these stable shopping groups and order:
 
@@ -190,7 +226,7 @@ Resolve each contribution from its pinned `categoryAncestry`, preferring the mos
 
 This exact config version and resolved code enter the shopping snapshot/fingerprint. Vietnamese labels and display order are code presentation metadata keyed by that version; mutable food names do not enter the snapshot.
 
-### 2.4 Price outcomes
+### 2.5 Price outcomes
 
 Reuse `PriceFreshnessConfigV1` exactly:
 
@@ -200,7 +236,7 @@ Reuse `PriceFreshnessConfigV1` exactly:
 
 Phase 4 validates/copies the basket's exact `foodPriceId`, `priceBookId`, `priceFoodFactVersionId`, observation date, freshness, package values, and cost. It never substitutes a current book, treats stale as fatal, or creates a zero/partial line.
 
-### 2.5 Cost and fingerprint invariants
+### 2.6 Cost and fingerprint invariants
 
 At domain, application, and transaction boundaries require:
 
@@ -218,7 +254,18 @@ Each shopping line's purchase fields must be byte-equivalent to the correspondin
 
 `ShoppingListSnapshotV1` is inserted into the calculation payload before `calculationFingerprint` is hashed. `shopping_lists.calculation_fingerprint` stores exactly the revision fingerprint. Check state and mutable display labels are loaded after calculation and never affect this hash.
 
-### 2.6 Authoritative output versus user state
+For every newly written Phase 4 revision:
+
+```text
+meal_plan_revisions.engine_version
+== input_snapshot.engineVersion
+== PLANNER_ENGINE_VERSION
+== "planner-engine-v2"
+```
+
+Because `calculation_snapshot.inputFingerprint` is calculation-bearing, the calculation fingerprint transitively commits to this engine version. Historical v1 rows retain their original snapshots/fingerprints and are never normalized into v2 after the fact.
+
+### 2.7 Authoritative output versus user state
 
 Authoritative and immutable after persistence:
 
@@ -284,15 +331,29 @@ Use a private immutable `is_canonical_decimal_text(text, allow_zero boolean)` he
 `shopping_list_item_sources` is the only new relational provenance graph and is justified because generated `meal_plan_item_id` values do not exist until the persistence transaction:
 
 - `shopping_list_item_id uuid not null`, `shopping_list_id uuid not null`, `meal_plan_revision_id uuid not null`;
-- `meal_plan_item_id uuid not null` referencing the exact revision item;
-- `meal_option_recipe_id uuid not null`;
-- `recipe_version_id uuid not null`, `recipe_ingredient_id uuid not null` with composite FK to exact `recipe_ingredients(recipe_version_id,id)`; add only the required non-destructive unique key if the Phase 2 table does not already expose it;
+- `meal_plan_item_id uuid not null` with a direct FK to the exact revision item;
+- `meal_option_recipe_id uuid not null` with a direct FK to `meal_option_recipes(id)`;
+- `recipe_version_id uuid not null`, `recipe_ingredient_id uuid not null` with the existing composite FK target `recipe_ingredients(recipe_version_id,id)`;
 - `food_id uuid not null`, `food_fact_version_id uuid not null`, and exact `base_unit_id uuid not null`;
+- composite FKs `(food_id, food_fact_version_id)` to `food_fact_versions(food_id,id)` and `(food_id,base_unit_id)` to the permanent food identity `foods(id,base_unit_id)`;
 - canonical positive `required_base_quantity text not null`;
 - primary key `(shopping_list_item_id, meal_plan_item_id, meal_option_recipe_id, recipe_ingredient_id)`;
-- context FKs/check trigger prove list item/list/revision/plan item agree and source food/fact/unit agree with both the shopping line and pinned recipe ingredient.
+- composite FK `(shopping_list_id, shopping_list_item_id)` to `shopping_list_items(shopping_list_id,id)` and composite FK `(shopping_list_id,meal_plan_revision_id)` to `shopping_lists(id,meal_plan_revision_id)`;
+- a narrowly scoped `private.assert_shopping_source_row()` integrity trigger proves the complete cross-table chain that the remaining direct FKs cannot express without duplicating `meal_option_version_id`.
 
-This minimal table gives `shopping line -> plan item -> exact recipe ingredient`; recipe and fact details remain recoverable from existing immutable catalog rows. Do not duplicate recipe steps, nutrients, allergens, or full plan-item snapshots.
+For every source row, that trigger must prove all of the following from existing rows:
+
+1. `meal_plan_item_id` belongs to the source/list's exact `meal_plan_revision_id`;
+2. `meal_option_recipe_id` has `meal_option_version_id = meal_plan_items.meal_option_version_id`;
+3. that exact component's `recipe_version_id` equals the source `recipe_version_id`;
+4. `(recipe_version_id, recipe_ingredient_id)` identifies the exact recipe ingredient;
+5. the recipe ingredient's `food_id` and `food_fact_version_id` equal the source values;
+6. source `food_id` equals `shopping_list_items.food_id`;
+7. source `base_unit_id` equals both `shopping_list_items.base_unit_id` and permanent `foods.base_unit_id`.
+
+The trigger must **not** compare source `base_unit_id` to `recipe_ingredients.unit_id`. The latter is an editorial recipe measurement unit such as `kg` or `tbsp`; source/list `base_unit_id` is the permanent canonical unit such as `g`, `ml`, or `item` after exact conversion/scaling.
+
+This minimal table gives `shopping line -> exact meal_plan_item -> exact meal_option_recipe -> exact recipe_version -> exact recipe_ingredient -> exact food/fact`. Recipe and fact details remain recoverable from existing immutable catalog rows. Do not duplicate `meal_option_version_id`, recipe steps, nutrients, allergens, or full plan-item snapshots merely to simplify a foreign key.
 
 `shopping_item_check_states`:
 
@@ -304,19 +365,21 @@ This minimal table gives `shopping line -> plan item -> exact recipe ingredient`
 
 Extend `public.persist_meal_plan_revision(...)` in place without broadening its grants:
 
-1. require `calculationSnapshot.shoppingList.version = 'shopping-list-v1'` for every newly persisted revision after this migration;
-2. validate its line count, unique food IDs, canonical ordering, exact basket-field equality, total, warnings, categories, fact refs, and sources before writing;
-3. insert revision and seven plan items as today;
-4. insert one list, its lines, and its minimal source rows from the same calculation snapshot, mapping each source `dayIndex` to the newly created `meal_plan_item_id`;
-5. call `private.assert_revision_shopping_row(revision_id)` to verify source sums, item ownership/context, fingerprint, line sums, basket equality, and revision/list totals;
-6. for a replacement/regeneration parent, carry checked rows only for exact stable food/base-unit/required-text matches;
-7. seal the revision and advance `meal_plans.current_revision_id` only after all assertions pass.
+1. require `p_revision.engineVersion = 'planner-engine-v2'`, `p_revision.inputSnapshot.engineVersion = 'planner-engine-v2'`, and exact equality between them for every new write; retain existing v1 rows untouched;
+2. require `calculationSnapshot.shoppingList.version = 'shopping-list-v1'` for every newly persisted revision after this migration;
+3. keep `portionConfigVersion = 'portion-v1'`, `priceFreshnessConfigVersion = 'price-freshness-v1'`, and `plannerConfigVersion = 'planner-v1'` unless their existing validations already permit equivalent typed values; Phase 4 does not introduce new config algorithms;
+4. validate shopping line count, unique food IDs, canonical ordering, exact basket-field equality, total, warnings, categories, fact refs, and sources before writing;
+5. insert revision and seven plan items as today;
+6. insert one list, its lines, and its minimal source rows from the same calculation snapshot, mapping each source `dayIndex` to the newly created `meal_plan_item_id`;
+7. validate every source through `private.assert_shopping_source_row()` and call `private.assert_revision_shopping_row(revision_id)` to verify source sums, full provenance, item ownership/context, fingerprint, line sums, basket equality, and revision/list totals;
+8. for a replacement/regeneration parent, carry checked rows only for exact stable food/base-unit/required-text matches;
+9. seal the revision and advance `meal_plans.current_revision_id` only after all assertions pass.
 
 Extend `private.assert_plan_summary_row(...)` so a current Phase 4 revision also requires its exact shopping list and all cost/fingerprint invariants. A revision without Phase 4 snapshot remains valid historical Phase 3 evidence but cannot become current through the revised persistence path.
 
 Add history-protection triggers for lists/items/sources that permit writes only inside `private.plan_transition_context`; ready calculation rows are otherwise immutable even to a direct service-role table statement. Add deferrable integrity triggers or equivalent private assertions so direct writes cannot leave a ready revision with missing/extra/mismatched shopping rows. The checked-state table is excluded from calculation-history immutability and is protected by ownership/RPC policy instead.
 
-All mismatch paths raise stable typed SQL messages and roll back revision, list, lines, sources, check carry-forward, and current-pointer update atomically.
+All engine, fingerprint, provenance, quantity, and cost mismatch paths raise stable typed SQL messages and roll back revision, list, lines, sources, check carry-forward, and current-pointer update atomically.
 
 ### 3.3 Read and toggle RPCs
 
@@ -366,7 +429,7 @@ Enable RLS on all four tables.
 
 ### 4.1 Server calculation/persistence boundary
 
-Add `buildShoppingListSnapshot` to the pure domain and call it from the existing planner `snapshots(...)` function after `ReadyPlan` exists and before calculation hashing. Update `PersistPlannerRevisionCommand.calculationSnapshot` to require the shopping projection.
+Add `buildShoppingListSnapshot` to the pure domain and call it from the existing planner `snapshots(...)` function after `ReadyPlan` exists and before calculation hashing. Import `PLANNER_ENGINE_VERSION` into that shared path, add it to canonical input before `inputFingerprint`, and update `PersistPlannerRevisionCommand` to require that exact engine type plus the shopping projection.
 
 Generation and replacement must use the identical path:
 
@@ -375,11 +438,13 @@ normalized exact input
   -> eligible selected seven meals
   -> existing calculatePurchaseBasket
   -> buildShoppingListSnapshot (validate/project only)
-  -> calculation snapshot + fingerprint
+  -> canonical input with PLANNER_ENGINE_VERSION
+  -> input fingerprint
+  -> calculation snapshot (including input fingerprint) + calculation fingerprint
   -> existing service persistence RPC transaction
 ```
 
-If projection validation fails, return a fatal structured planner/application failure and persist nothing. The browser cannot submit a shopping snapshot or any of its fields.
+Generation, regeneration, and replacement all call this shared path and therefore write `planner-engine-v2`; no branch-local literal is permitted. If projection validation fails, return a fatal structured planner/application failure and persist nothing. The browser cannot submit an engine version, shopping snapshot, or any of its fields.
 
 ### 4.2 Browser application port
 
@@ -420,6 +485,7 @@ Optimistic checkbox UI may be used only for the checked boolean. On RPC failure 
 
 Expected additions:
 
+- `src/domain/planner/planner-engine-version.ts`
 - `src/domain/shopping/grocery-category-config.ts`
 - `src/domain/shopping/shopping-list.ts`
 - `src/domain/shopping/build-shopping-list-snapshot.ts`
@@ -441,6 +507,7 @@ Expected focused modifications:
 - `src/domain/planner/evaluate-eligibility.ts` and its tests: retain explicit ingredient/source fields already emitted by `scaleMealOption`;
 - `src/domain/planner/planner-input.ts`, `src/infrastructure/server/supabase-planner-input-loader.ts`, and focused tests: load permanent `baseDimension` with exact ingredient lineage;
 - `src/domain/planner/planner-outcome.ts`: add only shopping projection fatal codes required by authoritative generation;
+- `src/domain/planner/planner-snapshot.ts` and tests: add engine version to canonical input;
 - `src/application/planner/planner-use-cases.ts` and tests: add shopping projection before fingerprint/persistence;
 - `src/infrastructure/server/supabase-planner-repository.ts` and tests: serialize the required new snapshot without accepting browser-authored data;
 - `src/infrastructure/supabase/database.types.ts`: generated from clean schema only;
@@ -529,7 +596,9 @@ Do not add `api/shopping/*`, another pricing module, a pantry table, a manual-it
 
 **Files**
 
+- Create: `src/domain/planner/planner-engine-version.ts`
 - Modify: `src/domain/planner/planner-outcome.ts`
+- Modify: `src/domain/planner/planner-snapshot.ts`
 - Modify: `src/application/planner/planner-use-cases.ts`
 - Modify: `src/application/planner/planner-use-cases.test.ts`
 - Modify: `src/domain/planner/planner-snapshot.test.ts`
@@ -538,12 +607,22 @@ Do not add `api/shopping/*`, another pricing module, a pantry table, a manual-it
 
 **Consumes:** Task 2 projection, existing generation/replacement `ReadyPlan`.
 
-**Produces:** calculation snapshot/fingerprint that includes exact `shoppingList`, and persistence payload inaccessible to browser authorship.
+**Produces:** `PLANNER_ENGINE_VERSION = "planner-engine-v2"`, canonical input/fingerprint containing that version, calculation snapshot/fingerprint containing exact `shoppingList`, and persistence payload inaccessible to browser authorship.
 
-- [ ] Write failing tests proving generation and replacement both include the projection before hashing; list/basket/revision totals agree; mutable display-name changes do not alter the shopping portion; projection failure persists nothing.
+- [ ] Write failing tests proving:
+  - legacy `planner-engine-v1` snapshots remain readable as stored historical evidence;
+  - every new Phase 4 generation, regeneration, and replacement command persists `planner-engine-v2`;
+  - the canonical input snapshot contains engine version before hashing;
+  - identical business/household/catalog/config input represented as v1 versus v2 has a different canonical `inputFingerprint`;
+  - calculation fingerprint transitively changes because `calculationSnapshot.inputFingerprint` changes;
+  - generation and replacement import/use the same `PLANNER_ENGINE_VERSION` constant rather than local literals;
+  - generation and replacement both include the shopping projection before calculation hashing;
+  - list/basket/revision totals agree, mutable display-name changes do not alter the shopping portion, and projection failure persists nothing.
 - [ ] Test replacement on a non-additive package boundary to prove the new list comes from the whole recomputed week, not a line delta.
-- [ ] Test browser HTTP intent remains unchanged and contains no shopping quantities, costs, source IDs, or fingerprints.
-- [ ] Add the projection in the shared `snapshots(...)` path and require it in `PersistPlannerRevisionCommand`.
+- [ ] Test browser HTTP intent remains unchanged and contains no engine version, shopping quantities, costs, source IDs, or fingerprints.
+- [ ] Add the single production constant, pass it through `buildPlannerSnapshotPayloads`, add it to `inputPayload`, and use it in the shared `snapshots(...)` and persistence-command paths.
+- [ ] Add the projection in the same shared `snapshots(...)` path and require it in `PersistPlannerRevisionCommand`.
+- [ ] Keep `PortionConfigV1`, `PriceFreshnessConfigV1`, and `PlannerConfigV1` byte-equivalent to Phase 3.
 - [ ] Keep the existing Phase 3 primitive call sites and budget ranking untouched.
 - [ ] Run:
 
@@ -571,14 +650,23 @@ Do not add `api/shopping/*`, another pricing module, a pantry table, a manual-it
 
 - [ ] Write pgTAP expectations first for schema, constraints, grants, policies, and function execution privileges.
 - [ ] Add failing integrity tests proving:
+  - newly persisted generation/regeneration/replacement revisions require `engine_version = 'planner-engine-v2'` and matching `input_snapshot.engineVersion`, while pre-existing v1 rows remain unchanged/readable;
   - exactly one authoritative list per exact revision;
   - unique stable food per list;
   - canonical positive required/package/purchase fields and non-negative leftover/cost;
   - list line fields byte-match the embedded purchase basket;
   - sum line costs = list total = revision total; fingerprint equals revision fingerprint;
   - every source belongs to the same list/revision/item and exact recipe ingredient/fact/food;
+  - a `meal_plan_item_id` from another revision is rejected;
+  - an unrelated `meal_option_recipe_id` is rejected;
+  - a component belonging to another meal-option version than `meal_plan_items.meal_option_version_id` is rejected;
+  - a source `recipe_version_id` differing from the exact component pin is rejected;
+  - a recipe ingredient whose `food_id` or `food_fact_version_id` differs from the source is rejected;
+  - a source `food_id` differing from its shopping line is rejected;
+  - a source canonical `base_unit_id` differing from either the shopping line or permanent `foods.base_unit_id` is rejected;
+  - a valid ingredient authored in `kg` persists successfully when the stable food's permanent/source/list base unit is `g`, proving no false comparison to `recipe_ingredients.unit_id`;
   - source requirements sum exactly to the line requirement;
-  - invalid/missing/extra source or total/fingerprint mismatch rolls the entire transaction back;
+  - every provenance mismatch and every invalid/missing/extra source or total/fingerprint mismatch rolls the entire revision/list transaction back;
   - completed authoritative list/item/source rows are immutable;
   - a legacy Phase 3 revision stays historical and returns the typed legacy outcome rather than being rebuilt from current pointers.
 - [ ] Add failing RLS/grant tests proving owner read, cross-owner/anonymous denial, browser authoritative-write denial, and that check RPC cannot alter quantities/cost/provenance.
@@ -644,6 +732,9 @@ Do not add `api/shopping/*`, another pricing module, a pantry table, a manual-it
 
 - [ ] Write integration tests for:
   - generate plan -> shopping list exists for exact revision;
+  - new generation and replacement revisions both persist `planner-engine-v2` from the shared constant, with matching `input_snapshot.engineVersion`;
+  - an unchanged legacy Phase 3 `planner-engine-v1` revision remains owner-readable as historical evidence and receives no fabricated shopping list;
+  - otherwise identical canonical business/catalog input under v1 and v2 produces different input fingerprints;
   - plan/revision/snapshot/list/line sum totals and fingerprint agree;
   - owner reads current and exact historical lists; second user cannot read either;
   - current mutable food display name may change through the trusted catalog boundary while stored shopping evidence/fingerprint remains unchanged and read DTO may show the corrected name;
@@ -651,6 +742,8 @@ Do not add `api/shopping/*`, another pricing module, a pantry table, a manual-it
   - toggle and refresh persist check state while authoritative columns remain unchanged;
   - replacement creates a new list from the complete week, preserves old list, changes only target meal provenance, and applies exact carry/reset rules;
   - malformed service persistence payload fails atomically with no revision/list/current-pointer advance;
+  - each of other-revision plan item, unrelated component, other meal-option version component, mismatched component recipe version, mismatched ingredient food/fact, source/line food mismatch, and mismatched canonical base unit fails atomically with no revision/list/current-pointer advance;
+  - a recipe ingredient measured in `kg` with food permanent canonical unit `g` persists and reports the converted `g` source/list unit;
   - retiring/changing catalog current pointers does not alter exact historical shopping read.
 - [ ] Reuse existing catalog/planner fixture helpers; do not seed pantry or custom items.
 - [ ] Add script:
@@ -818,11 +911,12 @@ Do not add `api/shopping/*`, another pricing module, a pantry table, a manual-it
   git diff --stat 00380a677fb3c1d8eba8043f6e4745a6b0d242e2...HEAD
   git diff --name-status 00380a677fb3c1d8eba8043f6e4745a6b0d242e2...HEAD
   rg -n "pantry|receipt|barcode|ocr|delivery|payment|retailer|manual grocery|VITE_.*SERVICE|service_role" src api supabase tests README.md
+  rg -n '"planner-engine-v2"' src --glob '!**/*.test.*'
   git diff --check 00380a677fb3c1d8eba8043f6e4745a6b0d242e2...HEAD
   git status --short --branch
   ```
 
-  Review every match; allowed matches are explicit exclusions/tests or existing server-only service-role usage. Confirm there is one package-rounded algorithm, no current-pointer replay, no mutable label in calculation snapshots, no pantry field/table, no browser authoritative DML, and no unrelated change.
+  Review every match; allowed matches are explicit exclusions/tests or existing server-only service-role usage. The non-test TypeScript engine search must resolve to the one version constant rather than generation/replacement literals. Confirm there is one package-rounded algorithm, the complete source trigger chain, no `source.base_unit_id = recipe_ingredients.unit_id` comparison, no current-pointer replay, no mutable label in calculation snapshots, no pantry field/table, no browser authoritative DML, and no unrelated change.
 
 - [ ] Push without force:
 
@@ -889,6 +983,8 @@ git status --short --branch
 
 - exact approved Phase 3 SHA remains in ancestry and all inherited Phase 0–3 gates pass;
 - same normalized input and ready plan produce byte-equivalent shopping snapshots regardless of source/result order;
+- every new generation/regeneration/replacement revision uses the shared `planner-engine-v2` constant in both persisted metadata and canonical input, while historical v1 evidence remains unchanged/readable;
+- identical business/catalog/config input under v1 versus v2 has different canonical input fingerprints, and calculation fingerprints transitively commit to those input fingerprints;
 - one stable food produces one line after base-unit aggregation, with every exact fact/source retained;
 - incompatible dimensions and basket/projection mismatches are typed fatal failures with no partial output;
 - `calculatePurchaseBasket` remains the only package-rounded cost implementation;
@@ -896,6 +992,8 @@ git status --short --branch
 - stale prices remain usable warnings with observation date; missing/future/>90-day prices never produce partial or zero lists;
 - current catalog pointer/retirement and mutable display-name changes do not alter stored historical shopping evidence/fingerprint;
 - one immutable authoritative list exists per new exact revision; replacement creates a new list and never mutates the prior revision/list;
+- every persisted source proves the full line -> exact plan item -> exact meal-option component -> exact recipe version -> exact ingredient -> exact food/fact chain;
+- unrelated/wrong-version components, mismatched recipe versions, mismatched ingredient food/facts, and mismatched canonical base units are rejected atomically, while recipe `kg` -> permanent `g` conversion remains valid;
 - checked state is separate and carries only for same food/base unit plus byte-equivalent canonical required amount;
 - source links trace line -> plan item -> exact recipe ingredient/fact without a duplicate provenance graph;
 - category ambiguity is deterministic, reproducible, warning-bearing, and cost-neutral;
@@ -915,11 +1013,13 @@ git status --short --branch
 ## 9. Self-Review and YAGNI Audit
 
 - **Duplicate cost logic:** The shopping builder compares/project-copies the Phase 3 basket; it never calls a parallel package formula. SQL consistency checks validate stored fields but do not select or round packages.
+- **Engine reproducibility:** Phase 4 intentionally advances only the planner engine to v2 because canonical input/calculation evidence changes. One production constant feeds generation and replacement; v1 history is typed/readable and never rewritten. Portion, freshness, and planner configs stay V1 because their algorithms do not change.
 - **Mutable replay:** Exact facts, prices, configs, sources, categories, and basket come from normalized/revision evidence. Current food names are presentation-only read DTO fields and do not enter stored calculation rows or fingerprints.
 - **Multiple fact versions:** All exact facts/hashes remain attached to the stable-food line. Base-unit incompatibility is fatal; category disagreement is deterministic `other` + warning and cannot split or reprice the line.
 - **Pantry boundary:** No pantry table/input/deduction exists. There is no retained zero-valued pantry field because nothing structurally requires it.
 - **Authority:** Browser roles cannot write list arithmetic or provenance. Generation remains in the existing trusted planner path; browser RPCs cover only owner read and separate check state.
 - **Atomic invariant:** Revision, items, list, lines, sources, carry-forward, seal, and current-pointer update share one transaction; mismatch leaves no partial evidence.
+- **Complete provenance:** Direct composite FKs enforce exact ingredient and food/fact/base-unit identities; the narrow trigger verifies the cross-table meal-item/component/version chain. It compares canonical source base unit to the shopping line and permanent food base unit, never to the recipe measurement unit.
 - **Check-state isolation:** Checked state lives outside immutable calculation rows/snapshot/fingerprint. Carry-forward compares canonical requirement text exactly and never changes prior state.
 - **Replacement immutability:** A new revision receives a full-week list; old revisions/lists/sources remain untouched. No additive delta assumption is introduced.
 - **RLS/grants:** Every exposed table has owner-scoped SELECT RLS; authoritative DML remains unavailable to browser roles; narrow RPCs do not broaden service-role access.
