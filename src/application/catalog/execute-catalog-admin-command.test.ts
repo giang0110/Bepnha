@@ -2,7 +2,12 @@ import { createHash } from "node:crypto"
 
 import { describe, expect, test, vi } from "vitest"
 
-import type { CatalogAdminRepository } from "@/application/catalog/catalog-admin-repository"
+import type {
+  CatalogAdminRepository,
+  CatalogPublicationAggregate,
+  FoodFactPublicationAggregate,
+  RecipePublicationAggregate
+} from "@/application/catalog/catalog-admin-repository"
 import { executeCatalogAdminCommand } from "@/application/catalog/execute-catalog-admin-command"
 import type { ContentHasher } from "@/application/shared/content-hasher"
 import { REQUIRED_NUTRIENT_CODES, SUPPORTED_ALLERGEN_CODES } from "@/domain/catalog/catalog"
@@ -44,7 +49,7 @@ const hasher: ContentHasher = {
   sha256: vi.fn().mockResolvedValue("f".repeat(64))
 }
 
-const recipeAggregate = {
+const recipeAggregate: RecipePublicationAggregate = {
   aggregateType: "recipe_version" as const,
   recipe: { recipeId: "recipe", code: "com", nameVi: "Cơm", revision: 1 },
   version: {
@@ -93,7 +98,7 @@ const recipeDraftIngredients = recipeAggregate.ingredients.map((ingredient) => (
   order: ingredient.order
 }))
 
-const foodAggregate = {
+const foodAggregate: FoodFactPublicationAggregate = {
   aggregateType: "food_fact_version" as const,
   food: {
     foodId: "food-rice",
@@ -134,6 +139,48 @@ const foodAggregate = {
     provenance: "Reviewed baseline"
   })),
   dietaryTags: [{ dietaryTagId: "tag-vegetarian", code: "vegetarian" }]
+}
+
+async function capturePublicationPayload(aggregate: CatalogPublicationAggregate): Promise<string> {
+  let canonicalPayload = ""
+  const recordingHasher: ContentHasher = {
+    sha256: (bytes) => {
+      canonicalPayload = new TextDecoder().decode(bytes)
+      return Promise.resolve("f".repeat(64))
+    }
+  }
+  const repository = adminRepository({
+    getAggregateForPublication: vi.fn().mockResolvedValue({ ok: true, value: aggregate })
+  })
+  const command =
+    aggregate.aggregateType === "recipe_version"
+      ? ({
+          action: "publish_recipe",
+          input: {
+            recipeVersionId: aggregate.version.recipeVersionId,
+            expectedRevision: aggregate.version.revision
+          }
+        } as const)
+      : aggregate.aggregateType === "food_fact_version"
+        ? ({
+            action: "publish_food_fact",
+            input: {
+              foodFactVersionId: aggregate.fact.foodFactVersionId,
+              expectedRevision: aggregate.fact.revision
+            }
+          } as const)
+        : ({
+            action: "publish_price_book",
+            input: {
+              priceBookId: aggregate.book.priceBookId,
+              expectedRevision: aggregate.book.revision
+            }
+          } as const)
+
+  const result = await executeCatalogAdminCommand(repository, recordingHasher, command)
+
+  expect(result.ok).toBe(true)
+  return canonicalPayload
 }
 
 describe("executeCatalogAdminCommand", () => {
@@ -247,11 +294,33 @@ describe("executeCatalogAdminCommand", () => {
         expectedRevision: 1,
         contentHash:
           type === "recipe_version"
-            ? "6603770e050e45a55559c252c5bb7f655cd3f4f95d1c43767611d67204793a86"
-            : "f68aabe3e5c282864ffb1135da9a2c559b6aa1468a70c7c849e43d4a28af3e31"
+            ? "2708cfeade6c0c4c2a2ca7d16e66835bf9e5a41148124764f0749deab32ebd3e"
+            : "9731a96f126c8d7a6698a6bce37501110706f1db7097cf67e35c6882cc66ddaa"
       })
     }
   )
+
+  test("excludes the mutable food display name from the food-fact hash projection", async () => {
+    const renamed = {
+      ...foodAggregate,
+      food: { ...foodAggregate.food, nameVi: "Gạo trắng đổi tên" }
+    }
+
+    await expect(capturePublicationPayload(renamed)).resolves.toBe(
+      await capturePublicationPayload(foodAggregate)
+    )
+  })
+
+  test("excludes the mutable recipe display name from the recipe-version hash projection", async () => {
+    const renamed = {
+      ...recipeAggregate,
+      recipe: { ...recipeAggregate.recipe, nameVi: "Cơm đổi tên" }
+    }
+
+    await expect(capturePublicationPayload(renamed)).resolves.toBe(
+      await capturePublicationPayload(recipeAggregate)
+    )
+  })
 
   test("does not write when a recipe aggregate has no structured ingredient", async () => {
     const repository = adminRepository({

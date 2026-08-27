@@ -115,6 +115,21 @@ describe("canonicalRecipeCalculationInput", () => {
     )
   })
 
+  test("ignores a mutable food display name", () => {
+    const renamed = {
+      ...fixture,
+      recipe: {
+        ...fixture.recipe,
+        ingredients: fixture.recipe.ingredients.map((ingredient) => ({
+          ...ingredient,
+          food: { ...ingredient.food, nameVi: "Gạo trắng đổi tên" }
+        }))
+      }
+    }
+
+    expect(canonicalRecipeCalculationInput(renamed)).toBe(canonicalRecipeCalculationInput(fixture))
+  })
+
   test.each([
     ["recipe hash", { recipe: { ...fixture.recipe, contentHash: "d".repeat(64) } }],
     [

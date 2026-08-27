@@ -164,7 +164,27 @@ export async function loadRecipeCalculationInput(
     priceFreshnessConfig: PRICE_FRESHNESS_CONFIG_V1,
     calculationDate: request.calculationDate,
     memberGroups: household.value.memberGroups,
-    recipe: record.recipe,
+    recipe: {
+      recipeId: record.recipe.recipeId,
+      recipeVersionId: record.recipe.recipeVersionId,
+      recipeVersionNumber: record.recipe.recipeVersionNumber,
+      contentHash: record.recipe.contentHash,
+      yieldAdultEquivalent: record.recipe.yieldAdultEquivalent,
+      activeMinutes: record.recipe.activeMinutes,
+      elapsedMinutes: record.recipe.elapsedMinutes,
+      ingredients: record.recipe.ingredients.map((ingredient) => ({
+        recipeIngredientId: ingredient.recipeIngredientId,
+        order: ingredient.order,
+        quantity: ingredient.quantity,
+        unitId: ingredient.unitId,
+        food: {
+          foodId: ingredient.food.foodId,
+          code: ingredient.food.code,
+          baseUnitId: ingredient.food.baseUnitId
+        },
+        fact: ingredient.fact
+      }))
+    },
     priceBook: { ...record.priceBook, prices: relevantPrices }
   }
 

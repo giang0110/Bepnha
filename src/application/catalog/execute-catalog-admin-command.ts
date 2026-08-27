@@ -246,38 +246,139 @@ function aggregateIsComplete(aggregate: CatalogPublicationAggregate): boolean {
 function normalizeAggregateForHash(aggregate: CatalogPublicationAggregate): unknown {
   if (aggregate.aggregateType === "food_fact_version") {
     return {
-      ...aggregate,
-      conversions: [...aggregate.conversions].sort((left, right) =>
-        left.unitId < right.unitId ? -1 : 1
-      ),
-      assessments: [...aggregate.assessments].sort((left, right) =>
-        left.allergenCode < right.allergenCode ? -1 : 1
-      ),
-      nutrients: [...aggregate.nutrients].sort((left, right) =>
-        left.nutrientCode < right.nutrientCode ? -1 : 1
-      ),
-      dietaryTags: [...aggregate.dietaryTags].sort((left, right) =>
-        left.code < right.code ? -1 : 1
-      )
+      aggregateType: aggregate.aggregateType,
+      foodId: aggregate.food.foodId,
+      fact: {
+        foodFactVersionId: aggregate.fact.foodFactVersionId,
+        versionNumber: aggregate.fact.versionNumber,
+        categoryId: aggregate.fact.categoryId,
+        edibleFraction: aggregate.fact.edibleFraction,
+        nutritionBasis: aggregate.fact.nutritionBasis,
+        provenance: aggregate.fact.provenance
+      },
+      conversions: [...aggregate.conversions]
+        .sort((left, right) => (left.unitId < right.unitId ? -1 : 1))
+        .map((conversion) => ({
+          unitId: conversion.unitId,
+          baseQuantityPerUnit: conversion.baseQuantityPerUnit,
+          grossGramsPerUnit: conversion.grossGramsPerUnit,
+          displayStep: conversion.displayStep,
+          provenance: conversion.provenance
+        })),
+      assessments: [...aggregate.assessments]
+        .sort((left, right) => (left.allergenCode < right.allergenCode ? -1 : 1))
+        .map((assessment) => ({
+          allergenCode: assessment.allergenCode,
+          status: assessment.status,
+          provenance: assessment.provenance
+        })),
+      nutrients: [...aggregate.nutrients]
+        .sort((left, right) => (left.nutrientCode < right.nutrientCode ? -1 : 1))
+        .map((nutrient) => ({
+          nutrientCode: nutrient.nutrientCode,
+          amountPer100g: nutrient.amountPer100g,
+          provenance: nutrient.provenance
+        })),
+      dietaryTags: [...aggregate.dietaryTags]
+        .sort((left, right) => {
+          if (left.code !== right.code) return left.code < right.code ? -1 : 1
+          return left.dietaryTagId < right.dietaryTagId ? -1 : 1
+        })
+        .map((tag) => ({ dietaryTagId: tag.dietaryTagId, code: tag.code }))
     }
   }
   if (aggregate.aggregateType === "recipe_version") {
     return {
-      ...aggregate,
-      ingredients: [...aggregate.ingredients].sort((left, right) => left.order - right.order),
-      steps: [...aggregate.steps].sort((left, right) => left.order - right.order),
-      stepIngredients: [...aggregate.stepIngredients].sort((left, right) => {
-        if (left.recipeStepId !== right.recipeStepId) {
+      aggregateType: aggregate.aggregateType,
+      recipeId: aggregate.recipe.recipeId,
+      version: {
+        recipeVersionId: aggregate.version.recipeVersionId,
+        versionNumber: aggregate.version.versionNumber,
+        yieldAdultEquivalent: aggregate.version.yieldAdultEquivalent,
+        activeMinutes: aggregate.version.activeMinutes,
+        elapsedMinutes: aggregate.version.elapsedMinutes
+      },
+      ingredients: [...aggregate.ingredients]
+        .sort((left, right) => {
+          if (left.order !== right.order) return left.order - right.order
+          return left.recipeIngredientId < right.recipeIngredientId ? -1 : 1
+        })
+        .map((ingredient) => ({
+          recipeIngredientId: ingredient.recipeIngredientId,
+          foodId: ingredient.foodId,
+          foodFactVersionId: ingredient.foodFactVersionId,
+          foodFactContentHash: ingredient.foodFactContentHash,
+          quantity: ingredient.quantity,
+          unitId: ingredient.unitId,
+          preparationNoteVi: ingredient.preparationNoteVi,
+          order: ingredient.order
+        })),
+      steps: [...aggregate.steps]
+        .sort((left, right) => {
+          if (left.order !== right.order) return left.order - right.order
           return left.recipeStepId < right.recipeStepId ? -1 : 1
-        }
-        return left.referenceOrder - right.referenceOrder
-      }),
-      tags: [...aggregate.tags].sort((left, right) => (left.code < right.code ? -1 : 1))
+        })
+        .map((step) => ({
+          recipeStepId: step.recipeStepId,
+          order: step.order,
+          instructionVi: step.instructionVi,
+          timerMinutes: step.timerMinutes
+        })),
+      stepIngredients: [...aggregate.stepIngredients]
+        .sort((left, right) => {
+          if (left.recipeStepId !== right.recipeStepId) {
+            return left.recipeStepId < right.recipeStepId ? -1 : 1
+          }
+          if (left.referenceOrder !== right.referenceOrder) {
+            return left.referenceOrder - right.referenceOrder
+          }
+          return left.recipeIngredientId < right.recipeIngredientId ? -1 : 1
+        })
+        .map((link) => ({
+          recipeStepId: link.recipeStepId,
+          recipeIngredientId: link.recipeIngredientId,
+          referenceOrder: link.referenceOrder
+        })),
+      tags: [...aggregate.tags]
+        .sort((left, right) => {
+          if (left.code !== right.code) return left.code < right.code ? -1 : 1
+          return left.recipeTagId < right.recipeTagId ? -1 : 1
+        })
+        .map((tag) => ({
+          recipeTagId: tag.recipeTagId,
+          code: tag.code,
+          kind: tag.kind
+        }))
     }
   }
   return {
-    ...aggregate,
-    prices: [...aggregate.prices].sort((left, right) => (left.foodId < right.foodId ? -1 : 1))
+    aggregateType: aggregate.aggregateType,
+    book: {
+      priceBookId: aggregate.book.priceBookId,
+      regionId: aggregate.book.regionId,
+      versionNumber: aggregate.book.versionNumber,
+      effectiveFrom: aggregate.book.effectiveFrom,
+      effectiveTo: aggregate.book.effectiveTo
+    },
+    prices: [...aggregate.prices]
+      .sort((left, right) => {
+        if (left.foodId !== right.foodId) return left.foodId < right.foodId ? -1 : 1
+        return left.foodPriceId < right.foodPriceId ? -1 : 1
+      })
+      .map((price) => ({
+        foodPriceId: price.foodPriceId,
+        foodId: price.foodId,
+        foodFactVersionId: price.foodFactVersionId,
+        foodFactContentHash: price.foodFactContentHash,
+        packageQuantity: price.packageQuantity,
+        packageUnitId: price.packageUnitId,
+        packageBaseQuantity: price.packageBaseQuantity,
+        baseUnitId: price.baseUnitId,
+        packagePriceVnd: price.packagePriceVnd,
+        purchaseIncrement: price.purchaseIncrement,
+        observedAt: price.observedAt,
+        sourceReference: price.sourceReference
+      }))
   }
 }
 

@@ -1,10 +1,21 @@
 import type { RecipeCalculationInputV1 } from "@/domain/calculation/recipe-calculation-input"
 
+type CalculationRecipe = RecipeCalculationInputV1["recipe"]
+type CalculationIngredient = CalculationRecipe["ingredients"][number]
+
+export type PublishedRecipeReadDto = Omit<CalculationRecipe, "ingredients"> & {
+  readonly ingredients: readonly (Omit<CalculationIngredient, "food"> & {
+    readonly food: CalculationIngredient["food"] & {
+      readonly nameVi: string
+    }
+  })[]
+}
+
 export interface PublishedRecipeCalculationRecord {
   readonly recipePublicationStatus: "draft" | "published"
   readonly priceBookPublicationStatus: "draft" | "published"
   readonly priceBookRetiredAt: string | null
-  readonly recipe: RecipeCalculationInputV1["recipe"]
+  readonly recipe: PublishedRecipeReadDto
   readonly priceBook: RecipeCalculationInputV1["priceBook"]
 }
 

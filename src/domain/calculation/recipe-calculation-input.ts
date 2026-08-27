@@ -29,7 +29,6 @@ export interface RecipeCalculationInputV1 {
       readonly food: {
         readonly foodId: string
         readonly code: string
-        readonly nameVi: string
         readonly baseUnitId: string
       }
       readonly fact: {
@@ -129,7 +128,6 @@ export function canonicalRecipeCalculationInput<T extends RecipeCalculationInput
           food: {
             foodId: ingredient.food.foodId,
             code: ingredient.food.code,
-            nameVi: ingredient.food.nameVi,
             baseUnitId: ingredient.food.baseUnitId
           },
           fact: {

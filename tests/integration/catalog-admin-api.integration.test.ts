@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { beforeAll, describe, expect, test } from "vitest"
 
 import { createCatalogAdminHandler } from "../../api/admin/catalog.js"
+import { loadRecipeCalculationInput } from "@/application/catalog/load-recipe-calculation-input.js"
 import { NodeContentHasher } from "@/infrastructure/server/node-content-hasher.js"
 import { createSupabaseCatalogAdminRepository } from "@/infrastructure/server/supabase-catalog-admin-repository.js"
 import { createServerAdminAuthVerifier } from "@/infrastructure/supabase/server-admin-auth.js"
@@ -93,6 +94,7 @@ function successBody(result: Awaited<ReturnType<typeof command>>) {
 
 describe("trusted catalog administrator flow", () => {
   test("creates immutable fact/recipe/price lineage and exposes exact published calculation input", async () => {
+    const calculationDate = new Date().toISOString().slice(0, 10)
     const food = successBody(
       await command({
         action: "create_food",
@@ -214,7 +216,7 @@ describe("trusted catalog administrator flow", () => {
         input: {
           regionId: "70060000-0000-0000-0000-000000000001",
           versionNumber: 1,
-          effectiveFrom: new Date().toISOString().slice(0, 10),
+          effectiveFrom: calculationDate,
           effectiveTo: null
         }
       })
@@ -225,7 +227,7 @@ describe("trusted catalog administrator flow", () => {
         input: {
           priceBookId: book.id,
           expectedRevision: 1,
-          effectiveFrom: new Date().toISOString().slice(0, 10),
+          effectiveFrom: calculationDate,
           effectiveTo: null,
           prices: [
             {
@@ -238,14 +240,14 @@ describe("trusted catalog administrator flow", () => {
               baseUnitId: "70010000-0000-0000-0000-000000000001",
               packagePriceVnd: 30_000,
               purchaseIncrement: "1",
-              observedAt: new Date().toISOString().slice(0, 10),
+              observedAt: calculationDate,
               sourceReference: "Local integration fixture"
             }
           ]
         }
       })
     )
-    successBody(
+    const publishedBook = successBody(
       await command({
         action: "publish_price_book",
         input: { priceBookId: book.id, expectedRevision: 2 }
@@ -264,6 +266,56 @@ describe("trusted catalog administrator flow", () => {
         priceBook: { priceBookId: book.id, prices: [{ foodId: food.id }] }
       }
     })
+
+    const request = {
+      recipeVersionId,
+      priceBookId: book.id,
+      calculationDate,
+      memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }]
+    } as const
+    const calculationBeforeRename = await loadRecipeCalculationInput(read, request)
+    expect(calculationBeforeRename.ok).toBe(true)
+    if (!calculationBeforeRename.ok) throw new Error(calculationBeforeRename.reason)
+
+    const rename = await secretClient
+      .from("foods")
+      .update({ name_vi: "Gạo kiểm thử đã đổi tên" })
+      .eq("id", food.id)
+      .select("name_vi")
+      .single()
+    expect(rename.error).toBeNull()
+    expect(rename.data?.name_vi).toBe("Gạo kiểm thử đã đổi tên")
+
+    const calculationAfterRename = await loadRecipeCalculationInput(read, request)
+    expect(calculationAfterRename.ok).toBe(true)
+    if (!calculationAfterRename.ok) throw new Error(calculationAfterRename.reason)
+    expect(calculationAfterRename.value.canonicalInput).toBe(
+      calculationBeforeRename.value.canonicalInput
+    )
+
+    const exactAfterRename = await read.getPublishedRecipeCalculation(recipeVersionId, book.id)
+    expect(exactAfterRename).toMatchObject({
+      ok: true,
+      value: {
+        recipe: { ingredients: [{ food: { nameVi: "Gạo kiểm thử đã đổi tên" } }] }
+      }
+    })
+
+    const [storedFact, storedRecipe, storedBook] = await Promise.all([
+      secretClient.from("food_fact_versions").select("content_hash").eq("id", factId).single(),
+      secretClient
+        .from("recipe_versions")
+        .select("content_hash")
+        .eq("id", recipeVersionId)
+        .single(),
+      secretClient.from("price_books").select("content_hash").eq("id", book.id).single()
+    ])
+    expect(storedFact.error).toBeNull()
+    expect(storedRecipe.error).toBeNull()
+    expect(storedBook.error).toBeNull()
+    expect(storedFact.data?.content_hash).toBe(publishedFact.contentHash)
+    expect(storedRecipe.data?.content_hash).toBe(publishedRecipe.contentHash)
+    expect(storedBook.data?.content_hash).toBe(publishedBook.contentHash)
 
     const immutable = await secretClient
       .from("recipe_steps")
