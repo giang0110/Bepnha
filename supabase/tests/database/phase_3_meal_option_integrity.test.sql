@@ -111,6 +111,32 @@ select ok(
   'correction creates a new draft version rather than mutating history'
 );
 
+select set_config('request.jwt.claim.sub', '71000000-0000-0000-0000-000000000001', true);
+select set_config('request.jwt.claims', '{"sub":"71000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+set local role authenticated;
+select ok(
+  public.get_published_meal_option_calculation_input(
+    '75000000-0000-0000-0000-000000000001'
+  ) is not null,
+  'authenticated planner can load a published meal option by exact version ID'
+);
+select is(
+  public.get_published_meal_option_calculation_input(
+    '75000000-0000-0000-0000-000000000002'
+  ),
+  null,
+  'published calculation RPC does not expose draft meal-option versions'
+);
+select throws_ok(
+  $$ select public.get_meal_option_aggregate_for_publication(
+    '75000000-0000-0000-0000-000000000002'
+  ) $$,
+  null,
+  null,
+  'authenticated planner cannot call the draft publication helper'
+);
+reset role;
+
 select lives_ok(
   $$ select public.retire_meal_option(
     '74000000-0000-0000-0000-000000000001',

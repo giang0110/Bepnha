@@ -600,7 +600,7 @@ create function public.get_published_meal_option_calculation_input(p_meal_option
 returns jsonb
 language sql
 stable
-security invoker
+security definer
 set search_path = ''
 as $$
   select public.get_meal_option_aggregate_for_publication(version.id)
