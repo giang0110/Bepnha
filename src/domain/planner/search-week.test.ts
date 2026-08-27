@@ -134,11 +134,7 @@ describe("searchWeek", () => {
 
     if (complete === null) return
 
-    const partialLowerBound = qualityLowerBound(
-      candidates.slice(0, 6),
-      [],
-      PLANNER_CONFIG_V1
-    )
+    const partialLowerBound = qualityLowerBound(candidates.slice(0, 6), [], PLANNER_CONFIG_V1)
     expect(partialLowerBound).toBeLessThanOrEqual(complete.score.totalQualityPenalty)
   })
 
