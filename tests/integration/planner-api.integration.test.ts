@@ -201,6 +201,13 @@ beforeAll(async () => {
           grossGramsPerUnit: "1",
           displayStep: "5",
           provenance: "Gram identity"
+        },
+        {
+          unitId: "70010000-0000-0000-0000-000000000002",
+          baseQuantityPerUnit: "1000",
+          grossGramsPerUnit: "1000",
+          displayStep: "0.1",
+          provenance: "Kilogram conversion"
         }
       ]
     }
