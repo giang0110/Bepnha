@@ -1,12 +1,7 @@
 export const GROCERY_CATEGORY_CONFIG_VERSION = "grocery-category-v1" as const
 
 export type GroceryCategoryCode =
-  | "fresh_produce"
-  | "meat_seafood"
-  | "eggs_tofu_dairy"
-  | "staples"
-  | "seasonings"
-  | "other"
+  "fresh_produce" | "meat_seafood" | "eggs_tofu_dairy" | "staples" | "seasonings" | "other"
 
 export interface GroceryCategoryDefinition {
   readonly code: GroceryCategoryCode
@@ -39,9 +34,7 @@ const CATEGORY_BY_FACT_CODE: Readonly<Record<string, GroceryCategoryCode>> = Obj
   seasoning: "seasonings"
 })
 
-export function groceryCategoryDefinition(
-  code: GroceryCategoryCode
-): GroceryCategoryDefinition {
+export function groceryCategoryDefinition(code: GroceryCategoryCode): GroceryCategoryDefinition {
   return GROCERY_CATEGORIES.find((item) => item.code === code) ?? GROCERY_CATEGORIES.at(-1)!
 }
 

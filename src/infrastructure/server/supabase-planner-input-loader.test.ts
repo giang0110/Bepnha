@@ -107,9 +107,7 @@ function fixtureClient(baseDimension: "mass" | "volume" = "mass") {
       return {
         select: vi.fn(() =>
           Promise.resolve({
-            data: [
-              { id: "unit-g", code: "g", dimension: "mass", to_dimension_base: 1 }
-            ],
+            data: [{ id: "unit-g", code: "g", dimension: "mass", to_dimension_base: 1 }],
             error: null
           })
         )
@@ -154,66 +152,58 @@ function generationRaw(mealOptionVersionId: string) {
 }
 
 describe("Supabase planner input loader", () => {
-  test(
-    "pins replacement hydration to the historical exact price book instead of a current pointer",
-    () => {
-      expect(
-        readHistoricalPlannerPriceBookId({
-          input_snapshot: {
-            candidateManifest: [
-              {
-                prices: [
-                  {
-                    priceBookId: "historical-book-id",
-                    foodPriceId: "historical-price-id"
-                  }
-                ]
-              }
-            ]
-          },
-          currentPriceBookId: "must-not-be-used"
-        })
-      ).toBe("historical-book-id")
-    }
-  )
+  test("pins replacement hydration to the historical exact price book instead of a current pointer", () => {
+    expect(
+      readHistoricalPlannerPriceBookId({
+        input_snapshot: {
+          candidateManifest: [
+            {
+              prices: [
+                {
+                  priceBookId: "historical-book-id",
+                  foodPriceId: "historical-price-id"
+                }
+              ]
+            }
+          ]
+        },
+        currentPriceBookId: "must-not-be-used"
+      })
+    ).toBe("historical-book-id")
+  })
 
-  test(
-    "hydrates exact published recipe/fact/price lineage including permanent base dimension",
-    async () => {
-      const { client, source } = fixtureClient()
-      const loader = createSupabasePlannerInputLoader(client)
-      const result = await loader.hydrateGeneration(
+  test("hydrates exact published recipe/fact/price lineage including permanent base dimension", async () => {
+    const { client, source } = fixtureClient()
+    const loader = createSupabasePlannerInputLoader(client)
+    const result = await loader.hydrateGeneration(
+      generationRaw(source.mealOption.mealOptionVersionId),
+      client as never
+    )
+
+    expect(result).toMatchObject({
+      householdId: "household-1",
+      householdSetupVersion: 3,
+      hardRuleCodes: ["exclude_pork"],
+      softPreferenceCodes: ["prefer_fish"]
+    })
+    expect(result.candidates[0]).toMatchObject({
+      mealOptionNameVi: source.mealOptionNameVi,
+      mealOption: {
+        components: [{ recipe: { steps: [{ instructionVi: "Nấu chín." }] } }]
+      },
+      ingredientLineage: [{ edibleFraction: "1", baseUnitId: "unit-g", baseDimension: "mass" }],
+      prices: [{ purchaseIncrement: "1" }]
+    })
+  })
+
+  test("rejects catalog lineage when declared food base dimension disagrees with its permanent base unit", async () => {
+    const { client, source } = fixtureClient("volume")
+    const loader = createSupabasePlannerInputLoader(client)
+    await expect(
+      loader.hydrateGeneration(
         generationRaw(source.mealOption.mealOptionVersionId),
         client as never
       )
-
-      expect(result).toMatchObject({
-        householdId: "household-1",
-        householdSetupVersion: 3,
-        hardRuleCodes: ["exclude_pork"],
-        softPreferenceCodes: ["prefer_fish"]
-      })
-      expect(result.candidates[0]).toMatchObject({
-        mealOptionNameVi: source.mealOptionNameVi,
-        mealOption: {
-          components: [{ recipe: { steps: [{ instructionVi: "Nấu chín." }] } }]
-        },
-        ingredientLineage: [
-          { edibleFraction: "1", baseUnitId: "unit-g", baseDimension: "mass" }
-        ],
-        prices: [{ purchaseIncrement: "1" }]
-      })
-    }
-  )
-
-  test(
-    "rejects catalog lineage when declared food base dimension disagrees with its permanent base unit",
-    async () => {
-      const { client, source } = fixtureClient("volume")
-      const loader = createSupabasePlannerInputLoader(client)
-      await expect(
-        loader.hydrateGeneration(generationRaw(source.mealOption.mealOptionVersionId), client as never)
-      ).rejects.toThrow("INCOMPLETE_UNIT_LINEAGE")
-    }
-  )
+    ).rejects.toThrow("INCOMPLETE_UNIT_LINEAGE")
+  })
 })

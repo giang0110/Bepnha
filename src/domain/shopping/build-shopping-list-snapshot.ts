@@ -50,9 +50,10 @@ function sourceOrder(left: ShoppingSourceV1, right: ShoppingSourceV1): number {
   )
 }
 
-function categoryFor(
-  aggregate: Aggregate
-): { readonly category: GroceryCategoryCode; readonly warning?: ShoppingWarning } {
+function categoryFor(aggregate: Aggregate): {
+  readonly category: GroceryCategoryCode
+  readonly warning?: ShoppingWarning
+} {
   const evidence = [...aggregate.categoryEvidence.values()].sort((left, right) =>
     compareText(left.foodFactVersionId, right.foodFactVersionId)
   )
@@ -187,10 +188,7 @@ export function buildShoppingListSnapshot(
     }
   }
 
-  const basketByFood = new Map<
-    string,
-    ReadyPlan["purchaseBasket"]["lines"][number]
-  >()
+  const basketByFood = new Map<string, ReadyPlan["purchaseBasket"]["lines"][number]>()
   for (const line of plan.purchaseBasket.lines) {
     if (basketByFood.has(line.foodId)) {
       return failure("PURCHASE_BASKET_PROJECTION_MISMATCH", line.foodId)
