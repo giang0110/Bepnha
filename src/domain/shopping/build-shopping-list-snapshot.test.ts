@@ -47,12 +47,14 @@ function fixture() {
     stableIdSequence: Array.from({ length: 7 }, () => option.mealOptionVersionId).join("|"),
     frontierMetrics: []
   }
-  return { raw, normalized: normalized.value, plan }
+  return { raw, normalized: normalized.value, plan, option }
 }
 
 describe("buildShoppingListSnapshot", () => {
   test("consolidates the same stable food across seven days before package/display rounding", () => {
-    const { normalized, plan } = fixture()
+    const { normalized, plan, option } = fixture()
+    const foodId = option.ingredientLineage[0]!.foodId
+    const foodFactVersionId = option.ingredientLineage[0]!.foodFactVersionId
     const result = buildShoppingListSnapshot(normalized, plan)
     expect(result).toMatchObject({
       ok: true,
@@ -62,24 +64,26 @@ describe("buildShoppingListSnapshot", () => {
         totalEstimatedCostVnd: plan.totalEstimatedCostVnd,
         lines: [
           {
-            foodId: "option-food",
+            foodId,
             baseUnitId: "unit-g",
             requiredBaseQuantity: "2800",
             purchaseBaseQuantity: "3000",
             leftoverBaseQuantity: "200",
-            groceryCategoryCode: "meat_seafood",
-            sources: [{ dayIndex: 0 }, { dayIndex: 1 }, { dayIndex: 2 }]
+            groceryCategoryCode: "meat_seafood"
           }
         ]
       }
     })
     if (!result.ok) throw new Error("projection failed")
     expect(result.value.lines[0]?.sources).toHaveLength(7)
+    expect(result.value.lines[0]?.sources.map((source) => source.dayIndex)).toEqual([
+      0, 1, 2, 3, 4, 5, 6
+    ])
     expect(result.value.lines[0]?.factRefs).toEqual([
-      { foodFactVersionId: "option-fact-v1", contentHash: "d".repeat(64) }
+      { foodFactVersionId, contentHash: "d".repeat(64) }
     ])
     expect(result.value.warnings).toContainEqual(
-      expect.objectContaining({ code: "STALE_PRICE", foodId: "option-food" })
+      expect.objectContaining({ code: "STALE_PRICE", foodId })
     )
   })
 
@@ -104,8 +108,9 @@ describe("buildShoppingListSnapshot", () => {
   })
 
   test("fails instead of recalculating when the Phase 3 basket requirement is inconsistent", () => {
-    const { normalized, plan } = fixture()
+    const { normalized, plan, option } = fixture()
     const first = plan.purchaseBasket.lines[0]!
+    const foodId = option.ingredientLineage[0]!.foodId
     const result = buildShoppingListSnapshot(normalized, {
       ...plan,
       purchaseBasket: {
@@ -115,7 +120,7 @@ describe("buildShoppingListSnapshot", () => {
     })
     expect(result).toEqual({
       ok: false,
-      error: { code: "PURCHASE_BASKET_PROJECTION_MISMATCH", foodId: "option-food" }
+      error: { code: "PURCHASE_BASKET_PROJECTION_MISMATCH", foodId }
     })
   })
 
@@ -134,6 +139,7 @@ describe("buildShoppingListSnapshot", () => {
     const eligibility = evaluatePlannerEligibility(normalized.value)
     if (!eligibility.ok) throw new Error("invalid category eligibility")
     const option = eligibility.value.eligible[0]!
+    const foodId = option.ingredientLineage[0]!.foodId
     const basket = calculatePurchaseBasket(
       Array.from({ length: 7 }, () => option.requirements).flat(),
       option.prices,
@@ -159,12 +165,16 @@ describe("buildShoppingListSnapshot", () => {
       frontierMetrics: []
     }
     const result = buildShoppingListSnapshot(normalized.value, plan)
-    expect(result).toMatchObject({
-      ok: true,
-      value: {
-        lines: [{ groceryCategoryCode: "other" }],
-        warnings: [{ code: "CATEGORY_UNMAPPED", foodId: "option-food" }]
-      }
-    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("projection failed")
+    expect(result.value.lines).toEqual([
+      expect.objectContaining({ groceryCategoryCode: "other", foodId })
+    ])
+    expect(result.value.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "CATEGORY_UNMAPPED", foodId }),
+        expect.objectContaining({ code: "STALE_PRICE", foodId })
+      ])
+    )
   })
 })
