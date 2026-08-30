@@ -16,6 +16,7 @@ function fixture() {
   const eligibility = evaluatePlannerEligibility(normalized.value)
   if (!eligibility.ok) throw new Error("invalid eligibility fixture")
   const option = eligibility.value.eligible[0]!
+  const candidate = normalized.value.candidates[0]!
   const requirements = Array.from({ length: 7 }, (_, dayIndex) =>
     option.requirements.map((requirement) => ({
       ...requirement,
@@ -47,14 +48,15 @@ function fixture() {
     stableIdSequence: Array.from({ length: 7 }, () => option.mealOptionVersionId).join("|"),
     frontierMetrics: []
   }
-  return { raw, normalized: normalized.value, plan, option }
+  return { raw, normalized: normalized.value, plan, candidate }
 }
 
 describe("buildShoppingListSnapshot", () => {
   test("consolidates the same stable food across seven days before package/display rounding", () => {
-    const { normalized, plan, option } = fixture()
-    const foodId = option.ingredientLineage[0]!.foodId
-    const foodFactVersionId = option.ingredientLineage[0]!.foodFactVersionId
+    const { normalized, plan, candidate } = fixture()
+    const lineage = candidate.ingredientLineage[0]!
+    const foodId = lineage.foodId
+    const foodFactVersionId = lineage.foodFactVersionId
     const result = buildShoppingListSnapshot(normalized, plan)
     expect(result).toMatchObject({
       ok: true,
@@ -108,9 +110,9 @@ describe("buildShoppingListSnapshot", () => {
   })
 
   test("fails instead of recalculating when the Phase 3 basket requirement is inconsistent", () => {
-    const { normalized, plan, option } = fixture()
+    const { normalized, plan, candidate } = fixture()
     const first = plan.purchaseBasket.lines[0]!
-    const foodId = option.ingredientLineage[0]!.foodId
+    const foodId = candidate.ingredientLineage[0]!.foodId
     const result = buildShoppingListSnapshot(normalized, {
       ...plan,
       purchaseBasket: {
@@ -136,10 +138,11 @@ describe("buildShoppingListSnapshot", () => {
     ])
     const normalized = normalizePlannerInput(raw)
     if (!normalized.ok) throw new Error("invalid category fixture")
+    const candidate = normalized.value.candidates[0]!
     const eligibility = evaluatePlannerEligibility(normalized.value)
     if (!eligibility.ok) throw new Error("invalid category eligibility")
     const option = eligibility.value.eligible[0]!
-    const foodId = option.ingredientLineage[0]!.foodId
+    const foodId = candidate.ingredientLineage[0]!.foodId
     const basket = calculatePurchaseBasket(
       Array.from({ length: 7 }, () => option.requirements).flat(),
       option.prices,
