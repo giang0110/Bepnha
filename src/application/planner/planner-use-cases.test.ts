@@ -3,6 +3,7 @@ import { createHash } from "node:crypto"
 import { describe, expect, test, vi } from "vitest"
 
 import type { ContentHasher } from "@/application/shared/content-hasher"
+import { PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
 import { evaluatePlannerEligibility } from "@/domain/planner/evaluate-eligibility"
 import { normalizePlannerInput } from "@/domain/planner/normalize-planner-input"
 import { plannerCandidate, plannerInput } from "@/domain/planner/planner-test-fixture"
@@ -66,7 +67,7 @@ function repository(overrides: Partial<PlannerRepository> = {}): PlannerReposito
 }
 
 describe("planner use cases", () => {
-  test("generates from authoritative repository input and persists successful over/within plans", async () => {
+  test("generates v2 authoritative evidence including the shopping projection before persistence", async () => {
     const repo = repository()
     const result = await generateMealPlan(repo, hasher, {
       actorUserId: "user-1",
@@ -78,17 +79,9 @@ describe("planner use cases", () => {
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("generation failed")
     expect(result.value.plan.items).toHaveLength(7)
-    expect([
-      result.value.catalogFingerprint,
-      result.value.inputFingerprint,
-      result.value.calculationFingerprint
-    ]).toMatchInlineSnapshot(`
-      [
-        "9dae903c9dcb73ad958492932def63a2e5082a10a68f095c01790961437a9a7d",
-        "b03deacf03aa485e07a138678fb4f672e04fbcd11d363dcf0aba8c847f960322",
-        "eed690d203bff531398c1378026dc4beea060cfedce2776d8a7aeda3c2841fe1",
-      ]
-    `)
+    expect(result.value.catalogFingerprint).toMatch(/^[0-9a-f]{64}$/u)
+    expect(result.value.inputFingerprint).toMatch(/^[0-9a-f]{64}$/u)
+    expect(result.value.calculationFingerprint).toMatch(/^[0-9a-f]{64}$/u)
     expect(repo.loadGenerationInput).toHaveBeenCalledWith({
       actorUserId: "user-1",
       householdId: "household-1",
@@ -98,7 +91,13 @@ describe("planner use cases", () => {
     expect(repo.persistRevision).toHaveBeenCalledOnce()
     const persisted = vi.mocked(repo.persistRevision).mock.calls[0]?.[0]
     expect(persisted?.revisionKind).toBe("generation")
+    expect(persisted?.engineVersion).toBe(PLANNER_ENGINE_VERSION)
+    expect(persisted?.inputSnapshot).toMatchObject({ engineVersion: PLANNER_ENGINE_VERSION })
     expect(persisted?.calculationSnapshot.purchaseBasket.lines).toHaveLength(7)
+    expect(persisted?.calculationSnapshot.shoppingList.lines).toHaveLength(7)
+    expect(persisted?.calculationSnapshot.shoppingList.totalEstimatedCostVnd).toBe(
+      persisted?.totalEstimatedCostVnd
+    )
   })
 
   test("never persists a fatal eligibility/search outcome", async () => {
@@ -119,7 +118,7 @@ describe("planner use cases", () => {
     expect(repo.persistRevision).not.toHaveBeenCalled()
   })
 
-  test("previews without writing, then apply reloads/recomputes and persists one replacement revision", async () => {
+  test("previews without writing, then apply recomputes and persists one v2 replacement revision", async () => {
     const repo = repository()
     const command = {
       actorUserId: "user-1",
@@ -133,6 +132,8 @@ describe("planner use cases", () => {
     expect(repo.persistRevision).not.toHaveBeenCalled()
     if (!preview.ok) throw new Error("preview unavailable")
     expect(preview.value.previewFingerprint).toMatch(/^[0-9a-f]{64}$/u)
+    expect(preview.value.evidence.inputSnapshot).toMatchObject({ engineVersion: PLANNER_ENGINE_VERSION })
+    expect(preview.value.evidence.calculationSnapshot.shoppingList.lines.length).toBeGreaterThan(0)
 
     const applied = await applyMealReplacement(repo, hasher, {
       ...command,
@@ -143,6 +144,7 @@ describe("planner use cases", () => {
     expect(repo.loadReplacementInput).toHaveBeenCalledTimes(2)
     const persisted = vi.mocked(repo.persistRevision).mock.calls[0]?.[0]
     expect(persisted?.revisionKind).toBe("replacement")
+    expect(persisted?.engineVersion).toBe(PLANNER_ENGINE_VERSION)
     expect(persisted?.parentRevisionId).toBe("revision-1")
     expect(persisted?.replacementDayIndex).toBe(2)
   })

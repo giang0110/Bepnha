@@ -1,5 +1,6 @@
 import type { ContentHasher } from "@/application/shared/content-hasher"
 import { evaluatePlannerEligibility } from "@/domain/planner/evaluate-eligibility"
+import { PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
 import type { PlannerInputV1 } from "@/domain/planner/planner-input"
 import type { PlannerFatalCode } from "@/domain/planner/planner-outcome"
 import {
@@ -10,6 +11,8 @@ import { normalizePlannerInput } from "@/domain/planner/normalize-planner-input"
 import { previewMealReplacement } from "@/domain/planner/replace-meal"
 import { searchWeek, type ReadyPlan } from "@/domain/planner/search-week"
 import { canonicalJson, canonicalUtf8 } from "@/domain/shared/canonical-json"
+import { buildShoppingListSnapshot } from "@/domain/shopping/build-shopping-list-snapshot"
+import type { ShoppingListSnapshotV1 } from "@/domain/shopping/shopping-list"
 
 type Failure = { readonly ok: false; readonly error: { readonly code: PlannerFatalCode } }
 
@@ -39,7 +42,7 @@ export interface PersistPlannerRevisionCommand {
   readonly revisionKind: "generation" | "regeneration" | "replacement"
   readonly replacementDayIndex: number | null
   readonly householdSetupVersion: number
-  readonly engineVersion: "planner-engine-v1"
+  readonly engineVersion: typeof PLANNER_ENGINE_VERSION
   readonly portionConfigVersion: "portion-v1"
   readonly priceFreshnessConfigVersion: "price-freshness-v1"
   readonly plannerConfigVersion: "planner-v1"
@@ -50,6 +53,7 @@ export interface PersistPlannerRevisionCommand {
   readonly inputSnapshot: unknown
   readonly calculationSnapshot: {
     readonly purchaseBasket: ReadyPlan["purchaseBasket"]
+    readonly shoppingList: ShoppingListSnapshotV1
     readonly [key: string]: unknown
   }
   readonly budgetVnd: number
@@ -124,10 +128,25 @@ async function snapshots(
   plan: ReadyPlan,
   warnings: readonly unknown[],
   parent?: { readonly revisionId: string; readonly replacementDayIndex: number }
-) {
+): Promise<
+  | Failure
+  | {
+      readonly ok: true
+      readonly value: {
+        readonly catalogFingerprint: string
+        readonly inputFingerprint: string
+        readonly calculationFingerprint: string
+        readonly inputSnapshot: unknown
+        readonly calculationSnapshot: PersistPlannerRevisionCommand["calculationSnapshot"]
+      }
+    }
+> {
   const normalized = normalizePlannerInput(input)
-  if (!normalized.ok) throw new Error("INVALID_NORMALIZED_SNAPSHOT_INPUT")
+  if (!normalized.ok) return normalized
+  const shopping = buildShoppingListSnapshot(normalized.value, plan)
+  if (!shopping.ok) return fatal(shopping.error.code)
   const source = buildPlannerSnapshotPayloads({
+    engineVersion: PLANNER_ENGINE_VERSION,
     household: {
       householdId: normalized.value.householdId,
       setupVersion: normalized.value.householdSetupVersion,
@@ -148,6 +167,7 @@ async function snapshots(
       items: plan.items,
       selectedMealOptions: plan.selected,
       purchaseBasket: plan.purchaseBasket,
+      shoppingList: shopping.value,
       totalEstimatedCostVnd: plan.totalEstimatedCostVnd,
       score: plan.score,
       warnings,
@@ -160,15 +180,19 @@ async function snapshots(
   const calculationSnapshot: PersistPlannerRevisionCommand["calculationSnapshot"] = {
     ...(source.calculationPayload as Record<string, unknown>),
     purchaseBasket: plan.purchaseBasket,
+    shoppingList: shopping.value,
     inputFingerprint
   }
   const calculationFingerprint = await sha256(hasher, calculationSnapshot)
   return {
-    catalogFingerprint,
-    inputFingerprint,
-    calculationFingerprint,
-    inputSnapshot,
-    calculationSnapshot
+    ok: true,
+    value: {
+      catalogFingerprint,
+      inputFingerprint,
+      calculationFingerprint,
+      inputSnapshot,
+      calculationSnapshot
+    }
   }
 }
 
@@ -207,7 +231,9 @@ export async function generateMealPlan(
     normalized.value.plannerConfig
   )
   if (!("plan" in planned)) return planned
-  const evidence = await snapshots(hasher, normalized.value, planned.plan, planned.warnings)
+  const evidenceResult = await snapshots(hasher, normalized.value, planned.plan, planned.warnings)
+  if (!evidenceResult.ok) return evidenceResult
+  const evidence = evidenceResult.value
   const budgetStatus = planned.status === "ready_within_budget" ? "within" : "over"
   const persisted = await repository.persistRevision({
     actorUserId: command.actorUserId,
@@ -219,7 +245,7 @@ export async function generateMealPlan(
     revisionKind: "generation",
     replacementDayIndex: null,
     householdSetupVersion: normalized.value.householdSetupVersion,
-    engineVersion: "planner-engine-v1",
+    engineVersion: PLANNER_ENGINE_VERSION,
     portionConfigVersion: normalized.value.portionConfig.version,
     priceFreshnessConfigVersion: normalized.value.priceFreshnessConfig.version,
     plannerConfigVersion: normalized.value.plannerConfig.version,
@@ -307,17 +333,18 @@ async function replacementPreview(
     stableIdSequence: preview.value.items.map((item) => item.mealOptionVersionId).join("|"),
     frontierMetrics: []
   }
-  const evidence = await snapshots(hasher, normalized.value, plan, preview.value.warnings, {
+  const evidenceResult = await snapshots(hasher, normalized.value, plan, preview.value.warnings, {
     revisionId: loaded.value.currentRevisionId,
     replacementDayIndex: command.targetDayIndex
   })
+  if (!evidenceResult.ok) return evidenceResult
   return {
     ok: true as const,
     value: {
       ...preview.value,
       plan,
-      previewFingerprint: evidence.calculationFingerprint,
-      evidence,
+      previewFingerprint: evidenceResult.value.calculationFingerprint,
+      evidence: evidenceResult.value,
       authoritative: loaded.value,
       normalized: normalized.value
     }
@@ -357,7 +384,7 @@ export async function applyMealReplacement(
     revisionKind: "replacement",
     replacementDayIndex: command.targetDayIndex,
     householdSetupVersion: normalized.householdSetupVersion,
-    engineVersion: "planner-engine-v1",
+    engineVersion: PLANNER_ENGINE_VERSION,
     portionConfigVersion: normalized.portionConfig.version,
     priceFreshnessConfigVersion: normalized.priceFreshnessConfig.version,
     plannerConfigVersion: normalized.plannerConfig.version,

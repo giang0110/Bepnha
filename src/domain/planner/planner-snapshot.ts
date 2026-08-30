@@ -1,3 +1,5 @@
+import type { PersistedPlannerEngineVersion } from "./planner-engine-version"
+
 export interface PlannerCandidateManifestEntry {
   readonly mealOptionId: string
   readonly mealOptionVersionId: string
@@ -18,6 +20,7 @@ export interface PlannerCandidateManifestEntry {
 }
 
 export interface PlannerSnapshotSource {
+  readonly engineVersion: PersistedPlannerEngineVersion
   readonly household: unknown
   readonly weekStart: string
   readonly timezone: "Asia/Ho_Chi_Minh"
@@ -54,6 +57,7 @@ export function buildPlannerSnapshotPayloads(source: PlannerSnapshotSource) {
   const candidateManifest = canonicalManifest(source.candidateManifest)
   const catalogPayload = { candidateManifest }
   const inputPayload = {
+    engineVersion: source.engineVersion,
     household: source.household,
     weekStart: source.weekStart,
     timezone: source.timezone,

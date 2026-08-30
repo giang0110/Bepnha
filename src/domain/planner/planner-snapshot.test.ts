@@ -5,6 +5,7 @@ import { canonicalJson } from "@/domain/shared/canonical-json"
 import { buildPlannerSnapshotPayloads } from "./planner-snapshot"
 
 const base = {
+  engineVersion: "planner-engine-v2" as const,
   household: { householdId: "household-1", setupVersion: 4, hardRuleCodes: ["allergen_peanut"] },
   weekStart: "2026-08-31",
   timezone: "Asia/Ho_Chi_Minh" as const,
@@ -48,6 +49,7 @@ describe("buildPlannerSnapshotPayloads", () => {
       candidateManifest: [...base.candidateManifest].reverse()
     })
     expect(canonicalJson(left)).toBe(canonicalJson(right))
+    expect(left.inputPayload.engineVersion).toBe("planner-engine-v2")
     expect(canonicalJson(left)).not.toMatch(/currentVersion|retiredAt|currentPriceBook/i)
     const changedPointers = {
       ...base,
@@ -55,6 +57,14 @@ describe("buildPlannerSnapshotPayloads", () => {
       retiredHistoricalPriceBookId: "book-v1"
     }
     expect(canonicalJson(buildPlannerSnapshotPayloads(changedPointers))).toBe(canonicalJson(left))
+  })
+
+  test("engine version is calculation-bearing canonical input while legacy v1 remains representable", () => {
+    const v2 = buildPlannerSnapshotPayloads(base)
+    const v1 = buildPlannerSnapshotPayloads({ ...base, engineVersion: "planner-engine-v1" })
+    expect(canonicalJson(v1.inputPayload)).not.toBe(canonicalJson(v2.inputPayload))
+    expect(v1.inputPayload.engineVersion).toBe("planner-engine-v1")
+    expect(v2.inputPayload.engineVersion).toBe("planner-engine-v2")
   })
 
   test.each([
