@@ -16,6 +16,7 @@ export interface PlannerIngredientLineageInput {
   readonly foodFactStatus: "draft" | "published"
   readonly edibleFraction: string
   readonly baseUnitId: string
+  readonly baseDimension: "mass" | "volume" | "count"
   readonly allergenAssessments: readonly AllergenAssessment[]
   readonly categoryAncestry: readonly string[]
   readonly dietaryTagCodes: readonly string[]

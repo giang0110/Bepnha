@@ -130,7 +130,12 @@ async function candidate(
       const conversion = object(fact.conversion)
       const sourceUnit = units.get(string(ingredient.unitId))
       const foodBaseUnit = units.get(string(food.baseUnitId))
-      if (sourceUnit === undefined || foodBaseUnit === undefined) {
+      const baseDimension = string(food.baseDimension)
+      if (
+        sourceUnit === undefined ||
+        foodBaseUnit === undefined ||
+        foodBaseUnit.dimension !== baseDimension
+      ) {
         throw new Error("INCOMPLETE_UNIT_LINEAGE")
       }
       const recipeIngredientId = string(ingredient.recipeIngredientId)
@@ -143,6 +148,7 @@ async function candidate(
         foodFactStatus: "published",
         edibleFraction: string(fact.edibleFraction),
         baseUnitId: string(food.baseUnitId),
+        baseDimension: foodBaseUnit.dimension,
         allergenAssessments: array(fact.allergenAssessments).map((raw) => {
           const assessment = object(raw)
           const status = string(assessment.status)

@@ -95,6 +95,7 @@ export function plannerCandidate(id = "option-v1"): PlannerCandidateInput {
         foodFactStatus: "published",
         edibleFraction: "1",
         baseUnitId: "unit-g",
+        baseDimension: "mass",
         allergenAssessments: allergenCodes.map((allergenCode) => ({
           allergenCode,
           status: "absent" as const

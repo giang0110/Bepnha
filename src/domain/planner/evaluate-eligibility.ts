@@ -26,11 +26,15 @@ export interface EligibleMealOption {
   readonly mealOption: PlannerCandidateInput["mealOption"]
   readonly scaledIngredients: readonly {
     readonly sourceId: string
+    readonly mealOptionRecipeId: string
+    readonly recipeIngredientId: string
     readonly foodId: string
     readonly foodFactVersionId: string
     readonly baseUnitId: string
     readonly baseQuantity: string
     readonly grossGrams: string
+    readonly componentSortOrder: number
+    readonly ingredientOrder: number
   }[]
   readonly nutrition: Extract<
     ReturnType<typeof calculateRecipeNutrition>,

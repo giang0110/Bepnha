@@ -11,11 +11,26 @@ function evaluate(input = plannerInput()) {
 }
 
 describe("evaluatePlannerEligibility", () => {
-  test("uses editorial meal-option elapsed time and emits stale-price success warnings", () => {
+  test("uses editorial meal-option elapsed time, preserves exact ingredient provenance, and emits stale-price success warnings", () => {
     const result = evaluate()
     expect(result).toMatchObject({
       ok: true,
-      value: { eligible: [{ elapsedMinutes: 25 }], warnings: [{ code: "STALE_PRICE" }] }
+      value: {
+        eligible: [
+          {
+            elapsedMinutes: 25,
+            scaledIngredients: [
+              {
+                mealOptionRecipeId: "option-v1-component",
+                recipeIngredientId: "option-v1-ingredient",
+                componentSortOrder: 1,
+                ingredientOrder: 1
+              }
+            ]
+          }
+        ],
+        warnings: [{ code: "STALE_PRICE" }]
+      }
     })
   })
 
