@@ -1,6 +1,10 @@
 import type { NormalizedPlannerInputV1 } from "@/domain/planner/planner-input"
 import type { ReadyPlan } from "@/domain/planner/search-week"
-import { ExactDecimal, decimalToCanonical } from "@/domain/shared/decimal"
+import {
+  ExactDecimal,
+  decimalToCanonical,
+  type ExactDecimalValue
+} from "@/domain/shared/decimal"
 
 import {
   GROCERY_CATEGORY_CONFIG_VERSION,
@@ -20,7 +24,7 @@ interface Aggregate {
   readonly foodId: string
   readonly baseUnitId: string
   readonly baseDimension: "mass" | "volume" | "count"
-  requiredBaseQuantity: ExactDecimal
+  requiredBaseQuantity: ExactDecimalValue
   readonly sources: ShoppingSourceV1[]
   readonly facts: Map<string, ShoppingFactRefV1>
   readonly categoryEvidence: Map<
