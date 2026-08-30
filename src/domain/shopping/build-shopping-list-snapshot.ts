@@ -33,7 +33,10 @@ function compareText(left: string, right: string): number {
   return left === right ? 0 : left < right ? -1 : 1
 }
 
-function failure(code: ShoppingProjectionFatalCode, foodId?: string): BuildShoppingListSnapshotResult {
+function failure(
+  code: ShoppingProjectionFatalCode,
+  foodId?: string
+): BuildShoppingListSnapshotResult {
   return { ok: false, error: foodId === undefined ? { code } : { code, foodId } }
 }
 
@@ -87,7 +90,9 @@ export function buildShoppingListSnapshot(
   }
 
   const candidateByVersion = new Map(
-    input.candidates.map((candidate) => [candidate.mealOption.mealOptionVersionId, candidate] as const)
+    input.candidates.map(
+      (candidate) => [candidate.mealOption.mealOptionVersionId, candidate] as const
+    )
   )
   const aggregates = new Map<string, Aggregate>()
 
@@ -113,7 +118,10 @@ export function buildShoppingListSnapshot(
       ])
     )
     const componentById = new Map(
-      item.snapshot.mealOption.components.map((component) => [component.mealOptionRecipeId, component])
+      item.snapshot.mealOption.components.map((component) => [
+        component.mealOptionRecipeId,
+        component
+      ])
     )
 
     for (const ingredient of item.snapshot.scaledIngredients) {
@@ -179,7 +187,10 @@ export function buildShoppingListSnapshot(
     }
   }
 
-  const basketByFood = new Map<string, ReadyPlan["purchaseBasket"]["lines"][number]>()
+  const basketByFood = new Map<
+    string,
+    ReadyPlan["purchaseBasket"]["lines"][number]
+  >()
   for (const line of plan.purchaseBasket.lines) {
     if (basketByFood.has(line.foodId)) {
       return failure("PURCHASE_BASKET_PROJECTION_MISMATCH", line.foodId)
@@ -190,7 +201,9 @@ export function buildShoppingListSnapshot(
     return failure("PURCHASE_BASKET_PROJECTION_MISMATCH")
   }
 
-  const warnings: ShoppingWarning[] = plan.purchaseBasket.warnings.map((warning) => ({ ...warning }))
+  const warnings: ShoppingWarning[] = plan.purchaseBasket.warnings.map((warning) => ({
+    ...warning
+  }))
   const lines: ShoppingListSnapshotLineV1[] = []
   for (const aggregate of [...aggregates.values()].sort((left, right) =>
     compareText(left.foodId, right.foodId)

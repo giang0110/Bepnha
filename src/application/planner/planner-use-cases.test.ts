@@ -67,38 +67,43 @@ function repository(overrides: Partial<PlannerRepository> = {}): PlannerReposito
 }
 
 describe("planner use cases", () => {
-  test("generates v2 authoritative evidence including the shopping projection before persistence", async () => {
-    const repo = repository()
-    const result = await generateMealPlan(repo, hasher, {
-      actorUserId: "user-1",
-      householdId: "household-1",
-      weekStart: "2026-08-31",
-      calculationDate: "2026-08-26",
-      idempotencyKey: "00000000-0000-0000-0000-000000000001"
-    })
-    expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error("generation failed")
-    expect(result.value.plan.items).toHaveLength(7)
-    expect(result.value.catalogFingerprint).toMatch(/^[0-9a-f]{64}$/u)
-    expect(result.value.inputFingerprint).toMatch(/^[0-9a-f]{64}$/u)
-    expect(result.value.calculationFingerprint).toMatch(/^[0-9a-f]{64}$/u)
-    expect(repo.loadGenerationInput).toHaveBeenCalledWith({
-      actorUserId: "user-1",
-      householdId: "household-1",
-      weekStart: "2026-08-31",
-      calculationDate: "2026-08-26"
-    })
-    expect(repo.persistRevision).toHaveBeenCalledOnce()
-    const persisted = vi.mocked(repo.persistRevision).mock.calls[0]?.[0]
-    expect(persisted?.revisionKind).toBe("generation")
-    expect(persisted?.engineVersion).toBe(PLANNER_ENGINE_VERSION)
-    expect(persisted?.inputSnapshot).toMatchObject({ engineVersion: PLANNER_ENGINE_VERSION })
-    expect(persisted?.calculationSnapshot.purchaseBasket.lines).toHaveLength(7)
-    expect(persisted?.calculationSnapshot.shoppingList.lines).toHaveLength(7)
-    expect(persisted?.calculationSnapshot.shoppingList.totalEstimatedCostVnd).toBe(
-      persisted?.totalEstimatedCostVnd
-    )
-  })
+  test(
+    "generates v2 authoritative evidence including the shopping projection before persistence",
+    async () => {
+      const repo = repository()
+      const result = await generateMealPlan(repo, hasher, {
+        actorUserId: "user-1",
+        householdId: "household-1",
+        weekStart: "2026-08-31",
+        calculationDate: "2026-08-26",
+        idempotencyKey: "00000000-0000-0000-0000-000000000001"
+      })
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw new Error("generation failed")
+      expect(result.value.plan.items).toHaveLength(7)
+      expect(result.value.catalogFingerprint).toMatch(/^[0-9a-f]{64}$/u)
+      expect(result.value.inputFingerprint).toMatch(/^[0-9a-f]{64}$/u)
+      expect(result.value.calculationFingerprint).toMatch(/^[0-9a-f]{64}$/u)
+      expect(repo.loadGenerationInput).toHaveBeenCalledWith({
+        actorUserId: "user-1",
+        householdId: "household-1",
+        weekStart: "2026-08-31",
+        calculationDate: "2026-08-26"
+      })
+      expect(repo.persistRevision).toHaveBeenCalledOnce()
+      const persisted = vi.mocked(repo.persistRevision).mock.calls[0]?.[0]
+      expect(persisted?.revisionKind).toBe("generation")
+      expect(persisted?.engineVersion).toBe(PLANNER_ENGINE_VERSION)
+      expect(persisted?.inputSnapshot).toMatchObject({
+        engineVersion: PLANNER_ENGINE_VERSION
+      })
+      expect(persisted?.calculationSnapshot.purchaseBasket.lines).toHaveLength(7)
+      expect(persisted?.calculationSnapshot.shoppingList.lines).toHaveLength(7)
+      expect(persisted?.calculationSnapshot.shoppingList.totalEstimatedCostVnd).toBe(
+        persisted?.totalEstimatedCostVnd
+      )
+    }
+  )
 
   test("never persists a fatal eligibility/search outcome", async () => {
     const repo = repository({
@@ -118,36 +123,43 @@ describe("planner use cases", () => {
     expect(repo.persistRevision).not.toHaveBeenCalled()
   })
 
-  test("previews without writing, then apply recomputes and persists one v2 replacement revision", async () => {
-    const repo = repository()
-    const command = {
-      actorUserId: "user-1",
-      planId: "plan-1",
-      targetDayIndex: 2,
-      expectedPlanVersion: 1,
-      expectedCurrentRevisionId: "revision-1"
-    }
-    const preview = await previewMealReplacementUseCase(repo, hasher, command)
-    expect(preview.ok).toBe(true)
-    expect(repo.persistRevision).not.toHaveBeenCalled()
-    if (!preview.ok) throw new Error("preview unavailable")
-    expect(preview.value.previewFingerprint).toMatch(/^[0-9a-f]{64}$/u)
-    expect(preview.value.evidence.inputSnapshot).toMatchObject({ engineVersion: PLANNER_ENGINE_VERSION })
-    expect(preview.value.evidence.calculationSnapshot.shoppingList.lines.length).toBeGreaterThan(0)
+  test(
+    "previews without writing, then apply recomputes and persists one v2 replacement revision",
+    async () => {
+      const repo = repository()
+      const command = {
+        actorUserId: "user-1",
+        planId: "plan-1",
+        targetDayIndex: 2,
+        expectedPlanVersion: 1,
+        expectedCurrentRevisionId: "revision-1"
+      }
+      const preview = await previewMealReplacementUseCase(repo, hasher, command)
+      expect(preview.ok).toBe(true)
+      expect(repo.persistRevision).not.toHaveBeenCalled()
+      if (!preview.ok) throw new Error("preview unavailable")
+      expect(preview.value.previewFingerprint).toMatch(/^[0-9a-f]{64}$/u)
+      expect(preview.value.evidence.inputSnapshot).toMatchObject({
+        engineVersion: PLANNER_ENGINE_VERSION
+      })
+      expect(preview.value.evidence.calculationSnapshot.shoppingList.lines.length).toBeGreaterThan(
+        0
+      )
 
-    const applied = await applyMealReplacement(repo, hasher, {
-      ...command,
-      previewFingerprint: preview.value.previewFingerprint,
-      idempotencyKey: "00000000-0000-0000-0000-000000000002"
-    })
-    expect(applied).toMatchObject({ ok: true })
-    expect(repo.loadReplacementInput).toHaveBeenCalledTimes(2)
-    const persisted = vi.mocked(repo.persistRevision).mock.calls[0]?.[0]
-    expect(persisted?.revisionKind).toBe("replacement")
-    expect(persisted?.engineVersion).toBe(PLANNER_ENGINE_VERSION)
-    expect(persisted?.parentRevisionId).toBe("revision-1")
-    expect(persisted?.replacementDayIndex).toBe(2)
-  })
+      const applied = await applyMealReplacement(repo, hasher, {
+        ...command,
+        previewFingerprint: preview.value.previewFingerprint,
+        idempotencyKey: "00000000-0000-0000-0000-000000000002"
+      })
+      expect(applied).toMatchObject({ ok: true })
+      expect(repo.loadReplacementInput).toHaveBeenCalledTimes(2)
+      const persisted = vi.mocked(repo.persistRevision).mock.calls[0]?.[0]
+      expect(persisted?.revisionKind).toBe("replacement")
+      expect(persisted?.engineVersion).toBe(PLANNER_ENGINE_VERSION)
+      expect(persisted?.parentRevisionId).toBe("revision-1")
+      expect(persisted?.replacementDayIndex).toBe(2)
+    }
+  )
 
   test("rejects stale plan tokens, household changes, and preview/apply fingerprint conflicts", async () => {
     const stale = repository()

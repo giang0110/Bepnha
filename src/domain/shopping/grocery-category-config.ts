@@ -39,7 +39,9 @@ const CATEGORY_BY_FACT_CODE: Readonly<Record<string, GroceryCategoryCode>> = Obj
   seasoning: "seasonings"
 })
 
-export function groceryCategoryDefinition(code: GroceryCategoryCode): GroceryCategoryDefinition {
+export function groceryCategoryDefinition(
+  code: GroceryCategoryCode
+): GroceryCategoryDefinition {
   return GROCERY_CATEGORIES.find((item) => item.code === code) ?? GROCERY_CATEGORIES.at(-1)!
 }
 
