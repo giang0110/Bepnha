@@ -1,10 +1,6 @@
 import type { NormalizedPlannerInputV1 } from "@/domain/planner/planner-input"
 import type { ReadyPlan } from "@/domain/planner/search-week"
-import {
-  ExactDecimal,
-  decimalToCanonical,
-  type ExactDecimalValue
-} from "@/domain/shared/decimal"
+import { ExactDecimal, decimalToCanonical, type ExactDecimalValue } from "@/domain/shared/decimal"
 
 import {
   GROCERY_CATEGORY_CONFIG_VERSION,
