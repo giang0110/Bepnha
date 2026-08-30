@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest"
 
 import type { PersistPlannerRevisionCommand } from "@/application/planner/planner-use-cases"
+import { PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
 import { plannerInput } from "@/domain/planner/planner-test-fixture"
 
 import { createSupabasePlannerRepository } from "./supabase-planner-repository"
@@ -18,7 +19,7 @@ function command(): PersistPlannerRevisionCommand {
     revisionKind: "generation",
     replacementDayIndex: null,
     householdSetupVersion: 1,
-    engineVersion: "planner-engine-v1",
+    engineVersion: PLANNER_ENGINE_VERSION,
     portionConfigVersion: "portion-v1",
     priceFreshnessConfigVersion: "price-freshness-v1",
     plannerConfigVersion: "planner-v1",
@@ -26,9 +27,16 @@ function command(): PersistPlannerRevisionCommand {
     catalogFingerprint: "a".repeat(64),
     inputFingerprint: "b".repeat(64),
     calculationFingerprint: "c".repeat(64),
-    inputSnapshot: { input: true },
+    inputSnapshot: { input: true, engineVersion: PLANNER_ENGINE_VERSION },
     calculationSnapshot: {
-      purchaseBasket: { lines: [], warnings: [], totalEstimatedCostVnd: 0 }
+      purchaseBasket: { lines: [], warnings: [], totalEstimatedCostVnd: 0 },
+      shoppingList: {
+        version: "shopping-list-v1",
+        groceryCategoryConfigVersion: "grocery-category-v1",
+        lines: [],
+        totalEstimatedCostVnd: 0,
+        warnings: []
+      }
     },
     budgetVnd: 700_000,
     totalEstimatedCostVnd: 0,
@@ -149,7 +157,7 @@ describe("Supabase planner repository", () => {
     })
     const persistedRevision = persistedArguments?.p_revision
     expect(persistedRevision).toMatchObject({
-      engineVersion: "planner-engine-v1",
+      engineVersion: PLANNER_ENGINE_VERSION,
       calculationDate: "2026-08-26",
       calculationFingerprint: "c".repeat(64)
     })

@@ -44,6 +44,7 @@
     "src/domain/pricing/**/*.ts",
     "src/domain/recipe/**/*.ts",
     "src/domain/shared/**/*.ts",
+    "src/domain/shopping/**/*.ts",
     "src/infrastructure/server/**/*.ts",
     "src/infrastructure/supabase/server-auth.ts",
     "src/infrastructure/supabase/server-admin-auth.ts",

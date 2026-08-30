@@ -45,6 +45,7 @@
     "src/domain/pricing/**/*.ts",
     "src/domain/recipe/**/*.ts",
     "src/domain/shared/**/*.ts",
+    "src/domain/shopping/**/*.ts",
     "src/infrastructure/server/**/*.ts",
     "src/infrastructure/supabase/browser-client.ts",
     "src/infrastructure/supabase/database.types.ts",
