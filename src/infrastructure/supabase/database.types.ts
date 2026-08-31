@@ -1490,6 +1490,266 @@ export type Database = {
           },
         ]
       }
+      shopping_item_check_states: {
+        Row: {
+          checked_at: string
+          shopping_list_item_id: string
+        }
+        Insert: {
+          checked_at: string
+          shopping_list_item_id: string
+        }
+        Update: {
+          checked_at?: string
+          shopping_list_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_item_check_states_shopping_list_item_id_fkey"
+            columns: ["shopping_list_item_id"]
+            isOneToOne: true
+            referencedRelation: "shopping_list_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_list_item_sources: {
+        Row: {
+          base_unit_id: string
+          created_at: string
+          food_fact_version_id: string
+          food_id: string
+          meal_option_recipe_id: string
+          meal_plan_item_id: string
+          meal_plan_revision_id: string
+          recipe_ingredient_id: string
+          recipe_version_id: string
+          required_base_quantity: string
+          shopping_list_id: string
+          shopping_list_item_id: string
+        }
+        Insert: {
+          base_unit_id: string
+          created_at?: string
+          food_fact_version_id: string
+          food_id: string
+          meal_option_recipe_id: string
+          meal_plan_item_id: string
+          meal_plan_revision_id: string
+          recipe_ingredient_id: string
+          recipe_version_id: string
+          required_base_quantity: string
+          shopping_list_id: string
+          shopping_list_item_id: string
+        }
+        Update: {
+          base_unit_id?: string
+          created_at?: string
+          food_fact_version_id?: string
+          food_id?: string
+          meal_option_recipe_id?: string
+          meal_plan_item_id?: string
+          meal_plan_revision_id?: string
+          recipe_ingredient_id?: string
+          recipe_version_id?: string
+          required_base_quantity?: string
+          shopping_list_id?: string
+          shopping_list_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_item_sources_meal_option_recipe_id_fkey"
+            columns: ["meal_option_recipe_id"]
+            isOneToOne: false
+            referencedRelation: "meal_option_recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_sources_food_base_unit_fkey"
+            columns: ["food_id", "base_unit_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id", "base_unit_id"]
+          },
+          {
+            foreignKeyName: "shopping_sources_food_fact_fkey"
+            columns: ["food_id", "food_fact_version_id"]
+            isOneToOne: false
+            referencedRelation: "food_fact_versions"
+            referencedColumns: ["food_id", "id"]
+          },
+          {
+            foreignKeyName: "shopping_sources_item_fkey"
+            columns: ["shopping_list_id", "shopping_list_item_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_list_items"
+            referencedColumns: ["shopping_list_id", "id"]
+          },
+          {
+            foreignKeyName: "shopping_sources_list_context_fkey"
+            columns: ["shopping_list_id", "meal_plan_revision_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id", "meal_plan_revision_id"]
+          },
+          {
+            foreignKeyName: "shopping_sources_plan_item_fkey"
+            columns: ["meal_plan_revision_id", "meal_plan_item_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plan_items"
+            referencedColumns: ["meal_plan_revision_id", "id"]
+          },
+          {
+            foreignKeyName: "shopping_sources_recipe_ingredient_fkey"
+            columns: ["recipe_version_id", "recipe_ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "recipe_ingredients"
+            referencedColumns: ["recipe_version_id", "id"]
+          },
+        ]
+      }
+      shopping_list_items: {
+        Row: {
+          base_unit_id: string
+          created_at: string
+          food_id: string
+          food_price_id: string
+          freshness: string
+          grocery_category_code: string
+          id: string
+          leftover_base_quantity: string
+          line_cost_vnd: number
+          meal_plan_revision_id: string
+          observed_at: string
+          package_base_quantity: string
+          package_price_vnd: number
+          price_book_id: string
+          price_food_fact_version_id: string
+          purchase_base_quantity: string
+          purchase_increment: string
+          purchase_package_count: string
+          required_base_quantity: string
+          shopping_list_id: string
+        }
+        Insert: {
+          base_unit_id: string
+          created_at?: string
+          food_id: string
+          food_price_id: string
+          freshness: string
+          grocery_category_code: string
+          id?: string
+          leftover_base_quantity: string
+          line_cost_vnd: number
+          meal_plan_revision_id: string
+          observed_at: string
+          package_base_quantity: string
+          package_price_vnd: number
+          price_book_id: string
+          price_food_fact_version_id: string
+          purchase_base_quantity: string
+          purchase_increment: string
+          purchase_package_count: string
+          required_base_quantity: string
+          shopping_list_id: string
+        }
+        Update: {
+          base_unit_id?: string
+          created_at?: string
+          food_id?: string
+          food_price_id?: string
+          freshness?: string
+          grocery_category_code?: string
+          id?: string
+          leftover_base_quantity?: string
+          line_cost_vnd?: number
+          meal_plan_revision_id?: string
+          observed_at?: string
+          package_base_quantity?: string
+          package_price_vnd?: number
+          price_book_id?: string
+          price_food_fact_version_id?: string
+          purchase_base_quantity?: string
+          purchase_increment?: string
+          purchase_package_count?: string
+          required_base_quantity?: string
+          shopping_list_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_items_food_base_unit_fkey"
+            columns: ["food_id", "base_unit_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id", "base_unit_id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_list_context_fkey"
+            columns: ["shopping_list_id", "meal_plan_revision_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id", "meal_plan_revision_id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_price_fact_fkey"
+            columns: ["food_id", "price_food_fact_version_id"]
+            isOneToOne: false
+            referencedRelation: "food_fact_versions"
+            referencedColumns: ["food_id", "id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_price_fkey"
+            columns: ["price_book_id", "food_price_id"]
+            isOneToOne: false
+            referencedRelation: "food_prices"
+            referencedColumns: ["price_book_id", "id"]
+          },
+        ]
+      }
+      shopping_lists: {
+        Row: {
+          calculation_fingerprint: string
+          created_at: string
+          estimated_purchase_cost_vnd: number
+          grocery_category_config_version: string
+          id: string
+          meal_plan_id: string
+          meal_plan_revision_id: string
+          snapshot_version: string
+          warnings: Json
+        }
+        Insert: {
+          calculation_fingerprint: string
+          created_at?: string
+          estimated_purchase_cost_vnd: number
+          grocery_category_config_version: string
+          id?: string
+          meal_plan_id: string
+          meal_plan_revision_id: string
+          snapshot_version: string
+          warnings: Json
+        }
+        Update: {
+          calculation_fingerprint?: string
+          created_at?: string
+          estimated_purchase_cost_vnd?: number
+          grocery_category_config_version?: string
+          id?: string
+          meal_plan_id?: string
+          meal_plan_revision_id?: string
+          snapshot_version?: string
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_lists_revision_fkey"
+            columns: ["meal_plan_id", "meal_plan_revision_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plan_revisions"
+            referencedColumns: ["meal_plan_id", "id"]
+          },
+        ]
+      }
       units: {
         Row: {
           code: string
@@ -1546,6 +1806,10 @@ export type Database = {
       }
       get_published_recipe_calculation_input: {
         Args: { p_price_book_id: string; p_recipe_version_id: string }
+        Returns: Json
+      }
+      get_shopping_list: {
+        Args: { p_plan_id: string; p_revision_id?: string }
         Returns: Json
       }
       persist_meal_plan_revision: {
@@ -1739,6 +2003,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_shopping_item_checked: {
+        Args: { p_checked: boolean; p_shopping_list_item_id: string }
+        Returns: Json
       }
     }
     Enums: {
