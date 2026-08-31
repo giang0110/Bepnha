@@ -80,13 +80,6 @@ select
   '96000000-0000-0000-0000-000000000006', id, 1, date '2026-08-01',
   '91000000-0000-0000-0000-000000000001'
 from public.price_regions where code = 'vn_baseline';
-insert into public.price_books (
-  id, region_id, version_number, effective_from, created_by
-)
-select
-  '96000000-0000-0000-0000-000000000008', id, 2, date '2026-08-02',
-  '91000000-0000-0000-0000-000000000001'
-from public.price_regions where code = 'vn_baseline';
 
 select private.begin_catalog_transition();
 update public.food_fact_versions
@@ -115,6 +108,20 @@ select
   '96000000-0000-0000-0000-000000000002',
   1000, id, 1000, id, 700000, 1, date '2026-08-01', 'Planner generation price'
 from public.units where code = 'g';
+
+select private.begin_catalog_transition();
+update public.price_books
+set publication_status = 'published', content_hash = repeat('a', 64), published_at = now()
+where id = '96000000-0000-0000-0000-000000000006';
+select private.end_catalog_transition();
+
+insert into public.price_books (
+  id, region_id, version_number, effective_from, created_by
+)
+select
+  '96000000-0000-0000-0000-000000000008', id, 2, date '2026-08-02',
+  '91000000-0000-0000-0000-000000000001'
+from public.price_regions where code = 'vn_baseline';
 insert into public.food_prices (
   id, price_book_id, food_id, food_fact_version_id, package_quantity, package_unit_id,
   package_base_quantity, base_unit_id, package_price_vnd, purchase_increment,
@@ -130,16 +137,8 @@ from public.units where code = 'g';
 
 select private.begin_catalog_transition();
 update public.price_books
-set publication_status = 'published',
-    content_hash = case id
-      when '96000000-0000-0000-0000-000000000006' then repeat('a', 64)
-      else repeat('b', 64)
-    end,
-    published_at = now()
-where id in (
-  '96000000-0000-0000-0000-000000000006',
-  '96000000-0000-0000-0000-000000000008'
-);
+set publication_status = 'published', content_hash = repeat('b', 64), published_at = now()
+where id = '96000000-0000-0000-0000-000000000008';
 select private.end_catalog_transition();
 
 insert into public.meal_options (id, code, name_vi)
