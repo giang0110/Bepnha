@@ -83,7 +83,10 @@ from public.price_regions where code = 'vn_baseline';
 
 select private.begin_catalog_transition();
 update public.food_fact_versions
-set publication_status = 'published', content_hash = repeat('f', 64), published_at = now()
+set publication_status = 'published',
+    content_hash = repeat('f', 64),
+    assessment_completed_at = now(),
+    published_at = now()
 where id = '96000000-0000-0000-0000-000000000002';
 update public.foods
 set status = 'published', current_fact_version_id = '96000000-0000-0000-0000-000000000002'
