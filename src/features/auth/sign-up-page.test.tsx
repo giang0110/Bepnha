@@ -5,12 +5,24 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { AuthSessionPort } from "@/application/auth/auth-session-port"
 import type { HouseholdRepository } from "@/application/household/household-repository"
+import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
 import { AppRoutes } from "@/app/App"
 import { AuthProvider } from "@/app/auth/auth-provider"
 
 const householdRepository: HouseholdRepository = {
   loadOwn: vi.fn(() => Promise.resolve(null)),
   saveOwn: vi.fn()
+}
+
+const shoppingListRepository: ShoppingListRepository = {
+  load: vi.fn(() => Promise.resolve(null)),
+  setChecked: vi.fn((shoppingListItemId: string, checked: boolean) =>
+    Promise.resolve({
+      shoppingListItemId,
+      checked,
+      checkedAt: checked ? "2026-09-01T00:00:00Z" : null
+    })
+  )
 }
 
 function renderSignUp(signUp: AuthSessionPort["signUp"]) {
@@ -24,7 +36,10 @@ function renderSignUp(signUp: AuthSessionPort["signUp"]) {
   render(
     <MemoryRouter initialEntries={["/sign-up"]}>
       <AuthProvider port={port}>
-        <AppRoutes householdRepository={householdRepository} />
+        <AppRoutes
+          householdRepository={householdRepository}
+          shoppingListRepository={shoppingListRepository}
+        />
       </AuthProvider>
     </MemoryRouter>
   )
