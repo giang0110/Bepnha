@@ -214,7 +214,11 @@ const replacementItems = [
   initialItems[2]!
 ]
 
-function shoppingReady(revisionId: string, items: typeof initialItems, totalEstimatedCostVnd: number) {
+function shoppingReady(
+  revisionId: string,
+  items: typeof initialItems,
+  totalEstimatedCostVnd: number
+) {
   return {
     status: "ready",
     planId: PLAN_ID,
