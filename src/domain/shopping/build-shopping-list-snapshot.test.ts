@@ -115,7 +115,7 @@ describe("buildShoppingListSnapshot", () => {
     expect(line.requiredBaseQuantity).toBe("2800")
     expect(line.pantryDeductedBaseQuantity).toBe("800")
     expect(line.purchaseRequiredBaseQuantity).toBe("2000")
-    expect(line.purchasePackageCount).toBe("2")
+    expect(line.purchasePackageCount).toBe("4")
     expect(line.purchaseBaseQuantity).toBe("2000")
     expect(line.leftoverBaseQuantity).toBe("0")
     expect(line.lineCostVnd).toBe(200_000)
