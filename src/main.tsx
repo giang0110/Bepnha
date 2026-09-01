@@ -2,11 +2,12 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
 import App from "@/app/App"
+import { createPlannerApi } from "@/features/plans/planner-api"
+import "@/index.css"
 import { createBrowserSupabaseClient } from "@/infrastructure/supabase/browser-client"
 import { createSupabaseAuthSession } from "@/infrastructure/supabase/supabase-auth-session"
 import { createSupabaseHouseholdRepository } from "@/infrastructure/supabase/supabase-household-repository"
-import { createPlannerApi } from "@/features/plans/planner-api"
-import "@/index.css"
+import { createSupabaseShoppingListRepository } from "@/infrastructure/supabase/supabase-shopping-list-repository"
 
 const rootElement = document.getElementById("root")
 
@@ -21,6 +22,7 @@ const supabase = createBrowserSupabaseClient({
 const authSession = createSupabaseAuthSession(supabase)
 const householdRepository = createSupabaseHouseholdRepository(supabase)
 const plannerApi = createPlannerApi()
+const shoppingListRepository = createSupabaseShoppingListRepository(supabase)
 
 createRoot(rootElement).render(
   <StrictMode>
@@ -28,6 +30,7 @@ createRoot(rootElement).render(
       authSession={authSession}
       householdRepository={householdRepository}
       plannerApi={plannerApi}
+      shoppingListRepository={shoppingListRepository}
     />
   </StrictMode>
 )

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Link } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
 import type { HouseholdRepository } from "@/application/household/household-repository"
@@ -263,6 +264,13 @@ export function WeeklyPlanPage({
               )
             })}
           </section>
+
+          <Link
+            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white"
+            to={`/shopping/${state.value.planId}`}
+          >
+            Đi chợ
+          </Link>
 
           <ol className="grid gap-3" aria-label="Bảy bữa chính trong tuần">
             {[...state.value.plan.items]
