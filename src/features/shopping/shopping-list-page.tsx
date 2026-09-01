@@ -124,7 +124,9 @@ function ShoppingItemRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className={item.checked ? "font-semibold line-through opacity-60" : "font-semibold"}>
+              <h3
+                className={item.checked ? "font-semibold line-through opacity-60" : "font-semibold"}
+              >
                 {item.foodNameVi}
               </h3>
               <p className="text-sm text-slate-600">
@@ -134,7 +136,8 @@ function ShoppingItemRow({
             <p className="shrink-0 text-sm font-semibold">{formatVnd(item.lineCostVnd)} VND</p>
           </div>
           <p className="mt-2 text-sm">
-            Mua {formatQuantity(item.purchasePackageCount)} gói × {formatQuantity(item.packageBaseQuantity)} {unit}
+            Mua {formatQuantity(item.purchasePackageCount)} gói ×{" "}
+            {formatQuantity(item.packageBaseQuantity)} {unit}
           </p>
           <p className="text-sm text-slate-600">
             Dư khoảng {formatQuantity(item.leftoverBaseQuantity)} {unit}
@@ -144,7 +147,9 @@ function ShoppingItemRow({
             <ul className="mt-2 grid gap-1">
               {item.sources.map((source) => (
                 <li key={`${source.mealPlanItemId}:${source.recipeIngredientId}`}>
-                  {DAY_LABELS[source.dayIndex] ?? `Ngày ${source.dayIndex + 1}`}: {source.mealOptionNameVi} · {formatQuantity(source.requiredBaseQuantity)} {unitLabel(source.baseUnitId)}
+                  {DAY_LABELS[source.dayIndex] ?? `Ngày ${source.dayIndex + 1}`}:{" "}
+                  {source.mealOptionNameVi} · {formatQuantity(source.requiredBaseQuantity)}{" "}
+                  {unitLabel(source.baseUnitId)}
                 </li>
               ))}
             </ul>
@@ -318,7 +323,8 @@ export function ShoppingListPage({ repository }: Props) {
           <section className="rounded-xl bg-white p-4 shadow-sm" aria-label="Tổng quan đi chợ">
             <p className="text-sm text-slate-600">Tổng ước tính / ngân sách 7 bữa chính</p>
             <p className="text-xl font-semibold">
-              {formatVnd(state.value.totalEstimatedCostVnd)} VND / {formatVnd(state.value.budgetVnd)} VND
+              {formatVnd(state.value.totalEstimatedCostVnd)} VND /{" "}
+              {formatVnd(state.value.budgetVnd)} VND
             </p>
             {state.value.budgetStatus === "over" ? (
               <p className="mt-1 text-sm text-amber-800">

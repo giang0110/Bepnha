@@ -124,12 +124,9 @@ describe("ShoppingListPage", () => {
     expect(screen.getByRole("main")).toHaveClass("max-w-md")
     expect(screen.queryByRole("table")).not.toBeInTheDocument()
     const groups = screen.getAllByTestId("shopping-category")
-    expect(groups.map((group) => within(group).getByRole("heading", { level: 2 }).textContent)).toEqual([
-      "Rau củ",
-      "Trứng, đậu hũ & sữa",
-      "Lương thực chính",
-      "Gia vị"
-    ])
+    expect(
+      groups.map((group) => within(group).getByRole("heading", { level: 2 }).textContent)
+    ).toEqual(["Rau củ", "Trứng, đậu hũ & sữa", "Lương thực chính", "Gia vị"])
 
     const tofuGroup = groups[1]!
     const tofuRows = within(tofuGroup).getAllByTestId("shopping-item")
@@ -160,7 +157,9 @@ describe("ShoppingListPage", () => {
     renderPage(repo, "/shopping/plan-a?revisionId=revision-v1")
 
     expect(await screen.findByRole("heading", { name: "Đi chợ" })).toBeInTheDocument()
-    expect(screen.getByRole("status")).toHaveTextContent(/phiên bản kế hoạch cũ.*không có danh sách đi chợ/i)
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /phiên bản kế hoạch cũ.*không có danh sách đi chợ/i
+    )
     expect(screen.getByText(/không tự tạo lại/i)).toBeInTheDocument()
     expect(repo.load).toHaveBeenCalledWith("plan-a", "revision-v1")
   })
