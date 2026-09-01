@@ -114,7 +114,9 @@ function plannerHandlers() {
   })
 }
 
-function ready(result: Awaited<ReturnType<ReturnType<typeof createSupabaseShoppingListRepository>["load"]>>) {
+function ready(
+  result: Awaited<ReturnType<ReturnType<typeof createSupabaseShoppingListRepository>["load"]>>
+) {
   if (result === null || result.status !== "ready") {
     throw new Error("Expected ready shopping list")
   }
@@ -122,7 +124,9 @@ function ready(result: Awaited<ReturnType<ReturnType<typeof createSupabaseShoppi
 }
 
 function immutableLineEvidence(list: ReadyShoppingList) {
-  return list.items.map(({ checked: _checked, checkedAt: _checkedAt, foodNameVi: _name, ...item }) => item)
+  return list.items.map(
+    ({ checked: _checked, checkedAt: _checkedAt, foodNameVi: _name, ...item }) => item
+  )
 }
 
 beforeAll(async () => {
@@ -190,7 +194,8 @@ beforeAll(async () => {
 
   const allergens = await secretClient.from("allergens").select("code").order("code")
   const nutrients = await secretClient.from("nutrients").select("code").order("code")
-  if (allergens.error !== null || nutrients.error !== null) throw new Error("Reference data missing")
+  if (allergens.error !== null || nutrients.error !== null)
+    throw new Error("Reference data missing")
 
   await catalog({
     action: "save_food_fact_draft",
@@ -358,10 +363,7 @@ beforeAll(async () => {
             order: 1
           }
         ],
-        tagIds: [
-          "70070000-0000-0000-0000-000000000001",
-          "70070000-0000-0000-0000-000000000012"
-        ]
+        tagIds: ["70070000-0000-0000-0000-000000000001", "70070000-0000-0000-0000-000000000012"]
       }
     })
     await mealOption({
@@ -441,7 +443,10 @@ describe("Phase 4 shopping-list integration", () => {
     expect(ready(await repository.load(generated.planId)).items[0]?.checked).toBe(true)
 
     const correctedName = "Đậu hũ đi chợ đã sửa tên"
-    const rename = await secretClient.from("foods").update({ name_vi: correctedName }).eq("id", fixtureFoodId)
+    const rename = await secretClient
+      .from("foods")
+      .update({ name_vi: correctedName })
+      .eq("id", fixtureFoodId)
     expect(rename.error).toBeNull()
     const afterRename = ready(await repository.load(generated.planId, generated.revisionId))
     expect(afterRename.items[0]?.foodNameVi).toBe(correctedName)
@@ -525,9 +530,9 @@ describe("Phase 4 shopping-list integration", () => {
       .single()
     expect(replacementRevision.error).toBeNull()
     expect(replacementRevision.data?.engine_version).toBe(PLANNER_ENGINE_VERSION)
-    expect((replacementRevision.data?.input_snapshot as { engineVersion?: string }).engineVersion).toBe(
-      PLANNER_ENGINE_VERSION
-    )
+    expect(
+      (replacementRevision.data?.input_snapshot as { engineVersion?: string }).engineVersion
+    ).toBe(PLANNER_ENGINE_VERSION)
 
     const retiredSource = beforeItem.sources[0]!
     const retired = await mealOption({
