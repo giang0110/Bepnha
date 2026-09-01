@@ -1,0 +1,51 @@
+name: Task 6 lint fix
+
+on:
+  push:
+    branches:
+      - codex/phase-4-task6-staging
+    paths:
+      - .github/workflows/task6-lint-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/phase-4-task6-staging
+      - name: Apply narrow lint fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/integration/shopping-list.integration.test.ts')
+          text = path.read_text()
+          old = '''function immutableLineEvidence(list: ReadyShoppingList) {
+            return list.items.map(
+              ({ checked: _checked, checkedAt: _checkedAt, foodNameVi: _name, ...item }) => item
+            )
+          }
+          '''
+          new = '''function immutableLineEvidence(list: ReadyShoppingList) {
+            return list.items.map((item) =>
+              Object.fromEntries(
+                Object.entries(item).filter(
+                  ([key]) => key !== "checked" && key !== "checkedAt" && key !== "foodNameVi"
+                )
+              )
+            )
+          }
+          '''
+          if old not in text:
+              raise SystemExit('expected block not found')
+          path.write_text(text.replace(old, new))
+          PY
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/integration/shopping-list.integration.test.ts
+          git commit -m "test: compare immutable shopping evidence without unused bindings"
+          git push origin HEAD:codex/phase-4-task6-staging
