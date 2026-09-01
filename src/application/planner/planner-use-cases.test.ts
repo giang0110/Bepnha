@@ -44,7 +44,10 @@ function pantrySnapshot(baseQuantity = "0"): PantrySnapshotV1 {
   }
 }
 
-function generationInput(count = 8, pantry: PantrySnapshotV1 = pantrySnapshot()): PlannerInputV1 {
+function generationInput(
+  count = 8,
+  pantry: PantrySnapshotV1 = pantrySnapshot()
+): PlannerInputV1 {
   return {
     ...plannerInput(
       Array.from({ length: count }, (_, index) => plannerCandidate(`use-case-${index}-v1`))
@@ -157,7 +160,9 @@ describe("planner use cases", () => {
     expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v3")
     expect(second.value.inputFingerprint).not.toBe(first.value.inputFingerprint)
     expect(second.value.calculationFingerprint).not.toBe(first.value.calculationFingerprint)
-    expect(second.value.plan.totalEstimatedCostVnd).toBeLessThan(first.value.plan.totalEstimatedCostVnd)
+    expect(second.value.plan.totalEstimatedCostVnd).toBeLessThan(
+      first.value.plan.totalEstimatedCostVnd
+    )
 
     const persisted = vi.mocked(withPantry.persistRevision).mock.calls[0]?.[0]
     expect(canonicalJson(persisted?.inputSnapshot)).toContain('"pantrySnapshot"')
