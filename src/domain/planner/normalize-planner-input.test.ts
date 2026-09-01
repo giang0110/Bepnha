@@ -1,7 +1,45 @@
 import { describe, expect, test } from "vitest"
 
+import type { PantrySnapshotV1 } from "@/domain/pantry/pantry"
+
 import { normalizePlannerInput } from "./normalize-planner-input"
+import type { PlannerInputV1 } from "./planner-input"
 import { plannerCandidate, plannerInput } from "./planner-test-fixture"
+
+const pantryItems: PantrySnapshotV1["items"] = [
+  {
+    pantryItemId: "pantry-b",
+    foodId: "food-b",
+    foodFactVersionId: "fact-b-v1",
+    quantity: "2",
+    unitId: "unit-g",
+    baseQuantity: "2",
+    baseUnitId: "unit-g",
+    baseDimension: "mass",
+    version: 1
+  },
+  {
+    pantryItemId: "pantry-a",
+    foodId: "food-a",
+    foodFactVersionId: "fact-a-v1",
+    quantity: "1",
+    unitId: "unit-g",
+    baseQuantity: "1",
+    baseUnitId: "unit-g",
+    baseDimension: "mass",
+    version: 1
+  }
+]
+
+function withPantry(
+  input: PlannerInputV1,
+  items: PantrySnapshotV1["items"] = pantryItems
+): PlannerInputV1 {
+  return {
+    ...input,
+    pantrySnapshot: { version: "pantry-snapshot-v1", items }
+  } as unknown as PlannerInputV1
+}
 
 describe("normalizePlannerInput", () => {
   test("requires a Monday, explicit supported timezone, exact config, and seven primary slots", () => {
@@ -44,5 +82,23 @@ describe("normalizePlannerInput", () => {
         )
       )
     ).toEqual({ ok: false, error: { code: "CATALOG_CANDIDATE_LIMIT_EXCEEDED" } })
+  })
+
+  test("canonicalizes pantry ordering and rejects duplicate pantry foods", () => {
+    const normalized = normalizePlannerInput(withPantry(plannerInput()))
+    expect(normalized.ok).toBe(true)
+    if (!normalized.ok) throw new Error("pantry fixture rejected")
+    const pantrySnapshot = (normalized.value as unknown as { pantrySnapshot: PantrySnapshotV1 })
+      .pantrySnapshot
+    expect(pantrySnapshot.items.map((item) => item.foodId)).toEqual(["food-a", "food-b"])
+
+    expect(
+      normalizePlannerInput(
+        withPantry(plannerInput(), [
+          pantryItems[0]!,
+          { ...pantryItems[1]!, foodId: pantryItems[0]!.foodId }
+        ])
+      )
+    ).toEqual({ ok: false, error: { code: "INVALID_PLANNER_INPUT" } })
   })
 })
