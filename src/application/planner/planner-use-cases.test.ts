@@ -3,11 +3,14 @@ import { createHash } from "node:crypto"
 import { describe, expect, test, vi } from "vitest"
 
 import type { ContentHasher } from "@/application/shared/content-hasher"
+import type { PantrySnapshotV1 } from "@/domain/pantry/pantry"
 import { PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
 import { evaluatePlannerEligibility } from "@/domain/planner/evaluate-eligibility"
 import { normalizePlannerInput } from "@/domain/planner/normalize-planner-input"
+import type { PlannerInputV1 } from "@/domain/planner/planner-input"
 import { plannerCandidate, plannerInput } from "@/domain/planner/planner-test-fixture"
 import { searchWeek } from "@/domain/planner/search-week"
+import { canonicalJson } from "@/domain/shared/canonical-json"
 
 import {
   applyMealReplacement,
@@ -22,10 +25,32 @@ const hasher: ContentHasher = {
   }
 }
 
-function generationInput(count = 8) {
-  return plannerInput(
-    Array.from({ length: count }, (_, index) => plannerCandidate(`use-case-${index}-v1`))
-  )
+function pantrySnapshot(baseQuantity = "0"): PantrySnapshotV1 {
+  return {
+    version: "pantry-snapshot-v1",
+    items: [
+      {
+        pantryItemId: "pantry-use-case-0",
+        foodId: "use-case-0-v1-food",
+        foodFactVersionId: "use-case-0-v1-fact-v1",
+        quantity: baseQuantity,
+        unitId: "unit-g",
+        baseQuantity,
+        baseUnitId: "unit-g",
+        baseDimension: "mass",
+        version: 1
+      }
+    ]
+  }
+}
+
+function generationInput(count = 8, pantry: PantrySnapshotV1 = pantrySnapshot()): PlannerInputV1 {
+  return {
+    ...plannerInput(
+      Array.from({ length: count }, (_, index) => plannerCandidate(`use-case-${index}-v1`))
+    ),
+    pantrySnapshot: pantry
+  } as unknown as PlannerInputV1
 }
 
 function readyPlan() {
@@ -67,7 +92,7 @@ function repository(overrides: Partial<PlannerRepository> = {}): PlannerReposito
 }
 
 describe("planner use cases", () => {
-  test("generates v2 authoritative evidence including the shopping projection before persistence", async () => {
+  test("generates authoritative evidence including the shopping projection before persistence", async () => {
     const repo = repository()
     const result = await generateMealPlan(repo, hasher, {
       actorUserId: "user-1",
@@ -102,6 +127,46 @@ describe("planner use cases", () => {
     )
   })
 
+  test("binds exact pantry evidence to input and calculation fingerprints and authoritative cost", async () => {
+    const withoutPantry = repository({
+      loadGenerationInput: vi.fn().mockResolvedValue({
+        ok: true,
+        value: generationInput(8, pantrySnapshot("0"))
+      })
+    })
+    const withPantry = repository({
+      loadGenerationInput: vi.fn().mockResolvedValue({
+        ok: true,
+        value: generationInput(8, pantrySnapshot("800"))
+      })
+    })
+    const command = {
+      actorUserId: "user-1",
+      householdId: "household-1",
+      weekStart: "2026-08-31",
+      calculationDate: "2026-08-26",
+      idempotencyKey: "00000000-0000-0000-0000-000000000003"
+    }
+
+    const first = await generateMealPlan(withoutPantry, hasher, command)
+    const second = await generateMealPlan(withPantry, hasher, command)
+    expect(first.ok).toBe(true)
+    expect(second.ok).toBe(true)
+    if (!first.ok || !second.ok) throw new Error("generation failed")
+
+    expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v3")
+    expect(second.value.inputFingerprint).not.toBe(first.value.inputFingerprint)
+    expect(second.value.calculationFingerprint).not.toBe(first.value.calculationFingerprint)
+    expect(second.value.plan.totalEstimatedCostVnd).toBeLessThan(first.value.plan.totalEstimatedCostVnd)
+
+    const persisted = vi.mocked(withPantry.persistRevision).mock.calls[0]?.[0]
+    expect(canonicalJson(persisted?.inputSnapshot)).toContain('"pantrySnapshot"')
+    expect(canonicalJson(persisted?.calculationSnapshot)).toContain('"pantrySnapshot"')
+    expect(persisted?.calculationSnapshot.purchaseBasket.lines).toEqual(
+      second.value.plan.purchaseBasket.lines
+    )
+  })
+
   test("never persists a fatal eligibility/search outcome", async () => {
     const repo = repository({
       loadGenerationInput: vi.fn().mockResolvedValue({ ok: true, value: generationInput(6) })
@@ -120,7 +185,7 @@ describe("planner use cases", () => {
     expect(repo.persistRevision).not.toHaveBeenCalled()
   })
 
-  test("previews without writing, then apply recomputes and persists one v2 replacement revision", async () => {
+  test("previews without writing, then apply recomputes and persists one replacement revision", async () => {
     const repo = repository()
     const command = {
       actorUserId: "user-1",
