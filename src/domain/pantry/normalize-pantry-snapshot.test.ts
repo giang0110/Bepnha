@@ -112,9 +112,7 @@ describe("normalizePantrySnapshotV1", () => {
   })
 
   test("rejects mismatched stable food and fact lineage", () => {
-    const result = normalizePantrySnapshotV1([
-      pantryItem({ foodFactFoodId: "food-someone-else" })
-    ])
+    const result = normalizePantrySnapshotV1([pantryItem({ foodFactFoodId: "food-someone-else" })])
 
     expect(result).toEqual({
       ok: false,
@@ -123,9 +121,7 @@ describe("normalizePantrySnapshotV1", () => {
   })
 
   test("rejects a base unit that does not match the permanent food base unit", () => {
-    const result = normalizePantrySnapshotV1([
-      pantryItem({ foodBaseUnitId: "unit-ml" })
-    ])
+    const result = normalizePantrySnapshotV1([pantryItem({ foodBaseUnitId: "unit-ml" })])
 
     expect(result).toEqual({
       ok: false,
