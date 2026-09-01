@@ -216,7 +216,7 @@ const replacementItems = [
 
 function shoppingReady(
   revisionId: string,
-  items: typeof initialItems,
+  items: readonly unknown[],
   totalEstimatedCostVnd: number
 ) {
   return {
