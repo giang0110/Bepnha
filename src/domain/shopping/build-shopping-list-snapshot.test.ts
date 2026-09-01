@@ -48,7 +48,7 @@ function fixture() {
     stableIdSequence: Array.from({ length: 7 }, () => option.mealOptionVersionId).join("|"),
     frontierMetrics: []
   }
-  return { raw, normalized: normalized.value, plan, candidate }
+  return { raw, normalized: normalized.value, plan, candidate, option, requirements }
 }
 
 describe("buildShoppingListSnapshot", () => {
@@ -69,6 +69,8 @@ describe("buildShoppingListSnapshot", () => {
             foodId,
             baseUnitId: "unit-g",
             requiredBaseQuantity: "2800",
+            pantryDeductedBaseQuantity: "0",
+            purchaseRequiredBaseQuantity: "2800",
             purchaseBaseQuantity: "3000",
             leftoverBaseQuantity: "200",
             groceryCategoryCode: "meat_seafood"
@@ -87,6 +89,37 @@ describe("buildShoppingListSnapshot", () => {
     expect(result.value.warnings).toContainEqual(
       expect.objectContaining({ code: "STALE_PRICE", foodId })
     )
+  })
+
+  test("preserves authoritative pantry deduction and package rounding evidence", () => {
+    const { normalized, plan, candidate, option, requirements } = fixture()
+    const foodId = candidate.ingredientLineage[0]!.foodId
+    const pantryBasket = calculatePurchaseBasket(
+      requirements,
+      option.prices,
+      normalized.calculationDate,
+      normalized.priceFreshnessConfig,
+      [{ foodId, baseUnitId: "unit-g", availableBaseQuantity: "800" }]
+    )
+    if (!pantryBasket.ok) throw new Error("invalid pantry basket fixture")
+
+    const result = buildShoppingListSnapshot(normalized, {
+      ...plan,
+      purchaseBasket: pantryBasket.value,
+      totalEstimatedCostVnd: pantryBasket.value.totalEstimatedCostVnd
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("projection failed")
+    const line = result.value.lines[0]!
+    expect(line.requiredBaseQuantity).toBe("2800")
+    expect(line.pantryDeductedBaseQuantity).toBe("800")
+    expect(line.purchaseRequiredBaseQuantity).toBe("2000")
+    expect(line.purchasePackageCount).toBe("2")
+    expect(line.purchaseBaseQuantity).toBe("2000")
+    expect(line.leftoverBaseQuantity).toBe("0")
+    expect(line.lineCostVnd).toBe(200_000)
+    expect(result.value.totalEstimatedCostVnd).toBe(200_000)
   })
 
   test("is stable under item order and mutable display-name changes", () => {
