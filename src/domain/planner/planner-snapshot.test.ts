@@ -1,8 +1,10 @@
 import { describe, expect, test } from "vitest"
 
+import type { PantrySnapshotV1 } from "@/domain/pantry/pantry"
 import { canonicalJson } from "@/domain/shared/canonical-json"
 
-import { buildPlannerSnapshotPayloads } from "./planner-snapshot"
+import { PLANNER_ENGINE_VERSION } from "./planner-engine-version"
+import { buildPlannerSnapshotPayloads, type PlannerSnapshotSource } from "./planner-snapshot"
 
 const base = {
   engineVersion: "planner-engine-v2" as const,
@@ -41,6 +43,38 @@ const base = {
   }
 }
 
+const pantryItems: PantrySnapshotV1["items"] = [
+  {
+    pantryItemId: "pantry-b",
+    foodId: "food-b",
+    foodFactVersionId: "fact-b-v1",
+    quantity: "2",
+    unitId: "unit-g",
+    baseQuantity: "2",
+    baseUnitId: "unit-g",
+    baseDimension: "mass",
+    version: 1
+  },
+  {
+    pantryItemId: "pantry-a",
+    foodId: "food-a",
+    foodFactVersionId: "fact-a-v1",
+    quantity: "1",
+    unitId: "unit-g",
+    baseQuantity: "1",
+    baseUnitId: "unit-g",
+    baseDimension: "mass",
+    version: 1
+  }
+]
+
+function withPantry(items: PantrySnapshotV1["items"]): PlannerSnapshotSource {
+  return {
+    ...base,
+    pantrySnapshot: { version: "pantry-snapshot-v1", items }
+  } as unknown as PlannerSnapshotSource
+}
+
 describe("buildPlannerSnapshotPayloads", () => {
   test("canonicalizes shuffled manifest rows without current pointers", () => {
     const left = buildPlannerSnapshotPayloads(base)
@@ -51,6 +85,7 @@ describe("buildPlannerSnapshotPayloads", () => {
     expect(canonicalJson(left)).toBe(canonicalJson(right))
     expect(left.inputPayload.engineVersion).toBe("planner-engine-v2")
     expect(canonicalJson(left)).not.toMatch(/currentVersion|retiredAt|currentPriceBook/i)
+    expect(canonicalJson(left)).not.toContain('"pantrySnapshot"')
     const changedPointers = {
       ...base,
       currentMealOptionVersionId: "new-pointer",
@@ -65,6 +100,21 @@ describe("buildPlannerSnapshotPayloads", () => {
     expect(canonicalJson(v1.inputPayload)).not.toBe(canonicalJson(v2.inputPayload))
     expect(v1.inputPayload.engineVersion).toBe("planner-engine-v1")
     expect(v2.inputPayload.engineVersion).toBe("planner-engine-v2")
+    expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v3")
+  })
+
+  test("includes canonical pantry evidence without changing bytes for pantry item permutations", () => {
+    const left = buildPlannerSnapshotPayloads(withPantry(pantryItems))
+    const right = buildPlannerSnapshotPayloads(withPantry([...pantryItems].reverse()))
+    const leftJson = canonicalJson(left.inputPayload)
+    expect(leftJson).toContain('"pantrySnapshot"')
+    expect(leftJson).toContain('"foodId":"food-a"')
+    expect(leftJson).toBe(canonicalJson(right.inputPayload))
+
+    const changed = buildPlannerSnapshotPayloads(
+      withPantry([{ ...pantryItems[0]!, baseQuantity: "3", quantity: "3" }, pantryItems[1]!])
+    )
+    expect(canonicalJson(changed.inputPayload)).not.toBe(leftJson)
   })
 
   test.each([
