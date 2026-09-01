@@ -124,8 +124,12 @@ function ready(
 }
 
 function immutableLineEvidence(list: ReadyShoppingList) {
-  return list.items.map(
-    ({ checked: _checked, checkedAt: _checkedAt, foodNameVi: _name, ...item }) => item
+  return list.items.map((item) =>
+    Object.fromEntries(
+      Object.entries(item).filter(
+        ([key]) => key !== "checked" && key !== "checkedAt" && key !== "foodNameVi"
+      )
+    )
   )
 }
 
