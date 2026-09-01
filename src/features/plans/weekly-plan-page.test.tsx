@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { MemoryRouter } from "react-router"
 import { describe, expect, test, vi } from "vitest"
 
 import type { HouseholdRepository } from "@/application/household/household-repository"
@@ -111,22 +112,24 @@ function setup(apiOverrides: Partial<PlannerApi> = {}) {
     saveOwn: vi.fn()
   }
   render(
-    <AuthContext.Provider
-      value={{
-        status: "authenticated",
-        session: { accessToken: "token", identity: { userId: "user", email: null } },
-        signIn: vi.fn(),
-        signOut: vi.fn(),
-        signUp: vi.fn()
-      }}
-    >
-      <WeeklyPlanPage
-        householdRepository={repository}
-        plannerApi={api}
-        today={() => new Date("2026-08-27T00:00:00+07:00")}
-        createId={() => "30000000-0000-0000-0000-000000000001"}
-      />
-    </AuthContext.Provider>
+    <MemoryRouter>
+      <AuthContext.Provider
+        value={{
+          status: "authenticated",
+          session: { accessToken: "token", identity: { userId: "user", email: null } },
+          signIn: vi.fn(),
+          signOut: vi.fn(),
+          signUp: vi.fn()
+        }}
+      >
+        <WeeklyPlanPage
+          householdRepository={repository}
+          plannerApi={api}
+          today={() => new Date("2026-08-27T00:00:00+07:00")}
+          createId={() => "30000000-0000-0000-0000-000000000001"}
+        />
+      </AuthContext.Provider>
+    </MemoryRouter>
   )
   return { api, repository }
 }
@@ -144,6 +147,10 @@ describe("WeeklyPlanPage", () => {
     expect(within(cards[0]!).getByRole("heading", { name: "Thứ Hai" })).toBeInTheDocument()
     expect(within(cards[6]!).getByRole("heading", { name: "Chủ Nhật" })).toBeInTheDocument()
     expect(screen.getByText("650.000 VND / 700.000 VND")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Đi chợ" })).toHaveAttribute(
+      "href",
+      `/shopping/${ready().planId}`
+    )
     expect(api.generate).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
       weekStart: "2026-08-31",

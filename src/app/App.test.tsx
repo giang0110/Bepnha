@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { AuthSession, AuthSessionPort } from "@/application/auth/auth-session-port"
 import type { HouseholdRepository } from "@/application/household/household-repository"
+import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
 import { AppRoutes } from "@/app/App"
 import { AuthProvider } from "@/app/auth/auth-provider"
 import type { PlannerApi } from "@/features/plans/planner-api"
@@ -23,6 +24,15 @@ const plannerApi: PlannerApi = {
   generate: vi.fn(),
   preview: vi.fn(),
   apply: vi.fn()
+}
+
+const shoppingListRepository: ShoppingListRepository = {
+  load: vi.fn(async () => null),
+  setChecked: vi.fn(async (shoppingListItemId: string, checked: boolean) => ({
+    shoppingListItemId,
+    checked,
+    checkedAt: checked ? "2026-09-01T00:00:00Z" : null
+  }))
 }
 
 function createAuthPort(initialSession: AuthSession | null): {
@@ -46,7 +56,11 @@ function renderRoutes(port: AuthSessionPort, initialEntry: string) {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <AuthProvider port={port}>
-        <AppRoutes householdRepository={householdRepository} plannerApi={plannerApi} />
+        <AppRoutes
+          householdRepository={householdRepository}
+          plannerApi={plannerApi}
+          shoppingListRepository={shoppingListRepository}
+        />
       </AuthProvider>
     </MemoryRouter>
   )
@@ -62,7 +76,7 @@ describe("authenticated app shell", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Đang kiểm tra phiên đăng nhập")
   })
 
-  it.each(["/onboarding", "/settings/household"])(
+  it.each(["/onboarding", "/settings/household", "/shopping/plan-a"])(
     "redirects signed-out protected route %s to sign in",
     async (route) => {
       renderRoutes(createAuthPort(null).port, route)
@@ -77,6 +91,21 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Thành viên trong gia đình" })
     ).toBeInTheDocument()
+  })
+
+  it("routes an authenticated historical shopping revision through the owner repository", async () => {
+    vi.mocked(shoppingListRepository.load).mockResolvedValueOnce({
+      status: "legacy_unavailable",
+      code: "SHOPPING_LIST_NOT_AVAILABLE_FOR_LEGACY_REVISION",
+      planId: "plan-a",
+      revisionId: "revision-v1",
+      weekStart: "2026-08-24"
+    })
+
+    renderRoutes(createAuthPort(session).port, "/shopping/plan-a?revisionId=revision-v1")
+
+    expect(await screen.findByRole("heading", { name: "Đi chợ" })).toBeInTheDocument()
+    expect(shoppingListRepository.load).toHaveBeenCalledWith("plan-a", "revision-v1")
   })
 
   it("routes an authenticated return visit through the authoritative household summary", async () => {
