@@ -198,17 +198,20 @@ export function ShoppingListPage({ repository }: Props) {
 
   useEffect(() => {
     let active = true
-    setState({ status: "loading" })
-    setMutationError(null)
-    if (planId === "") {
-      setState({ status: "missing" })
-      return () => {
-        active = false
+
+    async function load() {
+      await Promise.resolve()
+      if (!active) return
+      setMutationError(null)
+
+      if (planId === "") {
+        setState({ status: "missing" })
+        return
       }
-    }
-    void repository
-      .load(planId, revisionId)
-      .then((result) => {
+
+      setState({ status: "loading" })
+      try {
+        const result = await repository.load(planId, revisionId)
         if (!active) return
         if (result === null) {
           setState({ status: "missing" })
@@ -217,10 +220,12 @@ export function ShoppingListPage({ repository }: Props) {
         } else {
           setState({ status: "ready", value: result })
         }
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         if (active) setState({ status: "error", message: errorCopy(error) })
-      })
+      }
+    }
+
+    void load()
     return () => {
       active = false
     }
