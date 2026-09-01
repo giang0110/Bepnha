@@ -29,9 +29,7 @@ const plannerApi: PlannerApi = {
   apply: vi.fn()
 }
 
-const shoppingLoad = vi.fn((_planId: string, _revisionId?: string | null) =>
-  Promise.resolve<ShoppingListReadResult | null>(null)
-)
+const shoppingLoad = vi.fn(() => Promise.resolve<ShoppingListReadResult | null>(null))
 const shoppingSetChecked = vi.fn((shoppingListItemId: string, checked: boolean) =>
   Promise.resolve({
     shoppingListItemId,

@@ -93,9 +93,7 @@ function ready(overrides: Partial<ReadyShoppingList> = {}): ReadyShoppingList {
 }
 
 function repository(initial: ShoppingListReadResult | null = ready()) {
-  const load = vi.fn((_planId: string, _revisionId?: string | null) =>
-    Promise.resolve<ShoppingListReadResult | null>(initial)
-  )
+  const load = vi.fn(() => Promise.resolve<ShoppingListReadResult | null>(initial))
   const setChecked = vi.fn((shoppingListItemId: string, checked: boolean) =>
     Promise.resolve({
       shoppingListItemId,
