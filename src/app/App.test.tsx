@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { AuthSession, AuthSessionPort } from "@/application/auth/auth-session-port"
 import type { HouseholdRepository } from "@/application/household/household-repository"
-import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
+import type {
+  ShoppingListReadResult,
+  ShoppingListRepository
+} from "@/application/shopping/shopping-list-repository"
 import { AppRoutes } from "@/app/App"
 import { AuthProvider } from "@/app/auth/auth-provider"
 import type { PlannerApi } from "@/features/plans/planner-api"
@@ -26,13 +29,19 @@ const plannerApi: PlannerApi = {
   apply: vi.fn()
 }
 
-const shoppingListRepository: ShoppingListRepository = {
-  load: vi.fn(async () => null),
-  setChecked: vi.fn(async (shoppingListItemId: string, checked: boolean) => ({
+const shoppingLoad = vi.fn((_planId: string, _revisionId?: string | null) =>
+  Promise.resolve<ShoppingListReadResult | null>(null)
+)
+const shoppingSetChecked = vi.fn((shoppingListItemId: string, checked: boolean) =>
+  Promise.resolve({
     shoppingListItemId,
     checked,
     checkedAt: checked ? "2026-09-01T00:00:00Z" : null
-  }))
+  })
+)
+const shoppingListRepository: ShoppingListRepository = {
+  load: shoppingLoad,
+  setChecked: shoppingSetChecked
 }
 
 function createAuthPort(initialSession: AuthSession | null): {
@@ -94,7 +103,7 @@ describe("authenticated app shell", () => {
   })
 
   it("routes an authenticated historical shopping revision through the owner repository", async () => {
-    vi.mocked(shoppingListRepository.load).mockResolvedValueOnce({
+    shoppingLoad.mockResolvedValueOnce({
       status: "legacy_unavailable",
       code: "SHOPPING_LIST_NOT_AVAILABLE_FOR_LEGACY_REVISION",
       planId: "plan-a",
@@ -105,7 +114,7 @@ describe("authenticated app shell", () => {
     renderRoutes(createAuthPort(session).port, "/shopping/plan-a?revisionId=revision-v1")
 
     expect(await screen.findByRole("heading", { name: "Đi chợ" })).toBeInTheDocument()
-    expect(shoppingListRepository.load).toHaveBeenCalledWith("plan-a", "revision-v1")
+    expect(shoppingLoad).toHaveBeenCalledWith("plan-a", "revision-v1")
   })
 
   it("routes an authenticated return visit through the authoritative household summary", async () => {
