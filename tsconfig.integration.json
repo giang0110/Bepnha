@@ -41,6 +41,7 @@
     "src/domain/household/**/*.ts",
     "src/domain/meal-option/**/*.ts",
     "src/domain/nutrition/**/*.ts",
+    "src/domain/pantry/**/*.ts",
     "src/domain/planner/**/*.ts",
     "src/domain/portion/**/*.ts",
     "src/domain/pricing/**/*.ts",
