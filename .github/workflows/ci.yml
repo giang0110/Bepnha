@@ -47,6 +47,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e:onboarding
       - run: npm run test:e2e:planner
+      - run: npm run test:e2e:shopping
       - if: always()
         run: npm run db:types:generate
       - if: always()
