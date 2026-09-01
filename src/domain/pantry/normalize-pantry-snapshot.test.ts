@@ -72,7 +72,12 @@ describe("normalizePantrySnapshotV1", () => {
   })
 
   test("is byte-equivalent for repeated normalization regardless of input order", () => {
-    const first = pantryItem({ pantryItemId: "pantry-a", foodId: "food-a", foodFactVersionId: "fact-a", foodFactFoodId: "food-a" })
+    const first = pantryItem({
+      pantryItemId: "pantry-a",
+      foodId: "food-a",
+      foodFactVersionId: "fact-a",
+      foodFactFoodId: "food-a"
+    })
     const second = pantryItem()
 
     expect(JSON.stringify(normalizePantrySnapshotV1([first, second]))).toBe(
@@ -118,7 +123,9 @@ describe("normalizePantrySnapshotV1", () => {
   })
 
   test("rejects a base unit that does not match the permanent food base unit", () => {
-    const result = normalizePantrySnapshotV1([pantryItem({ foodBaseUnitId: "unit-ml" })])
+    const result = normalizePantrySnapshotV1([
+      pantryItem({ foodBaseUnitId: "unit-ml" })
+    ])
 
     expect(result).toEqual({
       ok: false,
