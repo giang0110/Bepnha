@@ -78,6 +78,82 @@ describe("calculatePurchaseBasket", () => {
     })
   })
 
+  test("subtracts pantry after gross aggregation and before package rounding", () => {
+    const result = calculatePurchaseBasket(
+      [
+        { ...riceRequirement, requiredBaseQuantity: "425.001" },
+        {
+          ...riceRequirement,
+          sourceId: "recipe-rice-2",
+          requiredBaseQuantity: "575"
+        }
+      ],
+      [ricePrice],
+      "2026-08-26",
+      undefined,
+      [{ foodId: "food-rice", baseUnitId: "unit-g", availableBaseQuantity: "0.001" }]
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        lines: [
+          {
+            foodId: "food-rice",
+            requiredBaseQuantity: "1000.001",
+            pantryDeductedBaseQuantity: "0.001",
+            purchaseRequiredBaseQuantity: "1000",
+            purchasePackageCount: "1",
+            purchaseBaseQuantity: "1000",
+            leftoverBaseQuantity: "0",
+            lineCostVnd: 30_000
+          }
+        ],
+        totalEstimatedCostVnd: 30_000
+      }
+    })
+  })
+
+  test("keeps a zero-purchase line when pantry fully covers gross demand", () => {
+    const result = calculatePurchaseBasket(
+      [riceRequirement],
+      [ricePrice],
+      "2026-08-26",
+      undefined,
+      [{ foodId: "food-rice", baseUnitId: "unit-g", availableBaseQuantity: "1250" }]
+    )
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        lines: [
+          {
+            foodId: "food-rice",
+            requiredBaseQuantity: "1000",
+            pantryDeductedBaseQuantity: "1000",
+            purchaseRequiredBaseQuantity: "0",
+            purchasePackageCount: "0",
+            purchaseBaseQuantity: "0",
+            leftoverBaseQuantity: "0",
+            lineCostVnd: 0
+          }
+        ],
+        totalEstimatedCostVnd: 0
+      }
+    })
+  })
+
+  test("rejects pantry deduction with a mismatched canonical base unit", () => {
+    expect(
+      calculatePurchaseBasket([riceRequirement], [ricePrice], "2026-08-26", undefined, [
+        { foodId: "food-rice", baseUnitId: "unit-ml", availableBaseQuantity: "100" }
+      ])
+    ).toEqual({
+      ok: false,
+      error: { code: "PANTRY_DEDUCTION_MISMATCH", foodId: "food-rice" }
+    })
+  })
+
   test("applies a positive whole-package purchase increment", () => {
     const result = calculatePurchaseBasket(
       [{ ...riceRequirement, requiredBaseQuantity: "1001" }],
@@ -116,6 +192,8 @@ describe("calculatePurchaseBasket", () => {
             foodId: "food-rice",
             baseUnitId: "unit-g",
             requiredBaseQuantity: "1000",
+            pantryDeductedBaseQuantity: "0",
+            purchaseRequiredBaseQuantity: "1000",
             packageBaseQuantity: "1000",
             purchaseIncrement: "1",
             purchasePackageCount: "1",
