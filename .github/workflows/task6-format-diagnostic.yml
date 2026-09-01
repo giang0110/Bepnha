@@ -1,0 +1,28 @@
+name: Task 6 format diagnostic
+
+on:
+  push:
+    branches:
+      - codex/phase-4-task6-staging
+    paths:
+      - tests/integration/shopping-list.integration.test.ts
+      - .github/workflows/task6-format-diagnostic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Print exact Prettier diff
+        run: |
+          npx prettier --write tests/integration/shopping-list.integration.test.ts
+          git diff -- tests/integration/shopping-list.integration.test.ts
+          exit 1
