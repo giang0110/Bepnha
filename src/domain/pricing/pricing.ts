@@ -39,10 +39,18 @@ export interface CanonicalFoodRequirement {
   readonly requiredBaseQuantity: string
 }
 
+export interface CanonicalFoodDeduction {
+  readonly foodId: string
+  readonly baseUnitId: string
+  readonly availableBaseQuantity: string
+}
+
 export interface PurchaseBasketLine {
   readonly foodId: string
   readonly baseUnitId: string
   readonly requiredBaseQuantity: string
+  readonly pantryDeductedBaseQuantity: string
+  readonly purchaseRequiredBaseQuantity: string
   readonly packageBaseQuantity: string
   readonly purchaseIncrement: string
   readonly purchasePackageCount: string
@@ -75,6 +83,8 @@ export type PurchaseBasketFatalCode =
   | "INVALID_PRICE_CONFIG"
   | "PRICE_FOOD_MISMATCH"
   | "DUPLICATE_PRICE"
+  | "PANTRY_DEDUCTION_MISMATCH"
+  | "DUPLICATE_PANTRY_DEDUCTION"
 
 export type PurchaseBasketResult =
   | {
