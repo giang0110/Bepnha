@@ -92,17 +92,19 @@ function ready(overrides: Partial<ReadyShoppingList> = {}): ReadyShoppingList {
   }
 }
 
-function repository(initial: ShoppingListReadResult | null = ready()): ShoppingListRepository & {
-  load: ReturnType<typeof vi.fn>
-  setChecked: ReturnType<typeof vi.fn>
-} {
-  const load = vi.fn().mockResolvedValue(initial)
-  const setChecked = vi.fn(async (shoppingListItemId: string, checked: boolean) => ({
-    shoppingListItemId,
-    checked,
-    checkedAt: checked ? "2026-09-01T00:00:00Z" : null
-  }))
-  return { load, setChecked }
+function repository(initial: ShoppingListReadResult | null = ready()) {
+  const load = vi.fn((_planId: string, _revisionId?: string | null) =>
+    Promise.resolve<ShoppingListReadResult | null>(initial)
+  )
+  const setChecked = vi.fn((shoppingListItemId: string, checked: boolean) =>
+    Promise.resolve({
+      shoppingListItemId,
+      checked,
+      checkedAt: checked ? "2026-09-01T00:00:00Z" : null
+    })
+  )
+  const repo: ShoppingListRepository = { load, setChecked }
+  return { repo, load, setChecked }
 }
 
 function renderPage(repo: ShoppingListRepository, entry = "/shopping/plan-a") {
@@ -117,7 +119,7 @@ function renderPage(repo: ShoppingListRepository, entry = "/shopping/plan-a") {
 
 describe("ShoppingListPage", () => {
   test("renders stable category groups, Vietnamese item ordering, totals, package quantities and collapsed provenance", async () => {
-    const repo = repository()
+    const { repo, load } = repository()
     renderPage(repo)
 
     expect(await screen.findByRole("heading", { name: "Đi chợ" })).toBeInTheDocument()
@@ -142,7 +144,7 @@ describe("ShoppingListPage", () => {
 
     const details = within(rice).getByText("Dùng cho bữa nào")
     expect(details.closest("details")).not.toHaveAttribute("open")
-    expect(repo.load).toHaveBeenCalledWith("plan-a", null)
+    expect(load).toHaveBeenCalledWith("plan-a", null)
   })
 
   test("reads an explicit historical revision and renders legacy evidence without regenerating", async () => {
@@ -153,7 +155,7 @@ describe("ShoppingListPage", () => {
       revisionId: "revision-v1",
       weekStart: "2026-08-24"
     }
-    const repo = repository(legacy)
+    const { repo, load } = repository(legacy)
     renderPage(repo, "/shopping/plan-a?revisionId=revision-v1")
 
     expect(await screen.findByRole("heading", { name: "Đi chợ" })).toBeInTheDocument()
@@ -161,15 +163,15 @@ describe("ShoppingListPage", () => {
       /phiên bản kế hoạch cũ.*không có danh sách đi chợ/i
     )
     expect(screen.getByText(/không tự tạo lại/i)).toBeInTheDocument()
-    expect(repo.load).toHaveBeenCalledWith("plan-a", "revision-v1")
+    expect(load).toHaveBeenCalledWith("plan-a", "revision-v1")
   })
 
   test("persists check state across refresh and submits only the narrow check mutation", async () => {
     const user = userEvent.setup()
     let current = ready({ budgetStatus: "within", overageVnd: 0, budgetVnd: 300_000 })
-    const repo = repository(current)
-    repo.load.mockImplementation(async () => current)
-    repo.setChecked.mockImplementation(async (shoppingListItemId: string, checked: boolean) => {
+    const { repo, load, setChecked } = repository(current)
+    load.mockImplementation(() => Promise.resolve(current))
+    setChecked.mockImplementation((shoppingListItemId: string, checked: boolean) => {
       current = {
         ...current,
         items: current.items.map((entry) =>
@@ -178,35 +180,35 @@ describe("ShoppingListPage", () => {
             : entry
         )
       }
-      return {
+      return Promise.resolve({
         shoppingListItemId,
         checked,
         checkedAt: checked ? "2026-09-01T00:00:00Z" : null
-      }
+      })
     })
 
     const first = renderPage(repo)
     expect(screen.getByRole("status")).toHaveTextContent(/đang tải danh sách đi chợ/i)
     const riceCheckbox = await screen.findByRole("checkbox", { name: /gạo/i })
     await user.click(riceCheckbox)
-    expect(repo.setChecked).toHaveBeenCalledWith("rice", true)
+    expect(setChecked).toHaveBeenCalledWith("rice", true)
     expect(riceCheckbox).toBeChecked()
-    expect(repo.setChecked.mock.calls.every((call) => call.length === 2)).toBe(true)
+    expect(setChecked.mock.calls.every((call) => call.length === 2)).toBe(true)
 
     first.unmount()
     renderPage(repo)
     const refreshed = await screen.findByRole("checkbox", { name: /gạo/i })
     expect(refreshed).toBeChecked()
     await user.click(refreshed)
-    expect(repo.setChecked).toHaveBeenLastCalledWith("rice", false)
+    expect(setChecked).toHaveBeenLastCalledWith("rice", false)
     expect(refreshed).not.toBeChecked()
   })
 
   test("disables a pending toggle and rolls back the visual state when mutation fails", async () => {
     const user = userEvent.setup()
     let rejectMutation: ((error: Error) => void) | undefined
-    const repo = repository()
-    repo.setChecked.mockImplementation(
+    const { repo, setChecked } = repository()
+    setChecked.mockImplementation(
       () =>
         new Promise((_, reject) => {
           rejectMutation = reject
@@ -224,8 +226,8 @@ describe("ShoppingListPage", () => {
   })
 
   test("renders a repository loading failure without fabricating shopping data", async () => {
-    const repo = repository()
-    repo.load.mockRejectedValueOnce(new Error("offline"))
+    const { repo, load } = repository()
+    load.mockRejectedValueOnce(new Error("offline"))
     renderPage(repo)
 
     expect(screen.getByRole("status")).toHaveTextContent(/đang tải danh sách đi chợ/i)
