@@ -1,0 +1,37 @@
+name: Phase 4 audit
+
+on:
+  push:
+    branches:
+      - codex/phase-4-task10-clean
+    paths:
+      - .github/workflows/phase4-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Phase 4 scope and single-authority contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+
+          engine_count=$(rg -n --glob '!**/*.test.*' --glob '!tests/**' --glob '!docs/**' '"planner-engine-v2"' src api | wc -l | tr -d ' ')
+          test "$engine_count" = "1"
+
+          basket_count=$(rg -n --glob '!**/*.test.*' --glob '!tests/**' '(^| )export function calculatePurchaseBasket|(^| )function calculatePurchaseBasket' src | wc -l | tr -d ' ')
+          test "$basket_count" = "1"
+
+          if rg -n -i '\b(pantry|receipt|barcode|ocr|delivery|payment|retailer|marketplace)\b' src api supabase/migrations/20260827000000_phase_4_shopping_list.sql; then
+            echo 'Out-of-scope production term found.' >&2
+            exit 1
+          fi
+
+          test -f .github/workflows/ci.yml
+          echo "planner_engine_literal_count=$engine_count"
+          echo "purchase_basket_definition_count=$basket_count"
