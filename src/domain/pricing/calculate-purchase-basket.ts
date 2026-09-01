@@ -1,6 +1,8 @@
+import { applyPantryDeduction } from "@/domain/pantry/apply-pantry-deduction"
 import { classifyPriceFreshness } from "@/domain/pricing/classify-price-freshness"
 import {
   PRICE_FRESHNESS_CONFIG_V1,
+  type CanonicalFoodDeduction,
   type CanonicalFoodRequirement,
   type FoodPriceInput,
   type PriceFreshnessConfigV1,
@@ -37,7 +39,8 @@ export function calculatePurchaseBasket(
   requirementsInput: readonly CanonicalFoodRequirement[],
   pricesInput: readonly FoodPriceInput[],
   calculationDate: string,
-  freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1
+  freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1,
+  deductionsInput: readonly CanonicalFoodDeduction[] = []
 ): PurchaseBasketResult {
   const requirements = new Map<
     string,
@@ -66,6 +69,22 @@ export function calculatePurchaseBasket(
     })
   }
 
+  const deductionsByFood = new Map<string, CanonicalFoodDeduction>()
+  for (const deduction of [...deductionsInput].sort((left, right) =>
+    compareText(left.foodId, right.foodId)
+  )) {
+    const requirement = requirements.get(deduction.foodId)
+    if (requirement === undefined || requirement.baseUnitId !== deduction.baseUnitId) {
+      return failure("PANTRY_DEDUCTION_MISMATCH", deduction.foodId)
+    }
+    if (deductionsByFood.has(deduction.foodId)) {
+      return failure("DUPLICATE_PANTRY_DEDUCTION", deduction.foodId)
+    }
+    const validated = applyPantryDeduction("0", deduction.availableBaseQuantity)
+    if (!validated.ok) return failure("PANTRY_DEDUCTION_MISMATCH", deduction.foodId)
+    deductionsByFood.set(deduction.foodId, deduction)
+  }
+
   const pricesByFood = new Map<string, FoodPriceInput>()
   const sortedPrices = [...pricesInput].sort(
     (left, right) =>
@@ -89,6 +108,15 @@ export function calculatePurchaseBasket(
       return failure("PRICE_FOOD_MISMATCH", foodId)
     }
 
+    const grossRequiredBaseQuantity = decimalToCanonical(requirement.quantity)
+    const deduction = deductionsByFood.get(foodId)
+    const pantry = applyPantryDeduction(
+      grossRequiredBaseQuantity,
+      deduction?.availableBaseQuantity ?? "0"
+    )
+    if (!pantry.ok) return failure("PANTRY_DEDUCTION_MISMATCH", foodId)
+    const purchaseRequiredQuantity = new ExactDecimal(pantry.value.remainingBaseQuantity)
+
     const packageQuantity = parsePositive(price.packageBaseQuantity)
     const purchaseIncrement = parsePositive(price.purchaseIncrement)
     if (
@@ -104,13 +132,13 @@ export function calculatePurchaseBasket(
     const freshness = classifyPriceFreshness(price.observedAt, calculationDate, freshnessConfig)
     if (!freshness.ok) return failure(freshness.error.code, foodId)
 
-    const packageCount = requirement.quantity
+    const packageCount = purchaseRequiredQuantity
       .div(packageQuantity.value)
       .div(purchaseIncrement.value)
       .toDecimalPlaces(0, ROUND_CEIL)
       .times(purchaseIncrement.value)
     const purchaseBaseQuantity = packageCount.times(packageQuantity.value)
-    const leftoverBaseQuantity = purchaseBaseQuantity.minus(requirement.quantity)
+    const leftoverBaseQuantity = purchaseBaseQuantity.minus(purchaseRequiredQuantity)
     const lineCost = packageCount.times(price.packagePriceVnd)
 
     if (
@@ -138,7 +166,9 @@ export function calculatePurchaseBasket(
     lines.push({
       foodId,
       baseUnitId: requirement.baseUnitId,
-      requiredBaseQuantity: decimalToCanonical(requirement.quantity),
+      requiredBaseQuantity: grossRequiredBaseQuantity,
+      pantryDeductedBaseQuantity: pantry.value.deductedBaseQuantity,
+      purchaseRequiredBaseQuantity: pantry.value.remainingBaseQuantity,
       packageBaseQuantity: decimalToCanonical(packageQuantity.value),
       purchaseIncrement: decimalToCanonical(purchaseIncrement.value),
       purchasePackageCount: decimalToCanonical(packageCount),
