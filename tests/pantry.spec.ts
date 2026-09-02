@@ -115,8 +115,7 @@ test("mobile pantry CRUD persists explicit zero quantity without automatic consu
       food_fact_version_id: FACT_ID,
       quantity: body.p_quantity,
       unit_id: body.p_unit_id,
-      base_quantity:
-        body.p_quantity * (body.p_unit_id === KILOGRAM_UNIT_ID ? 1000 : 1),
+      base_quantity: body.p_quantity * (body.p_unit_id === KILOGRAM_UNIT_ID ? 1000 : 1),
       base_unit_id: GRAM_UNIT_ID,
       version: expectedVersion + 1,
       created_at: pantryItem?.created_at ?? now,
