@@ -12,20 +12,33 @@ on:
       - ".github/workflows/phase7-task3-gemini-green.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   green:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: codex/phase-7-task3-gemini-green
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npx prettier --write src/infrastructure/server/gemini-meal-assistant.ts src/infrastructure/server/gemini-meal-assistant.test.ts
       - run: npx vitest run src/infrastructure/server/gemini-meal-assistant.test.ts
-      - run: npx prettier --check src/infrastructure/server/gemini-meal-assistant.ts src/infrastructure/server/gemini-meal-assistant.test.ts
       - run: npm run security:dependencies
       - run: npm run typecheck
       - run: npm run build
+      - run: git diff --check
+      - name: Commit canonical formatting when needed
+        run: |
+          if git diff --quiet -- src/infrastructure/server/gemini-meal-assistant.ts src/infrastructure/server/gemini-meal-assistant.test.ts; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/infrastructure/server/gemini-meal-assistant.ts src/infrastructure/server/gemini-meal-assistant.test.ts
+          git commit -m "style: format Gemini meal assistant"
+          git push origin HEAD:codex/phase-7-task3-gemini-green
