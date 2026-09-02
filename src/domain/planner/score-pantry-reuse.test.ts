@@ -59,7 +59,11 @@ describe("scorePantryReuse", () => {
 
   test("rejects mismatched pantry base units instead of guessing a conversion", () => {
     expect(() =>
-      scorePantryReuse([requirement("milk", "500", "unit-ml")], [pantry("milk", "100", "unit-g")], 500)
+      scorePantryReuse(
+        [requirement("milk", "500", "unit-ml")],
+        [pantry("milk", "100", "unit-g")],
+        500
+      )
     ).toThrow("PANTRY_REUSE_BASE_UNIT_MISMATCH")
   })
 })
