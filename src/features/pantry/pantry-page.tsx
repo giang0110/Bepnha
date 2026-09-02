@@ -54,7 +54,10 @@ function sortItems(
 ): PantryItemRecord[] {
   const names = new Map(options.map((option) => [option.foodId, option.foodNameVi]))
   return [...items].sort((left, right) => {
-    const byName = VI_COLLATOR.compare(names.get(left.foodId) ?? left.foodId, names.get(right.foodId) ?? right.foodId)
+    const byName = VI_COLLATOR.compare(
+      names.get(left.foodId) ?? left.foodId,
+      names.get(right.foodId) ?? right.foodId
+    )
     return byName !== 0 ? byName : left.foodId.localeCompare(right.foodId)
   })
 }
@@ -82,7 +85,9 @@ function PantryItemEditor({
       data-testid={`pantry-item-${item.pantryItemId}`}
     >
       <h2 className="font-semibold">{foodName}</h2>
-      <p className="mt-1 text-xs text-slate-500">Phiên bản dữ liệu thực phẩm {item.foodFactVersionId}</p>
+      <p className="mt-1 text-xs text-slate-500">
+        Phiên bản dữ liệu thực phẩm {item.foodFactVersionId}
+      </p>
       <div className="mt-3 grid gap-3">
         <label className="grid gap-1 text-sm font-medium">
           <span>Số lượng {foodName}</span>
@@ -130,14 +135,19 @@ function PantryItemEditor({
           </Button>
         </div>
         <p className="text-xs text-slate-500">
-          Đang lưu theo {unitName(option, unitId)}. Bếp Nhà không tự trừ tủ bếp khi bạn đánh dấu đã mua.
+          Đang lưu theo {unitName(option, unitId)}. Bếp Nhà không tự trừ tủ bếp khi bạn đánh dấu đã
+          mua.
         </p>
       </div>
     </li>
   )
 }
 
-export function PantryPage({ householdRepository, pantryRepository, foodOptionsRepository }: Props) {
+export function PantryPage({
+  householdRepository,
+  pantryRepository,
+  foodOptionsRepository
+}: Props) {
   const [state, setState] = useState<ViewState>({ status: "loading" })
   const [selectedFoodId, setSelectedFoodId] = useState("")
   const [selectedUnitId, setSelectedUnitId] = useState("")
@@ -226,7 +236,13 @@ export function PantryPage({ householdRepository, pantryRepository, foodOptionsR
         quantity,
         expectedVersion: item.version
       })
-      setState({ ...state, items: sortItems(state.items.map((entry) => (entry.pantryItemId === saved.pantryItemId ? saved : entry)), state.options) })
+      setState({
+        ...state,
+        items: sortItems(
+          state.items.map((entry) => (entry.pantryItemId === saved.pantryItemId ? saved : entry)),
+          state.options
+        )
+      })
     } catch (error: unknown) {
       if (error instanceof PantryRepositoryError && error.code === "VERSION_CONFLICT") {
         await reloadAfterConflict(state.householdId, state.options)
@@ -304,7 +320,8 @@ export function PantryPage({ householdRepository, pantryRepository, foodOptionsR
         <p className="text-sm font-medium text-emerald-700">Bếp Nhà</p>
         <h1 className="text-2xl font-semibold">Tủ bếp</h1>
         <p className="text-sm text-slate-600">
-          Ghi số lượng hiện có. Mỗi lần tạo hoặc đổi kế hoạch, Bếp Nhà lưu riêng ảnh chụp tủ bếp đã dùng để tính.
+          Ghi số lượng hiện có. Mỗi lần tạo hoặc đổi kế hoạch, Bếp Nhà lưu riêng ảnh chụp tủ bếp đã
+          dùng để tính.
         </p>
         <Link className="text-sm font-medium text-emerald-800 underline" to="/plan">
           Quay lại kế hoạch tuần
@@ -314,7 +331,9 @@ export function PantryPage({ householdRepository, pantryRepository, foodOptionsR
       {state.status === "missing_household" ? (
         <p role="alert">Hãy hoàn tất thông tin gia đình trước khi quản lý tủ bếp.</p>
       ) : null}
-      {state.status === "error" ? <p role="alert">Không thể tải tủ bếp lúc này. Vui lòng thử lại.</p> : null}
+      {state.status === "error" ? (
+        <p role="alert">Không thể tải tủ bếp lúc này. Vui lòng thử lại.</p>
+      ) : null}
       {message === null ? null : (
         <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm" role="alert">
           {message}
@@ -396,7 +415,8 @@ export function PantryPage({ householdRepository, pantryRepository, foodOptionsR
 
           {state.items.length === 0 ? (
             <p className="rounded-xl border border-dashed border-stone-300 bg-white p-4 text-sm text-slate-600">
-              Tủ bếp đang trống. Thêm lượng thực phẩm đang có để danh sách đi chợ trừ đúng trước khi làm tròn gói mua.
+              Tủ bếp đang trống. Thêm lượng thực phẩm đang có để danh sách đi chợ trừ đúng trước khi
+              làm tròn gói mua.
             </p>
           ) : (
             <ul className="grid gap-3" aria-label="Thực phẩm đang có">
