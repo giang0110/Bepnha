@@ -39,6 +39,8 @@ const scenarios: readonly PerformanceScenario[] = [
   }
 ]
 
+const TEST_WRAPPER_TIMEOUT_MS = 15_000
+
 function runScenario(scenario: PerformanceScenario) {
   const input = {
     ...plannerInput(
@@ -112,5 +114,6 @@ test.each(scenarios)(
         durationCeilingMs: scenario.durationCeilingMs
       })
     )
-  }
+  },
+  TEST_WRAPPER_TIMEOUT_MS
 )
