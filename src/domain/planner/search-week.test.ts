@@ -49,6 +49,7 @@ function completed(cost: number, quality: number, id: string): CompletedPlanCand
         composition: 0,
         ingredientReuse: 0,
         packageLeftover: 0,
+        pantryReuse: 0,
         preferences: 0
       },
       metrics: {
@@ -58,6 +59,8 @@ function completed(cost: number, quality: number, id: string): CompletedPlanCand
         missingRoleAssignments: 0,
         eligibleDistinctFoodCount: 7,
         reusedDistinctFoodCount: 0,
+        pantryEligibleFoodCount: 0,
+        pantryCoveredFoodCount: 0,
         unmatchedPreferenceAssignments: 0,
         preferenceAssignmentCount: 0
       },
