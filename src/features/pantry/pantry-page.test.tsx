@@ -150,7 +150,8 @@ describe("PantryPage", () => {
       expectedVersion: 2
     })
 
-    await user.click(within(row).getByRole("button", { name: "Xóa Gạo" }))
+    const refreshedRow = await screen.findByTestId(`pantry-item-${existing.pantryItemId}`)
+    await user.click(within(refreshedRow).getByRole("button", { name: "Xóa Gạo" }))
     expect(remove).toHaveBeenCalledWith(existing.pantryItemId, 3)
     expect(screen.queryByTestId(`pantry-item-${existing.pantryItemId}`)).not.toBeInTheDocument()
   })
