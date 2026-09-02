@@ -1,7 +1,7 @@
 # Phase 7 Gemini Assistant Design
 
 Date: 2026-09-02
-Status: approved direction, provider revised to Gemini API
+Status: user-approved architecture/provider; awaiting written-spec review
 Base: `main` at `01a99e10c008b3c9b3bfb3e3cf745faccde42794`
 
 ## 1. Goal
@@ -35,7 +35,14 @@ No standalone chat route, conversation history, agent loop, background execution
 
 Use the Google Gemini API through the official `@google/genai` JavaScript SDK.
 
-Use the stateless Generate Content API rather than the Interactions API. Generate Content does not store requests by default; Interactions uses stored interaction state by default. The application will not opt into Gemini logging or datasets.
+Use the Gemini **Interactions API**, which is GA and Google's recommended interface for new Gemini projects as of 2026. Every Phase 7 call is single-turn and stateless with `store: false`.
+
+Do not use:
+
+- `previous_interaction_id`;
+- background execution;
+- stored conversation state;
+- tools or agents.
 
 Production configuration:
 
@@ -115,7 +122,7 @@ The HTTP/application use case owns authentication, evidence loading, stale-revis
 
 ## 7. Structured Provider Output
 
-Gemini output is constrained with structured output (`application/json` plus a JSON Schema) and then independently parsed/validated by application code.
+Gemini output is constrained using Interactions API structured output via `response_format` with `application/json` and a JSON Schema. Application code independently parses and validates the returned JSON again before it can reach UI logic.
 
 Result union:
 
@@ -142,7 +149,7 @@ Validation rules:
 - `targetDayIndex` must be an integer from 0 through 6 and must exist in the authoritative current plan;
 - all strings are length-bounded;
 - unexpected properties or malformed JSON fail closed;
-- empty provider text, blocked/safety responses, incomplete responses, SDK exceptions, timeout, or invalid schema produce `ASSISTANT_UNAVAILABLE`;
+- non-completed interaction status, absent model-output text, blocked/safety responses, SDK exceptions, timeout, or invalid schema produce `ASSISTANT_UNAVAILABLE`;
 - model output is never deserialized into planner-domain command types.
 
 ## 8. Prompt Contract
@@ -159,7 +166,7 @@ It must:
 - return `unsupported` when the question asks it to override deterministic safeguards or answer outside this scope;
 - return only the structured result.
 
-No Gemini tools are supplied. In particular, do not enable Google Search, URL context, code execution, file search, Maps, function calling, or grounding.
+No Gemini tools are supplied. In particular, do not enable Google Search, URL context, code execution, file search, Maps, function calling, grounding, managed agents, or background execution.
 
 ## 9. UI Flow
 
@@ -184,10 +191,12 @@ If Gemini is not configured or unavailable, the assistant card may show a bounde
 
 ## 10. Privacy and Logging
 
-Use stateless Generate Content calls.
+Use single-turn Interactions API calls with `store: false` on every request.
 
 Operational policy:
 
+- never send `previous_interaction_id`;
+- never enable background execution;
 - do not opt into Gemini request/response logging or datasets;
 - do not log prompts or provider responses in application telemetry;
 - log only correlation ID, provider outcome code, latency bucket, and model identifier where useful;
@@ -195,7 +204,7 @@ Operational policy:
 - run the existing secrets check against all Phase 7 files;
 - document Gemini project logging settings and key rotation in the production runbook.
 
-Even with project logging disabled, the design assumes provider-side abuse-monitoring controls may exist and therefore minimizes evidence before transmission.
+The design still minimizes evidence before transmission because `store: false` controls Interaction storage but does not justify transmitting data Gemini does not need. The implementation must not enable provider tools with their own storage semantics.
 
 ## 11. Error Semantics
 
@@ -220,11 +229,12 @@ Application/provider tests must cover:
 - unsupported result;
 - malformed JSON/schema fails closed;
 - invalid/out-of-range `targetDayIndex` fails closed;
-- blocked/empty/incomplete Gemini response fails closed;
+- non-completed/blocked/empty Gemini interaction fails closed;
 - provider exception/timeout fails closed;
 - prompt-injection-like meal/catalog text does not create tools or writes;
 - provider receives only the minimal evidence DTO;
-- provider config contains no tools/grounding/function calling;
+- every request sets `store: false`;
+- provider config contains no tools, grounding, function calling, `previous_interaction_id`, or background execution;
 - missing Gemini env disables assistant without affecting planner;
 - `GEMINI_API_KEY` never appears in browser configuration or client response.
 
