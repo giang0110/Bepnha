@@ -1,0 +1,24 @@
+name: Phase 7 Task 1 Contract RED
+
+on:
+  push:
+    branches:
+      - codex/phase-7-task1-contract-red
+    paths:
+      - "src/application/assistant/meal-assistant.test.ts"
+      - ".github/workflows/phase7-task1-contract.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run src/application/assistant/meal-assistant.test.ts
