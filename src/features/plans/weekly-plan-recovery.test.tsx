@@ -85,8 +85,9 @@ describe("WeeklyPlanPage recovery UX", () => {
     const button = await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" })
     await user.click(button)
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/không thể xử lý kế hoạch/i)
-    expect(screen.getByText(/mã hỗ trợ: client\.req-1/i)).toBeInTheDocument()
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent(/không thể xử lý kế hoạch/i)
+    expect(alert).toHaveTextContent(/mã hỗ trợ:\s*client\.req-1/i)
     expect(generate).toHaveBeenCalledTimes(1)
     expect(createId).toHaveBeenCalledTimes(1)
 
