@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { describe, expect, test, vi } from "vitest"
 
-import { PantryRepositoryError } from "@/application/pantry/pantry-repository"
 import type { Database } from "@/infrastructure/supabase/database.types"
 
 import { createSupabasePantryRepository } from "./supabase-pantry-repository"
@@ -21,7 +20,10 @@ const row = {
 }
 
 function fixtureClient(
-  handler: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>
+  handler: (
+    name: string,
+    args: Record<string, unknown>
+  ) => Promise<{ data: unknown; error: unknown }>
 ) {
   const rpc = vi.fn(handler)
   return { client: { rpc } as unknown as SupabaseClient<Database>, rpc }
@@ -86,14 +88,14 @@ describe("Supabase pantry repository", () => {
         quantity: "0.5",
         expectedVersion: 1
       })
-    ).rejects.toMatchObject<Partial<PantryRepositoryError>>({ code: "VERSION_CONFLICT" })
+    ).rejects.toMatchObject({ code: "VERSION_CONFLICT" })
   })
 
   test("removes at an exact version and rejects a mismatched RPC result", async () => {
     const success = fixtureClient(async () => ({ data: "pantry-1", error: null }))
-    await expect(createSupabasePantryRepository(success.client).remove("pantry-1", 2)).resolves.toBe(
-      "pantry-1"
-    )
+    await expect(
+      createSupabasePantryRepository(success.client).remove("pantry-1", 2)
+    ).resolves.toBe("pantry-1")
     expect(success.rpc).toHaveBeenCalledWith("delete_pantry_item", {
       p_pantry_item_id: "pantry-1",
       p_expected_version: 2
@@ -102,7 +104,7 @@ describe("Supabase pantry repository", () => {
     const malformed = fixtureClient(async () => ({ data: "pantry-2", error: null }))
     await expect(
       createSupabasePantryRepository(malformed.client).remove("pantry-1", 2)
-    ).rejects.toMatchObject<Partial<PantryRepositoryError>>({ code: "INVALID_STORED_DATA" })
+    ).rejects.toMatchObject({ code: "INVALID_STORED_DATA" })
   })
 
   test("fails closed on malformed stored rows, unauthorized calls, and transient failures", async () => {
@@ -112,16 +114,16 @@ describe("Supabase pantry repository", () => {
     }))
     await expect(
       createSupabasePantryRepository(malformed.client).load("household-1")
-    ).rejects.toMatchObject<Partial<PantryRepositoryError>>({ code: "INVALID_STORED_DATA" })
+    ).rejects.toMatchObject({ code: "INVALID_STORED_DATA" })
 
     const unauthorized = fixtureClient(async () => ({ data: null, error: { code: "42501" } }))
     await expect(
       createSupabasePantryRepository(unauthorized.client).load("household-1")
-    ).rejects.toMatchObject<Partial<PantryRepositoryError>>({ code: "UNAUTHORIZED" })
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" })
 
     const unavailable = fixtureClient(async () => ({ data: null, error: { code: "XX000" } }))
     await expect(
       createSupabasePantryRepository(unavailable.client).load("household-1")
-    ).rejects.toMatchObject<Partial<PantryRepositoryError>>({ code: "DEPENDENCY_UNAVAILABLE" })
+    ).rejects.toMatchObject({ code: "DEPENDENCY_UNAVAILABLE" })
   })
 })
