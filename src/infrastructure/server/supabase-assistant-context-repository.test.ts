@@ -144,9 +144,9 @@ describe("Supabase assistant context repository", () => {
     } satisfies PlannerInputLoader
     const repository = createSupabaseAssistantContextRepository({ userClient, loader })
 
-    await expect(
-      repository.loadCurrent({ actorUserId: "actor", planId: "plan" })
-    ).resolves.toEqual({ ok: false, error: "UNAUTHORIZED" })
+    await expect(repository.loadCurrent({ actorUserId: "actor", planId: "plan" })).resolves.toEqual(
+      { ok: false, error: "UNAUTHORIZED" }
+    )
     expect(loader.hydrateReplacement).not.toHaveBeenCalled()
   })
 
@@ -155,12 +155,12 @@ describe("Supabase assistant context repository", () => {
       userClient: rpcClient({ data: null, error: { code: "XX000" } }),
       loader: { hydrateGeneration: vi.fn(), hydrateReplacement: vi.fn() }
     })
-    await expect(
-      rpcFailure.loadCurrent({ actorUserId: "actor", planId: "plan" })
-    ).resolves.toEqual({
-      ok: false,
-      error: "TRANSIENT_DEPENDENCY_FAILURE"
-    })
+    await expect(rpcFailure.loadCurrent({ actorUserId: "actor", planId: "plan" })).resolves.toEqual(
+      {
+        ok: false,
+        error: "TRANSIENT_DEPENDENCY_FAILURE"
+      }
+    )
 
     const userClient = rpcClient({ data: { opaque: true }, error: null })
     const hydrationFailure = createSupabaseAssistantContextRepository({
