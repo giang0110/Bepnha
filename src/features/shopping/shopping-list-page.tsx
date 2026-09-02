@@ -103,6 +103,9 @@ function ShoppingItemRow({
   onCheckedChange: (item: ShoppingListItem, checked: boolean) => void
 }>) {
   const unit = unitLabel(item.baseUnitId)
+  const hasPantryDeduction = item.pantryDeductedBaseQuantity !== "0"
+  const needsPurchase = item.purchasePackageCount !== "0"
+
   return (
     <li
       className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm"
@@ -132,13 +135,27 @@ function ShoppingItemRow({
               <p className="text-sm text-slate-600">
                 Cần {formatQuantity(item.requiredBaseQuantity)} {unit}
               </p>
+              {hasPantryDeduction ? (
+                <div className="mt-1 grid gap-0.5 text-sm text-emerald-800">
+                  <p>
+                    Tủ bếp đã dùng {formatQuantity(item.pantryDeductedBaseQuantity)} {unit}
+                  </p>
+                  <p>
+                    Còn cần mua {formatQuantity(item.purchaseRequiredBaseQuantity)} {unit}
+                  </p>
+                </div>
+              ) : null}
             </div>
             <p className="shrink-0 text-sm font-semibold">{formatVnd(item.lineCostVnd)} VND</p>
           </div>
-          <p className="mt-2 text-sm">
-            Mua {formatQuantity(item.purchasePackageCount)} gói ×{" "}
-            {formatQuantity(item.packageBaseQuantity)} {unit}
-          </p>
+          {needsPurchase ? (
+            <p className="mt-2 text-sm">
+              Mua {formatQuantity(item.purchasePackageCount)} gói ×{" "}
+              {formatQuantity(item.packageBaseQuantity)} {unit}
+            </p>
+          ) : (
+            <p className="mt-2 text-sm font-medium text-emerald-800">Không cần mua thêm.</p>
+          )}
           <p className="text-sm text-slate-600">
             Dư khoảng {formatQuantity(item.leftoverBaseQuantity)} {unit}
           </p>
