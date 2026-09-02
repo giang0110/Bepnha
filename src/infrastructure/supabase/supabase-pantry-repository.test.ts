@@ -23,7 +23,7 @@ function fixtureClient(
   handler: (
     name: string,
     args: Record<string, unknown>
-  ) => Promise<{ data: unknown; error: unknown }>
+  ) => { data: unknown; error: unknown } | Promise<{ data: unknown; error: unknown }>
 ) {
   const rpc = vi.fn(handler)
   return { client: { rpc } as unknown as SupabaseClient<Database>, rpc }
@@ -31,7 +31,7 @@ function fixtureClient(
 
 describe("Supabase pantry repository", () => {
   test("loads owner pantry and returns strict canonical DTOs", async () => {
-    const { client, rpc } = fixtureClient(async () => ({ data: [row], error: null }))
+    const { client, rpc } = fixtureClient(() => ({ data: [row], error: null }))
     const repository = createSupabasePantryRepository(client)
 
     await expect(repository.load("household-1")).resolves.toEqual([
@@ -52,7 +52,7 @@ describe("Supabase pantry repository", () => {
   })
 
   test("upserts only through the narrow RPC and maps optimistic conflicts", async () => {
-    const { client, rpc } = fixtureClient(async (name) =>
+    const { client, rpc } = fixtureClient((name) =>
       name === "upsert_pantry_item"
         ? { data: row, error: null }
         : { data: null, error: { code: "P0001" } }
@@ -78,7 +78,7 @@ describe("Supabase pantry repository", () => {
       p_expected_version: 1
     })
 
-    const conflict = fixtureClient(async () => ({ data: null, error: { code: "P0001" } }))
+    const conflict = fixtureClient(() => ({ data: null, error: { code: "P0001" } }))
     await expect(
       createSupabasePantryRepository(conflict.client).upsert({
         householdId: "household-1",
@@ -92,7 +92,7 @@ describe("Supabase pantry repository", () => {
   })
 
   test("removes at an exact version and rejects a mismatched RPC result", async () => {
-    const success = fixtureClient(async () => ({ data: "pantry-1", error: null }))
+    const success = fixtureClient(() => ({ data: "pantry-1", error: null }))
     await expect(
       createSupabasePantryRepository(success.client).remove("pantry-1", 2)
     ).resolves.toBe("pantry-1")
@@ -101,14 +101,14 @@ describe("Supabase pantry repository", () => {
       p_expected_version: 2
     })
 
-    const malformed = fixtureClient(async () => ({ data: "pantry-2", error: null }))
+    const malformed = fixtureClient(() => ({ data: "pantry-2", error: null }))
     await expect(
       createSupabasePantryRepository(malformed.client).remove("pantry-1", 2)
     ).rejects.toMatchObject({ code: "INVALID_STORED_DATA" })
   })
 
   test("fails closed on malformed stored rows, unauthorized calls, and transient failures", async () => {
-    const malformed = fixtureClient(async () => ({
+    const malformed = fixtureClient(() => ({
       data: [{ ...row, version: 0 }],
       error: null
     }))
@@ -116,12 +116,12 @@ describe("Supabase pantry repository", () => {
       createSupabasePantryRepository(malformed.client).load("household-1")
     ).rejects.toMatchObject({ code: "INVALID_STORED_DATA" })
 
-    const unauthorized = fixtureClient(async () => ({ data: null, error: { code: "42501" } }))
+    const unauthorized = fixtureClient(() => ({ data: null, error: { code: "42501" } }))
     await expect(
       createSupabasePantryRepository(unauthorized.client).load("household-1")
     ).rejects.toMatchObject({ code: "UNAUTHORIZED" })
 
-    const unavailable = fixtureClient(async () => ({ data: null, error: { code: "XX000" } }))
+    const unavailable = fixtureClient(() => ({ data: null, error: { code: "XX000" } }))
     await expect(
       createSupabasePantryRepository(unavailable.client).load("household-1")
     ).rejects.toMatchObject({ code: "DEPENDENCY_UNAVAILABLE" })
