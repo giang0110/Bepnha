@@ -10,7 +10,7 @@
     "test:watch": "vitest",
     "benchmark:planner": "vitest run src/test/planner-benchmark.test.ts --reporter=verbose",
     "test:performance:planner": "vitest run src/test/planner-performance-gate.test.ts --reporter=verbose",
-    "test:coverage": "vitest run --coverage --maxWorkers=1",
+    "test:coverage": "vitest run --coverage --maxWorkers=1 --exclude src/test/planner-performance-gate.test.ts",
     "test:e2e": "playwright test tests/smoke.spec.ts",
     "test:e2e:onboarding": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/household-onboarding.spec.ts",
     "test:e2e:planner": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/planner.spec.ts",

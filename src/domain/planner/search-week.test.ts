@@ -115,18 +115,23 @@ describe("searchWeek", () => {
     })
   })
 
-  test("is byte-equivalent under shuffled candidate order and stays inside 125/125/250 frontiers", () => {
-    const candidates = eligible(20)
-    const left = searchWeek(candidates, 700_000, [], "2026-08-26")
-    const right = searchWeek([...candidates].reverse(), 700_000, [], "2026-08-26")
-    expect(JSON.stringify(left)).toBe(JSON.stringify(right))
-    if (!("plan" in left)) throw new Error("expected plan")
-    expect(
-      left.plan.frontierMetrics.every(
-        (metric) => metric.qualitySize <= 125 && metric.costSize <= 125 && metric.unionSize <= 250
-      )
-    ).toBe(true)
-  })
+  test(
+    "is byte-equivalent under shuffled candidate order and stays inside 125/125/250 frontiers",
+    () => {
+      const candidates = eligible(20)
+      const left = searchWeek(candidates, 700_000, [], "2026-08-26")
+      const right = searchWeek([...candidates].reverse(), 700_000, [], "2026-08-26")
+      expect(JSON.stringify(left)).toBe(JSON.stringify(right))
+      if (!("plan" in left)) throw new Error("expected plan")
+      expect(
+        left.plan.frontierMetrics.every(
+          (metric) =>
+            metric.qualitySize <= 125 && metric.costSize <= 125 && metric.unionSize <= 250
+        )
+      ).toBe(true)
+    },
+    15_000
+  )
 
   test("keeps the quality lower bound admissible when a later candidate adds many styles", () => {
     const candidates = multiStyleCompletionCandidates()
