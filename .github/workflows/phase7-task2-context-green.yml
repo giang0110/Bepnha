@@ -23,10 +23,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx vitest run src/application/assistant/meal-assistant.test.ts src/infrastructure/server/supabase-assistant-context-repository.test.ts
-      - name: Show canonical Prettier diff
-        run: |
-          npx prettier --write src/application/assistant/assistant-context-repository.ts src/infrastructure/server/supabase-assistant-context-repository.ts src/infrastructure/server/supabase-assistant-context-repository.test.ts
-          git diff -- src/application/assistant/assistant-context-repository.ts src/infrastructure/server/supabase-assistant-context-repository.ts src/infrastructure/server/supabase-assistant-context-repository.test.ts
-          git diff --exit-code -- src/application/assistant/assistant-context-repository.ts src/infrastructure/server/supabase-assistant-context-repository.ts src/infrastructure/server/supabase-assistant-context-repository.test.ts
+      - run: npx prettier --check src/application/assistant/assistant-context-repository.ts src/infrastructure/server/supabase-assistant-context-repository.ts src/infrastructure/server/supabase-assistant-context-repository.test.ts
       - run: npm run typecheck
       - run: npm run lint
