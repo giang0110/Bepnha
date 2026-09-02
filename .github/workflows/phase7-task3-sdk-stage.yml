@@ -1,0 +1,47 @@
+name: Phase 7 Task 3 SDK Stage
+
+on:
+  push:
+    branches:
+      - codex/phase-7-task3-gemini-green
+    paths:
+      - ".github/workflows/phase7-task3-sdk-stage.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/phase-7-task3-gemini-green
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install exact current Gemini SDK
+        run: npm install --save-exact @google/genai@2.19.0
+      - name: Correct implementation plan SDK version
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('docs/superpowers/plans/2026-09-02-phase-7-gemini-assistant.md')
+          s = p.read_text()
+          old = 'npm install @google/genai@2.20.0'
+          new = 'npm install --save-exact @google/genai@2.19.0'
+          if old not in s:
+              raise SystemExit('Expected outdated SDK instruction not found')
+          p.write_text(s.replace(old, new))
+          PY
+      - run: npm audit --audit-level=moderate
+      - name: Commit generated dependency files and plan correction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json docs/superpowers/plans/2026-09-02-phase-7-gemini-assistant.md
+          test "$(git diff --cached --name-only | sort)" = "$(printf '%s\n' docs/superpowers/plans/2026-09-02-phase-7-gemini-assistant.md package-lock.json package.json | sort)"
+          git commit -m "build: add Gemini assistant SDK"
+          git push origin HEAD:codex/phase-7-task3-gemini-green
