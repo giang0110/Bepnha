@@ -36,11 +36,13 @@
     "db:types:generate": "node scripts/generate-database-types.mjs generate",
     "db:types:check": "node scripts/generate-database-types.mjs check",
     "verify:db": "npm run preflight:db && npm run supabase:start && npm run supabase:reset && npm run supabase:lint && npm run supabase:test",
-    "security:dependencies": "npm audit --audit-level=high",
+    "security:dependencies": "npm audit --audit-level=moderate",
     "verify:web": "npm run env:check && npm run secrets:check && npm run security:dependencies && npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build",
     "verify:non-db": "npm run verify:web && npm run test:e2e",
     "format": "prettier --write --no-error-on-unmatched-pattern src api scripts tests .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json tsconfig.integration.json vite.config.ts vitest.config.ts vitest.integration.config.ts playwright.config.ts eslint.config.js components.json vercel.json",
-    "format:check": "prettier --check --no-error-on-unmatched-pattern src api scripts tests .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json tsconfig.integration.json vite.config.ts vitest.config.ts vitest.integration.config.ts playwright.config.ts eslint.config.js components.json vercel.json"
+    "format:check": "prettier --check --no-error-on-unmatched-pattern src api scripts tests .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json tsconfig.integration.json vite.config.ts vitest.config.ts vitest.integration.config.ts playwright.config.ts eslint.config.js components.json vercel.json",
+    "verify:release:web": "npm run verify:web && npm run test:performance:planner && npm run test:e2e",
+    "verify:release:db": "npm run preflight:db && npm run supabase:reset && npm run supabase:lint && npm run supabase:test && npm run db:types:check && npm run test:integration && npm run test:integration:catalog-admin && npm run test:integration:planner && npm run test:integration:shopping && npm run test:integration:pantry && npm run supabase:reset && npm run test:integration:catalog-readiness && npm run test:e2e:onboarding && npm run test:e2e:planner && npm run test:e2e:shopping && npm run test:e2e:pantry && npm run test:e2e:accessibility"
   },
   "private": true,
   "type": "module",

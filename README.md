@@ -1,8 +1,10 @@
 # BepNha
 
-BepNha is a deterministic meal-planning application for Vietnamese households. Phase 5 adds an owner-scoped, mobile-first “Tủ bếp” flow, immutable generation-time pantry snapshots, deterministic pantry deduction before the existing package-rounding authority, and pantry-aware shopping evidence. Existing meal-plan revisions are never rewritten when current pantry amounts change.
+BepNha is a deterministic meal-planning application for Vietnamese households. Phase 6 hardens production readiness around the existing household, catalog, planner, pantry, and shopping flows with bounded operational telemetry, security headers, health checks, recoverable planner UX, launch-catalog readiness, a dedicated planner performance gate, and 320 px accessibility/deep-link verification. Phase 5 pantry snapshots and shopping evidence remain immutable and authoritative.
 
 An AI model must never author or override serving quantities, nutrition, prices, shopping quantities, allergy safety, meal eligibility, or authoritative budgets.
+
+Phase 6 contains no AI/chat execution path. The production runbook is `docs/operations/production-readiness.md`.
 
 ## Prerequisites
 
@@ -134,72 +136,57 @@ Domain validation is framework-independent. PostgreSQL constraints, constraint t
 
 ## Verification
 
-Run the mandatory non-database gate:
+Phase 6 release verification is fail-closed. Install from the committed lockfile and install Chromium once before the browser gates:
 
 ```powershell
 npm ci
-npm run preflight
-npm run env:check
-npm run secrets:check
-npm run security:dependencies
-npm run format:check
-npm run lint
-npm run typecheck
-npm run test:coverage
-npm run build
 npx playwright install chromium
-npm run test:e2e
+npm run verify:release:web
 git diff --check
 ```
 
+`verify:release:web` composes environment validation, secret scanning, dependency audit at moderate severity or above, Prettier, ESLint, TypeScript, coverage, production build, the dedicated planner performance gate, and the lightweight SPA/deep-link smoke.
+
 `npm run preflight` records exactly one capability result:
 
-- `LOCAL_DB_VERIFICATION_AVAILABLE` — run the local database sequence below;
-- `LOCAL_DB_VERIFICATION_UNAVAILABLE` — continue non-database work and require exact-final-HEAD CI database success.
+- `LOCAL_DB_VERIFICATION_AVAILABLE` — run the local database release sequence below;
+- `LOCAL_DB_VERIFICATION_UNAVAILABLE` — continue non-database work and require exact-final-HEAD GitHub Actions `database` success.
 
-When Docker is available, the authoritative local database/Auth/browser sequence is:
+When Docker is available, start the local stack once and always stop it without backup:
 
 ```powershell
-npm run preflight:db
 npm run supabase:start
-npm run supabase:reset
-npm run supabase:lint
-npm run supabase:test
-npm run db:types:check
-npm run test:integration
-npm run test:integration:catalog-admin
-npm run test:integration:planner
-npm run test:integration:shopping
-npm run test:integration:pantry
-npm run test:e2e:onboarding
-npm run test:e2e:planner
-npm run test:e2e:shopping
-npm run test:e2e:pantry
-npm run supabase:stop
+try {
+  npm run verify:release:db
+} finally {
+  npm run supabase:stop
+}
 ```
+
+`verify:release:db` performs a local-only reset, fatal SQL lint, pgTAP, generated-type drift, Auth/household/catalog/admin/planner/shopping/pantry integrations, then performs a second clean reset before the catalog-readiness fixture so earlier integration fixtures cannot contaminate the release decision. It then runs the onboarding, planner, shopping, pantry, and 320 px accessibility Playwright suites.
 
 `supabase:reset` is explicitly local-only. Never substitute a remote production or staging database. `src/infrastructure/supabase/database.types.ts` is generated from the clean local migration state; `db:types:check` rejects drift.
 
-The ordinary `test:e2e` command proves Vite-preview SPA/deep-link behavior only. Docker-backed integration is authoritative for local Auth, RPC, RLS, catalog, planner persistence, shopping persistence, revision history, and owner isolation. The planner and shopping Playwright journeys use real local Auth/household persistence plus deterministic intercepted planner/shopping responses to verify browser interaction; they do not replace the database integration gates.
+The ordinary `test:e2e` command proves Vite-preview SPA/deep-link behavior only. Docker-backed integration remains authoritative for local Auth, RPC, RLS, catalog, planner persistence, shopping persistence, revision history, owner isolation, and catalog-readiness evidence.
 
 ## GitHub Actions evidence
 
-CI keeps independent `web` and `database` jobs. The database job uses GitHub-hosted Docker to run a clean Supabase start/reset, fatal SQL lint, inherited plus Phase 5 pgTAP/RLS/integrity tests, generated-type drift, Auth/household/catalog/admin/planner/shopping/pantry integration, onboarding/planner/shopping/pantry browser journeys, artifact generation, and always-run cleanup. It uses no remote database, deployment environment, or application secret.
+CI keeps independent `web` and `database` jobs. The web job runs the full non-database verifier, the dedicated planner performance gate, and lightweight browser smoke. The database job uses GitHub-hosted Docker for a clean Supabase migration/reset, fatal SQL lint, pgTAP/RLS/integrity tests, generated-type drift, Auth/household/catalog/admin/planner/shopping/pantry integration, an isolated catalog-readiness reset/report, and all focused browser journeys. CI uses no remote database, deployment environment, or application secret.
 
-Match evidence to the exact final Phase 5 SHA:
+Match evidence to the exact final Phase 6 SHA:
 
 ```powershell
-$phase5Head = git rev-parse HEAD
-$phase5Run = gh run list --workflow ci.yml --branch codex/phase-5-pantry --commit $phase5Head --limit 1 --json databaseId,headSha,status,conclusion,url | ConvertFrom-Json
-if ($phase5Run.Count -ne 1 -or $phase5Run.headSha -ne $phase5Head) { throw 'No CI run found for exact Phase 5 HEAD' }
-gh run watch $phase5Run.databaseId --exit-status
-$phase5Jobs = (gh run view $phase5Run.databaseId --json jobs | ConvertFrom-Json).jobs
-if (($phase5Jobs | Where-Object name -eq 'web').conclusion -ne 'success') { throw 'CI web job did not pass' }
-if (($phase5Jobs | Where-Object name -eq 'database').conclusion -ne 'success') { throw 'CI database job did not pass' }
+$phase6Head = git rev-parse HEAD
+$phase6Run = gh run list --workflow ci.yml --branch codex/phase-6-production-readiness --commit $phase6Head --limit 1 --json databaseId,headSha,status,conclusion,url | ConvertFrom-Json
+if ($phase6Run.Count -ne 1 -or $phase6Run.headSha -ne $phase6Head) { throw 'No CI run found for exact Phase 6 HEAD' }
+gh run watch $phase6Run.databaseId --exit-status
+$phase6Jobs = (gh run view $phase6Run.databaseId --json jobs | ConvertFrom-Json).jobs
+if (($phase6Jobs | Where-Object name -eq 'web').conclusion -ne 'success') { throw 'CI web job did not pass' }
+if (($phase6Jobs | Where-Object name -eq 'database').conclusion -ne 'success') { throw 'CI database job did not pass' }
 ```
 
-Record `PHASE_5_PASS` only when all mandatory non-database gates pass, the exact final branch HEAD is pushed, generated database types are clean, and database/RLS/integration/browser verification passes locally or in exact-final-HEAD GitHub Actions. Otherwise record `PHASE_5_BLOCKED` with the exact failed or pending gate.
+Record `PHASE_6_PASS` only when the exact final feature HEAD has clean web and database jobs, the release runbook checks are satisfied, generated types are clean, and the scope/security audit contains no Phase 7 behavior. Otherwise record `PHASE_6_BLOCKED` with the exact failed or pending gate.
 
 ## Intentionally deferred
 
-Phase 5 does **not** add pantry lots or expiry tracking, automatic pantry consumption, custom/manual grocery items, retailer/live-price comparison, marketplace flows, delivery, payment, receipts, barcode/OCR, notifications, collaboration/offline sync, or AI/ML shopping behavior. Those remain explicit later-phase work.
+Phase 6 does **not** add AI/chat behavior, retailer/live-price comparison, pantry lots or expiry tracking, automatic pantry consumption, custom/manual grocery items, marketplace flows, delivery, payment, receipts, barcode/OCR, notifications, collaboration/offline sync, or background inventory jobs. The optional Phase 7 assistant is a separate later layer and must never become planner, quantity, nutrition, allergy, shopping, or budget authority.
