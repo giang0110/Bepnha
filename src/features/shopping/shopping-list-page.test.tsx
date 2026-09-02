@@ -147,6 +147,29 @@ describe("ShoppingListPage", () => {
     expect(load).toHaveBeenCalledWith("plan-a", null)
   })
 
+  test("shows the immutable pantry deduction and remaining purchase requirement on affected lines", async () => {
+    const rice = item("rice", "Gạo", "staples", {
+      pantryDeductedBaseQuantity: "200",
+      purchaseRequiredBaseQuantity: "500",
+      leftoverBaseQuantity: "500"
+    })
+    const { repo } = repository(
+      ready({
+        budgetVnd: 100_000,
+        budgetStatus: "within",
+        overageVnd: 0,
+        totalEstimatedCostVnd: 50_000,
+        warnings: [],
+        items: [rice]
+      })
+    )
+    renderPage(repo)
+
+    const row = await screen.findByTestId("shopping-item-rice")
+    expect(within(row).getByText(/tủ bếp đã dùng 200 g/i)).toBeInTheDocument()
+    expect(within(row).getByText(/còn cần mua 500 g/i)).toBeInTheDocument()
+  })
+
   test("reads an explicit historical revision and renders legacy evidence without regenerating", async () => {
     const legacy: ShoppingListReadResult = {
       status: "legacy_unavailable",
