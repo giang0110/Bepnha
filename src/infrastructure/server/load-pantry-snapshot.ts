@@ -85,12 +85,13 @@ export async function loadPantrySnapshot(
 
   const foods = new Map(foodsResult.data.map((food) => [food.id, food] as const))
   const facts = new Map(factsResult.data.map((fact) => [fact.id, fact] as const))
-  const conversions = new Map(
-    conversionsResult.data.map((conversion) => [
+  const conversions = new Map<string, (typeof conversionsResult.data)[number]>()
+  for (const conversion of conversionsResult.data) {
+    conversions.set(
       conversionKey(conversion.food_fact_version_id, conversion.unit_id),
       conversion
-    ] as const)
-  )
+    )
+  }
 
   const normalized = normalizePantrySnapshotV1(
     rows.map((row) => {
