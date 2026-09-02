@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { AuthSessionPort } from "@/application/auth/auth-session-port"
 import type { HouseholdRepository } from "@/application/household/household-repository"
+import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
+import type { PantryRepository } from "@/application/pantry/pantry-repository"
 import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
 import { AppRoutes } from "@/app/App"
 import { AuthProvider } from "@/app/auth/auth-provider"
@@ -12,6 +14,16 @@ import { AuthProvider } from "@/app/auth/auth-provider"
 const householdRepository: HouseholdRepository = {
   loadOwn: vi.fn(() => Promise.resolve(null)),
   saveOwn: vi.fn()
+}
+
+const pantryFoodOptionsRepository: PantryFoodOptionsRepository = {
+  load: vi.fn(() => Promise.resolve([]))
+}
+
+const pantryRepository: PantryRepository = {
+  load: vi.fn(() => Promise.resolve([])),
+  upsert: vi.fn(),
+  remove: vi.fn()
 }
 
 const shoppingListRepository: ShoppingListRepository = {
@@ -38,6 +50,8 @@ function renderSignUp(signUp: AuthSessionPort["signUp"]) {
       <AuthProvider port={port}>
         <AppRoutes
           householdRepository={householdRepository}
+          pantryFoodOptionsRepository={pantryFoodOptionsRepository}
+          pantryRepository={pantryRepository}
           shoppingListRepository={shoppingListRepository}
         />
       </AuthProvider>
