@@ -70,9 +70,10 @@ function setup(initialItems: readonly PantryItemRecord[] = []) {
   const load = vi.fn().mockResolvedValue(initialItems)
   const upsert = vi.fn()
   const remove = vi.fn()
+  const foodOptionsLoad = vi.fn().mockResolvedValue([rice, vegetable])
   const pantryRepository: PantryRepository = { load, upsert, remove }
   const foodOptionsRepository: PantryFoodOptionsRepository = {
-    load: vi.fn().mockResolvedValue([rice, vegetable])
+    load: foodOptionsLoad
   }
 
   render(
@@ -85,12 +86,20 @@ function setup(initialItems: readonly PantryItemRecord[] = []) {
     </MemoryRouter>
   )
 
-  return { householdRepository, pantryRepository, foodOptionsRepository, load, upsert, remove }
+  return {
+    householdRepository,
+    pantryRepository,
+    foodOptionsRepository,
+    foodOptionsLoad,
+    load,
+    upsert,
+    remove
+  }
 }
 
 describe("PantryPage", () => {
   test("loads the owner pantry and published food options into a mobile-first accessible empty state", async () => {
-    const { load, foodOptionsRepository } = setup()
+    const { load, foodOptionsLoad } = setup()
 
     expect(screen.getByRole("status")).toHaveTextContent(/đang tải tủ bếp/i)
     expect(await screen.findByRole("heading", { name: "Tủ bếp" })).toBeInTheDocument()
@@ -100,7 +109,7 @@ describe("PantryPage", () => {
     expect(screen.getByRole("combobox", { name: "Đơn vị" })).toBeInTheDocument()
     expect(screen.getByRole("spinbutton", { name: "Số lượng" })).toHaveAttribute("min", "0")
     expect(load).toHaveBeenCalledWith(household.householdId)
-    expect(foodOptionsRepository.load).toHaveBeenCalledTimes(1)
+    expect(foodOptionsLoad).toHaveBeenCalledTimes(1)
   })
 
   test("adds a published food with zero or positive quantity using expectedVersion zero", async () => {
