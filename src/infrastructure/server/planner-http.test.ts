@@ -21,6 +21,17 @@ function responseDouble() {
   return { state, response }
 }
 
+function expectSecurityHeaders(setHeader: ReturnType<typeof vi.fn>): void {
+  expect(setHeader).toHaveBeenCalledWith("X-Content-Type-Options", "nosniff")
+  expect(setHeader).toHaveBeenCalledWith("Referrer-Policy", "no-referrer")
+  expect(setHeader).toHaveBeenCalledWith("X-Frame-Options", "DENY")
+  expect(setHeader).toHaveBeenCalledWith(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+  )
+  expect(setHeader).toHaveBeenCalledWith("Cache-Control", "no-store")
+}
+
 function request(
   body: unknown,
   options: {
@@ -121,6 +132,7 @@ describe("authoritative planner HTTP handlers", () => {
     expect(state.body).toMatchObject({ status: "ready_within_budget", budgetVnd: 700_000 })
     expect(state.body).not.toHaveProperty("inputSnapshot")
     expect(state.body).not.toHaveProperty("calculationSnapshot")
+    expectSecurityHeaders(state.setHeader)
   })
 
   test("sets a safe correlation id and emits one sanitized completion event", async () => {
