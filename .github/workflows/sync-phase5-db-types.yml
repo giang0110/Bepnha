@@ -1,0 +1,43 @@
+name: Sync Phase 5 database types
+
+on:
+  push:
+    branches:
+      - codex/phase-5-pantry
+    paths:
+      - ".github/workflows/sync-phase5-db-types.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-phase5-db-types
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/phase-5-pantry
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run supabase:start
+      - run: npm run db:types:generate
+      - name: Commit generated types
+        run: |
+          if git diff --quiet -- src/infrastructure/supabase/database.types.ts; then
+            echo "Database types already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/infrastructure/supabase/database.types.ts
+          git commit -m "chore: regenerate Phase 5 database types"
+          git push origin HEAD:codex/phase-5-pantry
+      - if: always()
+        run: npm run supabase:stop
