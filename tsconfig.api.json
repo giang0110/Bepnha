@@ -30,6 +30,7 @@
   "include": [
     "api",
     "vite.config.ts",
+    "src/application/assistant/**/*.ts",
     "src/application/meal-option/**/*.ts",
     "src/application/planner/**/*.ts",
     "src/application/shared/**/*.ts",

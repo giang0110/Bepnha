@@ -30,6 +30,7 @@
     "tests/integration/**/*.ts",
     "api/admin/catalog.ts",
     "api/admin/meal-options.ts",
+    "src/application/assistant/**/*.ts",
     "src/application/household/**/*.ts",
     "src/application/catalog/**/*.ts",
     "src/application/meal-option/**/*.ts",
