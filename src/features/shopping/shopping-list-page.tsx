@@ -8,6 +8,7 @@ import type {
   ShoppingListRepository
 } from "@/application/shopping/shopping-list-repository"
 import { ShoppingListRepositoryError } from "@/application/shopping/shopping-list-repository"
+import { AppPageShell } from "@/app/components/app-page-shell"
 import {
   GROCERY_CATEGORIES,
   type GroceryCategoryDefinition
@@ -314,7 +315,7 @@ export function ShoppingListPage({ repository }: Props) {
   const alertCopy = mutationError ?? staleCopy
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-stone-50 px-4 py-6 text-slate-950">
+    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-stone-50 px-4 py-6 text-slate-950">
       <header className="grid gap-2">
         <p className="text-sm font-medium text-emerald-700">Bếp Nhà</p>
         <h1 className="text-2xl font-semibold">Đi chợ</h1>
@@ -379,6 +380,6 @@ export function ShoppingListPage({ repository }: Props) {
           </div>
         </>
       ) : null}
-    </main>
+    </AppPageShell>
   )
 }

@@ -4,6 +4,7 @@ import { Link } from "react-router"
 import { loadHousehold } from "@/application/household/load-household"
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import { useAuth } from "@/app/auth/auth-context"
+import { AppPageShell } from "@/app/components/app-page-shell"
 import { Button } from "@/app/components/ui/button"
 import type { HouseholdSetup } from "@/domain/household/household"
 
@@ -222,10 +223,16 @@ export function WeeklyPlanPage({
     }
   }
 
-  if (state.status === "loading_household") return <p role="status">Đang tải thông tin gia đình…</p>
+  if (state.status === "loading_household") {
+    return (
+      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-stone-50 px-4 py-6 text-slate-950">
+        <p role="status">Đang tải thông tin gia đình…</p>
+      </AppPageShell>
+    )
+  }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-stone-50 px-4 py-6 text-slate-950">
+    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-stone-50 px-4 py-6 text-slate-950">
       <header className="grid gap-2">
         <p className="text-sm font-medium text-emerald-700">Bếp Nhà</p>
         <h1 className="text-2xl font-semibold">Kế hoạch tuần</h1>
@@ -338,6 +345,6 @@ export function WeeklyPlanPage({
           </div>
         </section>
       ) : null}
-    </main>
+    </AppPageShell>
   )
 }

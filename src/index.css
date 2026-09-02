@@ -7,3 +7,18 @@
 body {
   margin: 0;
 }
+
+html,
+body,
+#root {
+  min-width: 0;
+}
+
+body {
+  overflow-wrap: anywhere;
+}
+
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
