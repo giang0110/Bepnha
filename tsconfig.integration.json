@@ -33,6 +33,7 @@
     "src/application/household/**/*.ts",
     "src/application/catalog/**/*.ts",
     "src/application/meal-option/**/*.ts",
+    "src/application/pantry/**/*.ts",
     "src/application/planner/**/*.ts",
     "src/application/shopping/**/*.ts",
     "src/application/shared/**/*.ts",
@@ -55,6 +56,7 @@
     "src/infrastructure/supabase/server-admin-auth.ts",
     "src/infrastructure/supabase/supabase-household-repository.ts",
     "src/infrastructure/supabase/supabase-catalog-read-repository.ts",
+    "src/infrastructure/supabase/supabase-pantry-repository.ts",
     "src/infrastructure/supabase/supabase-shopping-list-repository.ts"
   ],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
