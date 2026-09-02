@@ -1,4 +1,7 @@
-import { evaluatePlannerEligibility, type EligibilityRejection } from "@/domain/planner/evaluate-eligibility"
+import {
+  evaluatePlannerEligibility,
+  type EligibilityRejection
+} from "@/domain/planner/evaluate-eligibility"
 import { normalizePlannerInput } from "@/domain/planner/normalize-planner-input"
 import type { PlannerInputV1 } from "@/domain/planner/planner-input"
 

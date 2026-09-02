@@ -81,10 +81,7 @@ function withMissingPrice(value: Candidate): Candidate {
 describe("catalog launch readiness", () => {
   test("requires at least 21 eligible meal options", () => {
     const below = evaluateCatalogReadiness(plannerInput(diverseCandidates(20)), "two-adults")
-    const atThreshold = evaluateCatalogReadiness(
-      plannerInput(diverseCandidates(21)),
-      "two-adults"
-    )
+    const atThreshold = evaluateCatalogReadiness(plannerInput(diverseCandidates(21)), "two-adults")
 
     expect(below).toMatchObject({
       scenarioCode: "two-adults",
@@ -140,16 +137,19 @@ describe("catalog launch readiness", () => {
     ["unit", withBadUnit],
     ["nutrition", withBadNutrition],
     ["price", withMissingPrice]
-  ] as const)("fails coverage when a published candidate has incomplete %s data", (_label, mutate) => {
-    const candidates = diverseCandidates(21)
-    candidates.push(mutate(candidate("incomplete-v1", "poultry")))
-    const result = evaluateCatalogReadiness(plannerInput(candidates), "incomplete-coverage")
+  ] as const)(
+    "fails coverage when a published candidate has incomplete %s data",
+    (_label, mutate) => {
+      const candidates = diverseCandidates(21)
+      candidates.push(mutate(candidate("incomplete-v1", "poultry")))
+      const result = evaluateCatalogReadiness(plannerInput(candidates), "incomplete-coverage")
 
-    expect(result.eligibleMealOptionCount).toBe(21)
-    expect(result.coverageOk).toBe(false)
-    expect(result.ready).toBe(false)
-    expect(result.blockers).toContain("CATALOG_COVERAGE_INCOMPLETE")
-  })
+      expect(result.eligibleMealOptionCount).toBe(21)
+      expect(result.coverageOk).toBe(false)
+      expect(result.ready).toBe(false)
+      expect(result.blockers).toContain("CATALOG_COVERAGE_INCOMPLETE")
+    }
+  )
 
   test("accepts stale-but-usable prices without treating them as incomplete coverage", () => {
     const result = evaluateCatalogReadiness(
