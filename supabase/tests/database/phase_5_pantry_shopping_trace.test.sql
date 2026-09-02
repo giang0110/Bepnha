@@ -19,15 +19,15 @@ select col_type_is(
   'public',
   'shopping_list_items',
   'pantry_deducted_base_quantity',
-  'numeric(30,12)',
-  'pantry deduction keeps canonical high-precision quantity storage'
+  'text',
+  'pantry deduction uses the same canonical-decimal text storage as shopping quantities'
 );
 select col_type_is(
   'public',
   'shopping_list_items',
   'purchase_required_base_quantity',
-  'numeric(30,12)',
-  'purchase requirement keeps canonical high-precision quantity storage'
+  'text',
+  'purchase requirement uses the same canonical-decimal text storage as shopping quantities'
 );
 
 select * from finish();
