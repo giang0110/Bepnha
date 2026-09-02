@@ -10,6 +10,7 @@ import {
   type ShoppingListRepository,
   type ShoppingListSource
 } from "@/application/shopping/shopping-list-repository"
+import { ExactDecimal } from "@/domain/shared/decimal"
 import {
   GROCERY_CATEGORIES,
   type GroceryCategoryCode
@@ -155,19 +156,53 @@ function parseItem(value: unknown): ShoppingListItem {
   if (!isRecord(value)) invalidStoredData()
   if (typeof value.checked !== "boolean") invalidStoredData()
   const checked = value.checked
+  const requiredBaseQuantity = canonicalDecimal(value.requiredBaseQuantity, false)
+  const pantryDeductedBaseQuantity = canonicalDecimal(value.pantryDeductedBaseQuantity, true)
+  const purchaseRequiredBaseQuantity = canonicalDecimal(value.purchaseRequiredBaseQuantity, true)
+  const packageBaseQuantity = canonicalDecimal(value.packageBaseQuantity, false)
+  const purchaseIncrement = canonicalDecimal(value.purchaseIncrement, false)
+  const purchasePackageCount = canonicalDecimal(value.purchasePackageCount, true)
+  const purchaseBaseQuantity = canonicalDecimal(value.purchaseBaseQuantity, true)
+  const leftoverBaseQuantity = canonicalDecimal(value.leftoverBaseQuantity, true)
+
+  const required = new ExactDecimal(requiredBaseQuantity)
+  const deducted = new ExactDecimal(pantryDeductedBaseQuantity)
+  const purchaseRequired = new ExactDecimal(purchaseRequiredBaseQuantity)
+  const packageBase = new ExactDecimal(packageBaseQuantity)
+  const packageCount = new ExactDecimal(purchasePackageCount)
+  const purchaseBase = new ExactDecimal(purchaseBaseQuantity)
+  const leftover = new ExactDecimal(leftoverBaseQuantity)
+
+  if (
+    !required.equals(deducted.plus(purchaseRequired)) ||
+    purchaseBase.lessThan(purchaseRequired) ||
+    !purchaseBase.equals(packageBase.times(packageCount)) ||
+    !leftover.equals(purchaseBase.minus(purchaseRequired))
+  ) {
+    invalidStoredData()
+  }
+
+  const packagePriceVnd = safeInteger(value.packagePriceVnd, 1)
+  const lineCostVnd = safeInteger(value.lineCostVnd)
+  if (!new ExactDecimal(packagePriceVnd).times(packageCount).equals(lineCostVnd)) {
+    invalidStoredData()
+  }
+
   return {
     shoppingListItemId: nonEmptyString(value.shoppingListItemId),
     foodId: nonEmptyString(value.foodId),
     foodNameVi: nonEmptyString(value.foodNameVi),
     baseUnitId: nonEmptyString(value.baseUnitId),
-    requiredBaseQuantity: canonicalDecimal(value.requiredBaseQuantity, false),
-    packageBaseQuantity: canonicalDecimal(value.packageBaseQuantity, false),
-    purchaseIncrement: canonicalDecimal(value.purchaseIncrement, false),
-    purchasePackageCount: canonicalDecimal(value.purchasePackageCount, false),
-    purchaseBaseQuantity: canonicalDecimal(value.purchaseBaseQuantity, false),
-    leftoverBaseQuantity: canonicalDecimal(value.leftoverBaseQuantity, true),
-    packagePriceVnd: safeInteger(value.packagePriceVnd, 1),
-    lineCostVnd: safeInteger(value.lineCostVnd),
+    requiredBaseQuantity,
+    pantryDeductedBaseQuantity,
+    purchaseRequiredBaseQuantity,
+    packageBaseQuantity,
+    purchaseIncrement,
+    purchasePackageCount,
+    purchaseBaseQuantity,
+    leftoverBaseQuantity,
+    packagePriceVnd,
+    lineCostVnd,
     foodPriceId: nonEmptyString(value.foodPriceId),
     priceBookId: nonEmptyString(value.priceBookId),
     priceFoodFactVersionId: nonEmptyString(value.priceFoodFactVersionId),
