@@ -12,6 +12,7 @@ import {
   createConsoleOperationalTelemetry,
   type OperationalTelemetry
 } from "@/infrastructure/server/operational-telemetry"
+import { applyApiSecurityHeaders } from "@/infrastructure/server/security-headers"
 import { parseBearerToken, type ServerAuthVerifier } from "@/infrastructure/supabase/server-auth"
 
 type UnknownRecord = Record<string, unknown>
@@ -218,6 +219,7 @@ function operationalContext(
   operation: PlannerOperation,
   dependencies: PlannerHttpDependencies
 ) {
+  applyApiSecurityHeaders(response)
   const now = dependencies.now ?? (() => performance.now())
   const telemetry = dependencies.telemetry ?? createConsoleOperationalTelemetry()
   const id = correlationId(
