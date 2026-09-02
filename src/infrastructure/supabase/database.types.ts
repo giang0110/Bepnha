@@ -1694,11 +1694,13 @@ export type Database = {
           observed_at: string
           package_base_quantity: string
           package_price_vnd: number
+          pantry_deducted_base_quantity: string
           price_book_id: string
           price_food_fact_version_id: string
           purchase_base_quantity: string
           purchase_increment: string
           purchase_package_count: string
+          purchase_required_base_quantity: string
           required_base_quantity: string
           shopping_list_id: string
         }
@@ -1716,11 +1718,13 @@ export type Database = {
           observed_at: string
           package_base_quantity: string
           package_price_vnd: number
+          pantry_deducted_base_quantity: string
           price_book_id: string
           price_food_fact_version_id: string
           purchase_base_quantity: string
           purchase_increment: string
           purchase_package_count: string
+          purchase_required_base_quantity: string
           required_base_quantity: string
           shopping_list_id: string
         }
@@ -1738,11 +1742,13 @@ export type Database = {
           observed_at?: string
           package_base_quantity?: string
           package_price_vnd?: number
+          pantry_deducted_base_quantity?: string
           price_book_id?: string
           price_food_fact_version_id?: string
           purchase_base_quantity?: string
           purchase_increment?: string
           purchase_package_count?: string
+          purchase_required_base_quantity?: string
           required_base_quantity?: string
           shopping_list_id?: string
         }
