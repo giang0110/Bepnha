@@ -30,11 +30,13 @@ const readyPayload = {
       foodNameVi: "Gạo",
       baseUnitId: "unit-g",
       requiredBaseQuantity: "700",
+      pantryDeductedBaseQuantity: "200",
+      purchaseRequiredBaseQuantity: "500",
       packageBaseQuantity: "1000",
       purchaseIncrement: "1",
       purchasePackageCount: "1",
       purchaseBaseQuantity: "1000",
-      leftoverBaseQuantity: "300",
+      leftoverBaseQuantity: "500",
       packagePriceVnd: "50000",
       lineCostVnd: 50_000,
       foodPriceId: "price-a",
@@ -75,7 +77,7 @@ function clientWithRpc(
 }
 
 describe("Supabase shopping-list repository read", () => {
-  it("loads and strictly maps the current ready revision", async () => {
+  it("loads and strictly maps the current ready revision including pantry deduction evidence", async () => {
     const { client, rpc } = clientWithRpc(() => ({ data: readyPayload, error: null }))
 
     await expect(createSupabaseShoppingListRepository(client).load("plan-a")).resolves.toEqual({
@@ -129,7 +131,7 @@ describe("Supabase shopping-list repository read", () => {
       items: [
         {
           ...readyPayload.items[0],
-          requiredBaseQuantity: "0700"
+          pantryDeductedBaseQuantity: "201"
         }
       ]
     }
