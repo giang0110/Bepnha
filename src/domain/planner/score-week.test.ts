@@ -50,6 +50,34 @@ describe("scoreWeeklyPlan", () => {
     )
   })
 
+  test("treats a fully pantry-covered zero-purchase line as zero package leftover", () => {
+    const selected = option("covered-v1", "poultry")
+    const price = selected.prices[0]!
+    const result = calculatePurchaseBasket(
+      selected.requirements,
+      selected.prices,
+      "2026-08-26",
+      undefined,
+      [
+        {
+          foodId: price.foodId,
+          baseUnitId: price.baseUnitId,
+          availableBaseQuantity: "100000"
+        }
+      ]
+    )
+    if (!result.ok) throw new Error("invalid pantry-covered basket")
+    expect(result.value.lines[0]).toMatchObject({
+      purchaseRequiredBaseQuantity: "0",
+      purchaseBaseQuantity: "0",
+      leftoverBaseQuantity: "0"
+    })
+
+    const score = scoreWeeklyPlan([selected], result.value, [])
+    expect(score.components.packageLeftover).toBe(0)
+    expect(Number.isSafeInteger(score.totalQualityPenalty)).toBe(true)
+  })
+
   test("scores transparent role/diversity/reuse/preferences without budget or medical terms", () => {
     const options = Array.from({ length: 7 }, (_, index) => option(`score-${index}-v1`, "poultry"))
     const score = scoreWeeklyPlan(options, basket(options), ["prefer_soup"])
