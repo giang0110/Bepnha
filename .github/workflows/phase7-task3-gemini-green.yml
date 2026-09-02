@@ -1,0 +1,31 @@
+name: Phase 7 Task 3 Gemini GREEN
+
+on:
+  push:
+    branches:
+      - codex/phase-7-task3-gemini-green
+    paths:
+      - "src/infrastructure/server/gemini-meal-assistant*"
+      - "src/application/assistant/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/phase7-task3-gemini-green.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  green:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run src/infrastructure/server/gemini-meal-assistant.test.ts
+      - run: npx prettier --check src/infrastructure/server/gemini-meal-assistant.ts src/infrastructure/server/gemini-meal-assistant.test.ts
+      - run: npm run security:dependencies
+      - run: npm run typecheck
+      - run: npm run build
