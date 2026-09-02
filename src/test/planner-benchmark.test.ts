@@ -35,6 +35,8 @@ test("reports launch-size bounded planner evidence outside the domain", () => {
   console.info(
     JSON.stringify({
       benchmark: "planner-launch-size-v1",
+      measurementKind: "observational_ci_benchmark_not_production_p95",
+      productionLikeTarget: "p95 < 2000ms",
       candidateCount: eligibility.value.eligible.length,
       maxFrontierSize: Math.max(...result.plan.frontierMetrics.map((item) => item.unionSize)),
       exploredStates: result.plan.frontierMetrics.reduce((sum, item) => sum + item.expandedSize, 0),
