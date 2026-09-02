@@ -1,6 +1,6 @@
 # BepNha
 
-BepNha is a deterministic meal-planning application for Vietnamese households. Phase 4 adds an owner-scoped, mobile-first “Đi chợ” experience bound to an exact immutable meal-plan revision. The shopping list projects the existing authoritative Phase 3 purchase basket; it does not introduce a second quantity, package-rounding, price, or budget calculation.
+BepNha is a deterministic meal-planning application for Vietnamese households. Phase 5 adds an owner-scoped, mobile-first “Tủ bếp” flow, immutable generation-time pantry snapshots, deterministic pantry deduction before the existing package-rounding authority, and pantry-aware shopping evidence. Existing meal-plan revisions are never rewritten when current pantry amounts change.
 
 An AI model must never author or override serving quantities, nutrition, prices, shopping quantities, allergy safety, meal eligibility, or authoritative budgets.
 
@@ -52,6 +52,7 @@ npm run supabase:stop
 | `/onboarding`                      | Five-step mobile household setup                                     |
 | `/household`                       | Authoritative saved household summary                                |
 | `/settings/household`              | Version-checked editing of the single owned household                |
+| `/pantry`                          | Owner-scoped current pantry amounts used by future plan revisions    |
 | `/plan`                            | Seven primary meals, exact weekly estimate, and one-day replacement  |
 | `/shopping/:planId`                | Current authoritative shopping list for an owned plan                |
 | `/shopping/:planId?revisionId=...` | Exact historical revision read when Phase 4 shopping evidence exists |
@@ -91,7 +92,13 @@ For a ready Phase 4 revision, the application exposes:
 - stale-price warnings with observation dates;
 - a separate mutable `checked` state that is not part of the immutable calculation fingerprint.
 
-Checking an item never changes quantity, package count, price, provenance, budget, or fingerprint. Check state is carried into a replacement revision only when the stable food, canonical base unit, and canonical required amount remain byte-equivalent under the Phase 4 rules.
+Checking an item never changes quantity, package count, price, provenance, budget, fingerprint, or pantry state. Check state is carried into a replacement revision only when the stable food, canonical base unit, and canonical required amount remain byte-equivalent under the shopping rules.
+
+### Pantry authority
+
+Pantry stores one current owner-scoped quantity per `(household_id, food_id)`. Each generation or replacement copies the exact normalized pantry snapshot into immutable plan evidence. Shopping deduction is deterministic and happens before package rounding: `gross required = pantry deducted + purchase required`; only the remaining purchase requirement is rounded to purchasable packages. A fully covered line can therefore require zero packages and zero purchase cost.
+
+Current pantry edits affect only future calculations. They never rewrite an existing plan revision or its shopping list. Shopping rows persist both `pantryDeductedBaseQuantity` and `purchaseRequiredBaseQuantity`, so every deduction remains traceable after the current pantry changes. Checking a shopping item does not decrement pantry automatically. Phase 5 intentionally has no inventory lots, expiry dates, barcode/OCR, retailer ordering, receipt ingestion, or background inventory jobs.
 
 A one-meal replacement creates a complete new revision/list and never mutates the prior revision/list. An explicit historical Phase 4 revision therefore remains reproducible even after the current plan advances.
 
@@ -163,9 +170,11 @@ npm run test:integration
 npm run test:integration:catalog-admin
 npm run test:integration:planner
 npm run test:integration:shopping
+npm run test:integration:pantry
 npm run test:e2e:onboarding
 npm run test:e2e:planner
 npm run test:e2e:shopping
+npm run test:e2e:pantry
 npm run supabase:stop
 ```
 
@@ -175,22 +184,22 @@ The ordinary `test:e2e` command proves Vite-preview SPA/deep-link behavior only.
 
 ## GitHub Actions evidence
 
-CI keeps independent `web` and `database` jobs. The database job uses GitHub-hosted Docker to run a clean Supabase start/reset, fatal SQL lint, inherited plus Phase 4 pgTAP/RLS/integrity tests, generated-type drift, Auth/household/catalog/admin/planner/shopping integration, onboarding/planner/shopping browser journeys, artifact generation, and always-run cleanup. It uses no remote database, deployment environment, or application secret.
+CI keeps independent `web` and `database` jobs. The database job uses GitHub-hosted Docker to run a clean Supabase start/reset, fatal SQL lint, inherited plus Phase 5 pgTAP/RLS/integrity tests, generated-type drift, Auth/household/catalog/admin/planner/shopping/pantry integration, onboarding/planner/shopping/pantry browser journeys, artifact generation, and always-run cleanup. It uses no remote database, deployment environment, or application secret.
 
-Match evidence to the exact final Phase 4 SHA:
+Match evidence to the exact final Phase 5 SHA:
 
 ```powershell
-$phase4Head = git rev-parse HEAD
-$phase4Run = gh run list --workflow ci.yml --branch codex/phase-4-shopping-list --commit $phase4Head --limit 1 --json databaseId,headSha,status,conclusion,url | ConvertFrom-Json
-if ($phase4Run.Count -ne 1 -or $phase4Run.headSha -ne $phase4Head) { throw 'No CI run found for exact Phase 4 HEAD' }
-gh run watch $phase4Run.databaseId --exit-status
-$phase4Jobs = (gh run view $phase4Run.databaseId --json jobs | ConvertFrom-Json).jobs
-if (($phase4Jobs | Where-Object name -eq 'web').conclusion -ne 'success') { throw 'CI web job did not pass' }
-if (($phase4Jobs | Where-Object name -eq 'database').conclusion -ne 'success') { throw 'CI database job did not pass' }
+$phase5Head = git rev-parse HEAD
+$phase5Run = gh run list --workflow ci.yml --branch codex/phase-5-pantry --commit $phase5Head --limit 1 --json databaseId,headSha,status,conclusion,url | ConvertFrom-Json
+if ($phase5Run.Count -ne 1 -or $phase5Run.headSha -ne $phase5Head) { throw 'No CI run found for exact Phase 5 HEAD' }
+gh run watch $phase5Run.databaseId --exit-status
+$phase5Jobs = (gh run view $phase5Run.databaseId --json jobs | ConvertFrom-Json).jobs
+if (($phase5Jobs | Where-Object name -eq 'web').conclusion -ne 'success') { throw 'CI web job did not pass' }
+if (($phase5Jobs | Where-Object name -eq 'database').conclusion -ne 'success') { throw 'CI database job did not pass' }
 ```
 
-Record `PHASE_4_PASS` only when all mandatory non-database gates pass, the exact final branch HEAD is pushed, generated database types are clean, and database/RLS/integration/browser verification passes locally or in exact-final-HEAD GitHub Actions. Otherwise record `PHASE_4_BLOCKED` with the exact failed or pending gate.
+Record `PHASE_5_PASS` only when all mandatory non-database gates pass, the exact final branch HEAD is pushed, generated database types are clean, and database/RLS/integration/browser verification passes locally or in exact-final-HEAD GitHub Actions. Otherwise record `PHASE_5_BLOCKED` with the exact failed or pending gate.
 
 ## Intentionally deferred
 
-Phase 4 does **not** add pantry deduction, custom/manual grocery items, retailer/live-price comparison, marketplace flows, delivery, payment, receipts, barcode/OCR, notifications, collaboration/offline sync, or AI/ML shopping behavior. Those remain explicit later-phase work.
+Phase 5 does **not** add pantry lots or expiry tracking, automatic pantry consumption, custom/manual grocery items, retailer/live-price comparison, marketplace flows, delivery, payment, receipts, barcode/OCR, notifications, collaboration/offline sync, or AI/ML shopping behavior. Those remain explicit later-phase work.

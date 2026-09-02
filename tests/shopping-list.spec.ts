@@ -125,6 +125,8 @@ function item({
     foodNameVi,
     baseUnitId,
     requiredBaseQuantity,
+    pantryDeductedBaseQuantity: "0",
+    purchaseRequiredBaseQuantity: requiredBaseQuantity,
     packageBaseQuantity,
     purchaseIncrement: "1",
     purchasePackageCount,
