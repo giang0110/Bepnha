@@ -25,8 +25,9 @@ const householdRepository: HouseholdRepository = {
   saveOwn: vi.fn()
 }
 
+const pantryFoodOptionsLoad = vi.fn(() => Promise.resolve([]))
 const pantryFoodOptionsRepository: PantryFoodOptionsRepository = {
-  load: vi.fn(() => Promise.resolve([]))
+  load: pantryFoodOptionsLoad
 }
 
 const pantryRepository: PantryRepository = {
@@ -115,10 +116,11 @@ describe("authenticated app shell", () => {
   })
 
   it("routes an authenticated pantry visit through the owner repositories", async () => {
+    pantryFoodOptionsLoad.mockClear()
     renderRoutes(createAuthPort(session).port, "/pantry")
 
     expect(await screen.findByRole("heading", { name: "Tủ bếp" })).toBeInTheDocument()
-    expect(pantryFoodOptionsRepository.load).toHaveBeenCalled()
+    expect(pantryFoodOptionsLoad).toHaveBeenCalled()
   })
 
   it("routes an authenticated historical shopping revision through the owner repository", async () => {
