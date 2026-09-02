@@ -79,11 +79,10 @@ export function validateAssistantResult(
 ): AssistantResult | null {
   const parsed = assistantResultSchema.safeParse(value)
   if (!parsed.success) return null
-  if (
-    parsed.data.kind === "replacement_proposal" &&
-    !evidence.meals.some((meal) => meal.dayIndex === parsed.data.targetDayIndex)
-  ) {
-    return null
+  const result = parsed.data
+  if (result.kind === "replacement_proposal") {
+    const targetDayIndex = result.targetDayIndex
+    if (!evidence.meals.some((meal) => meal.dayIndex === targetDayIndex)) return null
   }
-  return parsed.data
+  return result
 }
