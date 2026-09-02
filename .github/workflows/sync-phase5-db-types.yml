@@ -1,6 +1,6 @@
-name: Sync Phase 5 database types
+name: Format Phase 5 pantry browser spec
 
-# Temporary Phase 5 helper; trigger revision 2.
+# Temporary Phase 5 helper; canonical Prettier pass before removal.
 on:
   push:
     branches:
@@ -12,11 +12,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: sync-phase5-db-types
+  group: format-phase5-pantry-spec
   cancel-in-progress: false
 
 jobs:
-  sync:
+  format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,18 +27,15 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run supabase:start
-      - run: npm run db:types:generate
-      - name: Commit generated types
+      - run: npx prettier --write tests/pantry.spec.ts
+      - name: Commit canonical formatting
         run: |
-          if git diff --quiet -- src/infrastructure/supabase/database.types.ts; then
-            echo "Database types already current."
+          if git diff --quiet -- tests/pantry.spec.ts; then
+            echo "Pantry browser spec already formatted."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/infrastructure/supabase/database.types.ts
-          git commit -m "chore: regenerate Phase 5 database types"
+          git add tests/pantry.spec.ts
+          git commit -m "style: format Phase 5 pantry browser spec"
           git push origin HEAD:codex/phase-5-pantry
-      - if: always()
-        run: npm run supabase:stop
