@@ -100,7 +100,11 @@ export function scoreWeeklyPlan(
       : basket.lines
           .reduce(
             (sum, line) =>
-              sum.plus(new ExactDecimal(line.leftoverBaseQuantity).div(line.purchaseBaseQuantity)),
+              sum.plus(
+                line.purchaseBaseQuantity === "0"
+                  ? 0
+                  : new ExactDecimal(line.leftoverBaseQuantity).div(line.purchaseBaseQuantity)
+              ),
             new ExactDecimal(0)
           )
           .div(basket.lines.length)
