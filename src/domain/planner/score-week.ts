@@ -2,11 +2,12 @@ import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
 } from "@/domain/household/household-rules"
-import type { PurchaseBasketResult } from "@/domain/pricing/pricing"
+import type { CanonicalFoodDeduction, PurchaseBasketResult } from "@/domain/pricing/pricing"
 import { ExactDecimal, ROUND_HALF_UP } from "@/domain/shared/decimal"
 
 import type { EligibleMealOption } from "./evaluate-eligibility"
 import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config"
+import { scorePantryReuse } from "./score-pantry-reuse"
 
 type PurchaseBasket = Extract<PurchaseBasketResult, { readonly ok: true }>["value"]
 
@@ -19,6 +20,7 @@ export interface WeeklyPlanScore {
     readonly composition: number
     readonly ingredientReuse: number
     readonly packageLeftover: number
+    readonly pantryReuse: number
     readonly preferences: number
   }
   readonly metrics: {
@@ -28,6 +30,8 @@ export interface WeeklyPlanScore {
     readonly missingRoleAssignments: number
     readonly eligibleDistinctFoodCount: number
     readonly reusedDistinctFoodCount: number
+    readonly pantryEligibleFoodCount: number
+    readonly pantryCoveredFoodCount: number
     readonly unmatchedPreferenceAssignments: number
     readonly preferenceAssignmentCount: number
   }
@@ -56,7 +60,8 @@ export function scoreWeeklyPlan(
   selected: readonly EligibleMealOption[],
   basket: PurchaseBasket,
   softPreferenceCodes: readonly string[],
-  config: PlannerConfigV1 = PLANNER_CONFIG_V1
+  config: PlannerConfigV1 = PLANNER_CONFIG_V1,
+  pantryDeductions: readonly CanonicalFoodDeduction[] = []
 ): WeeklyPlanScore {
   const proteinGroups = selected.map((item) => item.primaryProteinGroup)
   const repeatedPrimaryProteinOccurrences = Math.max(
@@ -108,6 +113,11 @@ export function scoreWeeklyPlan(
             new ExactDecimal(0)
           )
           .div(basket.lines.length)
+  const pantryReuse = scorePantryReuse(
+    selected.flatMap((option) => option.requirements),
+    pantryDeductions,
+    config.reuseWeights.pantryReuse
+  )
   const unmatchedPreferenceAssignments = softPreferenceCodes.reduce(
     (total, preference) =>
       total + selected.filter((option) => !preferenceMatches(option, preference)).length,
@@ -138,20 +148,25 @@ export function scoreWeeklyPlan(
     ),
     ingredientReuse:
       eligibleDistinctFoodCount === 0
-        ? 1000
+        ? config.reuseWeights.distinctFoodReuse
         : scaledPenalty(
-            1000,
+            config.reuseWeights.distinctFoodReuse,
             eligibleDistinctFoodCount - reusedDistinctFoodCount,
             eligibleDistinctFoodCount
           ),
-    packageLeftover: new ExactDecimal(1500)
+    packageLeftover: new ExactDecimal(config.reuseWeights.packageLeftover)
       .times(leftoverMean)
       .toDecimalPlaces(0, ROUND_HALF_UP)
       .toNumber(),
+    pantryReuse: pantryReuse.penalty,
     preferences:
       preferenceAssignmentCount === 0
         ? 0
-        : scaledPenalty(1500, unmatchedPreferenceAssignments, preferenceAssignmentCount)
+        : scaledPenalty(
+            config.scoringWeights.preferences,
+            unmatchedPreferenceAssignments,
+            preferenceAssignmentCount
+          )
   }
   return {
     totalQualityPenalty: Object.values(components).reduce((sum, value) => sum + value, 0),
@@ -163,6 +178,8 @@ export function scoreWeeklyPlan(
       missingRoleAssignments,
       eligibleDistinctFoodCount,
       reusedDistinctFoodCount,
+      pantryEligibleFoodCount: pantryReuse.eligibleFoodCount,
+      pantryCoveredFoodCount: pantryReuse.coveredFoodCount,
       unmatchedPreferenceAssignments,
       preferenceAssignmentCount
     },
@@ -173,6 +190,7 @@ export function scoreWeeklyPlan(
       "COMPOSITION_MEAL_ROLES",
       "REUSE_DISTINCT_FOODS",
       "REUSE_PACKAGE_LEFTOVER",
+      "REUSE_PANTRY_COVERAGE",
       "PREFERENCES_MATCH"
     ]
   }
