@@ -1,0 +1,1 @@
+Temporary note: Task 6 formatting is normalized with the repository-pinned Prettier version on an isolated helper branch before final verification. This note can remain as audit evidence; no helper workflow is merged to main.
