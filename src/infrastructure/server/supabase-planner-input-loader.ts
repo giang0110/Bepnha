@@ -290,6 +290,7 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
       (code) =>
         HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)?.ruleKind === "soft_preference"
     ),
+    pantrySnapshot: { version: "pantry-snapshot-v1", items: [] },
     candidates
   }
 }
