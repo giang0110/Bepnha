@@ -1,0 +1,28 @@
+name: Phase 7 Task 2 Context GREEN
+
+on:
+  push:
+    branches:
+      - codex/phase-7-task2-context-green
+    paths:
+      - "src/application/assistant/**"
+      - "src/infrastructure/server/supabase-assistant-context-repository*"
+      - ".github/workflows/phase7-task2-context-green.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  green:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run src/application/assistant/meal-assistant.test.ts src/infrastructure/server/supabase-assistant-context-repository.test.ts
+      - run: npx prettier --check src/application/assistant/assistant-context-repository.ts src/infrastructure/server/supabase-assistant-context-repository.ts src/infrastructure/server/supabase-assistant-context-repository.test.ts
+      - run: npm run typecheck
+      - run: npm run lint
