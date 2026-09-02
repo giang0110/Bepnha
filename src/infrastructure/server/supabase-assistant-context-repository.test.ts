@@ -67,7 +67,7 @@ function authoritativeInput(): ReplacementAuthoritativeInput {
 
 function rpcClient(result: { data: unknown; error: null | { code?: string; message?: string } }) {
   return {
-    rpc: vi.fn(async () => result)
+    rpc: vi.fn(() => Promise.resolve(result))
   } satisfies PlannerRpcClient
 }
 
@@ -76,7 +76,7 @@ describe("Supabase assistant context repository", () => {
     const userClient = rpcClient({ data: { opaque: true }, error: null })
     const loader = {
       hydrateGeneration: vi.fn(),
-      hydrateReplacement: vi.fn(async () => authoritativeInput())
+      hydrateReplacement: vi.fn(() => Promise.resolve(authoritativeInput()))
     } satisfies PlannerInputLoader
     const repository = createSupabaseAssistantContextRepository({ userClient, loader })
 
@@ -164,9 +164,7 @@ describe("Supabase assistant context repository", () => {
       userClient,
       loader: {
         hydrateGeneration: vi.fn(),
-        hydrateReplacement: vi.fn(async () => {
-          throw new Error("bad input")
-        })
+        hydrateReplacement: vi.fn(() => Promise.reject(new Error("bad input")))
       }
     })
     await expect(
