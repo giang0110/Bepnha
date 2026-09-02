@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from "react-router"
 
 import type { HouseholdRepository } from "@/application/household/household-repository"
+import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
+import type { PantryRepository } from "@/application/pantry/pantry-repository"
 import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
 import { useAuth } from "@/app/auth/auth-context"
 import { RequireAuth } from "@/app/auth/require-auth"
@@ -10,6 +12,7 @@ import { SignUpPage } from "@/features/auth/sign-up-page"
 import { HouseholdSummaryPage } from "@/features/household/household-summary-page"
 import { OnboardingPage } from "@/features/household/onboarding/onboarding-page"
 import { HouseholdSettingsPage } from "@/features/household/settings/household-settings-page"
+import { PantryPage } from "@/features/pantry/pantry-page"
 import type { PlannerApi } from "@/features/plans/planner-api"
 import { WeeklyPlanPage } from "@/features/plans/weekly-plan-page"
 import { ShoppingListPage } from "@/features/shopping/shopping-list-page"
@@ -24,10 +27,14 @@ function HomeRedirect() {
 
 export function AppRouter({
   householdRepository,
+  pantryFoodOptionsRepository,
+  pantryRepository,
   plannerApi,
   shoppingListRepository
 }: Readonly<{
   householdRepository: HouseholdRepository
+  pantryFoodOptionsRepository: PantryFoodOptionsRepository
+  pantryRepository: PantryRepository
   plannerApi: PlannerApi
   shoppingListRepository: ShoppingListRepository
 }>) {
@@ -50,6 +57,16 @@ export function AppRouter({
           path="/plan"
           element={
             <WeeklyPlanPage householdRepository={householdRepository} plannerApi={plannerApi} />
+          }
+        />
+        <Route
+          path="/pantry"
+          element={
+            <PantryPage
+              foodOptionsRepository={pantryFoodOptionsRepository}
+              householdRepository={householdRepository}
+              pantryRepository={pantryRepository}
+            />
           }
         />
         <Route
