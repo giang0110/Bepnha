@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { AuthSession, AuthSessionPort } from "@/application/auth/auth-session-port"
 import type { HouseholdRepository } from "@/application/household/household-repository"
+import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
+import type { PantryRepository } from "@/application/pantry/pantry-repository"
 import type {
   ShoppingListReadResult,
   ShoppingListRepository
@@ -21,6 +23,16 @@ const session: AuthSession = {
 const householdRepository: HouseholdRepository = {
   loadOwn: vi.fn(() => Promise.resolve(null)),
   saveOwn: vi.fn()
+}
+
+const pantryFoodOptionsRepository: PantryFoodOptionsRepository = {
+  load: vi.fn(() => Promise.resolve([]))
+}
+
+const pantryRepository: PantryRepository = {
+  load: vi.fn(() => Promise.resolve([])),
+  upsert: vi.fn(),
+  remove: vi.fn()
 }
 
 const plannerApi: PlannerApi = {
@@ -65,6 +77,8 @@ function renderRoutes(port: AuthSessionPort, initialEntry: string) {
       <AuthProvider port={port}>
         <AppRoutes
           householdRepository={householdRepository}
+          pantryFoodOptionsRepository={pantryFoodOptionsRepository}
+          pantryRepository={pantryRepository}
           plannerApi={plannerApi}
           shoppingListRepository={shoppingListRepository}
         />
@@ -83,7 +97,7 @@ describe("authenticated app shell", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Đang kiểm tra phiên đăng nhập")
   })
 
-  it.each(["/onboarding", "/settings/household", "/shopping/plan-a"])(
+  it.each(["/onboarding", "/settings/household", "/pantry", "/shopping/plan-a"])(
     "redirects signed-out protected route %s to sign in",
     async (route) => {
       renderRoutes(createAuthPort(null).port, route)
@@ -98,6 +112,13 @@ describe("authenticated app shell", () => {
     expect(
       await screen.findByRole("heading", { name: "Thành viên trong gia đình" })
     ).toBeInTheDocument()
+  })
+
+  it("routes an authenticated pantry visit through the owner repositories", async () => {
+    renderRoutes(createAuthPort(session).port, "/pantry")
+
+    expect(await screen.findByRole("heading", { name: "Tủ bếp" })).toBeInTheDocument()
+    expect(pantryFoodOptionsRepository.load).toHaveBeenCalled()
   })
 
   it("routes an authenticated historical shopping revision through the owner repository", async () => {
