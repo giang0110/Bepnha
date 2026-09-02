@@ -32,6 +32,17 @@ function requestFor(method: string): VercelRequest {
   return { method } as VercelRequest
 }
 
+function expectSecurityHeaders(response: ResponseDouble): void {
+  expect(response.setHeader).toHaveBeenCalledWith("X-Content-Type-Options", "nosniff")
+  expect(response.setHeader).toHaveBeenCalledWith("Referrer-Policy", "no-referrer")
+  expect(response.setHeader).toHaveBeenCalledWith("X-Frame-Options", "DENY")
+  expect(response.setHeader).toHaveBeenCalledWith(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+  )
+  expect(response.setHeader).toHaveBeenCalledWith("Cache-Control", "no-store")
+}
+
 describe("health function", () => {
   it("returns the public healthy status for GET without operational details", () => {
     const response = createResponse()
@@ -41,6 +52,7 @@ describe("health function", () => {
     expect(response.status).toHaveBeenCalledWith(200)
     expect(response.body).toEqual({ status: "ok" })
     expect(JSON.stringify(response.body)).not.toMatch(/env|version|database|secret|token|password/i)
+    expectSecurityHeaders(response)
   })
 
   it("rejects non-GET methods with the allowed method and stable error body", () => {
@@ -51,6 +63,7 @@ describe("health function", () => {
     expect(response.setHeader).toHaveBeenCalledWith("Allow", "GET")
     expect(response.status).toHaveBeenCalledWith(405)
     expect(response.body).toEqual({ error: "METHOD_NOT_ALLOWED" })
+    expectSecurityHeaders(response)
   })
 })
 
