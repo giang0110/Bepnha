@@ -1094,6 +1094,77 @@ export type Database = {
         }
         Relationships: []
       }
+      pantry_items: {
+        Row: {
+          base_quantity: number
+          base_unit_id: string
+          created_at: string
+          food_fact_version_id: string
+          food_id: string
+          household_id: string
+          id: string
+          quantity: number
+          unit_id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          base_quantity: number
+          base_unit_id: string
+          created_at?: string
+          food_fact_version_id: string
+          food_id: string
+          household_id: string
+          id?: string
+          quantity: number
+          unit_id: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          base_quantity?: number
+          base_unit_id?: string
+          created_at?: string
+          food_fact_version_id?: string
+          food_id?: string
+          household_id?: string
+          id?: string
+          quantity?: number
+          unit_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pantry_items_fact_unit_conversion_fkey"
+            columns: ["food_fact_version_id", "unit_id"]
+            isOneToOne: false
+            referencedRelation: "food_fact_unit_conversions"
+            referencedColumns: ["food_fact_version_id", "unit_id"]
+          },
+          {
+            foreignKeyName: "pantry_items_food_base_unit_fkey"
+            columns: ["food_id", "base_unit_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id", "base_unit_id"]
+          },
+          {
+            foreignKeyName: "pantry_items_food_fact_fkey"
+            columns: ["food_id", "food_fact_version_id"]
+            isOneToOne: false
+            referencedRelation: "food_fact_versions"
+            referencedColumns: ["food_id", "id"]
+          },
+          {
+            foreignKeyName: "pantry_items_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       price_books: {
         Row: {
           content_hash: string | null
@@ -1782,6 +1853,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_pantry_item: {
+        Args: { p_expected_version: number; p_pantry_item_id: string }
+        Returns: string
+      }
       get_catalog_aggregate_for_publication: {
         Args: { p_aggregate_id: string; p_aggregate_type: string }
         Returns: Json
@@ -1790,6 +1865,28 @@ export type Database = {
       get_meal_option_aggregate_for_publication: {
         Args: { p_meal_option_version_id: string }
         Returns: Json
+      }
+      get_pantry: {
+        Args: { p_household_id: string }
+        Returns: {
+          base_quantity: number
+          base_unit_id: string
+          created_at: string
+          food_fact_version_id: string
+          food_id: string
+          household_id: string
+          id: string
+          quantity: number
+          unit_id: string
+          updated_at: string
+          version: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "pantry_items"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_plan_replacement_input: { Args: { p_plan_id: string }; Returns: Json }
       get_planner_generation_input: {
@@ -2007,6 +2104,35 @@ export type Database = {
       set_shopping_item_checked: {
         Args: { p_checked: boolean; p_shopping_list_item_id: string }
         Returns: Json
+      }
+      upsert_pantry_item: {
+        Args: {
+          p_expected_version: number
+          p_food_fact_version_id: string
+          p_food_id: string
+          p_household_id: string
+          p_quantity: number
+          p_unit_id: string
+        }
+        Returns: {
+          base_quantity: number
+          base_unit_id: string
+          created_at: string
+          food_fact_version_id: string
+          food_id: string
+          household_id: string
+          id: string
+          quantity: number
+          unit_id: string
+          updated_at: string
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pantry_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
