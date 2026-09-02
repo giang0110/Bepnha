@@ -13,6 +13,7 @@ import type {
 } from "@/application/shopping/shopping-list-repository"
 import { AppRoutes } from "@/app/App"
 import { AuthProvider } from "@/app/auth/auth-provider"
+import type { HouseholdSetup } from "@/domain/household/household"
 import type { PlannerApi } from "@/features/plans/planner-api"
 
 const session: AuthSession = {
@@ -20,8 +21,19 @@ const session: AuthSession = {
   identity: { userId: "user-a", email: "user@example.test" }
 }
 
+const household: HouseholdSetup = {
+  householdId: "20000000-0000-0000-0000-000000000001",
+  memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }],
+  weeklyPlanBudgetVnd: 700_000,
+  maxElapsedMinutes: 30,
+  ruleCodes: [],
+  version: 1,
+  onboardingCompletedAt: "2026-08-26T00:00:00Z"
+}
+
+const householdLoad = vi.fn<() => Promise<HouseholdSetup | null>>(() => Promise.resolve(null))
 const householdRepository: HouseholdRepository = {
-  loadOwn: vi.fn(() => Promise.resolve(null)),
+  loadOwn: householdLoad,
   saveOwn: vi.fn()
 }
 
@@ -116,11 +128,12 @@ describe("authenticated app shell", () => {
   })
 
   it("routes an authenticated pantry visit through the owner repositories", async () => {
+    householdLoad.mockResolvedValueOnce(household)
     pantryFoodOptionsLoad.mockClear()
     renderRoutes(createAuthPort(session).port, "/pantry")
 
     expect(await screen.findByRole("heading", { name: "Tủ bếp" })).toBeInTheDocument()
-    expect(pantryFoodOptionsLoad).toHaveBeenCalled()
+    expect(pantryFoodOptionsLoad).toHaveBeenCalledOnce()
   })
 
   it("routes an authenticated historical shopping revision through the owner repository", async () => {
