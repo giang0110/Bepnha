@@ -14,6 +14,14 @@ type ResponseDouble = {
   status: ReturnType<typeof vi.fn>
 }
 
+type VercelConfiguration = {
+  headers?: Array<{
+    headers: Array<{ key: string; value: string }>
+    source: string
+  }>
+  rewrites: Array<{ destination: string; source: string }>
+}
+
 function createResponse(): ResponseDouble {
   const result = {} as ResponseDouble
   result.status = vi.fn(() => result.response)
@@ -43,6 +51,12 @@ function expectSecurityHeaders(response: ResponseDouble): void {
   expect(response.setHeader).toHaveBeenCalledWith("Cache-Control", "no-store")
 }
 
+async function readVercelConfiguration(): Promise<VercelConfiguration> {
+  return JSON.parse(
+    await readFile(resolve(process.cwd(), "vercel.json"), "utf8")
+  ) as VercelConfiguration
+}
+
 describe("health function", () => {
   it("returns the public healthy status for GET without operational details", () => {
     const response = createResponse()
@@ -69,11 +83,7 @@ describe("health function", () => {
 
 describe("Vercel routing", () => {
   it("preserves API functions before falling through to the SPA entry point", async () => {
-    const configuration = JSON.parse(
-      await readFile(resolve(process.cwd(), "vercel.json"), "utf8")
-    ) as {
-      rewrites: Array<{ destination: string; source: string }>
-    }
+    const configuration = await readVercelConfiguration()
 
     expect(configuration.rewrites).toEqual([
       { source: "/api/(.*)", destination: "/api/$1" },
@@ -98,5 +108,27 @@ describe("Vercel routing", () => {
     expect(deepLink).not.toMatch(new RegExp(apiRewrite.source))
     expect(deepLink).toMatch(new RegExp(spaRewrite.source))
     expect(spaRewrite.destination).toBe("/index.html")
+  })
+
+  it("applies defensive SPA headers without broadening cross-origin access", async () => {
+    const configuration = await readVercelConfiguration()
+
+    expect(configuration.headers).toEqual([
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+          }
+        ]
+      }
+    ])
+    expect(JSON.stringify(configuration.headers)).not.toMatch(
+      /Access-Control-Allow-Origin|unsafe-eval/i
+    )
   })
 })
