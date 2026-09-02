@@ -7,9 +7,15 @@ import {
   type PlannerRepository
 } from "@/application/planner/planner-use-cases"
 import type { ContentHasher } from "@/application/shared/content-hasher"
+import {
+  correlationId,
+  createConsoleOperationalTelemetry,
+  type OperationalTelemetry
+} from "@/infrastructure/server/operational-telemetry"
 import { parseBearerToken, type ServerAuthVerifier } from "@/infrastructure/supabase/server-auth"
 
 type UnknownRecord = Record<string, unknown>
+type PlannerOperation = "generate" | "preview" | "apply"
 
 interface PlannerOperations {
   readonly generate: typeof generateMealPlan
@@ -23,6 +29,9 @@ interface PlannerHttpDependencies {
   readonly hasher: ContentHasher
   readonly operations?: PlannerOperations
   readonly calculationDate?: () => string
+  readonly telemetry?: OperationalTelemetry
+  readonly createCorrelationId?: () => string
+  readonly now?: () => number
 }
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu
@@ -159,7 +168,7 @@ function publicPlan(value: unknown): UnknownRecord {
   }
 }
 
-function safeSuccess(value: unknown, kind: "generate" | "preview" | "apply") {
+function safeSuccess(value: unknown, kind: PlannerOperation) {
   const result = isRecord(value) ? value : {}
   if (kind === "preview") {
     return {
@@ -199,41 +208,87 @@ function failureStatus(code: string): number {
   return 422
 }
 
+function successOutcome(value: unknown): string {
+  return isRecord(value) && typeof value.status === "string" ? value.status : "OK"
+}
+
+function operationalContext(
+  request: VercelRequest,
+  response: VercelResponse,
+  operation: PlannerOperation,
+  dependencies: PlannerHttpDependencies
+) {
+  const now = dependencies.now ?? (() => performance.now())
+  const telemetry = dependencies.telemetry ?? createConsoleOperationalTelemetry()
+  const id = correlationId(
+    request.headers["x-correlation-id"],
+    dependencies.createCorrelationId ?? (() => crypto.randomUUID())
+  )
+  const startedAt = now()
+  let finished = false
+  response.setHeader("x-correlation-id", id)
+  return {
+    finish(httpStatus: number, outcomeCode: string) {
+      if (finished) return
+      finished = true
+      telemetry.emit({
+        event: "planner_request",
+        operation,
+        correlationId: id,
+        durationMs: now() - startedAt,
+        httpStatus,
+        outcomeCode
+      })
+    }
+  }
+}
+
 async function identity(
   request: VercelRequest,
   response: VercelResponse,
-  auth: ServerAuthVerifier
+  auth: ServerAuthVerifier,
+  finish: (httpStatus: number, outcomeCode: string) => void
 ) {
   const token = parseBearerToken(request.headers.authorization)
   if (token === null) {
     response.status(401).json({ error: "UNAUTHORIZED" })
+    finish(401, "UNAUTHORIZED")
     return null
   }
   try {
     const verified = await auth.verify(token)
     if (verified === null) {
       response.status(401).json({ error: "UNAUTHORIZED" })
+      finish(401, "UNAUTHORIZED")
       return null
     }
     return { ...verified, accessToken: token }
   } catch {
     response.status(503).json({ error: "AUTH_UNAVAILABLE" })
+    finish(503, "AUTH_UNAVAILABLE")
     return null
   }
 }
 
-function preflight(request: VercelRequest, response: VercelResponse): boolean {
+function preflight(
+  request: VercelRequest,
+  response: VercelResponse,
+  finish: (httpStatus: number, outcomeCode: string) => void
+): boolean {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST")
     response.status(405).json({ error: "METHOD_NOT_ALLOWED" })
+    finish(405, "METHOD_NOT_ALLOWED")
     return false
   }
   if (request.headers["content-type"]?.split(";", 1)[0]?.trim() !== "application/json") {
     response.status(415).json({ error: "UNSUPPORTED_MEDIA_TYPE" })
+    finish(415, "UNSUPPORTED_MEDIA_TYPE")
     return false
   }
   if (bodyIsTooLarge(request.body)) {
     response.status(413).json({ error: "PAYLOAD_TOO_LARGE" })
+    finish(413, "PAYLOAD_TOO_LARGE")
     return false
   }
   return true
@@ -242,13 +297,17 @@ function preflight(request: VercelRequest, response: VercelResponse): boolean {
 function sendResult(
   response: VercelResponse,
   result: Awaited<ReturnType<typeof generateMealPlan>>,
-  kind: "generate" | "preview" | "apply"
+  kind: PlannerOperation,
+  finish: (httpStatus: number, outcomeCode: string) => void
 ) {
   if (!result.ok) {
-    response.status(failureStatus(result.error.code)).json({ error: result.error.code })
+    const status = failureStatus(result.error.code)
+    response.status(status).json({ error: result.error.code })
+    finish(status, result.error.code)
     return
   }
   response.status(200).json(safeSuccess(result.value, kind))
+  finish(200, successOutcome(result.value))
 }
 
 export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies) {
@@ -271,50 +330,74 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
     })
   return {
     async generate(request: VercelRequest, response: VercelResponse) {
-      if (!preflight(request, response)) return
-      const actor = await identity(request, response, dependencies.auth)
+      const operational = operationalContext(request, response, "generate", dependencies)
+      if (!preflight(request, response, operational.finish)) return
+      const actor = await identity(request, response, dependencies.auth, operational.finish)
       if (actor === null) return
       const command = generationCommand(request.body)
-      if (command === null) return void response.status(400).json({ error: "VALIDATION_FAILED" })
+      if (command === null) {
+        response.status(400).json({ error: "VALIDATION_FAILED" })
+        operational.finish(400, "VALIDATION_FAILED")
+        return
+      }
       try {
         const result = await operations.generate(
           dependencies.repositoryFor(actor.userId, actor.accessToken),
           dependencies.hasher,
           { actorUserId: actor.userId, calculationDate: calculationDate(), ...command }
         )
-        sendResult(response, result, "generate")
+        sendResult(response, result, "generate", operational.finish)
       } catch {
         response.status(503).json({ error: "PLANNER_UNAVAILABLE" })
+        operational.finish(503, "PLANNER_UNAVAILABLE")
       }
     },
     async preview(request: VercelRequest, response: VercelResponse) {
-      if (!preflight(request, response)) return
-      const actor = await identity(request, response, dependencies.auth)
+      const operational = operationalContext(request, response, "preview", dependencies)
+      if (!preflight(request, response, operational.finish)) return
+      const actor = await identity(request, response, dependencies.auth, operational.finish)
       if (actor === null) return
       const command = replacementCommand(request.body, false)
-      if (command === null) return void response.status(400).json({ error: "VALIDATION_FAILED" })
+      if (command === null) {
+        response.status(400).json({ error: "VALIDATION_FAILED" })
+        operational.finish(400, "VALIDATION_FAILED")
+        return
+      }
       try {
         const result = await operations.preview(
           dependencies.repositoryFor(actor.userId, actor.accessToken),
           dependencies.hasher,
           { actorUserId: actor.userId, ...command }
         )
-        sendResult(response, result as Awaited<ReturnType<typeof generateMealPlan>>, "preview")
+        sendResult(
+          response,
+          result as Awaited<ReturnType<typeof generateMealPlan>>,
+          "preview",
+          operational.finish
+        )
       } catch {
         response.status(503).json({ error: "PLANNER_UNAVAILABLE" })
+        operational.finish(503, "PLANNER_UNAVAILABLE")
       }
     },
     async apply(request: VercelRequest, response: VercelResponse) {
-      if (!preflight(request, response)) return
-      const actor = await identity(request, response, dependencies.auth)
+      const operational = operationalContext(request, response, "apply", dependencies)
+      if (!preflight(request, response, operational.finish)) return
+      const actor = await identity(request, response, dependencies.auth, operational.finish)
       if (actor === null) return
       const command = replacementCommand(request.body, true)
-      if (command === null) return void response.status(400).json({ error: "VALIDATION_FAILED" })
+      if (command === null) {
+        response.status(400).json({ error: "VALIDATION_FAILED" })
+        operational.finish(400, "VALIDATION_FAILED")
+        return
+      }
       if (
         typeof command.previewFingerprint !== "string" ||
         typeof command.idempotencyKey !== "string"
       ) {
-        return void response.status(400).json({ error: "VALIDATION_FAILED" })
+        response.status(400).json({ error: "VALIDATION_FAILED" })
+        operational.finish(400, "VALIDATION_FAILED")
+        return
       }
       try {
         const result = await operations.apply(
@@ -327,9 +410,15 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
             idempotencyKey: command.idempotencyKey
           }
         )
-        sendResult(response, result as Awaited<ReturnType<typeof generateMealPlan>>, "apply")
+        sendResult(
+          response,
+          result as Awaited<ReturnType<typeof generateMealPlan>>,
+          "apply",
+          operational.finish
+        )
       } catch {
         response.status(503).json({ error: "PLANNER_UNAVAILABLE" })
+        operational.finish(503, "PLANNER_UNAVAILABLE")
       }
     }
   }
