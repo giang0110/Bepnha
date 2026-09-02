@@ -1,0 +1,28 @@
+name: Phase 7 Task 1 Contract GREEN
+
+on:
+  push:
+    branches:
+      - codex/phase-7-task1-contract-green
+    paths:
+      - "src/application/assistant/**"
+      - "tsconfig.api.json"
+      - "tsconfig.integration.json"
+      - ".github/workflows/phase7-task1-green.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  green:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run src/application/assistant/meal-assistant.test.ts
+      - run: npx prettier --check src/application/assistant/meal-assistant.ts src/application/assistant/meal-assistant.test.ts tsconfig.api.json tsconfig.integration.json
+      - run: npm run typecheck
