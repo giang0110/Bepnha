@@ -1,5 +1,6 @@
 name: Sync Phase 5 database types
 
+# Temporary Phase 5 helper; trigger revision 2.
 on:
   push:
     branches:
