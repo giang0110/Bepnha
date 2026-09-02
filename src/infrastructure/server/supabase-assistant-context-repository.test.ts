@@ -21,9 +21,6 @@ function authoritativeInput(): ReplacementAuthoritativeInput {
       weekStart: "2026-09-07",
       timezone: "Asia/Ho_Chi_Minh",
       calculationDate: "2026-09-02",
-      portionConfig: {} as never,
-      priceFreshnessConfig: {} as never,
-      plannerConfig: {} as never,
       pantrySnapshot: { version: "pantry-snapshot-v1", items: [] },
       candidates: []
     },
