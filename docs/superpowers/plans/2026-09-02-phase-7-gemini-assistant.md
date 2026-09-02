@@ -198,7 +198,7 @@ export function createGeminiMealAssistant(input: {
 
 - [ ] **Step 3: Install current official SDK through npm, never hand-edit lockfile**
 
-  Run in a verified helper checkout: `npm install @google/genai@2.20.0`
+  Run in a verified helper checkout: `npm install --save-exact @google/genai@2.19.0`
 
   Then run `npm audit --audit-level=moderate`. If the current registry version differs or introduces an advisory/type incompatibility, inspect evidence before changing the version; do not force/downgrade blindly.
 
