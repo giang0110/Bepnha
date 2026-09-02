@@ -50,7 +50,10 @@ function runScenario(scenario: PerformanceScenario) {
     durationMs,
     candidateCount: eligibility.value.eligible.length,
     maxFrontierSize: Math.max(...result.plan.frontierMetrics.map((metric) => metric.unionSize)),
-    exploredStates: result.plan.frontierMetrics.reduce((sum, metric) => sum + metric.expandedSize, 0)
+    exploredStates: result.plan.frontierMetrics.reduce(
+      (sum, metric) => sum + metric.expandedSize,
+      0
+    )
   }
 }
 

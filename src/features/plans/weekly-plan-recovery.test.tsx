@@ -170,7 +170,11 @@ describe("WeeklyPlanPage recovery UX", () => {
 
   test("keeps the ready plan after replacement failure and re-previews only after another click", async () => {
     const user = userEvent.setup()
-    const replacement = { ...meal, mealOptionId: "meal-replacement", mealOptionNameVi: "Bữa thay thế" }
+    const replacement = {
+      ...meal,
+      mealOptionId: "meal-replacement",
+      mealOptionNameVi: "Bữa thay thế"
+    }
     const preview = vi
       .fn()
       .mockResolvedValueOnce({
