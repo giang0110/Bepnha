@@ -23,6 +23,8 @@ function item(
     foodNameVi: name,
     baseUnitId: "unit-g",
     requiredBaseQuantity: "700",
+    pantryDeductedBaseQuantity: "0",
+    purchaseRequiredBaseQuantity: "700",
     packageBaseQuantity: "1000",
     purchaseIncrement: "1",
     purchasePackageCount: "1",
