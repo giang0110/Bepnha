@@ -227,20 +227,19 @@ function operationalContext(
   const startedAt = now()
   let finished = false
   response.setHeader("x-correlation-id", id)
-  return {
-    finish(httpStatus: number, outcomeCode: string) {
-      if (finished) return
-      finished = true
-      telemetry.emit({
-        event: "planner_request",
-        operation,
-        correlationId: id,
-        durationMs: now() - startedAt,
-        httpStatus,
-        outcomeCode
-      })
-    }
+  const finish = (httpStatus: number, outcomeCode: string) => {
+    if (finished) return
+    finished = true
+    telemetry.emit({
+      event: "planner_request",
+      operation,
+      correlationId: id,
+      durationMs: now() - startedAt,
+      httpStatus,
+      outcomeCode
+    })
   }
+  return { finish }
 }
 
 async function identity(
