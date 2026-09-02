@@ -1,0 +1,8 @@
+src/features/pantry/pantry-page.tsx
+src/features/pantry/pantry-page.test.tsx
+src/infrastructure/supabase/supabase-pantry-food-options-repository.ts
+src/infrastructure/supabase/supabase-pantry-food-options-repository.test.ts
+src/application/pantry/pantry-food-options-repository.ts
+src/app/App.tsx
+src/app/router.tsx
+src/main.tsx
