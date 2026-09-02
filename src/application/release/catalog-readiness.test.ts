@@ -132,6 +132,31 @@ describe("catalog launch readiness", () => {
     expect(result.blockers).toContain("INSUFFICIENT_PRIMARY_PROTEIN_GROUP_CAPACITY")
   })
 
+  test("accepts one plant protein group for a vegetarian launch scenario", () => {
+    const candidates = Array.from({ length: 21 }, (_, index) =>
+      candidate(`vegetarian-${String(index).padStart(3, "0")}-v1`, "plant")
+    ).map((value) => ({
+      ...value,
+      ingredientLineage: value.ingredientLineage.map((lineage) => ({
+        ...lineage,
+        dietaryTagCodes: ["vegetarian"]
+      }))
+    }))
+    const input = {
+      ...plannerInput(candidates),
+      hardRuleCodes: ["diet_vegetarian"] as const
+    }
+    const result = evaluateCatalogReadiness(input, "vegetarian")
+
+    expect(result).toMatchObject({
+      eligibleMealOptionCount: 21,
+      proteinCapacityOk: true,
+      coverageOk: true,
+      ready: true,
+      blockers: []
+    })
+  })
+
   test.each([
     ["allergen", withBadAllergen],
     ["unit", withBadUnit],

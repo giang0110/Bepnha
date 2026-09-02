@@ -17,6 +17,7 @@ export interface CatalogReadinessScenarioResult {
 
 const MINIMUM_ELIGIBLE_MEAL_OPTION_COUNT = 21 as const
 const MINIMUM_PRIMARY_PROTEIN_GROUP_COUNT = 3
+const VEGETARIAN_MINIMUM_PRIMARY_PROTEIN_GROUP_COUNT = 1
 
 function isCoverageRejection(rejection: EligibilityRejection): boolean {
   return rejection.stage === 1 || rejection.stage === 2 || rejection.stage >= 5
@@ -75,12 +76,15 @@ export function evaluateCatalogReadiness(
 
   const eligible = eligibility.value.eligible
   const primaryProteinGroupCount = new Set(eligible.map((item) => item.primaryProteinGroup)).size
+  const minimumPrimaryProteinGroupCount = normalized.value.hardRuleCodes.includes("diet_vegetarian")
+    ? VEGETARIAN_MINIMUM_PRIMARY_PROTEIN_GROUP_COUNT
+    : MINIMUM_PRIMARY_PROTEIN_GROUP_COUNT
   const coverageOk = !eligibility.value.rejected.some(isCoverageRejection)
 
   return result(
     scenarioCode,
     eligible.length,
-    primaryProteinGroupCount >= MINIMUM_PRIMARY_PROTEIN_GROUP_COUNT,
+    primaryProteinGroupCount >= minimumPrimaryProteinGroupCount,
     coverageOk
   )
 }
