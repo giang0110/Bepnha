@@ -151,9 +151,7 @@ test("mobile pantry CRUD persists explicit zero quantity without automatic consu
   await page.goto("/pantry")
   await expect(page.getByRole("heading", { name: "Tủ bếp" })).toBeVisible()
 
-  await page
-    .getByLabel("Thực phẩm", { exact: true })
-    .selectOption({ label: "Gạo pantry browser" })
+  await page.getByLabel("Thực phẩm", { exact: true }).selectOption({ label: "Gạo pantry browser" })
   await page.getByLabel("Đơn vị", { exact: true }).selectOption(KILOGRAM_UNIT_ID)
   await page.getByLabel("Số lượng", { exact: true }).fill("0.25")
   await page.getByRole("button", { name: "Thêm vào tủ bếp" }).click()
