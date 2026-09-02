@@ -89,6 +89,7 @@ describe("scoreWeeklyPlan", () => {
       "COMPOSITION_MEAL_ROLES",
       "REUSE_DISTINCT_FOODS",
       "REUSE_PACKAGE_LEFTOVER",
+      "REUSE_PANTRY_COVERAGE",
       "PREFERENCES_MATCH"
     ])
     expect(JSON.stringify(score)).not.toMatch(/budget|healthy|medical|adequacy/i)
