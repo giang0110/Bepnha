@@ -191,12 +191,15 @@ async function candidate(
         }
       }
     })
+    const recipeFoodIds = new Set(ingredients.map((ingredient) => ingredient.foodId))
     for (const rawPrice of array(priceBook.prices)) {
       const price = object(rawPrice)
+      const foodId = string(price.foodId)
+      if (!recipeFoodIds.has(foodId)) continue
       const mapped: FoodPriceInput = {
         foodPriceId: string(price.foodPriceId),
         priceBookId: string(priceBook.priceBookId),
-        foodId: string(price.foodId),
+        foodId,
         foodFactVersionId: string(price.foodFactVersionId),
         baseUnitId: string(price.baseUnitId),
         packageBaseQuantity: string(price.packageBaseQuantity),
