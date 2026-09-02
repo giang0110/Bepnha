@@ -1,7 +1,10 @@
 import { describe, expect, test, vi } from "vitest"
 
 import type { ReplacementAuthoritativeInput } from "@/application/planner/planner-use-cases"
-import type { PlannerInputLoader, PlannerRpcClient } from "@/infrastructure/server/supabase-planner-repository"
+import type {
+  PlannerInputLoader,
+  PlannerRpcClient
+} from "@/infrastructure/server/supabase-planner-repository"
 
 import { createSupabaseAssistantContextRepository } from "./supabase-assistant-context-repository"
 
@@ -135,7 +138,10 @@ describe("Supabase assistant context repository", () => {
 
   test("maps null owner-scoped data to UNAUTHORIZED", async () => {
     const userClient = rpcClient({ data: null, error: null })
-    const loader = { hydrateGeneration: vi.fn(), hydrateReplacement: vi.fn() } satisfies PlannerInputLoader
+    const loader = {
+      hydrateGeneration: vi.fn(),
+      hydrateReplacement: vi.fn()
+    } satisfies PlannerInputLoader
     const repository = createSupabaseAssistantContextRepository({ userClient, loader })
 
     await expect(
@@ -149,7 +155,9 @@ describe("Supabase assistant context repository", () => {
       userClient: rpcClient({ data: null, error: { code: "XX000" } }),
       loader: { hydrateGeneration: vi.fn(), hydrateReplacement: vi.fn() }
     })
-    await expect(rpcFailure.loadCurrent({ actorUserId: "actor", planId: "plan" })).resolves.toEqual({
+    await expect(
+      rpcFailure.loadCurrent({ actorUserId: "actor", planId: "plan" })
+    ).resolves.toEqual({
       ok: false,
       error: "TRANSIENT_DEPENDENCY_FAILURE"
     })
