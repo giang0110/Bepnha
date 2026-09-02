@@ -27,6 +27,7 @@ function request(
     method?: string
     authorization?: string
     contentType?: string
+    correlationId?: string
     planId?: string | string[]
   } = {}
 ) {
@@ -35,7 +36,8 @@ function request(
     body,
     headers: {
       authorization: options.authorization ?? "Bearer signed-token",
-      "content-type": options.contentType ?? "application/json"
+      "content-type": options.contentType ?? "application/json",
+      "x-correlation-id": options.correlationId
     },
     query: options.planId === undefined ? {} : { planId: options.planId }
   } as unknown as VercelRequest
@@ -85,28 +87,31 @@ function setup() {
       warnings: []
     }
   })
+  const emit = vi.fn()
   const handlers = createPlannerHttpHandlers({
     auth: { verify: vi.fn().mockResolvedValue({ userId: "user-1" }) },
     repositoryFor: vi.fn(() => repository),
     hasher: { sha256: vi.fn() },
     operations: { generate, preview, apply },
-    calculationDate: () => "2026-08-26"
+    calculationDate: () => "2026-08-26",
+    telemetry: { emit },
+    createCorrelationId: () => "generated-correlation-id",
+    now: () => 100
   })
-  return { handlers, generate, preview, apply }
+  return { handlers, generate, preview, apply, emit }
+}
+
+const generationBody = {
+  householdId: "20000000-0000-0000-0000-000000000001",
+  weekStart: "2026-08-31",
+  idempotencyKey: "30000000-0000-0000-0000-000000000001"
 }
 
 describe("authoritative planner HTTP handlers", () => {
   test("generation accepts only user intent and binds the verified actor", async () => {
     const { handlers, generate } = setup()
     const { state, response } = responseDouble()
-    await handlers.generate(
-      request({
-        householdId: "20000000-0000-0000-0000-000000000001",
-        weekStart: "2026-08-31",
-        idempotencyKey: "30000000-0000-0000-0000-000000000001"
-      }),
-      response
-    )
+    await handlers.generate(request(generationBody), response)
     expect(generate).toHaveBeenCalledWith(
       repository,
       expect.anything(),
@@ -118,15 +123,46 @@ describe("authoritative planner HTTP handlers", () => {
     expect(state.body).not.toHaveProperty("calculationSnapshot")
   })
 
+  test("sets a safe correlation id and emits one sanitized completion event", async () => {
+    const { handlers, emit } = setup()
+    const result = responseDouble()
+
+    await handlers.generate(request(generationBody, { correlationId: "client.req-1" }), result.response)
+
+    expect(result.state.setHeader).toHaveBeenCalledWith("x-correlation-id", "client.req-1")
+    expect(emit).toHaveBeenCalledOnce()
+    expect(emit).toHaveBeenCalledWith({
+      event: "planner_request",
+      operation: "generate",
+      correlationId: "client.req-1",
+      durationMs: 0,
+      httpStatus: 200,
+      outcomeCode: "ready_within_budget"
+    })
+  })
+
+  test("replaces an unsafe incoming correlation id", async () => {
+    const { handlers, emit } = setup()
+    const result = responseDouble()
+
+    await handlers.generate(request(generationBody, { correlationId: "unsafe\nsecret" }), result.response)
+
+    expect(result.state.setHeader).toHaveBeenCalledWith(
+      "x-correlation-id",
+      "generated-correlation-id"
+    )
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({ correlationId: "generated-correlation-id" })
+    )
+  })
+
   test.each([
     [request({}, { method: "GET" }), 405, "METHOD_NOT_ALLOWED"],
     [request({}, { contentType: "text/plain" }), 415, "UNSUPPORTED_MEDIA_TYPE"],
     [request({}, { authorization: "forged" }), 401, "UNAUTHORIZED"],
     [
       request({
-        householdId: "20000000-0000-0000-0000-000000000001",
-        weekStart: "2026-08-31",
-        idempotencyKey: "30000000-0000-0000-0000-000000000001",
+        ...generationBody,
         totalEstimatedCostVnd: 1
       }),
       400,
@@ -142,12 +178,14 @@ describe("authoritative planner HTTP handlers", () => {
       "VALIDATION_FAILED"
     ]
   ] as const)("rejects invalid generation requests", async (input, status, error) => {
-    const { handlers, generate } = setup()
+    const { handlers, generate, emit } = setup()
     const { state, response } = responseDouble()
     await handlers.generate(input, response)
     expect(state.status).toHaveBeenCalledWith(status)
     expect(state.body).toEqual({ error })
     expect(generate).not.toHaveBeenCalled()
+    expect(emit).toHaveBeenCalledOnce()
+    expect(emit).toHaveBeenCalledWith(expect.objectContaining({ httpStatus: status, outcomeCode: error }))
   })
 
   test("preview is read-only intent and apply requires the exact preview fingerprint", async () => {
@@ -225,28 +263,21 @@ describe("authoritative planner HTTP handlers", () => {
     const base = setup()
     base.generate.mockResolvedValueOnce({ ok: false, error: { code: "UNAUTHORIZED" } })
     const unauthorized = responseDouble()
-    await base.handlers.generate(
-      request({
-        householdId: "20000000-0000-0000-0000-000000000001",
-        weekStart: "2026-08-31",
-        idempotencyKey: "30000000-0000-0000-0000-000000000001"
-      }),
-      unauthorized.response
-    )
+    await base.handlers.generate(request(generationBody), unauthorized.response)
     expect(unauthorized.state.status).toHaveBeenCalledWith(403)
+    expect(base.emit).toHaveBeenCalledWith(
+      expect.objectContaining({ httpStatus: 403, outcomeCode: "UNAUTHORIZED" })
+    )
 
     const failed = setup()
     failed.generate.mockRejectedValueOnce(new Error("SUPABASE_SECRET_KEY database details"))
     const unavailable = responseDouble()
-    await failed.handlers.generate(
-      request({
-        householdId: "20000000-0000-0000-0000-000000000001",
-        weekStart: "2026-08-31",
-        idempotencyKey: "30000000-0000-0000-0000-000000000001"
-      }),
-      unavailable.response
-    )
+    await failed.handlers.generate(request(generationBody), unavailable.response)
     expect(unavailable.state.body).toEqual({ error: "PLANNER_UNAVAILABLE" })
     expect(JSON.stringify(unavailable.state.body)).not.toMatch(/secret|supabase|database/i)
+    expect(failed.emit).toHaveBeenCalledOnce()
+    expect(failed.emit).toHaveBeenCalledWith(
+      expect.objectContaining({ httpStatus: 503, outcomeCode: "PLANNER_UNAVAILABLE" })
+    )
   })
 })
