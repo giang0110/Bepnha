@@ -127,7 +127,10 @@ describe("authoritative planner HTTP handlers", () => {
     const { handlers, emit } = setup()
     const result = responseDouble()
 
-    await handlers.generate(request(generationBody, { correlationId: "client.req-1" }), result.response)
+    await handlers.generate(
+      request(generationBody, { correlationId: "client.req-1" }),
+      result.response
+    )
 
     expect(result.state.setHeader).toHaveBeenCalledWith("x-correlation-id", "client.req-1")
     expect(emit).toHaveBeenCalledOnce()
@@ -145,7 +148,10 @@ describe("authoritative planner HTTP handlers", () => {
     const { handlers, emit } = setup()
     const result = responseDouble()
 
-    await handlers.generate(request(generationBody, { correlationId: "unsafe\nsecret" }), result.response)
+    await handlers.generate(
+      request(generationBody, { correlationId: "unsafe\nsecret" }),
+      result.response
+    )
 
     expect(result.state.setHeader).toHaveBeenCalledWith(
       "x-correlation-id",
@@ -185,7 +191,9 @@ describe("authoritative planner HTTP handlers", () => {
     expect(state.body).toEqual({ error })
     expect(generate).not.toHaveBeenCalled()
     expect(emit).toHaveBeenCalledOnce()
-    expect(emit).toHaveBeenCalledWith(expect.objectContaining({ httpStatus: status, outcomeCode: error }))
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({ httpStatus: status, outcomeCode: error })
+    )
   })
 
   test("preview is read-only intent and apply requires the exact preview fingerprint", async () => {
