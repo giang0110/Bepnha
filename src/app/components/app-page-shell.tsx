@@ -16,7 +16,7 @@ export function AppPageShell({ children, className = "" }: AppPageShellProps) {
       >
         Bỏ qua đến nội dung chính
       </a>
-      <main className={mainClassName} id="main-content">
+      <main className={mainClassName} id="main-content" tabIndex={-1}>
         {children}
       </main>
     </>

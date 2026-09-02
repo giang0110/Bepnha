@@ -52,6 +52,7 @@ jobs:
       - run: npm run test:e2e:planner
       - run: npm run test:e2e:shopping
       - run: npm run test:e2e:pantry
+      - run: npm run test:e2e:accessibility
       - if: always()
         run: npm run db:types:generate
       - if: always()
