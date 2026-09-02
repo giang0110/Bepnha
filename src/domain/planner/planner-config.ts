@@ -19,6 +19,11 @@ export const PLANNER_CONFIG_V1 = {
     primaryCookingStyleVariety: 1000,
     adjacentPrimaryProteinReuse: 1000
   },
+  reuseWeights: {
+    distinctFoodReuse: 800,
+    packageLeftover: 1200,
+    pantryReuse: 500
+  },
   ignoredReuseCategoryCodes: ["staple", "seasoning"]
 } as const
 
