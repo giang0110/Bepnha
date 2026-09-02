@@ -35,6 +35,7 @@
     "src/application/meal-option/**/*.ts",
     "src/application/pantry/**/*.ts",
     "src/application/planner/**/*.ts",
+    "src/application/release/**/*.ts",
     "src/application/shopping/**/*.ts",
     "src/application/shared/**/*.ts",
     "src/domain/calculation/**/*.ts",

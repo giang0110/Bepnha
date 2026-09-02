@@ -17,6 +17,7 @@ import { NodeContentHasher } from "@/infrastructure/server/node-content-hasher.j
 import { createSupabaseCatalogAdminRepository } from "@/infrastructure/server/supabase-catalog-admin-repository.js"
 import { createSupabaseMealOptionAdminRepository } from "@/infrastructure/server/supabase-meal-option-admin-repository.js"
 import { createSupabasePlannerInputLoader } from "@/infrastructure/server/supabase-planner-input-loader.js"
+import type { PlannerRpcClient } from "@/infrastructure/server/supabase-planner-repository.js"
 import type { Database } from "@/infrastructure/supabase/database.types.js"
 import { createSupabaseHouseholdRepository } from "@/infrastructure/supabase/supabase-household-repository.js"
 
@@ -240,8 +241,7 @@ async function seedFood(spec: FoodSpec): Promise<SeededFood> {
       })),
       nutrients: nutrientCodes.map((code) => ({
         nutrientCode: code,
-        amountPer100g:
-          code === "energy_kcal" ? "150" : code === "protein_g" ? "8" : "2",
+        amountPer100g: code === "energy_kcal" ? "150" : code === "protein_g" ? "8" : "2",
         provenance: "Phase 6 launch-readiness curated integration fixture"
       })),
       categoryAncestry: [...spec.categoryAncestry],
@@ -438,7 +438,10 @@ async function loadInput(): Promise<PlannerInputV1> {
   if (raw.error !== null || raw.data === null) {
     throw new Error(`Unable to load launch planner input: ${raw.error?.message ?? "missing data"}`)
   }
-  return createSupabasePlannerInputLoader(userClient).hydrateGeneration(raw.data)
+  return createSupabasePlannerInputLoader(userClient).hydrateGeneration(
+    raw.data,
+    userClient as unknown as PlannerRpcClient
+  )
 }
 
 function evaluateSearch(input: PlannerInputV1) {
@@ -506,15 +509,15 @@ beforeAll(async () => {
   householdId = household.household.householdId
   householdVersion = household.household.version
 
-  const references = await Promise.all([
+  const [allergens, nutrients] = await Promise.all([
     secretClient.from("allergens").select("code").order("code"),
     secretClient.from("nutrients").select("code").order("code")
   ])
-  if (references.some((result) => result.error !== null)) {
+  if (allergens.error !== null || nutrients.error !== null) {
     throw new Error("Launch reference data missing")
   }
-  allergenCodes = references[0].data.map(({ code }) => code)
-  nutrientCodes = references[1].data.map(({ code }) => code)
+  allergenCodes = allergens.data.map(({ code }) => code)
+  nutrientCodes = nutrients.data.map(({ code }) => code)
 
   await seedLaunchCatalog()
 }, 240_000)

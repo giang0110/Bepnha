@@ -15,7 +15,9 @@ async function expectNoHorizontalOverflow(page: Page) {
 
 async function onboard(page: Page) {
   await page.goto("/sign-up")
-  await page.getByRole("textbox", { name: "Email" }).fill(`phase6-a11y-${crypto.randomUUID()}@example.test`)
+  await page
+    .getByRole("textbox", { name: "Email" })
+    .fill(`phase6-a11y-${crypto.randomUUID()}@example.test`)
   await page.getByLabel("Mật khẩu").fill("phase6-accessibility-browser-password")
   await page.getByRole("button", { name: "Tạo tài khoản" }).click()
 
