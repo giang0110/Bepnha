@@ -611,7 +611,7 @@ describe("database-backed catalog launch readiness", () => {
       "NO_UNDER_BUDGET_PLAN_FOUND_IN_DETERMINISTIC_SEARCH"
     )
 
-    await saveHousehold({ ...baseHousehold, maxElapsedMinutes: 5 })
+    await saveHousehold({ ...baseHousehold, maxElapsedMinutes: 10 })
     input = await loadInput()
     const infeasible = evaluateCatalogReadiness(input, "infeasible-time-catalog")
     expect(infeasible.ready).toBe(false)
