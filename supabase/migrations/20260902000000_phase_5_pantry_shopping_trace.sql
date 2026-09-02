@@ -79,6 +79,7 @@ alter table public.shopping_list_items
     );
 
 -- Patch sealed-revision assertions so relational shopping evidence must preserve both pantry quantities.
+-- Older v2 callers that predate Pantry are interpreted strictly as zero deduction/full purchase need.
 do $$
 declare
   v_definition text;
@@ -92,16 +93,23 @@ begin
     v_definition,
     $old$v_line ->> 'requiredBaseQuantity' is distinct from v_basket_line ->> 'requiredBaseQuantity'$old$,
     $new$v_line ->> 'requiredBaseQuantity' is distinct from v_basket_line ->> 'requiredBaseQuantity'
-      or v_line ->> 'pantryDeductedBaseQuantity' is distinct from v_basket_line ->> 'pantryDeductedBaseQuantity'
-      or v_line ->> 'purchaseRequiredBaseQuantity' is distinct from v_basket_line ->> 'purchaseRequiredBaseQuantity'$new$
+      or coalesce(v_line ->> 'pantryDeductedBaseQuantity', '0')
+        is distinct from coalesce(v_basket_line ->> 'pantryDeductedBaseQuantity', '0')
+      or coalesce(v_line ->> 'purchaseRequiredBaseQuantity', v_line ->> 'requiredBaseQuantity')
+        is distinct from coalesce(
+          v_basket_line ->> 'purchaseRequiredBaseQuantity',
+          v_basket_line ->> 'requiredBaseQuantity'
+        )$new$
   );
 
   v_patched := replace(
     v_patched,
     $old$v_db_line.required_base_quantity <> v_line ->> 'requiredBaseQuantity'$old$,
     $new$v_db_line.required_base_quantity <> v_line ->> 'requiredBaseQuantity'
-      or v_db_line.pantry_deducted_base_quantity <> v_line ->> 'pantryDeductedBaseQuantity'
-      or v_db_line.purchase_required_base_quantity <> v_line ->> 'purchaseRequiredBaseQuantity'$new$
+      or v_db_line.pantry_deducted_base_quantity
+        <> coalesce(v_line ->> 'pantryDeductedBaseQuantity', '0')
+      or v_db_line.purchase_required_base_quantity
+        <> coalesce(v_line ->> 'purchaseRequiredBaseQuantity', v_line ->> 'requiredBaseQuantity')$new$
   );
 
   if v_patched = v_definition then
@@ -115,6 +123,7 @@ end;
 $$;
 
 -- Persist the two authoritative pantry evidence fields with each immutable shopping line.
+-- Missing fields are accepted only as the backwards-compatible zero-deduction interpretation.
 do $$
 declare
   v_definition text;
@@ -136,7 +145,8 @@ begin
     $old$(v_line ->> 'baseUnitId')::uuid, v_line ->> 'requiredBaseQuantity',
       v_line ->> 'packageBaseQuantity'$old$,
     $new$(v_line ->> 'baseUnitId')::uuid, v_line ->> 'requiredBaseQuantity',
-      v_line ->> 'pantryDeductedBaseQuantity', v_line ->> 'purchaseRequiredBaseQuantity',
+      coalesce(v_line ->> 'pantryDeductedBaseQuantity', '0'),
+      coalesce(v_line ->> 'purchaseRequiredBaseQuantity', v_line ->> 'requiredBaseQuantity'),
       v_line ->> 'packageBaseQuantity'$new$
   );
 
