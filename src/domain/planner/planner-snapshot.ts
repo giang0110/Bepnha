@@ -61,7 +61,8 @@ function canonicalPantry(snapshot: PantrySnapshotV1): PantrySnapshotV1 {
     version: snapshot.version,
     items: [...snapshot.items].sort(
       (left, right) =>
-        left.foodId.localeCompare(right.foodId) || left.pantryItemId.localeCompare(right.pantryItemId)
+        left.foodId.localeCompare(right.foodId) ||
+        left.pantryItemId.localeCompare(right.pantryItemId)
     )
   }
 }
