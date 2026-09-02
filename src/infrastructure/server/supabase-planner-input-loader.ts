@@ -11,6 +11,7 @@ import type { FoodPriceInput } from "@/domain/pricing/pricing"
 import type { RecipeStepInput } from "@/domain/recipe/recipe"
 import type { Database } from "@/infrastructure/supabase/database.types"
 
+import { loadPantrySnapshot } from "./load-pantry-snapshot"
 import type { PlannerInputLoader } from "./supabase-planner-repository"
 
 type UnknownRecord = Record<string, unknown>
@@ -259,6 +260,7 @@ async function candidate(
 async function generation(client: SupabaseClient<Database>, raw: unknown): Promise<PlannerInputV1> {
   const root = object(raw)
   const household = object(root.household)
+  const householdId = string(household.id)
   const priceBook = object(root.priceBook)
   const units = await loadUnits(client)
   const candidates: PlannerCandidateInput[] = []
@@ -266,8 +268,9 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
     candidates.push(await candidate(client, id, string(priceBook.priceBookId), units))
   }
   const rules = stringArray(root.foodRules)
+  const pantrySnapshot = await loadPantrySnapshot(client, householdId)
   return {
-    householdId: string(household.id),
+    householdId,
     householdSetupVersion: integer(household.version),
     weekStart: string(root.weekStart),
     timezone: string(household.timezone),
@@ -290,7 +293,7 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
       (code) =>
         HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)?.ruleKind === "soft_preference"
     ),
-    pantrySnapshot: { version: "pantry-snapshot-v1", items: [] },
+    pantrySnapshot,
     candidates
   }
 }
