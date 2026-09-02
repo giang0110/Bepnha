@@ -1,8 +1,5 @@
 export type PantryRepositoryErrorCode =
-  | "UNAUTHORIZED"
-  | "VERSION_CONFLICT"
-  | "DEPENDENCY_UNAVAILABLE"
-  | "INVALID_STORED_DATA"
+  "UNAUTHORIZED" | "VERSION_CONFLICT" | "DEPENDENCY_UNAVAILABLE" | "INVALID_STORED_DATA"
 
 export class PantryRepositoryError extends Error {
   readonly code: PantryRepositoryErrorCode
