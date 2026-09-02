@@ -8,6 +8,7 @@ import { AppPageShell } from "@/app/components/app-page-shell"
 import { Button } from "@/app/components/ui/button"
 import type { HouseholdSetup } from "@/domain/household/household"
 
+import { safePlannerCorrelationId } from "./planner-api"
 import type {
   PlanItemView,
   PlannerApi,
@@ -31,13 +32,13 @@ interface Props {
 type ViewState =
   | { readonly status: "loading_household" | "idle" | "generating" }
   | { readonly status: "ready"; readonly value: PlannerReadyResponse }
-  | { readonly status: "error"; readonly code: string }
+  | { readonly status: "error"; readonly code: string; readonly correlationId?: string }
 
 type PreviewState =
   | { readonly status: "idle" }
   | { readonly status: "loading"; readonly dayIndex: number }
   | { readonly status: "ready"; readonly dayIndex: number; readonly value: PlannerPreviewResponse }
-  | { readonly status: "error"; readonly code: string }
+  | { readonly status: "error"; readonly code: string; readonly correlationId?: string }
 
 function nextMonday(date: Date): string {
   const value = new Date(date)
@@ -67,6 +68,15 @@ function errorCopy(code: string): string {
   }
   if (code === "UNAUTHORIZED") return "Phiên đăng nhập đã hết hạn."
   return "Không thể xử lý kế hoạch lúc này. Vui lòng thử lại."
+}
+
+function SupportReference({ correlationId }: Readonly<{ correlationId: string | undefined }>) {
+  const safeId = safePlannerCorrelationId(correlationId)
+  return safeId === undefined ? null : (
+    <p className="mt-1 text-xs text-slate-600">
+      Mã hỗ trợ: <code>{safeId}</code>
+    </p>
+  )
 }
 
 function warningCopy(
@@ -176,7 +186,13 @@ export function WeeklyPlanPage({
     })
     setSubmitting(false)
     setState(
-      result.ok ? { status: "ready", value: result.value } : { status: "error", code: result.error }
+      result.ok
+        ? { status: "ready", value: result.value }
+        : {
+            status: "error",
+            code: result.error,
+            ...(result.correlationId === undefined ? {} : { correlationId: result.correlationId })
+          }
     )
   }
 
@@ -193,7 +209,11 @@ export function WeeklyPlanPage({
     setPreview(
       result.ok
         ? { status: "ready", dayIndex, value: result.value }
-        : { status: "error", code: result.error }
+        : {
+            status: "error",
+            code: result.error,
+            ...(result.correlationId === undefined ? {} : { correlationId: result.correlationId })
+          }
     )
   }
 
@@ -219,7 +239,11 @@ export function WeeklyPlanPage({
       setState({ status: "ready", value: result.value })
       setPreview({ status: "idle" })
     } else {
-      setPreview({ status: "error", code: result.error })
+      setPreview({
+        status: "error",
+        code: result.error,
+        ...(result.correlationId === undefined ? {} : { correlationId: result.correlationId })
+      })
     }
   }
 
@@ -252,7 +276,12 @@ export function WeeklyPlanPage({
         </Button>
       ) : null}
 
-      {state.status === "error" ? <p role="alert">{errorCopy(state.code)}</p> : null}
+      {state.status === "error" ? (
+        <div role="alert">
+          <p>{errorCopy(state.code)}</p>
+          <SupportReference correlationId={state.correlationId} />
+        </div>
+      ) : null}
 
       {state.status === "ready" ? (
         <>
@@ -313,7 +342,12 @@ export function WeeklyPlanPage({
       ) : null}
 
       {preview.status === "loading" ? <p role="status">Đang tìm bữa thay thế…</p> : null}
-      {preview.status === "error" ? <p role="alert">{errorCopy(preview.code)}</p> : null}
+      {preview.status === "error" ? (
+        <div role="alert">
+          <p>{errorCopy(preview.code)}</p>
+          <SupportReference correlationId={preview.correlationId} />
+        </div>
+      ) : null}
       {preview.status === "ready" ? (
         <section
           className="sticky bottom-3 rounded-xl border border-emerald-200 bg-white p-4 shadow-lg"

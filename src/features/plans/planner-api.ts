@@ -126,9 +126,7 @@ function responseCorrelationId(response: FetchResponse): string | undefined {
 
 function failure(error: string, response?: FetchResponse): PlannerApiResult<never> {
   const correlationId = response === undefined ? undefined : responseCorrelationId(response)
-  return correlationId === undefined
-    ? { ok: false, error }
-    : { ok: false, error, correlationId }
+  return correlationId === undefined ? { ok: false, error } : { ok: false, error, correlationId }
 }
 
 function isReady(value: unknown): value is PlannerReadyResponse {
