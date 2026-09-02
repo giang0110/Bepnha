@@ -65,7 +65,8 @@ export interface PlannerPreviewResponse {
 }
 
 export type PlannerApiResult<T> =
-  { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: string }
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: string; readonly correlationId?: string }
 
 export interface PlannerApi {
   readonly generate: (
@@ -99,13 +100,35 @@ export interface PlannerApi {
 
 interface FetchResponse {
   readonly ok: boolean
+  readonly headers?: { readonly get: (name: string) => string | null }
   readonly json: () => Promise<unknown>
 }
 
 type Fetcher = (url: string, init: RequestInit) => Promise<FetchResponse>
 
+const SAFE_CORRELATION_ID = /^[A-Za-z0-9._:-]{1,96}$/u
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+export function safePlannerCorrelationId(value: unknown): string | undefined {
+  return typeof value === "string" && SAFE_CORRELATION_ID.test(value) ? value : undefined
+}
+
+function responseCorrelationId(response: FetchResponse): string | undefined {
+  try {
+    return safePlannerCorrelationId(response.headers?.get("x-correlation-id"))
+  } catch {
+    return undefined
+  }
+}
+
+function failure(error: string, response?: FetchResponse): PlannerApiResult<never> {
+  const correlationId = response === undefined ? undefined : responseCorrelationId(response)
+  return correlationId === undefined
+    ? { ok: false, error }
+    : { ok: false, error, correlationId }
 }
 
 function isReady(value: unknown): value is PlannerReadyResponse {
@@ -150,19 +173,18 @@ export function createPlannerApi(fetcher: Fetcher = fetch): PlannerApi {
       })
       const payload = await response.json()
       if (!response.ok) {
-        return {
-          ok: false,
-          error:
-            isRecord(payload) && typeof payload.error === "string"
-              ? payload.error
-              : "PLANNER_UNAVAILABLE"
-        }
+        return failure(
+          isRecord(payload) && typeof payload.error === "string"
+            ? payload.error
+            : "PLANNER_UNAVAILABLE",
+          response
+        )
       }
       return validate(payload)
         ? { ok: true, value: payload }
-        : { ok: false, error: "PLANNER_UNAVAILABLE" }
+        : failure("PLANNER_UNAVAILABLE", response)
     } catch {
-      return { ok: false, error: "PLANNER_UNAVAILABLE" }
+      return failure("PLANNER_UNAVAILABLE")
     }
   }
 
