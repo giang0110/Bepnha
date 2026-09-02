@@ -10,6 +10,7 @@ import {
 import { normalizePlannerInput } from "@/domain/planner/normalize-planner-input"
 import { previewMealReplacement } from "@/domain/planner/replace-meal"
 import { searchWeek, type ReadyPlan } from "@/domain/planner/search-week"
+import type { CanonicalFoodDeduction } from "@/domain/pricing/pricing"
 import { canonicalJson, canonicalUtf8 } from "@/domain/shared/canonical-json"
 import { buildShoppingListSnapshot } from "@/domain/shopping/build-shopping-list-snapshot"
 import type { ShoppingListSnapshotV1 } from "@/domain/shopping/shopping-list"
@@ -118,6 +119,14 @@ function manifestFromInput(input: PlannerInputV1): readonly PlannerCandidateMani
   }))
 }
 
+function pantryDeductions(input: PlannerInputV1): readonly CanonicalFoodDeduction[] {
+  return input.pantrySnapshot.items.map((item) => ({
+    foodId: item.foodId,
+    baseUnitId: item.baseUnitId,
+    availableBaseQuantity: item.baseQuantity
+  }))
+}
+
 async function sha256(hasher: ContentHasher, value: unknown): Promise<string> {
   return hasher.sha256(canonicalUtf8(value))
 }
@@ -162,12 +171,14 @@ async function snapshots(
     portionConfig: normalized.value.portionConfig,
     priceFreshnessConfig: normalized.value.priceFreshnessConfig,
     plannerConfig: normalized.value.plannerConfig,
+    pantrySnapshot: normalized.value.pantrySnapshot,
     candidateManifest: manifestFromInput(normalized.value),
     calculation: {
       items: plan.items,
       selectedMealOptions: plan.selected,
       purchaseBasket: plan.purchaseBasket,
       shoppingList: shopping.value,
+      pantrySnapshot: normalized.value.pantrySnapshot,
       totalEstimatedCostVnd: plan.totalEstimatedCostVnd,
       score: plan.score,
       warnings,
@@ -181,6 +192,7 @@ async function snapshots(
     ...(source.calculationPayload as Record<string, unknown>),
     purchaseBasket: plan.purchaseBasket,
     shoppingList: shopping.value,
+    pantrySnapshot: normalized.value.pantrySnapshot,
     inputFingerprint
   }
   const calculationFingerprint = await sha256(hasher, calculationSnapshot)
@@ -228,7 +240,8 @@ export async function generateMealPlan(
     normalized.value.softPreferenceCodes,
     normalized.value.calculationDate,
     normalized.value.priceFreshnessConfig,
-    normalized.value.plannerConfig
+    normalized.value.plannerConfig,
+    pantryDeductions(normalized.value)
   )
   if (!("plan" in planned)) return planned
   const evidenceResult = await snapshots(hasher, normalized.value, planned.plan, planned.warnings)
@@ -321,7 +334,8 @@ async function replacementPreview(
     softPreferenceCodes: normalized.value.softPreferenceCodes,
     calculationDate: normalized.value.calculationDate,
     priceFreshnessConfig: normalized.value.priceFreshnessConfig,
-    plannerConfig: normalized.value.plannerConfig
+    plannerConfig: normalized.value.plannerConfig,
+    pantryDeductions: pantryDeductions(normalized.value)
   })
   if (!preview.ok) return preview
   const plan: ReadyPlan = {

@@ -1,4 +1,5 @@
 import { PRICE_FRESHNESS_CONFIG_V1, type PriceFreshnessConfigV1 } from "@/domain/pricing/pricing"
+import type { CanonicalFoodDeduction } from "@/domain/pricing/pricing"
 
 import type { EligibleMealOption } from "./evaluate-eligibility"
 import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config"
@@ -36,9 +37,11 @@ export function previewMealReplacement(input: {
   readonly calculationDate: string
   readonly priceFreshnessConfig?: PriceFreshnessConfigV1
   readonly plannerConfig?: PlannerConfigV1
+  readonly pantryDeductions?: readonly CanonicalFoodDeduction[]
 }): ReplacementPreviewResult {
   const config = input.plannerConfig ?? PLANNER_CONFIG_V1
   const freshness = input.priceFreshnessConfig ?? PRICE_FRESHNESS_CONFIG_V1
+  const deductions = input.pantryDeductions ?? []
   const currentTarget = input.current.selected[input.targetDayIndex]
   if (
     currentTarget === undefined ||
@@ -71,7 +74,8 @@ export function previewMealReplacement(input: {
         input.softPreferenceCodes,
         input.calculationDate,
         freshness,
-        config
+        config,
+        deductions
       )
       return completed === null ? [] : [completed]
     })

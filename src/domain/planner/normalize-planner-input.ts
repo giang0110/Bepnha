@@ -2,6 +2,7 @@ import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
 } from "@/domain/household/household-rules"
+import { normalizePantrySnapshotV1 } from "@/domain/pantry/normalize-pantry-snapshot"
 import { calculateAdultEquivalent } from "@/domain/portion/calculate-adult-equivalent"
 import { PORTION_CONFIG_V1 } from "@/domain/portion/portion-config"
 import { PRICE_FRESHNESS_CONFIG_V1 } from "@/domain/pricing/pricing"
@@ -62,6 +63,13 @@ export function normalizePlannerInput(input: PlannerInputV1): NormalizeResult {
   const weekTimestamp = Date.parse(`${input.weekStart}T00:00:00.000Z`)
   const memberResult = calculateAdultEquivalent(input.memberGroups, PORTION_CONFIG_V1)
   const candidateIds = input.candidates.map((item) => item.mealOption.mealOptionVersionId)
+  const pantryResult = normalizePantrySnapshotV1(
+    input.pantrySnapshot.items.map((item) => ({
+      ...item,
+      foodFactFoodId: item.foodId,
+      foodBaseUnitId: item.baseUnitId
+    }))
+  )
   if (
     input.householdId.trim() === "" ||
     !Number.isSafeInteger(input.householdSetupVersion) ||
@@ -76,6 +84,7 @@ export function normalizePlannerInput(input: PlannerInputV1): NormalizeResult {
     input.maxElapsedMinutes < 1 ||
     input.maxElapsedMinutes > 180 ||
     !memberResult.ok ||
+    !pantryResult.ok ||
     hasDuplicates(input.hardRuleCodes) ||
     hasDuplicates(input.softPreferenceCodes) ||
     !knownRules(input.hardRuleCodes, "hard") ||
@@ -102,6 +111,7 @@ export function normalizePlannerInput(input: PlannerInputV1): NormalizeResult {
       memberGroups: memberResult.value.memberGroups,
       hardRuleCodes: [...input.hardRuleCodes].sort(),
       softPreferenceCodes: [...input.softPreferenceCodes].sort(),
+      pantrySnapshot: pantryResult.value,
       candidates: input.candidates
         .map(canonicalCandidate)
         .sort((left, right) =>

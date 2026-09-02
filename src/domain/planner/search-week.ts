@@ -1,6 +1,7 @@
 import { calculatePurchaseBasket } from "@/domain/pricing/calculate-purchase-basket"
 import {
   PRICE_FRESHNESS_CONFIG_V1,
+  type CanonicalFoodDeduction,
   type FoodPriceInput,
   type PriceFreshnessConfigV1,
   type PurchaseBasketResult
@@ -95,15 +96,20 @@ function compatiblePrices(
 function basketFor(
   selected: readonly EligibleMealOption[],
   calculationDate: string,
-  freshnessConfig: PriceFreshnessConfigV1
+  freshnessConfig: PriceFreshnessConfigV1,
+  deductionsInput: readonly CanonicalFoodDeduction[]
 ): PurchaseBasket | null {
   const prices = compatiblePrices(selected)
   if (prices === null) return null
+  const requirements = selected.flatMap((option) => option.requirements)
+  const requiredFoods = new Set(requirements.map((requirement) => requirement.foodId))
+  const deductions = deductionsInput.filter((deduction) => requiredFoods.has(deduction.foodId))
   const result = calculatePurchaseBasket(
-    selected.flatMap((option) => option.requirements),
+    requirements,
     prices,
     calculationDate,
-    freshnessConfig
+    freshnessConfig,
+    deductions
   )
   return result.ok ? result.value : null
 }
@@ -121,10 +127,11 @@ export function calculateCompletedPlanCandidate(
   softPreferenceCodes: readonly string[],
   calculationDate: string,
   freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1,
-  config: PlannerConfigV1 = PLANNER_CONFIG_V1
+  config: PlannerConfigV1 = PLANNER_CONFIG_V1,
+  deductionsInput: readonly CanonicalFoodDeduction[] = []
 ): CompletedPlanCandidate | null {
   if (selected.length !== config.dayCount || violatesWeeklyHardRules(selected)) return null
-  const basket = basketFor(selected, calculationDate, freshnessConfig)
+  const basket = basketFor(selected, calculationDate, freshnessConfig, deductionsInput)
   if (basket === null) return null
   return {
     selected,
@@ -239,7 +246,8 @@ export function searchWeek(
   softPreferenceCodes: readonly string[],
   calculationDate: string,
   freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1,
-  config: PlannerConfigV1 = PLANNER_CONFIG_V1
+  config: PlannerConfigV1 = PLANNER_CONFIG_V1,
+  deductionsInput: readonly CanonicalFoodDeduction[] = []
 ): PlannerSearchResult {
   const eligible = [...eligibleInput].sort((left, right) =>
     compareText(left.mealOptionVersionId, right.mealOptionVersionId)
@@ -261,7 +269,7 @@ export function searchWeek(
       for (const candidate of eligible) {
         const selected = [...state.selected, candidate]
         if (violatesWeeklyHardRules(selected)) continue
-        const basket = basketFor(selected, calculationDate, freshnessConfig)
+        const basket = basketFor(selected, calculationDate, freshnessConfig, deductionsInput)
         if (basket === null) continue
         expanded.push({
           selected,
@@ -295,7 +303,8 @@ export function searchWeek(
         softPreferenceCodes,
         calculationDate,
         freshnessConfig,
-        config
+        config,
+        deductionsInput
       )
     )
     .filter((candidate): candidate is CompletedPlanCandidate => candidate !== null)

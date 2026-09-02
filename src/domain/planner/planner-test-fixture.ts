@@ -142,6 +142,7 @@ export function plannerInput(
     memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }],
     hardRuleCodes: [],
     softPreferenceCodes: [],
+    pantrySnapshot: { version: "pantry-snapshot-v1", items: [] },
     candidates
   }
 }

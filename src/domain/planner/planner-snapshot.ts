@@ -1,3 +1,5 @@
+import type { PantrySnapshotV1 } from "@/domain/pantry/pantry"
+
 import type { PersistedPlannerEngineVersion } from "./planner-engine-version"
 
 export interface PlannerCandidateManifestEntry {
@@ -28,6 +30,7 @@ export interface PlannerSnapshotSource {
   readonly portionConfig: unknown
   readonly priceFreshnessConfig: unknown
   readonly plannerConfig: unknown
+  readonly pantrySnapshot?: PantrySnapshotV1
   readonly candidateManifest: readonly PlannerCandidateManifestEntry[]
   readonly calculation: unknown
 }
@@ -53,6 +56,16 @@ function canonicalManifest(
     .sort((left, right) => left.mealOptionVersionId.localeCompare(right.mealOptionVersionId))
 }
 
+function canonicalPantry(snapshot: PantrySnapshotV1): PantrySnapshotV1 {
+  return {
+    version: snapshot.version,
+    items: [...snapshot.items].sort(
+      (left, right) =>
+        left.foodId.localeCompare(right.foodId) || left.pantryItemId.localeCompare(right.pantryItemId)
+    )
+  }
+}
+
 export function buildPlannerSnapshotPayloads(source: PlannerSnapshotSource) {
   const candidateManifest = canonicalManifest(source.candidateManifest)
   const catalogPayload = { candidateManifest }
@@ -65,6 +78,9 @@ export function buildPlannerSnapshotPayloads(source: PlannerSnapshotSource) {
     portionConfig: source.portionConfig,
     priceFreshnessConfig: source.priceFreshnessConfig,
     plannerConfig: source.plannerConfig,
+    ...(source.pantrySnapshot === undefined
+      ? {}
+      : { pantrySnapshot: canonicalPantry(source.pantrySnapshot) }),
     candidateManifest
   }
   return {

@@ -1,5 +1,6 @@
 import type { AllergenAssessment, FoodFactNutrientAmount } from "@/domain/catalog/catalog"
 import type { MealOptionVersionInput } from "@/domain/meal-option/meal-option"
+import type { PantrySnapshotV1 } from "@/domain/pantry/pantry"
 import type { PortionMemberGroupInput } from "@/domain/portion/calculate-adult-equivalent"
 import type { FoodPriceInput } from "@/domain/pricing/pricing"
 import type { PortionConfigV1 } from "@/domain/portion/portion-config"
@@ -46,6 +47,7 @@ export interface PlannerInputV1 {
   readonly memberGroups: readonly PortionMemberGroupInput[]
   readonly hardRuleCodes: readonly string[]
   readonly softPreferenceCodes: readonly string[]
+  readonly pantrySnapshot: PantrySnapshotV1
   readonly candidates: readonly PlannerCandidateInput[]
 }
 
