@@ -43,7 +43,7 @@ function input(baseQuantity: string): PlannerInputV1 {
   return {
     ...plannerInput(candidates),
     pantrySnapshot: pantry(baseQuantity)
-  } as unknown as PlannerInputV1
+  }
 }
 
 function repository(value: PlannerInputV1): PlannerRepository {
