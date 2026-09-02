@@ -34,6 +34,8 @@ export interface ShoppingListItem {
   readonly foodNameVi: string
   readonly baseUnitId: string
   readonly requiredBaseQuantity: string
+  readonly pantryDeductedBaseQuantity: string
+  readonly purchaseRequiredBaseQuantity: string
   readonly packageBaseQuantity: string
   readonly purchaseIncrement: string
   readonly purchasePackageCount: string
