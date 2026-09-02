@@ -13,7 +13,7 @@ function authoritativeInput(): ReplacementAuthoritativeInput {
     input: {
       householdId: "household-secret-id",
       householdSetupVersion: 4,
-      memberGroups: [{ code: "adult", count: 2, adultEquivalent: "1" }],
+      memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }],
       hardRuleCodes: [],
       softPreferenceCodes: [],
       weeklyPlanBudgetVnd: 700_000,
@@ -24,7 +24,7 @@ function authoritativeInput(): ReplacementAuthoritativeInput {
       portionConfig: {} as never,
       priceFreshnessConfig: {} as never,
       plannerConfig: {} as never,
-      pantrySnapshot: { items: [] },
+      pantrySnapshot: { version: "pantry-snapshot-v1", items: [] },
       candidates: []
     },
     currentPlan: {
