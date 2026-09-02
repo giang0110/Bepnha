@@ -9,7 +9,32 @@ import {
   readHistoricalPlannerPriceBookId
 } from "./supabase-planner-input-loader"
 
-function fixtureClient(baseDimension: "mass" | "volume" = "mass") {
+interface PantryFixture {
+  readonly rows: readonly Record<string, unknown>[]
+  readonly foods: readonly {
+    id: string
+    base_unit_id: string
+    base_dimension: "mass" | "volume" | "count"
+  }[]
+  readonly facts: readonly { id: string; food_id: string }[]
+  readonly conversions: readonly {
+    food_fact_version_id: string
+    unit_id: string
+    base_quantity_per_unit: number
+  }[]
+}
+
+const emptyPantry: PantryFixture = {
+  rows: [],
+  foods: [],
+  facts: [],
+  conversions: []
+}
+
+function fixtureClient(
+  baseDimension: "mass" | "volume" = "mass",
+  pantry: PantryFixture = emptyPantry
+) {
   const source = plannerCandidate("option-v1")
   const component = source.mealOption.components[0]
   const ingredient = component?.recipe.ingredients[0]
@@ -24,6 +49,9 @@ function fixtureClient(baseDimension: "mass" | "volume" = "mass") {
     throw new Error("invalid fixture")
   }
   const rpc = vi.fn((name: string) => {
+    if (name === "get_pantry") {
+      return Promise.resolve({ data: pantry.rows, error: null })
+    }
     if (name === "get_published_meal_option_calculation_input") {
       return Promise.resolve({
         data: {
@@ -113,6 +141,23 @@ function fixtureClient(baseDimension: "mass" | "volume" = "mass") {
         )
       }
     }
+    if (
+      table === "foods" ||
+      table === "food_fact_versions" ||
+      table === "food_fact_unit_conversions"
+    ) {
+      const data =
+        table === "foods"
+          ? pantry.foods
+          : table === "food_fact_versions"
+            ? pantry.facts
+            : pantry.conversions
+      return {
+        select: vi.fn(() => ({
+          in: vi.fn(() => Promise.resolve({ data, error: null }))
+        }))
+      }
+    }
     const data =
       table === "recipe_steps"
         ? [{ id: "step-1", sort_order: 1, instruction_vi: "Nấu chín.", timer_minutes: 10 }]
@@ -184,7 +229,8 @@ describe("Supabase planner input loader", () => {
       householdId: "household-1",
       householdSetupVersion: 3,
       hardRuleCodes: ["exclude_pork"],
-      softPreferenceCodes: ["prefer_fish"]
+      softPreferenceCodes: ["prefer_fish"],
+      pantrySnapshot: { version: "pantry-snapshot-v1", items: [] }
     })
     expect(result.candidates[0]).toMatchObject({
       mealOptionNameVi: source.mealOptionNameVi,
@@ -194,6 +240,111 @@ describe("Supabase planner input loader", () => {
       ingredientLineage: [{ edibleFraction: "1", baseUnitId: "unit-g", baseDimension: "mass" }],
       prices: [{ purchaseIncrement: "1" }]
     })
+  })
+
+  test("hydrates authoritative pantry with deterministic ordering and exact conversion evidence", async () => {
+    const pantry: PantryFixture = {
+      rows: [
+        {
+          id: "pantry-b",
+          household_id: "household-1",
+          food_id: "food-b",
+          food_fact_version_id: "fact-b",
+          quantity: 2,
+          unit_id: "unit-g",
+          base_quantity: 2,
+          base_unit_id: "unit-g",
+          version: 1
+        },
+        {
+          id: "pantry-a",
+          household_id: "household-1",
+          food_id: "food-a",
+          food_fact_version_id: "fact-a",
+          quantity: 0.25,
+          unit_id: "unit-kg",
+          base_quantity: 250,
+          base_unit_id: "unit-g",
+          version: 3
+        }
+      ],
+      foods: [
+        { id: "food-b", base_unit_id: "unit-g", base_dimension: "mass" },
+        { id: "food-a", base_unit_id: "unit-g", base_dimension: "mass" }
+      ],
+      facts: [
+        { id: "fact-b", food_id: "food-b" },
+        { id: "fact-a", food_id: "food-a" }
+      ],
+      conversions: [
+        { food_fact_version_id: "fact-b", unit_id: "unit-g", base_quantity_per_unit: 1 },
+        { food_fact_version_id: "fact-a", unit_id: "unit-kg", base_quantity_per_unit: 1000 }
+      ]
+    }
+    const { client, source } = fixtureClient("mass", pantry)
+    const result = await createSupabasePlannerInputLoader(client).hydrateGeneration(
+      generationRaw(source.mealOption.mealOptionVersionId),
+      client as never
+    )
+
+    expect(result.pantrySnapshot).toEqual({
+      version: "pantry-snapshot-v1",
+      items: [
+        {
+          pantryItemId: "pantry-a",
+          foodId: "food-a",
+          foodFactVersionId: "fact-a",
+          quantity: "0.25",
+          unitId: "unit-kg",
+          baseQuantity: "250",
+          baseUnitId: "unit-g",
+          baseDimension: "mass",
+          version: 3
+        },
+        {
+          pantryItemId: "pantry-b",
+          foodId: "food-b",
+          foodFactVersionId: "fact-b",
+          quantity: "2",
+          unitId: "unit-g",
+          baseQuantity: "2",
+          baseUnitId: "unit-g",
+          baseDimension: "mass",
+          version: 1
+        }
+      ]
+    })
+  })
+
+  test("rejects malformed pantry conversion evidence instead of silently trusting stored base quantity", async () => {
+    const pantry: PantryFixture = {
+      rows: [
+        {
+          id: "pantry-a",
+          household_id: "household-1",
+          food_id: "food-a",
+          food_fact_version_id: "fact-a",
+          quantity: 0.25,
+          unit_id: "unit-kg",
+          base_quantity: 251,
+          base_unit_id: "unit-g",
+          version: 1
+        }
+      ],
+      foods: [{ id: "food-a", base_unit_id: "unit-g", base_dimension: "mass" }],
+      facts: [{ id: "fact-a", food_id: "food-a" }],
+      conversions: [
+        { food_fact_version_id: "fact-a", unit_id: "unit-kg", base_quantity_per_unit: 1000 }
+      ]
+    }
+    const { client, source } = fixtureClient("mass", pantry)
+
+    await expect(
+      createSupabasePlannerInputLoader(client).hydrateGeneration(
+        generationRaw(source.mealOption.mealOptionVersionId),
+        client as never
+      )
+    ).rejects.toThrow("INVALID_PANTRY_DATA")
   })
 
   test("rejects catalog lineage when declared food base dimension disagrees with its permanent base unit", async () => {
