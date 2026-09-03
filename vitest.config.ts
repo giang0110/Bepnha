@@ -12,7 +12,13 @@ export default defineConfig({
     globals: false,
     coverage: {
       provider: "v8",
-      reporter: ["text", "html"]
+      reporter: ["text", "html"],
+      thresholds: {
+        statements: 78,
+        branches: 70,
+        functions: 84,
+        lines: 82
+      }
     },
     projects: [
       {

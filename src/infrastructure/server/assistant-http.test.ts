@@ -95,16 +95,19 @@ function setup(
   )
   const assistant: MealAssistantPort =
     options.assistant === undefined ? { respond } : (options.assistant ?? { respond })
+  const consume = vi.fn(() => Promise.resolve({ allowed: true as const }))
   const emit = vi.fn()
   const handler = createAssistantHttpHandler({
     auth: { verify: vi.fn(() => Promise.resolve({ userId: "user-1" })) },
     contextRepositoryFor,
     assistant: options.assistant === null ? null : assistant,
+    rateLimiter: { consume },
     telemetry: { emit },
     createCorrelationId: () => "generated-assistant-correlation",
-    now: () => 100
+    now: () => 100,
+    rateLimitNow: () => 1_000
   })
-  return { handler, contextRepositoryFor, loadCurrent, respond, emit }
+  return { handler, contextRepositoryFor, loadCurrent, respond, consume, emit }
 }
 
 function expectSecurityHeaders(setHeader: ReturnType<typeof vi.fn>): void {
@@ -127,7 +130,7 @@ describe("assistant HTTP", () => {
   })
 
   test("returns a verified assistant result with safe correlation and one sanitized event", async () => {
-    const { handler, loadCurrent, respond, emit } = setup()
+    const { handler, loadCurrent, respond, consume, emit } = setup()
     const { state, response } = responseDouble()
 
     await handler(request(validBody(), { correlationId: "client.assistant-1" }), response)
@@ -141,6 +144,7 @@ describe("assistant HTTP", () => {
     expect(state.setHeader).toHaveBeenCalledWith("x-correlation-id", "client.assistant-1")
     expectSecurityHeaders(state.setHeader)
     expect(loadCurrent).toHaveBeenCalledWith({ actorUserId: "user-1", planId: PLAN_ID })
+    expect(consume).toHaveBeenCalledWith({ actorUserId: "user-1", nowMs: 1_000 })
     expect(respond).toHaveBeenCalledWith({ question: "Giải thích kế hoạch này", evidence })
     expect(emit).toHaveBeenCalledOnce()
     expect(emit).toHaveBeenCalledWith({
@@ -156,8 +160,8 @@ describe("assistant HTTP", () => {
     expect(serialized).not.toContain("signed-token")
   })
 
-  test("rejects stale revision before invoking the provider", async () => {
-    const { handler, respond } = setup({
+  test("rejects stale revision before invoking the provider or consuming quota", async () => {
+    const { handler, respond, consume } = setup({
       currentRevisionId: "50000000-0000-0000-0000-000000000099"
     })
     const { state, response } = responseDouble()
@@ -166,6 +170,7 @@ describe("assistant HTTP", () => {
 
     expect(state.statusCode).toBe(409)
     expect(state.body).toEqual({ error: "STALE_ASSISTANT_CONTEXT" })
+    expect(consume).not.toHaveBeenCalled()
     expect(respond).not.toHaveBeenCalled()
   })
 
@@ -220,9 +225,11 @@ describe("assistant HTTP", () => {
       auth: { verify: vi.fn(() => Promise.resolve(null)) },
       contextRepositoryFor,
       assistant: { respond: vi.fn() },
+      rateLimiter: { consume: vi.fn(() => Promise.resolve({ allowed: true as const })) },
       telemetry: { emit },
       createCorrelationId: () => "correlation",
-      now: () => 100
+      now: () => 100,
+      rateLimitNow: () => 1_000
     })
     const { state, response } = responseDouble()
 
@@ -242,13 +249,14 @@ describe("assistant HTTP", () => {
         "ASSISTANT_UNAVAILABLE"
       ]
     ] as const) {
-      const { handler, respond } = setup({ contextResult })
+      const { handler, respond, consume } = setup({ contextResult })
       const { state, response } = responseDouble()
 
       await handler(request(validBody()), response)
 
       expect(state.statusCode).toBe(expectedStatus)
       expect(state.body).toEqual({ error: expectedError })
+      expect(consume).not.toHaveBeenCalled()
       expect(respond).not.toHaveBeenCalled()
     }
   })

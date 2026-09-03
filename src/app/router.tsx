@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react"
 import { Navigate, Route, Routes } from "react-router"
 
 import type { HouseholdRepository } from "@/application/household/household-repository"
@@ -8,16 +9,36 @@ import { useAuth } from "@/app/auth/auth-context"
 import { RequireAuth } from "@/app/auth/require-auth"
 import { NotFoundPage } from "@/app/not-found-page"
 import type { AssistantApi } from "@/features/assistant/assistant-api"
-import { AssistantCard } from "@/features/assistant/assistant-card"
 import { SignInPage } from "@/features/auth/sign-in-page"
 import { SignUpPage } from "@/features/auth/sign-up-page"
-import { HouseholdSummaryPage } from "@/features/household/household-summary-page"
-import { OnboardingPage } from "@/features/household/onboarding/onboarding-page"
-import { HouseholdSettingsPage } from "@/features/household/settings/household-settings-page"
-import { PantryPage } from "@/features/pantry/pantry-page"
 import type { PlannerApi } from "@/features/plans/planner-api"
-import { WeeklyPlanPage } from "@/features/plans/weekly-plan-page"
-import { ShoppingListPage } from "@/features/shopping/shopping-list-page"
+
+const AssistantCard = lazy(async () => ({
+  default: (await import("@/features/assistant/assistant-card")).AssistantCard
+}))
+const HouseholdSummaryPage = lazy(async () => ({
+  default: (await import("@/features/household/household-summary-page")).HouseholdSummaryPage
+}))
+const OnboardingPage = lazy(async () => ({
+  default: (await import("@/features/household/onboarding/onboarding-page")).OnboardingPage
+}))
+const HouseholdSettingsPage = lazy(async () => ({
+  default: (await import("@/features/household/settings/household-settings-page"))
+    .HouseholdSettingsPage
+}))
+const PantryPage = lazy(async () => ({
+  default: (await import("@/features/pantry/pantry-page")).PantryPage
+}))
+const WeeklyPlanPage = lazy(async () => ({
+  default: (await import("@/features/plans/weekly-plan-page")).WeeklyPlanPage
+}))
+const ShoppingListPage = lazy(async () => ({
+  default: (await import("@/features/shopping/shopping-list-page")).ShoppingListPage
+}))
+
+function ProtectedRouteFallback() {
+  return <p role="status">Đang tải…</p>
+}
 
 function HomeRedirect() {
   const auth = useAuth()
@@ -48,46 +69,69 @@ export function AppRouter({
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
       <Route element={<RequireAuth />}>
-        <Route path="/onboarding" element={<OnboardingPage repository={householdRepository} />} />
+        <Route
+          path="/onboarding"
+          element={
+            <Suspense fallback={<ProtectedRouteFallback />}>
+              <OnboardingPage repository={householdRepository} />
+            </Suspense>
+          }
+        />
         <Route
           path="/household"
-          element={<HouseholdSummaryPage repository={householdRepository} />}
+          element={
+            <Suspense fallback={<ProtectedRouteFallback />}>
+              <HouseholdSummaryPage repository={householdRepository} />
+            </Suspense>
+          }
         />
         <Route
           path="/settings/household"
-          element={<HouseholdSettingsPage repository={householdRepository} />}
+          element={
+            <Suspense fallback={<ProtectedRouteFallback />}>
+              <HouseholdSettingsPage repository={householdRepository} />
+            </Suspense>
+          }
         />
         <Route
           path="/plan"
           element={
-            <WeeklyPlanPage
-              householdRepository={householdRepository}
-              plannerApi={plannerApi}
-              renderAssistant={({ accessToken, expectedRevisionId, onPreviewDay, planId }) => (
-                <AssistantCard
-                  accessToken={accessToken}
-                  assistantApi={assistantApi}
-                  expectedRevisionId={expectedRevisionId}
-                  planId={planId}
-                  onPreviewDay={onPreviewDay}
-                />
-              )}
-            />
+            <Suspense fallback={<ProtectedRouteFallback />}>
+              <WeeklyPlanPage
+                householdRepository={householdRepository}
+                plannerApi={plannerApi}
+                renderAssistant={({ accessToken, expectedRevisionId, onPreviewDay, planId }) => (
+                  <AssistantCard
+                    accessToken={accessToken}
+                    assistantApi={assistantApi}
+                    expectedRevisionId={expectedRevisionId}
+                    planId={planId}
+                    onPreviewDay={onPreviewDay}
+                  />
+                )}
+              />
+            </Suspense>
           }
         />
         <Route
           path="/pantry"
           element={
-            <PantryPage
-              foodOptionsRepository={pantryFoodOptionsRepository}
-              householdRepository={householdRepository}
-              pantryRepository={pantryRepository}
-            />
+            <Suspense fallback={<ProtectedRouteFallback />}>
+              <PantryPage
+                foodOptionsRepository={pantryFoodOptionsRepository}
+                householdRepository={householdRepository}
+                pantryRepository={pantryRepository}
+              />
+            </Suspense>
           }
         />
         <Route
           path="/shopping/:planId"
-          element={<ShoppingListPage repository={shoppingListRepository} />}
+          element={
+            <Suspense fallback={<ProtectedRouteFallback />}>
+              <ShoppingListPage repository={shoppingListRepository} />
+            </Suspense>
+          }
         />
       </Route>
       <Route path="*" element={<NotFoundPage />} />

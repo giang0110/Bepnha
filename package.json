@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "bundle:check": "node scripts/check-bundle-size.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
@@ -39,7 +40,7 @@
     "db:types:check": "node scripts/generate-database-types.mjs check",
     "verify:db": "npm run preflight:db && npm run supabase:start && npm run supabase:reset && npm run supabase:lint && npm run supabase:test",
     "security:dependencies": "npm audit --audit-level=moderate",
-    "verify:web": "npm run env:check && npm run secrets:check && npm run security:dependencies && npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build",
+    "verify:web": "npm run env:check && npm run secrets:check && npm run security:dependencies && npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run bundle:check",
     "verify:non-db": "npm run verify:web && npm run test:e2e",
     "format": "prettier --write --no-error-on-unmatched-pattern src api scripts tests .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json tsconfig.integration.json vite.config.ts vitest.config.ts vitest.integration.config.ts playwright.config.ts eslint.config.js components.json vercel.json",
     "format:check": "prettier --check --no-error-on-unmatched-pattern src api scripts tests .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json tsconfig.integration.json vite.config.ts vitest.config.ts vitest.integration.config.ts playwright.config.ts eslint.config.js components.json vercel.json",

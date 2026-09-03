@@ -130,9 +130,18 @@ function assistantHandler(assistant: MealAssistantPort | null, correlation = "as
       })
     },
     assistant,
+    rateLimiter:
+      assistant === null
+        ? null
+        : {
+            consume() {
+              return Promise.resolve({ allowed: true as const })
+            }
+          },
     telemetry: { emit() {} },
     createCorrelationId: () => correlation,
-    now: () => 100
+    now: () => 100,
+    rateLimitNow: () => 1_000
   })
 }
 
