@@ -1,10 +1,10 @@
 # BepNha
 
-BepNha is a deterministic meal-planning application for Vietnamese households. Phase 6 hardens production readiness around the existing household, catalog, planner, pantry, and shopping flows with bounded operational telemetry, security headers, health checks, recoverable planner UX, launch-catalog readiness, a dedicated planner performance gate, and 320 px accessibility/deep-link verification. Phase 5 pantry snapshots and shopping evidence remain immutable and authoritative.
+BepNha is a deterministic meal-planning application for Vietnamese households. Phase 7 adds an optional, stateless Gemini assistant inside the ready weekly-plan experience while keeping the deterministic planner, pricing, nutrition, pantry, shopping, hard-rule, and persistence paths authoritative. The assistant can explain the current authoritative plan or propose a day worth previewing for variety; it never selects a replacement meal, computes authoritative values, writes database state, or applies a change automatically.
 
-An AI model must never author or override serving quantities, nutrition, prices, shopping quantities, allergy safety, meal eligibility, or authoritative budgets.
+An AI model must never author or override serving quantities, nutrition, prices, shopping quantities, allergy safety, meal eligibility, or authoritative budgets. Every assistant replacement proposal enters the existing deterministic preview flow and still requires the user's explicit `Áp dụng bữa thay thế` confirmation before persistence.
 
-Phase 6 contains no AI/chat execution path. The production runbook is `docs/operations/production-readiness.md`.
+The production runbook is `docs/operations/production-readiness.md`. Phase 7 Gemini configuration is optional and server-only; if it is absent or the provider is unavailable, the deterministic planner, replacement, pantry, and shopping flows remain usable.
 
 ## Prerequisites
 
@@ -32,6 +32,8 @@ Never place a service-role, secret, or private key in a `VITE_*` variable. `.env
 
 Catalog administration and planner persistence additionally require `SUPABASE_SECRET_KEY` in the server Function runtime. The value is never committed, exposed through `VITE_*`, accepted from a request, or created by repository scripts. Admin endpoints first verify the caller and role with public Auth before creating the narrowly granted client. Planner endpoints load the owned household/catalog through the caller's access token and RLS before lazily creating a secret client only for the restricted persistence RPC. Shopping-list reads use the signed-in user's owner scope; browser code can mutate only the separate checked state through the narrow check-state RPC.
 
+The optional Phase 7 assistant uses `GEMINI_API_KEY` and `GEMINI_MODEL` only in the server Function runtime. Never define `VITE_GEMINI_API_KEY`, `VITE_GEMINI_MODEL`, or another browser-visible Gemini credential. Do not commit a Gemini key or model assignment to repository files. The tracked-secret scanner rejects committed Gemini key assignments. If either server variable is absent, `/api/assistant` fails closed as disabled while deterministic application features continue to work.
+
 With local Docker available, start and reset the ephemeral local stack, then launch Vite with values read directly from `supabase status -o env`:
 
 ```powershell
@@ -55,7 +57,7 @@ npm run supabase:stop
 | `/household`                       | Authoritative saved household summary                                |
 | `/settings/household`              | Version-checked editing of the single owned household                |
 | `/pantry`                          | Owner-scoped current pantry amounts used by future plan revisions    |
-| `/plan`                            | Seven primary meals, exact weekly estimate, and one-day replacement  |
+| `/plan`                            | Seven primary meals, exact weekly estimate, one-day replacement, and optional advisory assistant |
 | `/shopping/:planId`                | Current authoritative shopping list for an owned plan                |
 | `/shopping/:planId?revisionId=...` | Exact historical revision read when Phase 4 shopping evidence exists |
 
@@ -119,6 +121,14 @@ meal_plans.total_estimated_cost_vnd
 
 Mutable food/recipe/meal-option display labels are presentation data only. They are excluded from canonical planner/shopping snapshots and calculation fingerprints.
 
+### Phase 7 assistant authority
+
+The assistant is an advisory boundary, not a planner extension. The browser sends only `planId`, `expectedRevisionId`, a bounded question, and the caller's Bearer token to the same-origin assistant endpoint. The server verifies ownership and the current revision, projects authoritative plan state into a minimal evidence DTO, and only then calls Gemini.
+
+Every provider interaction is single-turn with `store: false`. The provider receives no Supabase token, user/household/plan/revision identifier, raw planner snapshot, pantry rows, unpublished catalog, candidate search space, service-role data, mutation RPC, tool definition, grounding, web search, background execution, or previous interaction state. Provider output is strictly parsed into `explanation`, `replacement_proposal`, or `unsupported`; invalid output fails closed.
+
+A `replacement_proposal` contains only a day index and qualitative reason. It can trigger the existing deterministic preview path but never chooses a meal or calls apply. The user must explicitly confirm the deterministic preview before any new revision is persisted.
+
 ## Module boundaries
 
 Cross-boundary imports use the `@/...` alias. Relative imports are limited to files within the same boundary.
@@ -136,7 +146,7 @@ Domain validation is framework-independent. PostgreSQL constraints, constraint t
 
 ## Verification
 
-Phase 6 release verification is fail-closed. Install from the committed lockfile and install Chromium once before the browser gates:
+Phase 7 release verification is fail-closed. Install from the committed lockfile and install Chromium once before the browser gates:
 
 ```powershell
 npm ci
@@ -163,30 +173,20 @@ try {
 }
 ```
 
-`verify:release:db` performs a local-only reset, fatal SQL lint, pgTAP, generated-type drift, Auth/household/catalog/admin/planner/shopping/pantry integrations, then performs a second clean reset before the catalog-readiness fixture so earlier integration fixtures cannot contaminate the release decision. It then runs the onboarding, planner, shopping, pantry, and 320 px accessibility Playwright suites.
+`verify:release:db` performs a local-only reset, fatal SQL lint, pgTAP, generated-type drift, Auth/household/catalog/admin/planner/assistant/shopping/pantry integrations, then performs a second clean reset before the catalog-readiness fixture so earlier integration fixtures cannot contaminate the release decision. It then runs onboarding, planner, assistant, shopping, pantry, and 320 px accessibility Playwright suites. CI uses a fake assistant provider and never calls the real Gemini API.
 
 `supabase:reset` is explicitly local-only. Never substitute a remote production or staging database. `src/infrastructure/supabase/database.types.ts` is generated from the clean local migration state; `db:types:check` rejects drift.
 
-The ordinary `test:e2e` command proves Vite-preview SPA/deep-link behavior only. Docker-backed integration remains authoritative for local Auth, RPC, RLS, catalog, planner persistence, shopping persistence, revision history, owner isolation, and catalog-readiness evidence.
+The ordinary `test:e2e` command proves Vite-preview SPA/deep-link behavior only. Docker-backed integration remains authoritative for local Auth, RPC, RLS, catalog, planner persistence, assistant owner isolation/no-write evidence, shopping persistence, revision history, and catalog-readiness evidence.
 
 ## GitHub Actions evidence
 
-CI keeps independent `web` and `database` jobs. The web job runs the full non-database verifier, the dedicated planner performance gate, and lightweight browser smoke. The database job uses GitHub-hosted Docker for a clean Supabase migration/reset, fatal SQL lint, pgTAP/RLS/integrity tests, generated-type drift, Auth/household/catalog/admin/planner/shopping/pantry integration, an isolated catalog-readiness reset/report, and all focused browser journeys. CI uses no remote database, deployment environment, or application secret.
+CI keeps independent `web` and `database` jobs. The web job runs the full non-database verifier, the dedicated planner performance gate, and lightweight browser smoke. The database job uses GitHub-hosted Docker for a clean Supabase migration/reset, fatal SQL lint, pgTAP/RLS/integrity tests, generated-type drift, Auth/household/catalog/admin/planner/assistant/shopping/pantry integration, an isolated catalog-readiness reset/report, and all focused browser journeys. Assistant integration/E2E use an injected/fake provider; CI defines no Gemini secret and makes no external Gemini request.
 
-Match evidence to the exact final Phase 6 SHA:
+Release evidence must match the exact final Phase 7 feature SHA and, after approved integration, the exact resulting `main` SHA. An ancestor run is supporting evidence only.
 
-```powershell
-$phase6Head = git rev-parse HEAD
-$phase6Run = gh run list --workflow ci.yml --branch codex/phase-6-production-readiness --commit $phase6Head --limit 1 --json databaseId,headSha,status,conclusion,url | ConvertFrom-Json
-if ($phase6Run.Count -ne 1 -or $phase6Run.headSha -ne $phase6Head) { throw 'No CI run found for exact Phase 6 HEAD' }
-gh run watch $phase6Run.databaseId --exit-status
-$phase6Jobs = (gh run view $phase6Run.databaseId --json jobs | ConvertFrom-Json).jobs
-if (($phase6Jobs | Where-Object name -eq 'web').conclusion -ne 'success') { throw 'CI web job did not pass' }
-if (($phase6Jobs | Where-Object name -eq 'database').conclusion -ne 'success') { throw 'CI database job did not pass' }
-```
-
-Record `PHASE_6_PASS` only when the exact final feature HEAD has clean web and database jobs, the release runbook checks are satisfied, generated types are clean, and the scope/security audit contains no Phase 7 behavior. Otherwise record `PHASE_6_BLOCKED` with the exact failed or pending gate.
+Record `PHASE_7_PASS` only when the exact final feature HEAD has clean `web` and `database` jobs, the Phase 7 scope/security exit audit is clean, and exact-main CI succeeds after integration. Otherwise record `PHASE_7_BLOCKED` with the exact failed or pending gate.
 
 ## Intentionally deferred
 
-Phase 6 does **not** add AI/chat behavior, retailer/live-price comparison, pantry lots or expiry tracking, automatic pantry consumption, custom/manual grocery items, marketplace flows, delivery, payment, receipts, barcode/OCR, notifications, collaboration/offline sync, or background inventory jobs. The optional Phase 7 assistant is a separate later layer and must never become planner, quantity, nutrition, allergy, shopping, or budget authority.
+Phase 7 does **not** add AI-generated meal plans, AI-selected replacement meals, AI-authored prices/quantities/portions/nutrition/budget status, medical or therapeutic nutrition advice, Gemini tools/function calling/grounding/web search, persistent chat history, vector search/RAG, background agents, retailer/live-price comparison, pantry lots or expiry tracking, automatic pantry consumption, custom/manual grocery items, marketplace flows, delivery, payment, receipts, barcode/OCR, notifications, collaboration/offline sync, or background inventory jobs.
