@@ -1,0 +1,21 @@
+name: Phase 7 Task 4 Runtime RED
+
+on:
+  push:
+    branches:
+      - codex/phase-7-task4-runtime-red
+
+permissions:
+  contents: read
+
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run src/infrastructure/server/assistant-runtime.test.ts
