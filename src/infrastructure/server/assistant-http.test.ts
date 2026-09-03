@@ -82,6 +82,7 @@ function setup(
   }
   const loadCurrent = vi.fn(() => Promise.resolve(contextResult))
   const contextRepository: AssistantContextRepository = { loadCurrent }
+  const contextRepositoryFor = vi.fn(() => contextRepository)
   const respond = vi.fn(() =>
     Promise.resolve({
       ok: true as const,
@@ -97,13 +98,13 @@ function setup(
   const emit = vi.fn()
   const handler = createAssistantHttpHandler({
     auth: { verify: vi.fn(() => Promise.resolve({ userId: "user-1" })) },
-    contextRepository,
+    contextRepositoryFor,
     assistant: options.assistant === null ? null : assistant,
     telemetry: { emit },
     createCorrelationId: () => "generated-assistant-correlation",
     now: () => 100
   })
-  return { handler, loadCurrent, respond, emit }
+  return { handler, contextRepositoryFor, loadCurrent, respond, emit }
 }
 
 function expectSecurityHeaders(setHeader: ReturnType<typeof vi.fn>): void {
@@ -114,6 +115,17 @@ function expectSecurityHeaders(setHeader: ReturnType<typeof vi.fn>): void {
 }
 
 describe("assistant HTTP", () => {
+  test("creates owner-scoped context from the verified request token", async () => {
+    const { handler, contextRepositoryFor, loadCurrent } = setup()
+    const { response } = responseDouble()
+
+    await handler(request(validBody()), response)
+
+    expect(contextRepositoryFor).toHaveBeenCalledOnce()
+    expect(contextRepositoryFor).toHaveBeenCalledWith("signed-token")
+    expect(loadCurrent).toHaveBeenCalledWith({ actorUserId: "user-1", planId: PLAN_ID })
+  })
+
   test("returns a verified assistant result with safe correlation and one sanitized event", async () => {
     const { handler, loadCurrent, respond, emit } = setup()
     const { state, response } = responseDouble()
@@ -189,23 +201,24 @@ describe("assistant HTTP", () => {
     ["blank question", request(validBody("   ")), 400],
     ["oversized question", request(validBody("x".repeat(501))), 400]
   ] as const)("rejects invalid request: %s", async (_label, incoming, statusCode) => {
-    const { handler, loadCurrent, respond } = setup()
+    const { handler, contextRepositoryFor, loadCurrent, respond } = setup()
     const { state, response } = responseDouble()
 
     await handler(incoming, response)
 
     expect(state.statusCode).toBe(statusCode)
     expect(state.body).toEqual({ error: "INVALID_ASSISTANT_REQUEST" })
+    expect(contextRepositoryFor).not.toHaveBeenCalled()
     expect(loadCurrent).not.toHaveBeenCalled()
     expect(respond).not.toHaveBeenCalled()
   })
 
-  test("requires a valid bearer identity before loading plan context", async () => {
-    const loadCurrent = vi.fn()
+  test("requires a valid bearer identity before creating plan context", async () => {
+    const contextRepositoryFor = vi.fn()
     const emit = vi.fn()
     const handler = createAssistantHttpHandler({
       auth: { verify: vi.fn(() => Promise.resolve(null)) },
-      contextRepository: { loadCurrent },
+      contextRepositoryFor,
       assistant: { respond: vi.fn() },
       telemetry: { emit },
       createCorrelationId: () => "correlation",
@@ -217,7 +230,7 @@ describe("assistant HTTP", () => {
 
     expect(state.statusCode).toBe(401)
     expect(state.body).toEqual({ error: "UNAUTHORIZED" })
-    expect(loadCurrent).not.toHaveBeenCalled()
+    expect(contextRepositoryFor).not.toHaveBeenCalled()
   })
 
   test("maps owner denial and context dependency failure without invoking Gemini", async () => {
