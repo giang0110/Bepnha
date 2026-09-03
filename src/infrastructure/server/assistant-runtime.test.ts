@@ -80,7 +80,7 @@ describe("assistant runtime", () => {
   })
 
   test("contains no secret-client or persistence path", async () => {
-    const source = await readFile(new URL("./assistant-runtime.ts", import.meta.url), "utf8")
+    const source = await readFile("src/infrastructure/server/assistant-runtime.ts", "utf8")
 
     expect(source).not.toMatch(/SUPABASE_SECRET_KEY|service[_-]?role/iu)
     expect(source).not.toMatch(/createSupabasePlannerRepository|persistRevision|persist_meal_plan_revision/u)
