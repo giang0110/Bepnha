@@ -83,7 +83,9 @@ describe("assistant runtime", () => {
     const source = await readFile("src/infrastructure/server/assistant-runtime.ts", "utf8")
 
     expect(source).not.toMatch(/SUPABASE_SECRET_KEY|service[_-]?role/iu)
-    expect(source).not.toMatch(/createSupabasePlannerRepository|persistRevision|persist_meal_plan_revision/u)
+    expect(source).not.toMatch(
+      /createSupabasePlannerRepository|persistRevision|persist_meal_plan_revision/u
+    )
     expect(source).not.toMatch(/VITE_GEMINI/u)
   })
 })
