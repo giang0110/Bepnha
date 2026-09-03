@@ -82,7 +82,10 @@ function disabledAssistantApi(): AssistantApi {
   }
 }
 
-function setup(apiOverrides: Partial<PlannerApi> = {}, assistantApi: AssistantApi = disabledAssistantApi()) {
+function setup(
+  apiOverrides: Partial<PlannerApi> = {},
+  assistantApi: AssistantApi = disabledAssistantApi()
+) {
   const api: PlannerApi = {
     generate: vi.fn().mockResolvedValue({ ok: true, value: ready() }),
     preview: vi.fn().mockResolvedValue({
