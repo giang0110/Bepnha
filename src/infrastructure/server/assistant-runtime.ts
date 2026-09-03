@@ -70,7 +70,9 @@ function boundedInteger(
   return parsed
 }
 
-function rateLimitConfig(environment: AssistantRuntimeEnvironment): RateLimitConfig {
+function rateLimitConfig(
+  environment: AssistantRuntimeEnvironment
+): RateLimitConfig {
   return {
     burstLimit: boundedInteger(environment.ASSISTANT_RATE_LIMIT_BURST, 5, 1, 30),
     burstWindowMs: 60_000,
@@ -134,9 +136,7 @@ export function createAssistantRuntimeDependencies(
     ? factories.createRateLimiter(rateLimitConfig(environment), environment)
     : null
   const assistant =
-    configured && rateLimiter !== null
-      ? factories.createGeminiAssistant(apiKey, model)
-      : null
+    configured && rateLimiter !== null ? factories.createGeminiAssistant(apiKey, model) : null
 
   return {
     auth: factories.createAuth(config),
