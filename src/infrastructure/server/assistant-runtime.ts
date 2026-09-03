@@ -51,10 +51,7 @@ function createContext(
   return createSupabaseAssistantContextRepository({
     userClient: {
       rpc(name, args) {
-        return userClient.rpc(
-          name as keyof Database["public"]["Functions"],
-          args as never
-        ) as never
+        return userClient.rpc(name as keyof Database["public"]["Functions"], args as never) as never
       }
     },
     loader: createSupabasePlannerInputLoader(userClient)
