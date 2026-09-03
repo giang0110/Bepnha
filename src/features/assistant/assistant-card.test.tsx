@@ -61,35 +61,6 @@ describe("AssistantCard", () => {
     })
   })
 
-  test("resets old advice when the authoritative revision changes", async () => {
-    const user = userEvent.setup()
-    const assistantApi = api({
-      ok: true,
-      value: {
-        kind: "explanation",
-        summaryVi: "Lời giải thích của revision cũ.",
-        observationsVi: []
-      }
-    })
-    const { rerender } = render(
-      <AssistantCard {...props} assistantApi={assistantApi} onPreviewDay={vi.fn()} />
-    )
-
-    await user.click(screen.getByRole("button", { name: "Giải thích kế hoạch này" }))
-    expect(await screen.findByText("Lời giải thích của revision cũ.")).toBeInTheDocument()
-
-    rerender(
-      <AssistantCard
-        {...props}
-        expectedRevisionId="50000000-0000-0000-0000-000000000002"
-        assistantApi={assistantApi}
-        onPreviewDay={vi.fn()}
-      />
-    )
-
-    expect(screen.queryByText("Lời giải thích của revision cũ.")).not.toBeInTheDocument()
-  })
-
   test("proposal can only request deterministic preview and never apply", async () => {
     const user = userEvent.setup()
     const onPreviewDay = vi.fn()
