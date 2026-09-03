@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  red:
+  isolation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,4 +18,12 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run preflight:db
+      - run: npm run supabase:start
+      - run: npm run supabase:reset
+      - run: npm run test:integration:planner
       - run: npm run test:integration:assistant
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:assistant
+      - if: always()
+        run: npm run supabase:stop
