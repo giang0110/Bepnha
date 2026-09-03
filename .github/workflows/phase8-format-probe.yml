@@ -1,0 +1,22 @@
+name: Phase 8 Format Probe
+
+on:
+  push:
+    branches:
+      - codex/phase-8-production-hardening
+
+permissions:
+  contents: read
+
+jobs:
+  format-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prettier src/infrastructure/server/assistant-runtime.ts
+      - run: npx prettier src/infrastructure/server/in-memory-assistant-rate-limiter.ts
