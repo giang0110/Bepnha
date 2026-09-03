@@ -2,7 +2,11 @@ import { describe, expect, test, vi } from "vitest"
 
 import type { AssistantPlanEvidence } from "@/application/assistant/meal-assistant"
 
-import { createGeminiMealAssistant } from "./gemini-meal-assistant"
+import {
+  createGeminiMealAssistant,
+  type GeminiCreateInteraction,
+  type GeminiInteractionResponse
+} from "./gemini-meal-assistant"
 
 const evidence: AssistantPlanEvidence = {
   meals: Array.from({ length: 7 }, (_, dayIndex) => ({
@@ -25,23 +29,25 @@ const evidence: AssistantPlanEvidence = {
   warningCodes: []
 }
 
-function completed(output: unknown) {
+function completed(output: unknown): GeminiInteractionResponse {
   return {
     status: "completed",
     output_text: typeof output === "string" ? output : JSON.stringify(output)
   }
 }
 
+function interactionMock(response: GeminiInteractionResponse) {
+  return vi.fn<GeminiCreateInteraction>(() => Promise.resolve(response))
+}
+
 describe("Gemini meal assistant", () => {
   test("sends one stateless structured-output interaction with no tools or provider state", async () => {
-    const createInteraction = vi.fn(() =>
-      Promise.resolve(
-        completed({
-          kind: "explanation",
-          summaryVi: "Kế hoạch khá cân bằng.",
-          observationsVi: ["Các bữa có thời gian nấu đa dạng."]
-        })
-      )
+    const createInteraction = interactionMock(
+      completed({
+        kind: "explanation",
+        summaryVi: "Kế hoạch khá cân bằng.",
+        observationsVi: ["Các bữa có thời gian nấu đa dạng."]
+      })
     )
     const assistant = createGeminiMealAssistant({
       createInteraction,
@@ -61,7 +67,7 @@ describe("Gemini meal assistant", () => {
     })
 
     expect(createInteraction).toHaveBeenCalledOnce()
-    const request = createInteraction.mock.calls[0]![0]
+    const [request] = createInteraction.mock.calls[0]!
     expect(request).toMatchObject({
       model: "gemini-3.7-flash",
       store: false,
@@ -88,10 +94,8 @@ describe("Gemini meal assistant", () => {
   })
 
   test("keeps prompt-injection-like question and meal text inside untrusted input only", async () => {
-    const createInteraction = vi.fn(() =>
-      Promise.resolve(
-        completed({ kind: "unsupported", messageVi: "Yêu cầu này nằm ngoài phạm vi trợ lý." })
-      )
+    const createInteraction = interactionMock(
+      completed({ kind: "unsupported", messageVi: "Yêu cầu này nằm ngoài phạm vi trợ lý." })
     )
     const assistant = createGeminiMealAssistant({ createInteraction, model: "model", timeoutMs: 100 })
     const hostileEvidence: AssistantPlanEvidence = {
@@ -106,7 +110,7 @@ describe("Gemini meal assistant", () => {
       evidence: hostileEvidence
     })
 
-    const request = createInteraction.mock.calls[0]![0]
+    const [request] = createInteraction.mock.calls[0]!
     expect(request.system_instruction).not.toContain("IGNORE SYSTEM")
     expect(request.system_instruction).not.toContain("tự sửa database")
     const input = JSON.parse(request.input)
@@ -117,14 +121,12 @@ describe("Gemini meal assistant", () => {
 
   test("accepts a valid bounded replacement proposal", async () => {
     const assistant = createGeminiMealAssistant({
-      createInteraction: vi.fn(() =>
-        Promise.resolve(
-          completed({
-            kind: "replacement_proposal",
-            targetDayIndex: 2,
-            reasonVi: "Thứ Tư lặp phong cách nấu so với các ngày lân cận."
-          })
-        )
+      createInteraction: interactionMock(
+        completed({
+          kind: "replacement_proposal",
+          targetDayIndex: 2,
+          reasonVi: "Thứ Tư lặp phong cách nấu so với các ngày lân cận."
+        })
       ),
       model: "model",
       timeoutMs: 100
@@ -149,22 +151,28 @@ describe("Gemini meal assistant", () => {
     ["failed interaction", { status: "failed", output_text: "{}" }],
     ["incomplete interaction", { status: "incomplete", output_text: "{}" }],
     ["missing output", { status: "completed" }]
-  ])("fails closed for %s", async (_label, response) => {
-    const assistant = createGeminiMealAssistant({
-      createInteraction: vi.fn(() => Promise.resolve(response)),
-      model: "model",
-      timeoutMs: 100
-    })
+  ] satisfies readonly [string, GeminiInteractionResponse][])(
+    "fails closed for %s",
+    async (_label, response) => {
+      const assistant = createGeminiMealAssistant({
+        createInteraction: interactionMock(response),
+        model: "model",
+        timeoutMs: 100
+      })
 
-    await expect(assistant.respond({ question: "Giải thích", evidence })).resolves.toEqual({
-      ok: false,
-      error: "ASSISTANT_UNAVAILABLE"
-    })
-  })
+      await expect(assistant.respond({ question: "Giải thích", evidence })).resolves.toEqual({
+        ok: false,
+        error: "ASSISTANT_UNAVAILABLE"
+      })
+    }
+  )
 
   test("fails closed when the Gemini client rejects", async () => {
+    const createInteraction = vi.fn<GeminiCreateInteraction>(() =>
+      Promise.reject(new Error("raw provider secret detail"))
+    )
     const assistant = createGeminiMealAssistant({
-      createInteraction: vi.fn(() => Promise.reject(new Error("raw provider secret detail"))),
+      createInteraction,
       model: "model",
       timeoutMs: 100
     })
@@ -176,8 +184,11 @@ describe("Gemini meal assistant", () => {
   })
 
   test("fails closed on a bounded provider timeout", async () => {
+    const createInteraction = vi.fn<GeminiCreateInteraction>(
+      () => new Promise<GeminiInteractionResponse>(() => undefined)
+    )
     const assistant = createGeminiMealAssistant({
-      createInteraction: vi.fn(() => new Promise(() => undefined)),
+      createInteraction,
       model: "model",
       timeoutMs: 5
     })
