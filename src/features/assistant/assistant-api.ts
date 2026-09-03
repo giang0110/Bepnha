@@ -94,7 +94,9 @@ function failure(error: string, response?: FetchResponse): AssistantApiResult {
   return id === undefined ? { ok: false, error } : { ok: false, error, correlationId: id }
 }
 
-export function createAssistantApi(fetcher: Fetcher = (url, init) => fetch(url, init)): AssistantApi {
+export function createAssistantApi(
+  fetcher: Fetcher = (url, init) => fetch(url, init)
+): AssistantApi {
   return {
     async ask(accessToken, input) {
       let response: FetchResponse
