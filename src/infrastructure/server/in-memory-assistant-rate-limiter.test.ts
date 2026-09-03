@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node"
+import type { VercelRequest, VercResponse } from "@vercel/node"
 import { describe, expect, test, vi } from "vitest"
 
 import type { AssistantPlanEvidence } from "@/application/assistant/meal-assistant"
@@ -40,7 +40,7 @@ function responseDouble() {
       state.headers.set(name, value)
       return response
     }
-  } as unknown as VercelResponse
+  } as unknown as VercResponse
   return { state, response }
 }
 
@@ -68,21 +68,21 @@ describe("in-memory assistant rate limiter", () => {
     })
 
     for (let index = 0; index < 5; index += 1) {
-      await expect(limiter.consume({ actorUserId: "user-a", nowMs: 1_000 + index })).resolves.toEqual({
-        allowed: true
-      })
+      await expect(
+        limiter.consume({ actorUserId: "user-a", nowMs: 1_000 + index })
+      ).resolves.toEqual({ allowed: true })
     }
 
     const denied = await limiter.consume({ actorUserId: "user-a", nowMs: 2_000 })
     expect(denied.allowed).toBe(false)
     if (!denied.allowed) expect(denied.retryAfterSeconds).toBeGreaterThan(0)
 
-    await expect(limiter.consume({ actorUserId: "user-b", nowMs: 2_000 })).resolves.toEqual({
-      allowed: true
-    })
-    await expect(limiter.consume({ actorUserId: "user-a", nowMs: 61_001 })).resolves.toEqual({
-      allowed: true
-    })
+    await expect(
+      limiter.consume({ actorUserId: "user-b", nowMs: 2_000 })
+    ).resolves.toEqual({ allowed: true })
+    await expect(
+      limiter.consume({ actorUserId: "user-a", nowMs: 61_001 })
+    ).resolves.toEqual({ allowed: true })
   })
 
   test("enforces the daily quota and resets at the next UTC day", async () => {
@@ -99,7 +99,10 @@ describe("in-memory assistant rate limiter", () => {
       ).resolves.toEqual({ allowed: true })
     }
 
-    const denied = await limiter.consume({ actorUserId: "user-a", nowMs: dayStart + 55_000 })
+    const denied = await limiter.consume({
+      actorUserId: "user-a",
+      nowMs: dayStart + 55_000
+    })
     expect(denied.allowed).toBe(false)
 
     await expect(
@@ -118,7 +121,10 @@ describe("assistant HTTP rate-limit boundary", () => {
       auth: { verify: vi.fn(() => Promise.resolve({ userId: "user-1" })) },
       contextRepositoryFor: () => ({
         loadCurrent: vi.fn(() =>
-          Promise.resolve({ ok: true as const, value: { currentRevisionId: REVISION_ID, evidence } })
+          Promise.resolve({
+            ok: true as const,
+            value: { currentRevisionId: REVISION_ID, evidence }
+          })
         )
       }),
       assistant: { respond },
