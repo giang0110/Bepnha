@@ -1,0 +1,21 @@
+name: Phase 7 Task 5 UI RED
+
+on:
+  push:
+    branches:
+      - codex/phase-7-task5-ui-red
+
+permissions:
+  contents: read
+
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run src/features/assistant/assistant-api.test.ts src/features/assistant/assistant-card.test.tsx
