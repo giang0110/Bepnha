@@ -32,8 +32,21 @@ afterEach(() => {
 })
 
 describe("bundle size checker", () => {
-  it("accepts a JavaScript asset at the 500000 byte ceiling", () => {
-    const result = runBundleCheck(createBuildAsset("app.js", 500_000))
+  it.each([499_999, 500_000])("accepts a JavaScript asset at %i bytes", (size) => {
+    const result = runBundleCheck(createBuildAsset("app.js", size))
+
+    expect(result.status).toBe(0)
+  })
+
+  it("rejects a JavaScript asset above the 500000 byte ceiling", () => {
+    const result = runBundleCheck(createBuildAsset("app.js", 500_001))
+
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain("Bundle ceiling exceeded")
+  })
+
+  it("ignores non-JavaScript assets above the ceiling", () => {
+    const result = runBundleCheck(createBuildAsset("app.css", 600_000))
 
     expect(result.status).toBe(0)
   })
