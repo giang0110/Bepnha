@@ -1,4 +1,4 @@
-name: Phase 7 Task 4 Runtime Format
+name: Phase 7 Task 4 Runtime GREEN
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  format:
+  green:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,8 +18,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx prettier --write src/infrastructure/server/assistant-runtime.ts
-      - run: |
-          echo '__RUNTIME_FORMATTED_BEGIN__'
-          cat src/infrastructure/server/assistant-runtime.ts
-          echo '__RUNTIME_FORMATTED_END__'
+      - run: npx vitest run src/infrastructure/server/assistant-runtime.test.ts src/infrastructure/server/assistant-http.test.ts src/infrastructure/server/gemini-meal-assistant.test.ts src/infrastructure/server/operational-telemetry.test.ts src/infrastructure/server/planner-http.test.ts
+      - run: npx prettier --check src/infrastructure/server/assistant-runtime.ts src/infrastructure/server/assistant-runtime.test.ts src/infrastructure/server/assistant-http.ts src/infrastructure/server/assistant-http.test.ts api/assistant.ts
+      - run: npm run typecheck
+      - run: npm run lint
