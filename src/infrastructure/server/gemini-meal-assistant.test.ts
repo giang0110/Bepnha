@@ -11,15 +11,9 @@ import {
 const evidence: AssistantPlanEvidence = {
   meals: Array.from({ length: 7 }, (_, dayIndex) => ({
     dayIndex,
-    dayLabelVi: [
-      "Thứ Hai",
-      "Thứ Ba",
-      "Thứ Tư",
-      "Thứ Năm",
-      "Thứ Sáu",
-      "Thứ Bảy",
-      "Chủ Nhật"
-    ][dayIndex]!,
+    dayLabelVi: ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"][
+      dayIndex
+    ]!,
     mealNameVi: `Bữa số ${dayIndex + 1}`,
     elapsedMinutes: 25 + dayIndex
   })),
@@ -97,7 +91,11 @@ describe("Gemini meal assistant", () => {
     const createInteraction = interactionMock(
       completed({ kind: "unsupported", messageVi: "Yêu cầu này nằm ngoài phạm vi trợ lý." })
     )
-    const assistant = createGeminiMealAssistant({ createInteraction, model: "model", timeoutMs: 100 })
+    const assistant = createGeminiMealAssistant({
+      createInteraction,
+      model: "model",
+      timeoutMs: 100
+    })
     const hostileEvidence: AssistantPlanEvidence = {
       ...evidence,
       meals: evidence.meals.map((meal, index) =>
@@ -132,7 +130,9 @@ describe("Gemini meal assistant", () => {
       timeoutMs: 100
     })
 
-    await expect(assistant.respond({ question: "Bữa nào nên xem thử?", evidence })).resolves.toEqual({
+    await expect(
+      assistant.respond({ question: "Bữa nào nên xem thử?", evidence })
+    ).resolves.toEqual({
       ok: true,
       value: {
         kind: "replacement_proposal",
