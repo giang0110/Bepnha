@@ -18,7 +18,7 @@ describe("operational telemetry", () => {
     expect(correlationId(undefined, () => "generated-id")).toBe("generated-id")
   })
 
-  test("emits only the sanitized operational event shape", () => {
+  test("emits only the sanitized planner operational event shape", () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined)
     const telemetry = createConsoleOperationalTelemetry()
     const event = {
@@ -46,6 +46,35 @@ describe("operational telemetry", () => {
       outcomeCode: "PLANNER_UNAVAILABLE"
     })
     expect(serialized).not.toMatch(/Bearer|private-household|database secret stack/u)
+  })
+
+  test("emits only the sanitized assistant event shape", () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined)
+    const telemetry = createConsoleOperationalTelemetry()
+    const event = {
+      event: "assistant_request",
+      operation: "respond",
+      correlationId: "assistant-safe",
+      durationMs: 8.4,
+      httpStatus: 200,
+      outcomeCode: "explanation",
+      question: "must-not-log",
+      providerOutput: "must-not-log",
+      apiKey: "must-not-log"
+    } as OperationalEvent & Record<string, unknown>
+
+    telemetry.emit(event)
+
+    const serialized = String(info.mock.calls[0]?.[0])
+    expect(JSON.parse(serialized)).toEqual({
+      event: "assistant_request",
+      operation: "respond",
+      correlationId: "assistant-safe",
+      durationMs: 8,
+      httpStatus: 200,
+      outcomeCode: "explanation"
+    })
+    expect(serialized).not.toMatch(/must-not-log|question|providerOutput|apiKey/u)
   })
 
   test("clamps invalid duration to zero", () => {
