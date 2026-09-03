@@ -50,16 +50,16 @@ npm run supabase:stop
 
 ## Routes and household semantics
 
-| Route                              | Purpose                                                              |
-| ---------------------------------- | -------------------------------------------------------------------- |
-| `/sign-up`, `/sign-in`             | Supabase email/password Auth without household-member accounts       |
-| `/onboarding`                      | Five-step mobile household setup                                     |
-| `/household`                       | Authoritative saved household summary                                |
-| `/settings/household`              | Version-checked editing of the single owned household                |
-| `/pantry`                          | Owner-scoped current pantry amounts used by future plan revisions    |
+| Route                              | Purpose                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `/sign-up`, `/sign-in`             | Supabase email/password Auth without household-member accounts                                   |
+| `/onboarding`                      | Five-step mobile household setup                                                                 |
+| `/household`                       | Authoritative saved household summary                                                            |
+| `/settings/household`              | Version-checked editing of the single owned household                                            |
+| `/pantry`                          | Owner-scoped current pantry amounts used by future plan revisions                                |
 | `/plan`                            | Seven primary meals, exact weekly estimate, one-day replacement, and optional advisory assistant |
-| `/shopping/:planId`                | Current authoritative shopping list for an owned plan                |
-| `/shopping/:planId?revisionId=...` | Exact historical revision read when Phase 4 shopping evidence exists |
+| `/shopping/:planId`                | Current authoritative shopping list for an owned plan                                            |
+| `/shopping/:planId?revisionId=...` | Exact historical revision read when Phase 4 shopping evidence exists                             |
 
 Children are counts in approved age bands, never user accounts. The application does not collect names, birth dates, sex, weight, diagnoses, health fields, or free-text dietary rules.
 
