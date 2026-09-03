@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { VercelRequest, VercelResponse } from "@vercel/node"
-import { beforeAll, describe, expect, test, vi } from "vitest"
+import { beforeAll, describe, expect, test } from "vitest"
 
 import type { MealAssistantPort } from "@/application/assistant/meal-assistant.js"
 import { createAssistantHttpHandler } from "@/infrastructure/server/assistant-http.js"
@@ -111,10 +111,10 @@ function fakeAssistant(
 ) {
   const calls: Parameters<MealAssistantPort["respond"]>[0][] = []
   const assistant: MealAssistantPort = {
-    respond: vi.fn(async (input) => {
+    respond(input) {
       calls.push(input)
-      return result
-    })
+      return Promise.resolve(result)
+    }
   }
   return { assistant, calls }
 }
