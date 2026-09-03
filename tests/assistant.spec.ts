@@ -59,13 +59,19 @@ function ready(
 
 async function onboard(page: Page) {
   await page.goto("/sign-up")
-  await page.getByRole("textbox", { name: "Email" }).fill(`phase7-browser-${crypto.randomUUID()}@example.test`)
+  await page
+    .getByRole("textbox", { name: "Email" })
+    .fill(`phase7-browser-${crypto.randomUUID()}@example.test`)
   await page.getByLabel("Mật khẩu").fill("phase7-browser-test-password")
   await page.getByRole("button", { name: "Tạo tài khoản" }).click()
-  await expect(page.getByRole("heading", { name: "Thành viên trong gia đình" })).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Thành viên trong gia đình" })
+  ).toBeVisible()
   await page.getByRole("spinbutton", { name: "Người lớn" }).fill("2")
   await page.getByRole("button", { name: "Tiếp tục" }).click()
-  await page.getByRole("textbox", { name: "Ngân sách tuần (VND)" }).fill("1200000")
+  await page
+    .getByRole("textbox", { name: "Ngân sách tuần (VND)" })
+    .fill("1200000")
   await page.getByRole("button", { name: "Tiếp tục" }).click()
   await page.getByRole("button", { name: "Tiếp tục" }).click()
   await page.getByRole("button", { name: "Tiếp tục" }).click()
@@ -86,7 +92,11 @@ test("mobile assistant remains advisory and deterministic replacement requires e
   let applyCalls = 0
 
   await page.route("**/api/plans/generate", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(initial) })
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(initial)
+    })
   )
   await page.route("**/api/plans/replacements-preview", (route) => {
     previewCalls += 1
@@ -123,6 +133,7 @@ test("mobile assistant remains advisory and deterministic replacement requires e
         body: JSON.stringify({ error: "ASSISTANT_UNAVAILABLE" })
       })
     }
+
     const body = route.request().postDataJSON() as { question: string }
     if (body.question === "Giải thích kế hoạch này") {
       return route.fulfill({
@@ -135,6 +146,7 @@ test("mobile assistant remains advisory and deterministic replacement requires e
         })
       })
     }
+
     return route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -154,7 +166,9 @@ test("mobile assistant remains advisory and deterministic replacement requires e
   await expect(page.getByRole("heading", { name: "Trợ lý Bếp Nhà" })).toBeVisible()
 
   await page.getByRole("button", { name: "Giải thích kế hoạch này" }).click()
-  await expect(page.getByText("Bảy bữa chính đều nằm trong kế hoạch tất định.")).toBeVisible()
+  await expect(
+    page.getByText("Bảy bữa chính đều nằm trong kế hoạch tất định.")
+  ).toBeVisible()
 
   await page.getByRole("button", { name: "Bữa nào nên xem thử để đa dạng hơn?" }).click()
   await expect(page.getByText("Có thể xem thử Thứ Tư để tăng độ đa dạng.")).toBeVisible()

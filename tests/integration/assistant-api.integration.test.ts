@@ -3,8 +3,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node"
 import { beforeAll, describe, expect, test, vi } from "vitest"
 
 import type { MealAssistantPort } from "@/application/assistant/meal-assistant.js"
-import { NodeContentHasher } from "@/infrastructure/server/node-content-hasher.js"
 import { createAssistantHttpHandler } from "@/infrastructure/server/assistant-http.js"
+import { NodeContentHasher } from "@/infrastructure/server/node-content-hasher.js"
 import { createPlannerHttpHandlers } from "@/infrastructure/server/planner-http.js"
 import { createSupabaseAssistantContextRepository } from "@/infrastructure/server/supabase-assistant-context-repository.js"
 import { createSupabasePlannerInputLoader } from "@/infrastructure/server/supabase-planner-input-loader.js"
@@ -55,7 +55,10 @@ function responseDouble() {
   const response = {
     statusCode: 0,
     setHeader(name: string, value: string | number | readonly string[]) {
-      headers.set(name.toLowerCase(), Array.isArray(value) ? value.join(",") : String(value))
+      headers.set(
+        name.toLowerCase(),
+        Array.isArray(value) ? value.join(",") : String(value)
+      )
       return response
     },
     status(code: number) {
@@ -86,7 +89,7 @@ function request(body: unknown, accessToken: string | null): VercelRequest {
 function plannerHandlers() {
   return createPlannerHttpHandlers({
     auth: createServerAuthVerifier(publicClient),
-    repositoryFor: (accessToken) => {
+    repositoryFor: (_actorUserId, accessToken) => {
       const client = authenticatedClient(accessToken)
       return createSupabasePlannerRepository({
         userClient: rpcClient(client),
@@ -149,6 +152,7 @@ async function authoritativeState() {
   if (plan.error !== null || revisions.error !== null) {
     throw new Error("Unable to snapshot authoritative assistant state")
   }
+
   const pantry = await createSupabasePantryRepository(ownerClient).load(householdId)
   const shopping = await createSupabaseShoppingListRepository(ownerClient).load(planId)
   return JSON.stringify({
@@ -180,8 +184,12 @@ beforeAll(async () => {
   })
 
   const users = await secretClient.auth.admin.listUsers({ page: 1, perPage: 1000 })
-  if (users.error !== null) throw new Error("Unable to inspect local planner fixture user")
-  const plannerUser = users.data.users.find((user) => user.email?.startsWith("phase3-planner-"))
+  if (users.error !== null) {
+    throw new Error("Unable to inspect local planner fixture user")
+  }
+  const plannerUser = users.data.users.find((user) =>
+    user.email?.startsWith("phase3-planner-")
+  )
   if (plannerUser?.email === undefined) {
     throw new Error("Assistant integration requires planner integration fixture first")
   }
@@ -206,13 +214,19 @@ beforeAll(async () => {
   const generatedResponse = responseDouble()
   await plannerHandlers().generate(
     request(
-      { householdId, weekStart: assistantWeekStart, idempotencyKey: crypto.randomUUID() },
+      {
+        householdId,
+        weekStart: assistantWeekStart,
+        idempotencyKey: crypto.randomUUID()
+      },
       ownerToken
     ),
     generatedResponse.response
   )
   if (generatedResponse.state.statusCode !== 200) {
-    throw new Error(`Unable to generate assistant fixture plan: ${generatedResponse.state.statusCode}`)
+    throw new Error(
+      `Unable to generate assistant fixture plan: ${generatedResponse.state.statusCode}`
+    )
   }
   const generated = generatedResponse.state.body as {
     planId: string
@@ -240,7 +254,14 @@ describe("Phase 7 assistant API integration", () => {
     const response = responseDouble()
 
     await handler(
-      request({ planId, expectedRevisionId: revisionId, question: "Giải thích kế hoạch" }, ownerToken),
+      request(
+        {
+          planId,
+          expectedRevisionId: revisionId,
+          question: "Giải thích kế hoạch"
+        },
+        ownerToken
+      ),
       response.response
     )
 
@@ -251,6 +272,7 @@ describe("Phase 7 assistant API integration", () => {
       observationsVi: ["Không có quyền ghi dữ liệu."]
     })
     expect(fake.calls).toHaveLength(1)
+
     const evidence = fake.calls[0]!.evidence
     expect(Object.keys(evidence).sort()).toEqual(
       ["budgetStatus", "budgetVnd", "meals", "totalEstimatedCostVnd", "warningCodes"].sort()
@@ -259,6 +281,7 @@ describe("Phase 7 assistant API integration", () => {
     expect(Object.keys(evidence.meals[0]!).sort()).toEqual(
       ["dayIndex", "dayLabelVi", "elapsedMinutes", "mealNameVi"].sort()
     )
+
     const serializedEvidence = JSON.stringify(evidence)
     for (const forbidden of [ownerUserId, householdId, planId, revisionId, ownerToken]) {
       expect(serializedEvidence).not.toContain(forbidden)
@@ -270,9 +293,13 @@ describe("Phase 7 assistant API integration", () => {
     const fake = fakeAssistant()
     const response = responseDouble()
     await assistantHandler(fake.assistant)(
-      request({ planId, expectedRevisionId: revisionId, question: "Giải thích" }, otherToken),
+      request(
+        { planId, expectedRevisionId: revisionId, question: "Giải thích" },
+        otherToken
+      ),
       response.response
     )
+
     expect(response.state.statusCode).toBe(403)
     expect(response.state.body).toEqual({ error: "UNAUTHORIZED" })
     expect(fake.calls).toHaveLength(0)
@@ -292,6 +319,7 @@ describe("Phase 7 assistant API integration", () => {
       ),
       response.response
     )
+
     expect(response.state.statusCode).toBe(409)
     expect(response.state.body).toEqual({ error: "STALE_ASSISTANT_CONTEXT" })
     expect(fake.calls).toHaveLength(0)
@@ -301,12 +329,18 @@ describe("Phase 7 assistant API integration", () => {
     const fake = fakeAssistant({ ok: false, error: "ASSISTANT_UNAVAILABLE" })
     const response = responseDouble()
     await assistantHandler(fake.assistant, "assistant-int-provider-failure")(
-      request({ planId, expectedRevisionId: revisionId, question: "Giải thích" }, ownerToken),
+      request(
+        { planId, expectedRevisionId: revisionId, question: "Giải thích" },
+        ownerToken
+      ),
       response.response
     )
+
     expect(response.state.statusCode).toBe(503)
     expect(response.state.body).toEqual({ error: "ASSISTANT_UNAVAILABLE" })
-    expect(response.state.headers.get("x-correlation-id")).toBe("assistant-int-provider-failure")
+    expect(response.state.headers.get("x-correlation-id")).toBe(
+      "assistant-int-provider-failure"
+    )
     expect(fake.calls).toHaveLength(1)
   })
 
@@ -314,9 +348,13 @@ describe("Phase 7 assistant API integration", () => {
     const fake = fakeAssistant()
     const response = responseDouble()
     await assistantHandler(fake.assistant)(
-      request({ planId, expectedRevisionId: revisionId, question: "Giải thích" }, null),
+      request(
+        { planId, expectedRevisionId: revisionId, question: "Giải thích" },
+        null
+      ),
       response.response
     )
+
     expect(response.state.statusCode).toBe(401)
     expect(response.state.body).toEqual({ error: "UNAUTHORIZED" })
     expect(fake.calls).toHaveLength(0)
