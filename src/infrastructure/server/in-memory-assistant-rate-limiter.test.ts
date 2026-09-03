@@ -1,4 +1,4 @@
-import type { VercelRequest, VercResponse } from "@vercel/node"
+import type { VercelRequest, VercelResponse } from "@vercel/node"
 import { describe, expect, test, vi } from "vitest"
 
 import type { AssistantPlanEvidence } from "@/application/assistant/meal-assistant"
@@ -40,7 +40,7 @@ function responseDouble() {
       state.headers.set(name, value)
       return response
     }
-  } as unknown as VercResponse
+  } as unknown as VercelResponse
   return { state, response }
 }
 
