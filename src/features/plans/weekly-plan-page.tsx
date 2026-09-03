@@ -1,5 +1,4 @@
-import type { ReactNode } from "react"
-import { useEffect, useState } from "react"
+import { Fragment, useEffect, useState, type ReactNode } from "react"
 import { Link } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
@@ -320,9 +319,9 @@ export function WeeklyPlanPage({
             Đi chợ
           </Link>
 
-          {accessToken === undefined || renderAssistant === undefined
-            ? null
-            : renderAssistant({
+          {accessToken === undefined || renderAssistant === undefined ? null : (
+            <Fragment key={`${state.value.planId}:${state.value.revisionId}`}>
+              {renderAssistant({
                 accessToken,
                 planId: state.value.planId,
                 expectedRevisionId: state.value.revisionId,
@@ -330,6 +329,8 @@ export function WeeklyPlanPage({
                   void previewDay(dayIndex)
                 }
               })}
+            </Fragment>
+          )}
 
           <ol className="grid gap-3" aria-label="Bảy bữa chính trong tuần">
             {[...state.value.plan.items]
