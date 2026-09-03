@@ -32,7 +32,7 @@ export function createInMemoryAssistantRateLimiter(
   const states = new Map<string, UserState>()
 
   return {
-    async consume(request: AssistantRateLimitRequest): Promise<AssistantRateLimitDecision> {
+    consume(request: AssistantRateLimitRequest): Promise<AssistantRateLimitDecision> {
       const dayKey = utcDayKey(request.nowMs)
       const state = states.get(request.actorUserId) ?? {
         burstTimestamps: [],
@@ -52,26 +52,26 @@ export function createInMemoryAssistantRateLimiter(
       }
 
       if (state.dailyCount >= config.dailyLimit) {
-        return {
+        return Promise.resolve({
           allowed: false,
           retryAfterSeconds: secondsUntilNextUtcDay(request.nowMs)
-        }
+        })
       }
 
       if (state.burstTimestamps.length >= config.burstLimit) {
         const oldest = state.burstTimestamps[0] ?? request.nowMs
-        return {
+        return Promise.resolve({
           allowed: false,
           retryAfterSeconds: Math.max(
             1,
             Math.ceil((oldest + config.burstWindowMs - request.nowMs) / 1_000)
           )
-        }
+        })
       }
 
       state.burstTimestamps.push(request.nowMs)
       state.dailyCount += 1
-      return { allowed: true }
+      return Promise.resolve({ allowed: true })
     }
   }
 }
