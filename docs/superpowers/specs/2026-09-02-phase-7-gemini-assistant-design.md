@@ -1,7 +1,7 @@
 # Phase 7 Gemini Assistant Design
 
 Date: 2026-09-02
-Status: user-approved architecture/provider; awaiting written-spec review
+Status: approved
 Base: `main` at `01a99e10c008b3c9b3bfb3e3cf745faccde42794`
 
 ## 1. Goal
