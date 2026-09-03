@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { useEffect, useState } from "react"
 import { Link } from "react-router"
 
@@ -7,8 +8,6 @@ import { useAuth } from "@/app/auth/auth-context"
 import { AppPageShell } from "@/app/components/app-page-shell"
 import { Button } from "@/app/components/ui/button"
 import type { HouseholdSetup } from "@/domain/household/household"
-import type { AssistantApi } from "@/features/assistant/assistant-api"
-import { AssistantCard } from "@/features/assistant/assistant-card"
 
 import { safePlannerCorrelationId } from "./planner-api"
 import type {
@@ -24,10 +23,19 @@ function formatVnd(value: number): string {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)
 }
 
+export interface WeeklyPlanAssistantSlotProps {
+  readonly accessToken: string
+  readonly planId: string
+  readonly expectedRevisionId: string
+  readonly onPreviewDay: (dayIndex: number) => void
+}
+
+export type WeeklyPlanAssistantRenderer = (props: WeeklyPlanAssistantSlotProps) => ReactNode
+
 interface Props {
-  readonly assistantApi: AssistantApi
   readonly householdRepository: HouseholdRepository
   readonly plannerApi: PlannerApi
+  readonly renderAssistant?: WeeklyPlanAssistantRenderer
   readonly today?: () => Date
   readonly createId?: () => string
 }
@@ -149,9 +157,9 @@ function MealDetails({ item }: Readonly<{ item: PlanItemView }>) {
 }
 
 export function WeeklyPlanPage({
-  assistantApi,
   householdRepository,
   plannerApi,
+  renderAssistant,
   today = () => new Date(),
   createId = () => crypto.randomUUID()
 }: Props) {
@@ -312,18 +320,16 @@ export function WeeklyPlanPage({
             Đi chợ
           </Link>
 
-          {accessToken === undefined ? null : (
-            <AssistantCard
-              key={state.value.revisionId}
-              accessToken={accessToken}
-              assistantApi={assistantApi}
-              expectedRevisionId={state.value.revisionId}
-              planId={state.value.planId}
-              onPreviewDay={(dayIndex) => {
-                void previewDay(dayIndex)
-              }}
-            />
-          )}
+          {accessToken === undefined || renderAssistant === undefined
+            ? null
+            : renderAssistant({
+                accessToken,
+                planId: state.value.planId,
+                expectedRevisionId: state.value.revisionId,
+                onPreviewDay: (dayIndex) => {
+                  void previewDay(dayIndex)
+                }
+              })}
 
           <ol className="grid gap-3" aria-label="Bảy bữa chính trong tuần">
             {[...state.value.plan.items]
