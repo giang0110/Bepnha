@@ -47,7 +47,9 @@ export function createInMemoryAssistantRateLimiter(
       }
 
       const burstBoundary = request.nowMs - config.burstWindowMs
-      while (state.burstTimestamps.length > 0 && state.burstTimestamps[0] <= burstBoundary) {
+      while (true) {
+        const oldestTimestamp = state.burstTimestamps[0]
+        if (oldestTimestamp === undefined || oldestTimestamp > burstBoundary) break
         state.burstTimestamps.shift()
       }
 
