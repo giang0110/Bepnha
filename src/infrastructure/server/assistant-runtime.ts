@@ -26,7 +26,9 @@ interface PublicConfig {
 
 interface RuntimeFactories {
   readonly createAuth: (config: PublicConfig) => ServerAuthVerifier
-  readonly createContext: (config: PublicConfig & { readonly accessToken: string }) => AssistantContextRepository
+  readonly createContext: (
+    config: PublicConfig & { readonly accessToken: string }
+  ) => AssistantContextRepository
   readonly createGeminiAssistant: (apiKey: string, model: string) => MealAssistantPort
 }
 
@@ -39,7 +41,9 @@ function publicConfig(environment: AssistantRuntimeEnvironment): PublicConfig {
   return { url, publishableKey }
 }
 
-function createContext(config: PublicConfig & { readonly accessToken: string }): AssistantContextRepository {
+function createContext(
+  config: PublicConfig & { readonly accessToken: string }
+): AssistantContextRepository {
   const userClient = createClient<Database>(config.url, config.publishableKey, {
     auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
     global: { headers: { Authorization: `Bearer ${config.accessToken}` } }
@@ -47,7 +51,10 @@ function createContext(config: PublicConfig & { readonly accessToken: string }):
   return createSupabaseAssistantContextRepository({
     userClient: {
       rpc(name, args) {
-        return userClient.rpc(name as keyof Database["public"]["Functions"], args as never) as never
+        return userClient.rpc(
+          name as keyof Database["public"]["Functions"],
+          args as never
+        ) as never
       }
     },
     loader: createSupabasePlannerInputLoader(userClient)
@@ -62,7 +69,9 @@ function createGeminiAssistant(apiKey: string, model: string): MealAssistantPort
       const interaction = await client.interactions.create(request)
       return {
         status: interaction.status,
-        ...(typeof interaction.output_text === "string" ? { output_text: interaction.output_text } : {})
+        ...(typeof interaction.output_text === "string"
+          ? { output_text: interaction.output_text }
+          : {})
       }
     }
   })
