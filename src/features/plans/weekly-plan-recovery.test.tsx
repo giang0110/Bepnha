@@ -91,6 +91,9 @@ function renderPage(apiOverrides: Partial<PlannerApi>, createId: () => string) {
         }}
       >
         <WeeklyPlanPage
+          assistantApi={{
+            ask: vi.fn().mockResolvedValue({ ok: false, error: "ASSISTANT_DISABLED" })
+          }}
           householdRepository={repository}
           plannerApi={api}
           today={() => new Date("2026-08-27T00:00:00+07:00")}
