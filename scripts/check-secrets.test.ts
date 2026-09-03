@@ -25,6 +25,14 @@ describe("findSecretFindings", () => {
     expect(findSecretFindings("config.env", contents)).toContain("sensitive-environment-assignment")
   })
 
+  it("detects committed Gemini server and browser key assignments", () => {
+    for (const name of ["GEMINI_API_KEY", "VITE_GEMINI_API_KEY"]) {
+      expect(findSecretFindings("config.env", assignment(name, "synthetic-value"))).toContain(
+        "sensitive-environment-assignment"
+      )
+    }
+  })
+
   it("detects mixed-case non-empty VITE secret assignments", () => {
     const contents = assignment("vItE_" + "CLIENT_SECRET", "synthetic-value")
 
@@ -49,7 +57,10 @@ describe("findSecretFindings", () => {
   it("does not flag policy prose, empty assignments, or a public placeholder", () => {
     const contents = [
       "Do not commit SUPABASE_SECRET_KEY values.",
+      "Configure GEMINI_API_KEY in server runtime only.",
       assignment(secretName("SECRET_KEY"), ""),
+      assignment("GEMINI_API_KEY", ""),
+      assignment("VITE_GEMINI_API_KEY", ""),
       assignment("VITE_" + "CLIENT_SECRET", ""),
       assignment("VITE_SUPABASE_PUBLISHABLE_KEY", "replace-with-local-publishable-key")
     ].join("\n")
