@@ -2,7 +2,10 @@ import type { VercelRequest, VercelResponse } from "@vercel/node"
 import { describe, expect, test, vi } from "vitest"
 
 import type { AssistantContextRepository } from "@/application/assistant/assistant-context-repository"
-import type { AssistantPlanEvidence, MealAssistantPort } from "@/application/assistant/meal-assistant"
+import type {
+  AssistantPlanEvidence,
+  MealAssistantPort
+} from "@/application/assistant/meal-assistant"
 
 import { createAssistantHttpHandler } from "./assistant-http"
 
@@ -44,7 +47,12 @@ function responseDouble() {
 
 function request(
   body: unknown,
-  options: { method?: string; authorization?: string; contentType?: string; correlationId?: string } = {}
+  options: {
+    method?: string
+    authorization?: string
+    contentType?: string
+    correlationId?: string
+  } = {}
 ) {
   return {
     method: options.method ?? "POST",
@@ -61,11 +69,13 @@ function validBody(question = "Giải thích kế hoạch này") {
   return { planId: PLAN_ID, expectedRevisionId: REVISION_ID, question }
 }
 
-function setup(options: {
-  currentRevisionId?: string
-  contextResult?: Awaited<ReturnType<AssistantContextRepository["loadCurrent"]>>
-  assistant?: MealAssistantPort | null
-} = {}) {
+function setup(
+  options: {
+    currentRevisionId?: string
+    contextResult?: Awaited<ReturnType<AssistantContextRepository["loadCurrent"]>>
+    assistant?: MealAssistantPort | null
+  } = {}
+) {
   const contextResult = options.contextResult ?? {
     ok: true as const,
     value: { currentRevisionId: options.currentRevisionId ?? REVISION_ID, evidence }
@@ -82,7 +92,8 @@ function setup(options: {
       }
     })
   )
-  const assistant: MealAssistantPort = options.assistant === undefined ? { respond } : options.assistant ?? { respond }
+  const assistant: MealAssistantPort =
+    options.assistant === undefined ? { respond } : (options.assistant ?? { respond })
   const emit = vi.fn()
   const handler = createAssistantHttpHandler({
     auth: { verify: vi.fn(() => Promise.resolve({ userId: "user-1" })) },

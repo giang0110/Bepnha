@@ -66,15 +66,11 @@ describe("Gemini meal assistant", () => {
 
     expect(createInteraction).toHaveBeenCalledOnce()
     const [request] = createInteraction.mock.calls[0]!
-    expect(request).toMatchObject({
-      model: "gemini-3.7-flash",
-      store: false,
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema: expect.objectContaining({ type: "object" })
-      }
-    })
+    expect(request.model).toBe("gemini-3.7-flash")
+    expect(request.store).toBe(false)
+    expect(request.response_format.type).toBe("text")
+    expect(request.response_format.mime_type).toBe("application/json")
+    expect(request.response_format.schema.type).toBe("object")
     expect(request).not.toHaveProperty("tools")
     expect(request).not.toHaveProperty("previous_interaction_id")
     expect(request).not.toHaveProperty("background")
