@@ -36,7 +36,9 @@ export function createInMemoryAssistantRateLimiter(
   const states = new Map<string, UserState>()
 
   return {
-    async consume(request: AssistantRateLimitRequest): Promise<AssistantRateLimitDecision> {
+    async consume(
+      request: AssistantRateLimitRequest
+    ): Promise<AssistantRateLimitDecision> {
       const dayKey = utcDayKey(request.nowMs)
       const state = states.get(request.actorUserId) ?? {
         burstTimestamps: [],
