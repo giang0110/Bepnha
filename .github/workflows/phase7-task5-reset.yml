@@ -18,6 +18,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx vitest run src/features/assistant/assistant-card.test.tsx
-      - run: npx prettier --check src/features/assistant/assistant-card.tsx src/features/assistant/assistant-card.test.tsx
+      - run: npx vitest run src/features/assistant/assistant-card.test.tsx src/features/plans/weekly-plan-page.test.tsx
+      - run: npx prettier --check src/features/assistant/assistant-card.tsx src/features/assistant/assistant-card.test.tsx src/features/plans/weekly-plan-page.tsx src/features/plans/weekly-plan-page.test.tsx
       - run: npm run typecheck
