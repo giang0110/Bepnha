@@ -245,6 +245,30 @@ describe("WeeklyPlanPage", () => {
     expect(await screen.findByRole("button", { name: "Áp dụng bữa thay thế" })).toBeInTheDocument()
   })
 
+  test("remounts assistant slot when the authoritative revision changes", async () => {
+    const user = userEvent.setup()
+    const renderAssistant: WeeklyPlanAssistantRenderer = ({ expectedRevisionId }) => (
+      <input aria-label={`Assistant local state ${expectedRevisionId}`} defaultValue="" />
+    )
+    setup({}, renderAssistant)
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const oldState = await screen.findByRole("textbox", {
+      name: `Assistant local state ${ready().revisionId}`
+    })
+    await user.type(oldState, "Lời khuyên cũ")
+    expect(oldState).toHaveValue("Lời khuyên cũ")
+
+    await user.click(screen.getAllByRole("button", { name: "Đổi bữa" })[2]!)
+    await user.click(await screen.findByRole("button", { name: "Áp dụng bữa thay thế" }))
+
+    const newState = await screen.findByRole("textbox", {
+      name: "Assistant local state 50000000-0000-0000-0000-000000000002"
+    })
+    expect(newState).toHaveValue("")
+    expect(newState).not.toBe(oldState)
+  })
+
   test("renders typed empty/failure states and asks for reload on stale version", async () => {
     const user = userEvent.setup()
     setup({ generate: vi.fn().mockResolvedValue({ ok: false, error: "STALE_PLAN_VERSION" }) })
