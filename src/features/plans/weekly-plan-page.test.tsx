@@ -128,7 +128,7 @@ function setup(
         <WeeklyPlanPage
           householdRepository={repository}
           plannerApi={api}
-          renderAssistant={renderAssistant}
+          {...(renderAssistant === undefined ? {} : { renderAssistant })}
           today={() => new Date("2026-08-27T00:00:00+07:00")}
           createId={() => "30000000-0000-0000-0000-000000000001"}
         />
