@@ -22,11 +22,7 @@ function utcDayKey(nowMs: number): string {
 
 function secondsUntilNextUtcDay(nowMs: number): number {
   const now = new Date(nowMs)
-  const nextDay = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate() + 1
-  )
+  const nextDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
   return Math.max(1, Math.ceil((nextDay - nowMs) / 1_000))
 }
 
@@ -36,9 +32,7 @@ export function createInMemoryAssistantRateLimiter(
   const states = new Map<string, UserState>()
 
   return {
-    async consume(
-      request: AssistantRateLimitRequest
-    ): Promise<AssistantRateLimitDecision> {
+    async consume(request: AssistantRateLimitRequest): Promise<AssistantRateLimitDecision> {
       const dayKey = utcDayKey(request.nowMs)
       const state = states.get(request.actorUserId) ?? {
         burstTimestamps: [],
@@ -53,10 +47,7 @@ export function createInMemoryAssistantRateLimiter(
       }
 
       const burstBoundary = request.nowMs - config.burstWindowMs
-      while (
-        state.burstTimestamps.length > 0 &&
-        state.burstTimestamps[0] <= burstBoundary
-      ) {
+      while (state.burstTimestamps.length > 0 && state.burstTimestamps[0] <= burstBoundary) {
         state.burstTimestamps.shift()
       }
 
