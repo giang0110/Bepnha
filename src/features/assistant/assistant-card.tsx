@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import {
   ASSISTANT_QUESTION_MAX_LENGTH,
@@ -42,6 +42,11 @@ export function AssistantCard({
 }: Props) {
   const [question, setQuestion] = useState("")
   const [advice, setAdvice] = useState<AdviceState>({ status: "idle" })
+
+  useEffect(() => {
+    setQuestion("")
+    setAdvice({ status: "idle" })
+  }, [planId, expectedRevisionId])
 
   async function ask(value: string) {
     const normalized = value.trim()
