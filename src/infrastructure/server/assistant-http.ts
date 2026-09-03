@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 
 import type { AssistantContextRepository } from "@/application/assistant/assistant-context-repository"
+import type { AssistantRateLimiter } from "@/application/assistant/assistant-rate-limiter"
 import {
   ASSISTANT_QUESTION_MAX_LENGTH,
   type MealAssistantPort
@@ -19,9 +20,11 @@ interface AssistantHttpDependencies {
   readonly auth: ServerAuthVerifier
   readonly contextRepositoryFor: (accessToken: string) => AssistantContextRepository
   readonly assistant: MealAssistantPort | null
+  readonly rateLimiter: AssistantRateLimiter | null
   readonly telemetry?: OperationalTelemetry
   readonly createCorrelationId?: () => string
   readonly now?: () => number
+  readonly rateLimitNow?: () => number
 }
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu
@@ -82,6 +85,7 @@ export function createAssistantHttpHandler(dependencies: AssistantHttpDependenci
   return async function handler(request: VercelRequest, response: VercelResponse): Promise<void> {
     applyApiSecurityHeaders(response)
     const now = dependencies.now ?? (() => performance.now())
+    const rateLimitNow = dependencies.rateLimitNow ?? (() => Date.now())
     const telemetry = dependencies.telemetry ?? createConsoleOperationalTelemetry()
     const id = correlationId(
       request.headers["x-correlation-id"],
@@ -164,8 +168,25 @@ export function createAssistantHttpHandler(dependencies: AssistantHttpDependenci
       sendError(409, "STALE_ASSISTANT_CONTEXT")
       return
     }
-    if (dependencies.assistant === null) {
+    if (dependencies.assistant === null || dependencies.rateLimiter === null) {
       sendError(503, "ASSISTANT_DISABLED")
+      return
+    }
+
+    try {
+      const decision = await dependencies.rateLimiter.consume({
+        actorUserId: identity.userId,
+        nowMs: rateLimitNow()
+      })
+      if (!decision.allowed) {
+        if (decision.retryAfterSeconds !== undefined) {
+          response.setHeader("Retry-After", String(decision.retryAfterSeconds))
+        }
+        sendError(429, "ASSISTANT_RATE_LIMITED")
+        return
+      }
+    } catch {
+      sendError(503, "ASSISTANT_UNAVAILABLE")
       return
     }
 
