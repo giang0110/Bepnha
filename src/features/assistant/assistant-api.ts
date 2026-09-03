@@ -53,7 +53,7 @@ function parseAssistantResult(value: unknown): AssistantResult | null {
     return {
       kind: "explanation",
       summaryVi: value.summaryVi,
-      observationsVi: value.observationsVi as string[]
+      observationsVi: value.observationsVi
     }
   }
   if (value.kind === "replacement_proposal") {
@@ -94,9 +94,7 @@ function failure(error: string, response?: FetchResponse): AssistantApiResult {
   return id === undefined ? { ok: false, error } : { ok: false, error, correlationId: id }
 }
 
-export function createAssistantApi(
-  fetcher: Fetcher = (url, init) => fetch(url, init) as Promise<FetchResponse>
-): AssistantApi {
+export function createAssistantApi(fetcher: Fetcher = (url, init) => fetch(url, init)): AssistantApi {
   return {
     async ask(accessToken, input) {
       let response: FetchResponse
