@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { describe, expect, it, vi } from "vitest"
@@ -148,7 +148,9 @@ describe("authenticated app shell", () => {
     renderRoutes(createAuthPort(session).port, "/shopping/plan-a?revisionId=revision-v1")
 
     expect(await screen.findByRole("heading", { name: "Đi chợ" })).toBeInTheDocument()
-    expect(shoppingLoad).toHaveBeenCalledWith("plan-a", "revision-v1")
+    await waitFor(() => {
+      expect(shoppingLoad).toHaveBeenCalledWith("plan-a", "revision-v1")
+    })
   })
 
   it("routes an authenticated return visit through the authoritative household summary", async () => {
