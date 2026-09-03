@@ -7,6 +7,8 @@ import { useAuth } from "@/app/auth/auth-context"
 import { AppPageShell } from "@/app/components/app-page-shell"
 import { Button } from "@/app/components/ui/button"
 import type { HouseholdSetup } from "@/domain/household/household"
+import type { AssistantApi } from "@/features/assistant/assistant-api"
+import { AssistantCard } from "@/features/assistant/assistant-card"
 
 import { safePlannerCorrelationId } from "./planner-api"
 import type {
@@ -23,6 +25,7 @@ function formatVnd(value: number): string {
 }
 
 interface Props {
+  readonly assistantApi: AssistantApi
   readonly householdRepository: HouseholdRepository
   readonly plannerApi: PlannerApi
   readonly today?: () => Date
@@ -146,6 +149,7 @@ function MealDetails({ item }: Readonly<{ item: PlanItemView }>) {
 }
 
 export function WeeklyPlanPage({
+  assistantApi,
   householdRepository,
   plannerApi,
   today = () => new Date(),
@@ -307,6 +311,19 @@ export function WeeklyPlanPage({
           >
             Đi chợ
           </Link>
+
+          {accessToken === undefined ? null : (
+            <AssistantCard
+              key={state.value.revisionId}
+              accessToken={accessToken}
+              assistantApi={assistantApi}
+              expectedRevisionId={state.value.revisionId}
+              planId={state.value.planId}
+              onPreviewDay={(dayIndex) => {
+                void previewDay(dayIndex)
+              }}
+            />
+          )}
 
           <ol className="grid gap-3" aria-label="Bảy bữa chính trong tuần">
             {[...state.value.plan.items]
