@@ -6,220 +6,224 @@ Status: DESIGN_APPROVED_IN_CHAT_PENDING_SPEC_REVIEW
 
 ## Goal
 
-Turn the Phase-7-complete BepNha repository into an operationally launchable production application without weakening any deterministic planner, pricing, nutrition, pantry, shopping, allergy/exclusion, or revision-authority boundary.
+Turn the Phase-7-complete BepNha repository into an operationally launchable production application without weakening deterministic planner, pricing, nutrition, pantry, shopping, allergy/exclusion, or revision authority.
 
-Phase 8 is not a feature-expansion phase. It hardens release governance, production configuration, Gemini abuse/cost protection, deployment verification, observability, backup/deletion operations, and release evidence.
+Phase 8 is a hardening/launch phase, not a product-feature expansion.
 
 ## Non-goals
 
-Phase 8 does not add AI-generated meal plans, AI-selected meals, AI-authored authoritative values, persistent assistant memory, retailer/live-price integrations, barcode/OCR, pantry lots/expiry, payments, notifications, collaboration, or marketplace behavior.
+Do not add AI-generated plans, AI-selected meals, AI-authored authoritative values, persistent assistant memory, retailer/live prices, barcode/OCR, pantry lots/expiry, payments, notifications, collaboration, or marketplace behavior.
 
-Phase 8 must not change deterministic meal eligibility, planner scoring/search authority, exact basket pricing, serving quantities, nutrition, hard-rule interpretation, pantry deduction, shopping quantities/provenance, or user-confirmed replacement persistence semantics except where a production-hardening test exposes an actual bug.
+Do not change deterministic eligibility, planner scoring/search authority, exact basket pricing, portions, nutrition, hard rules, pantry deduction, shopping quantities/provenance, or explicit replacement-apply semantics unless a Phase 8 hardening test exposes an actual bug.
 
 ## Release model
 
-Use a dedicated feature branch and PR. No feature development occurs directly on `main`. Every code/config change requires exact-head CI before merge and exact-main CI after authorized integration.
+Use a dedicated feature branch and PR. No feature development occurs directly on `main`. Every repository change requires exact-head CI before merge and exact-main CI after authorized integration.
 
-Production deployment and production database mutation remain separate, explicit operator actions. A green repository is not equivalent to a successful production launch. `PRODUCTION_READY` is recorded only after the target production deployment, health check, database/catalog readiness, and authenticated deterministic/assistant smoke gates have been verified against the intended environment.
+Production database mutation and deployment are separate explicit operator actions. Green CI is not equivalent to a successful production launch. Record `PRODUCTION_READY` only after the intended production database/catalog, exact-main deployment, health/security checks, authenticated deterministic smoke, assistant state, runtime review, and operational ownership gates are verified.
 
 ## Workstream 1 — Repository governance
 
-Protect `main` with repository rules/branch protection when the connected GitHub permissions allow it:
+Protect `main` when connected GitHub permissions allow it:
 
-- require changes through pull requests;
-- require the canonical `web` and `database` CI checks before merge;
+- require pull requests;
+- require canonical `web` and `database` CI checks;
 - block force pushes;
 - block deletion of `main`;
-- preserve administrator override only if GitHub/Hobby/account constraints make it necessary, and document the exception.
+- retain administrator bypass only when account/platform constraints require it and document that exception.
 
-If the connected GitHub tool cannot write rulesets/branch protection, Phase 8 records the exact manual setting required and treats governance as blocked rather than pretending it is enforced.
+If the connected GitHub surface cannot write rulesets/branch protection, record the exact manual settings and keep governance blocked rather than pretending protection exists.
 
-Remove Phase-7-only workflow files after confirming they are no longer needed. Keep `ci.yml` as the canonical full release gate and `fast-ci.yml` for non-main branch feedback.
-
-Upgrade GitHub Actions versions where the currently supported action release removes the Node-runtime deprecation warning, but only through a dedicated tested change. Do not weaken or skip any CI step to save Actions minutes.
+Remove Phase-7-only workflows after confirming they are obsolete. Keep `ci.yml` as the canonical full gate and `fast-ci.yml` for non-main feedback. Upgrade GitHub Actions versions to currently supported Node-24-compatible releases in a tested change; do not weaken checks to save Actions minutes.
 
 ## Workstream 2 — Release evidence correctness
 
-Update the Phase 7 exit audit to its actual final state after PR #3 and exact-main CI #450:
+Correct the Phase 7 exit audit to its actual final state:
 
-- final main SHA `ba8b90ea8cfd32dc02964fb28197a7f84e598995`;
-- exact-main CI run `33752677760` / run number 450;
-- both `web` and `database` successful;
-- assistant integration/E2E, planner, shopping, pantry, catalog-readiness, accessibility, type drift, dependency audit and secret scan successful.
+- final `main`: `ba8b90ea8cfd32dc02964fb28197a7f84e598995`;
+- exact-main CI: run `33752677760`, run number 450;
+- `web` and `database`: success;
+- assistant integration/E2E, planner, shopping, pantry, catalog-readiness, accessibility, generated-type drift, dependency audit, and secret scan: success.
 
-Create a Phase 8 release record that remains `PHASE_8_BLOCKED` until all code and external production gates are complete.
+Create a Phase 8 release record that stays `PHASE_8_BLOCKED` until its repository and external production gates are complete.
 
 ## Workstream 3 — Gemini abuse and cost protection
 
-Add a bounded server-side rate limiter to `/api/assistant` without giving Gemini any new authority.
+Add server-side rate limiting to `/api/assistant` without giving Gemini new authority.
 
-Requirements:
+Resolved defaults:
 
-- rate limiting executes after authentication and before provider invocation;
-- key by authenticated user identity, with optional coarse IP information only if already available and privacy-safe;
-- default production policy is small and explicit (for example a bounded per-minute burst plus a bounded daily allowance), configurable through server-only environment variables;
-- invalid rate-limit configuration fails closed to a conservative default rather than disabling protection;
-- a limited request returns HTTP `429` with a stable application error code and optional safe retry metadata;
-- rate-limit state must not include the user prompt, provider response, access token, household/plan/revision IDs in logs, or authoritative planner data;
-- CI uses an injected/fake limiter or deterministic clock/store and never calls Gemini;
-- planner/replacement/pantry/shopping functionality remains available if Gemini is disabled or rate-limited.
+- authenticated-user key only; do not persist prompt/body/token/plan/household identifiers as limiter metadata;
+- burst limit: **5 accepted assistant requests per rolling 60 seconds per authenticated user**;
+- daily limit: **50 accepted assistant requests per UTC day per authenticated user**;
+- server-only overrides may lower or raise those values within validated bounds;
+- invalid/missing override values fall back to the defaults rather than disabling protection;
+- limited requests return HTTP `429` with stable code `ASSISTANT_RATE_LIMITED` and safe `Retry-After` when deterministically available.
 
-For a single-instance/local implementation, an in-memory limiter is acceptable only as development/test fallback. Production must use a multi-instance-safe shared mechanism before public launch. Preferred production implementation is a platform/shared store that can enforce quotas across Vercel function instances; if no such production store is connected, Phase 8 may land the port/adapters/tests and keep public Gemini activation blocked.
+Limiter order: authenticate → validate owner/current revision → rate-limit check → Gemini provider. Ownership/stale-revision failures must not consume quota. Provider failures after quota acceptance may consume quota; the policy is request-attempt based, not provider-success based.
+
+CI uses an injected deterministic limiter clock/store and never calls Gemini. Planner, replacement, pantry, and shopping remain usable when Gemini is disabled or rate-limited.
+
+An in-memory store is allowed only for local/test fallback. Public production Gemini requires a multi-instance-safe shared limiter. If no shared production store is connected, land the port/adapters/tests but keep public Gemini activation blocked rather than silently using per-instance memory.
 
 ## Workstream 4 — Frontend and test hardening
 
-Reduce avoidable initial JavaScript without changing product behavior:
+Add route-level lazy loading/code splitting for protected feature areas where compatible with the current React Router/Vite architecture. Preserve direct/deep-link behavior under `vercel.json` SPA rewrites.
 
-- route-level lazy loading/code splitting for protected feature areas where compatible with the existing React Router/Vite architecture;
-- preserve direct/deep-link behavior under `vercel.json` SPA rewrites;
-- establish a bundle regression check or documented ceiling so the current >500 kB minified warning cannot silently worsen.
+Bundle gate:
 
-Coverage hardening:
+- current build evidence has a single JavaScript chunk around 656.48 kB minified;
+- Phase 8 target is **no initial entry JavaScript chunk above 500 kB minified**;
+- add a deterministic build-output regression check rather than merely suppressing Vite's warning;
+- route chunks may remain separate and are reviewed if any individual chunk exceeds the same 500 kB ceiling.
 
-- record the current verified baseline;
-- add conservative coverage floors at or slightly below the verified baseline so future changes cannot significantly regress without an explicit review;
-- prioritize server repository/admin error paths rather than chasing 100% coverage.
+Coverage gate based on exact-main CI #450 baseline (~78.92% statements, 70.67% branches, 84.64% functions, 82.20% lines):
 
-No threshold may be set above evidence that actually passes on the exact candidate.
+- statements >= **78%**;
+- branches >= **70%**;
+- functions >= **84%**;
+- lines >= **82%**.
+
+Do not raise thresholds above exact candidate evidence merely to create a target. Prioritize server repository/admin/error paths over chasing 100% coverage.
 
 ## Workstream 5 — Production Supabase and catalog launch gate
 
-The repository never auto-migrates a remote database. Production database work requires explicit production target resolution and operator approval.
+The repository never auto-migrates a remote database. Remote mutation requires an explicitly resolved production target and operator approval.
 
-Before applying anything remotely:
+Before any remote write:
 
-1. identify the intended production Supabase project and confirm it is not a local/test project;
-2. perform a read-only migration-history/schema preflight;
-3. confirm backup/restore readiness and the rollback/forward-fix owner;
-4. compare remote migration history with the repository migrations;
-5. only then apply missing approved migrations;
-6. run production-safe catalog readiness checks without destructive reset or test-fixture writes;
-7. verify the curated catalog has enough published meal options, price lineage, nutrient/allergen/conversion lineage and current/stale-but-usable price evidence for representative launch scenarios.
+1. identify the intended production Supabase project and prove it is not local/test;
+2. perform read-only migration-history/schema preflight;
+3. confirm backup/restore readiness and rollback/forward-fix owner;
+4. compare remote migration history with repository migrations;
+5. apply only missing approved migrations;
+6. run production-safe catalog readiness without destructive reset/test fixtures;
+7. confirm enough published meal options and complete price/nutrient/allergen/conversion lineage for representative launch scenarios.
 
-No `supabase db reset`, local fixture seeding, pgTAP fixture mutation, or destructive cleanup command may run against production.
+Never run `supabase db reset`, local fixture seeding, pgTAP fixture mutation, or destructive cleanup against production.
 
-If the production Supabase project cannot be discovered through connected tools and no safe credentials/project identifier are available, Phase 8 records `PRODUCTION_SUPABASE_UNRESOLVED` and stops before remote mutation.
+If the production Supabase project cannot be discovered safely, record `PRODUCTION_SUPABASE_UNRESOLVED` and stop before remote mutation.
 
 ## Workstream 6 — Vercel production deployment
 
-Create or identify the BepNha Vercel project linked to `ntgiang1235-ux/Bepnha` and configure the production environment with only the required variables:
+Create or identify a BepNha Vercel project linked to `ntgiang1235-ux/Bepnha`.
 
-Public/browser:
+Required public/browser variables:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-Server:
+Required server variables:
 
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_SECRET_KEY` for the narrowly approved server persistence/admin paths
+- `SUPABASE_SECRET_KEY` for approved server persistence/admin paths
 - optional `GEMINI_API_KEY`
 - optional `GEMINI_MODEL`
-- production rate-limit/shared-store configuration when Gemini is enabled publicly
+- production shared-limiter configuration when Gemini is publicly enabled.
 
-Never create `VITE_GEMINI_*`, `VITE_*` secret/service-role variables, or log secret values.
+Never create `VITE_GEMINI_*`, a `VITE_*` service-role/private secret, or secret-valued logs.
 
-The production deployment must build from the exact approved `main` SHA. After deployment:
+Deployment must use the exact approved `main` SHA. After deployment verify:
 
-- `GET /api/health` returns HTTP 200 with exactly `{ "status": "ok" }`;
-- security headers remain present;
-- deep links resolve correctly;
-- runtime error clusters/logs show no new launch blocker.
+- `GET /api/health` -> HTTP 200 and exactly `{ "status": "ok" }`;
+- repository security headers remain present;
+- SPA deep links resolve;
+- production runtime error clusters/logs reveal no launch blocker.
 
-The currently connected Vercel account/team must actually contain or create BepNha before this gate can pass. A deployment of another project does not count.
+The connected Vercel account/team must actually contain or create BepNha. A deployment of another project does not count.
 
 ## Workstream 7 — Production smoke and observability
 
-Run deterministic smoke independently of Gemini:
+Run deterministic smoke separately from Gemini:
 
-1. sign-in/sign-up path appropriate for production;
+1. production-appropriate sign-in/sign-up;
 2. onboarding or existing household load;
-3. household settings read/write under owner scope;
+3. owner-scoped household settings read/write;
 4. plan generation;
-5. one deterministic replacement preview and explicit apply;
+5. deterministic replacement preview + explicit apply;
 6. pantry read/update;
-7. owned shopping list read/check-state flow;
+7. owned shopping-list read/check-state;
 8. historical revision behavior where applicable.
 
-Then run assistant smoke separately:
+Then assistant smoke:
 
-- disabled/unconfigured assistant does not break planner;
-- enabled assistant explanation is advisory only;
-- variety proposal can only open deterministic preview;
-- no revision is written until explicit apply;
-- old advice clears after revision change;
-- rate limiting returns bounded `429` behavior without leaking data.
+- disabled/unconfigured Gemini does not break planner;
+- explanation remains advisory;
+- variety proposal opens deterministic preview only;
+- no revision persists before explicit apply;
+- advice clears after revision change;
+- quota exhaustion returns bounded `429` without data leakage.
 
-Use correlation IDs and bounded operational telemetry. Do not log prompts, responses, tokens, secrets, raw planner snapshots, or household payloads.
+Use safe correlation IDs and bounded operational telemetry only. Do not log prompts, responses, tokens, secrets, raw planner snapshots, or household payloads.
 
 ## Workstream 8 — Backup, retention, deletion and operational ownership
 
-Before public launch, document:
+Before public launch document:
 
 - production backup cadence and restore owner;
-- one restore-drill procedure and evidence location;
-- account-deletion request intake, identity verification and owned-record deletion/retention rules;
-- incident rollback path for application regression;
-- forward-fix policy for already-applied migrations;
+- restore-drill procedure and evidence location;
+- account-deletion intake, identity verification, and owned-record deletion/retention rules;
+- application rollback path;
+- forward-fix policy for applied migrations;
 - Gemini key rotation/revocation owner;
-- where release evidence and production smoke results are recorded.
+- release evidence and smoke-test record location.
 
-Automation may be added only where the connected platform supports it safely; otherwise the runbook must state the manual operator action explicitly.
+Automate only where the connected platform safely supports it; otherwise state the manual operator action explicitly.
 
-## Error handling and fail-closed rules
+## Fail-closed rules
 
-- Missing production target information blocks remote mutation/deployment rather than guessing.
+- Missing production target data blocks remote mutation/deployment.
 - Missing Gemini configuration disables only the assistant.
-- Missing/misconfigured production rate-limit shared storage blocks public Gemini activation rather than removing the limiter.
-- Production catalog insufficiency blocks planner launch rather than lowering eligibility/safety thresholds.
-- Production smoke failures block `PRODUCTION_READY` and retain the last known-good deployment/rollback option.
-- No secret value is ever written to Git, a PR body, issue, CI log, telemetry event, or client error.
+- Missing production shared limiter blocks public Gemini activation.
+- Catalog insufficiency blocks planner launch instead of lowering safety/eligibility thresholds.
+- Production smoke failure blocks `PRODUCTION_READY` and preserves rollback to last known good deployment.
+- No secret value is written to Git, PR/issue text, CI logs, telemetry, or client errors.
 
 ## Test strategy
 
-Every behavior change follows RED → GREEN → refactor.
+Every behavior change follows RED -> GREEN -> refactor.
 
-Required exact-head gates before PR merge:
+Before PR merge, exact-head evidence must include:
 
-- `npm ci`
-- `npm run verify:release:web`
-- `git diff --check`
-- full GitHub Actions `web` and `database`
-- focused rate-limit tests/integration/E2E
-- bundle/code-splitting regression gate if added
-- coverage floors passing on the exact candidate
+- `npm ci`;
+- `npm run verify:release:web`;
+- `git diff --check`;
+- full GitHub Actions `web` + `database`;
+- focused limiter unit/integration/E2E;
+- bundle regression gate;
+- coverage floors on the exact candidate.
 
 After authorized merge, exact-main `web` and `database` must pass again.
 
-External production gates are separate from CI and must be recorded explicitly: production Supabase preflight/migration/catalog readiness, Vercel deployment from exact main, `/api/health`, deterministic smoke, assistant smoke when enabled, runtime error review, backup/restore ownership.
+External production gates are recorded separately: production Supabase preflight/migration/catalog readiness, Vercel exact-main deploy, `/api/health`, deterministic smoke, assistant smoke when enabled, runtime error review, backup/restore/deletion ownership.
 
-## Recommended implementation order
+## Implementation order
 
-1. repository governance + Phase 7 audit correction;
-2. remove obsolete Phase-7 workflows and upgrade CI actions;
+1. governance capability check + Phase 7 audit correction;
+2. obsolete workflow cleanup + CI action upgrade;
 3. Gemini rate-limit port/adapters/tests;
-4. route-level code splitting + bundle/coverage regression gates;
-5. exact-head PR CI and review;
+4. route-level code splitting + bundle/coverage gates;
+5. exact-head PR CI + review;
 6. authorized merge + exact-main CI;
-7. resolve production Supabase target, perform read-only preflight, then approved migrations/catalog readiness;
-8. create/identify BepNha Vercel project, set envs and deploy exact main;
-9. production health/security/runtime checks and deterministic/assistant smoke;
-10. close backup/restore/deletion/operational evidence and record `PRODUCTION_READY` only if every mandatory gate is green.
+7. production Supabase resolution/read-only preflight, then separately approved migration/catalog actions;
+8. BepNha Vercel project/env/deploy from exact main;
+9. production health/security/runtime + deterministic/assistant smoke;
+10. backup/restore/deletion evidence closure.
 
 ## Exit criteria
 
-`PHASE_8_PASS` requires the repository hardening work to be merged with exact-main CI green and the repository governance/rate-limit/release-evidence requirements satisfied.
+`PHASE_8_PASS` requires repository hardening merged with exact-main CI green plus satisfied governance, rate-limit, bundle/coverage, and release-evidence requirements.
 
-`PRODUCTION_READY` is a stricter status and additionally requires:
+`PRODUCTION_READY` additionally requires:
 
-- resolved production Supabase project with approved migration state and launch-ready catalog;
-- resolved BepNha Vercel production project deploying the exact approved `main` SHA;
-- required environment variables configured without browser-visible secrets;
-- `/api/health` and security headers verified;
-- deterministic production smoke successful;
-- Gemini disabled safely or enabled with shared rate limiting and separate assistant smoke successful;
-- runtime error review clean enough for launch;
-- backup/restore and account-deletion ownership documented.
+- resolved production Supabase with approved migration state and launch-ready catalog;
+- resolved BepNha Vercel production deployment of exact approved main;
+- correct environment separation with no browser-visible secrets;
+- verified health/security/deep-link behavior;
+- successful deterministic production smoke;
+- Gemini safely disabled or enabled with shared limiting and successful assistant smoke;
+- acceptable runtime error review;
+- documented backup/restore/account-deletion ownership.
 
-If any external dependency is unavailable, record the exact blocker and do not mislabel the repository as production-ready.
+Any unavailable external dependency is recorded as an exact blocker; the repository must not be mislabeled production-ready.
