@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { Fragment, useEffect, useState, type ReactNode } from "react"
 import { Link } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
@@ -22,9 +22,19 @@ function formatVnd(value: number): string {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)
 }
 
+export interface WeeklyPlanAssistantSlotProps {
+  readonly accessToken: string
+  readonly planId: string
+  readonly expectedRevisionId: string
+  readonly onPreviewDay: (dayIndex: number) => void
+}
+
+export type WeeklyPlanAssistantRenderer = (props: WeeklyPlanAssistantSlotProps) => ReactNode
+
 interface Props {
   readonly householdRepository: HouseholdRepository
   readonly plannerApi: PlannerApi
+  readonly renderAssistant?: WeeklyPlanAssistantRenderer
   readonly today?: () => Date
   readonly createId?: () => string
 }
@@ -148,6 +158,7 @@ function MealDetails({ item }: Readonly<{ item: PlanItemView }>) {
 export function WeeklyPlanPage({
   householdRepository,
   plannerApi,
+  renderAssistant,
   today = () => new Date(),
   createId = () => crypto.randomUUID()
 }: Props) {
@@ -307,6 +318,19 @@ export function WeeklyPlanPage({
           >
             Đi chợ
           </Link>
+
+          {accessToken === undefined || renderAssistant === undefined ? null : (
+            <Fragment key={`${state.value.planId}:${state.value.revisionId}`}>
+              {renderAssistant({
+                accessToken,
+                planId: state.value.planId,
+                expectedRevisionId: state.value.revisionId,
+                onPreviewDay: (dayIndex) => {
+                  void previewDay(dayIndex)
+                }
+              })}
+            </Fragment>
+          )}
 
           <ol className="grid gap-3" aria-label="Bảy bữa chính trong tuần">
             {[...state.value.plan.items]

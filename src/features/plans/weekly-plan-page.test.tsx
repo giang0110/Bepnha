@@ -8,7 +8,7 @@ import { AuthContext } from "@/app/auth/auth-context"
 import type { HouseholdSetup } from "@/domain/household/household"
 
 import type { PlanItemView, PlannerApi, PlannerReadyResponse } from "./planner-api"
-import { WeeklyPlanPage } from "./weekly-plan-page"
+import { WeeklyPlanPage, type WeeklyPlanAssistantRenderer } from "./weekly-plan-page"
 
 const household: HouseholdSetup = {
   householdId: "20000000-0000-0000-0000-000000000001",
@@ -75,7 +75,10 @@ function ready(overrides: Partial<PlannerReadyResponse> = {}): PlannerReadyRespo
   }
 }
 
-function setup(apiOverrides: Partial<PlannerApi> = {}) {
+function setup(
+  apiOverrides: Partial<PlannerApi> = {},
+  renderAssistant?: WeeklyPlanAssistantRenderer
+) {
   const api: PlannerApi = {
     generate: vi.fn().mockResolvedValue({ ok: true, value: ready() }),
     preview: vi.fn().mockResolvedValue({
@@ -125,6 +128,7 @@ function setup(apiOverrides: Partial<PlannerApi> = {}) {
         <WeeklyPlanPage
           householdRepository={repository}
           plannerApi={api}
+          {...(renderAssistant === undefined ? {} : { renderAssistant })}
           today={() => new Date("2026-08-27T00:00:00+07:00")}
           createId={() => "30000000-0000-0000-0000-000000000001"}
         />
@@ -212,6 +216,57 @@ describe("WeeklyPlanPage", () => {
     const after = (await screen.findAllByTestId("meal-name")).map((node) => node.textContent)
     expect(after.filter((name, index) => name !== before[index])).toEqual(["Bữa thay thế"])
     expect(api.apply).toHaveBeenCalledOnce()
+  })
+
+  test("assistant slot can only start deterministic preview and never applies directly", async () => {
+    const user = userEvent.setup()
+    const renderAssistant: WeeklyPlanAssistantRenderer = ({ onPreviewDay }) => (
+      <section aria-label="Trợ lý Bếp Nhà">
+        <button type="button" onClick={() => onPreviewDay(2)}>
+          Xem bữa thay thế cho Thứ Tư
+        </button>
+      </section>
+    )
+    const { api } = setup({}, renderAssistant)
+
+    expect(screen.queryByRole("region", { name: "Trợ lý Bếp Nhà" })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+
+    expect(await screen.findByRole("region", { name: "Trợ lý Bếp Nhà" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Xem bữa thay thế cho Thứ Tư" }))
+
+    expect(api.preview).toHaveBeenCalledOnce()
+    expect(api.preview).toHaveBeenCalledWith("token", {
+      planId: ready().planId,
+      targetDayIndex: 2,
+      expectedPlanVersion: 1
+    })
+    expect(api.apply).not.toHaveBeenCalled()
+    expect(await screen.findByRole("button", { name: "Áp dụng bữa thay thế" })).toBeInTheDocument()
+  })
+
+  test("remounts assistant slot when the authoritative revision changes", async () => {
+    const user = userEvent.setup()
+    const renderAssistant: WeeklyPlanAssistantRenderer = ({ expectedRevisionId }) => (
+      <input aria-label={`Assistant local state ${expectedRevisionId}`} defaultValue="" />
+    )
+    setup({}, renderAssistant)
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const oldState = await screen.findByRole("textbox", {
+      name: `Assistant local state ${ready().revisionId}`
+    })
+    await user.type(oldState, "Lời khuyên cũ")
+    expect(oldState).toHaveValue("Lời khuyên cũ")
+
+    await user.click(screen.getAllByRole("button", { name: "Đổi bữa" })[2]!)
+    await user.click(await screen.findByRole("button", { name: "Áp dụng bữa thay thế" }))
+
+    const newState = await screen.findByRole("textbox", {
+      name: "Assistant local state 50000000-0000-0000-0000-000000000002"
+    })
+    expect(newState).toHaveValue("")
+    expect(newState).not.toBe(oldState)
   })
 
   test("renders typed empty/failure states and asks for reload on stale version", async () => {

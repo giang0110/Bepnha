@@ -1,0 +1,23 @@
+name: Phase 7 Task 5 Revision Reset
+
+on:
+  push:
+    branches:
+      - codex/phase-7-task5-revision-reset
+
+permissions:
+  contents: read
+
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run src/features/assistant/assistant-card.test.tsx src/features/plans/weekly-plan-page.test.tsx
+      - run: npx prettier --check src/features/assistant/assistant-card.tsx src/features/assistant/assistant-card.test.tsx src/features/plans/weekly-plan-page.tsx src/features/plans/weekly-plan-page.test.tsx
+      - run: npm run typecheck

@@ -49,6 +49,7 @@ jobs:
       - run: npm run test:integration
       - run: npm run test:integration:catalog-admin
       - run: npm run test:integration:planner
+      - run: npm run test:integration:assistant
       - run: npm run test:integration:shopping
       - run: npm run test:integration:pantry
       - run: npm run supabase:reset
@@ -56,6 +57,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e:onboarding
       - run: npm run test:e2e:planner
+      - run: npm run test:e2e:assistant
       - run: npm run test:e2e:shopping
       - run: npm run test:e2e:pantry
       - run: npm run test:e2e:accessibility

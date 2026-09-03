@@ -7,6 +7,8 @@ import type { ShoppingListRepository } from "@/application/shopping/shopping-lis
 import { useAuth } from "@/app/auth/auth-context"
 import { RequireAuth } from "@/app/auth/require-auth"
 import { NotFoundPage } from "@/app/not-found-page"
+import type { AssistantApi } from "@/features/assistant/assistant-api"
+import { AssistantCard } from "@/features/assistant/assistant-card"
 import { SignInPage } from "@/features/auth/sign-in-page"
 import { SignUpPage } from "@/features/auth/sign-up-page"
 import { HouseholdSummaryPage } from "@/features/household/household-summary-page"
@@ -26,12 +28,14 @@ function HomeRedirect() {
 }
 
 export function AppRouter({
+  assistantApi,
   householdRepository,
   pantryFoodOptionsRepository,
   pantryRepository,
   plannerApi,
   shoppingListRepository
 }: Readonly<{
+  assistantApi: AssistantApi
   householdRepository: HouseholdRepository
   pantryFoodOptionsRepository: PantryFoodOptionsRepository
   pantryRepository: PantryRepository
@@ -56,7 +60,19 @@ export function AppRouter({
         <Route
           path="/plan"
           element={
-            <WeeklyPlanPage householdRepository={householdRepository} plannerApi={plannerApi} />
+            <WeeklyPlanPage
+              householdRepository={householdRepository}
+              plannerApi={plannerApi}
+              renderAssistant={({ accessToken, expectedRevisionId, onPreviewDay, planId }) => (
+                <AssistantCard
+                  accessToken={accessToken}
+                  assistantApi={assistantApi}
+                  expectedRevisionId={expectedRevisionId}
+                  planId={planId}
+                  onPreviewDay={onPreviewDay}
+                />
+              )}
+            />
           }
         />
         <Route

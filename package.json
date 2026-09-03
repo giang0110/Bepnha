@@ -14,12 +14,14 @@
     "test:e2e": "playwright test tests/smoke.spec.ts",
     "test:e2e:onboarding": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/household-onboarding.spec.ts",
     "test:e2e:planner": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/planner.spec.ts",
+    "test:e2e:assistant": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/assistant.spec.ts",
     "test:e2e:shopping": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/shopping-list.spec.ts",
     "test:e2e:pantry": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/pantry.spec.ts",
     "test:e2e:accessibility": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/accessibility-mobile.spec.ts",
     "test:integration": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx vitest run --config vitest.integration.config.ts tests/integration/supabase-auth.integration.test.ts tests/integration/supabase-household.integration.test.ts tests/integration/supabase-catalog.integration.test.ts",
     "test:integration:catalog-admin": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx vitest run --config vitest.integration.config.ts tests/integration/catalog-admin-api.integration.test.ts",
     "test:integration:planner": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx vitest run --config vitest.integration.config.ts tests/integration/planner-api.integration.test.ts",
+    "test:integration:assistant": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx vitest run --config vitest.integration.config.ts tests/integration/assistant-api.integration.test.ts",
     "test:integration:shopping": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx vitest run --config vitest.integration.config.ts tests/integration/shopping-list.integration.test.ts",
     "test:integration:pantry": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx vitest run --config vitest.integration.config.ts tests/integration/pantry.integration.test.ts",
     "test:integration:catalog-readiness": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx vitest run --config vitest.integration.config.ts tests/integration/catalog-readiness.integration.test.ts",
@@ -42,7 +44,7 @@
     "format": "prettier --write --no-error-on-unmatched-pattern src api scripts tests .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json tsconfig.integration.json vite.config.ts vitest.config.ts vitest.integration.config.ts playwright.config.ts eslint.config.js components.json vercel.json",
     "format:check": "prettier --check --no-error-on-unmatched-pattern src api scripts tests .github supabase README.md package.json tsconfig.json tsconfig.app.json tsconfig.node.json tsconfig.api.json tsconfig.integration.json vite.config.ts vitest.config.ts vitest.integration.config.ts playwright.config.ts eslint.config.js components.json vercel.json",
     "verify:release:web": "npm run verify:web && npm run test:performance:planner && npm run test:e2e",
-    "verify:release:db": "npm run preflight:db && npm run supabase:reset && npm run supabase:lint && npm run supabase:test && npm run db:types:check && npm run test:integration && npm run test:integration:catalog-admin && npm run test:integration:planner && npm run test:integration:shopping && npm run test:integration:pantry && npm run supabase:reset && npm run test:integration:catalog-readiness && npm run test:e2e:onboarding && npm run test:e2e:planner && npm run test:e2e:shopping && npm run test:e2e:pantry && npm run test:e2e:accessibility"
+    "verify:release:db": "npm run preflight:db && npm run supabase:reset && npm run supabase:lint && npm run supabase:test && npm run db:types:check && npm run test:integration && npm run test:integration:catalog-admin && npm run test:integration:planner && npm run test:integration:assistant && npm run test:integration:shopping && npm run test:integration:pantry && npm run supabase:reset && npm run test:integration:catalog-readiness && npm run test:e2e:onboarding && npm run test:e2e:planner && npm run test:e2e:assistant && npm run test:e2e:shopping && npm run test:e2e:pantry && npm run test:e2e:accessibility"
   },
   "private": true,
   "type": "module",
@@ -60,6 +62,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
+    "@google/genai": "2.19.0",
     "@supabase/supabase-js": "^2.112.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

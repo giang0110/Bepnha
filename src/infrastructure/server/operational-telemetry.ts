@@ -1,13 +1,23 @@
 const SAFE_CORRELATION_ID = /^[A-Za-z0-9._:-]{1,96}$/u
 
-export interface OperationalEvent {
-  readonly event: "planner_request"
-  readonly operation: "generate" | "preview" | "apply"
+interface BaseOperationalEvent {
   readonly correlationId: string
   readonly durationMs: number
   readonly httpStatus: number
   readonly outcomeCode: string
 }
+
+export interface PlannerOperationalEvent extends BaseOperationalEvent {
+  readonly event: "planner_request"
+  readonly operation: "generate" | "preview" | "apply"
+}
+
+export interface AssistantOperationalEvent extends BaseOperationalEvent {
+  readonly event: "assistant_request"
+  readonly operation: "respond"
+}
+
+export type OperationalEvent = PlannerOperationalEvent | AssistantOperationalEvent
 
 export interface OperationalTelemetry {
   emit(event: OperationalEvent): void

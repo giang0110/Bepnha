@@ -121,6 +121,7 @@ test("mobile planner generates, shows details, and applies a one-day replacement
   await page.getByRole("button", { name: "Đổi bữa" }).nth(2).click()
   await expect(page.getByText("Bữa thay thế", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Áp dụng bữa thay thế" }).click()
+  await expect(page.getByTestId("meal-name").nth(2)).toHaveText("Bữa thay thế")
   const namesAfter = await page.getByTestId("meal-name").allTextContents()
   expect(namesAfter.filter((name, index) => name !== namesBefore[index])).toEqual(["Bữa thay thế"])
   expect(page.viewportSize()).toEqual({ width: 390, height: 844 })
