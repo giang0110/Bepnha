@@ -5,7 +5,10 @@ export interface AssistantRateLimitRequest {
 
 export type AssistantRateLimitDecision =
   | { readonly allowed: true }
-  | { readonly allowed: false; readonly retryAfterSeconds?: number }
+  | {
+      readonly allowed: false
+      readonly retryAfterSeconds?: number
+    }
 
 export interface AssistantRateLimiter {
   consume(request: AssistantRateLimitRequest): Promise<AssistantRateLimitDecision>
