@@ -6,10 +6,9 @@ import { describe, expect, test, vi } from "vitest"
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import { AuthContext } from "@/app/auth/auth-context"
 import type { HouseholdSetup } from "@/domain/household/household"
-import type { AssistantApi } from "@/features/assistant/assistant-api"
 
 import type { PlanItemView, PlannerApi, PlannerReadyResponse } from "./planner-api"
-import { WeeklyPlanPage } from "./weekly-plan-page"
+import { WeeklyPlanPage, type WeeklyPlanAssistantRenderer } from "./weekly-plan-page"
 
 const household: HouseholdSetup = {
   householdId: "20000000-0000-0000-0000-000000000001",
@@ -76,15 +75,9 @@ function ready(overrides: Partial<PlannerReadyResponse> = {}): PlannerReadyRespo
   }
 }
 
-function disabledAssistantApi(): AssistantApi {
-  return {
-    ask: vi.fn().mockResolvedValue({ ok: false, error: "ASSISTANT_DISABLED" })
-  }
-}
-
 function setup(
   apiOverrides: Partial<PlannerApi> = {},
-  assistantApi: AssistantApi = disabledAssistantApi()
+  renderAssistant?: WeeklyPlanAssistantRenderer
 ) {
   const api: PlannerApi = {
     generate: vi.fn().mockResolvedValue({ ok: true, value: ready() }),
@@ -133,9 +126,9 @@ function setup(
         }}
       >
         <WeeklyPlanPage
-          assistantApi={assistantApi}
           householdRepository={repository}
           plannerApi={api}
+          renderAssistant={renderAssistant}
           today={() => new Date("2026-08-27T00:00:00+07:00")}
           createId={() => "30000000-0000-0000-0000-000000000001"}
         />
@@ -225,26 +218,22 @@ describe("WeeklyPlanPage", () => {
     expect(api.apply).toHaveBeenCalledOnce()
   })
 
-  test("assistant proposal only starts deterministic preview and never applies directly", async () => {
+  test("assistant slot can only start deterministic preview and never applies directly", async () => {
     const user = userEvent.setup()
-    const assistantApi: AssistantApi = {
-      ask: vi.fn().mockResolvedValue({
-        ok: true,
-        value: {
-          kind: "replacement_proposal",
-          targetDayIndex: 2,
-          reasonVi: "Có thể xem thử Thứ Tư để tăng độ đa dạng."
-        }
-      })
-    }
-    const { api } = setup({}, assistantApi)
+    const renderAssistant: WeeklyPlanAssistantRenderer = ({ onPreviewDay }) => (
+      <section aria-label="Trợ lý Bếp Nhà">
+        <button type="button" onClick={() => onPreviewDay(2)}>
+          Xem bữa thay thế cho Thứ Tư
+        </button>
+      </section>
+    )
+    const { api } = setup({}, renderAssistant)
 
-    expect(screen.queryByRole("heading", { name: "Trợ lý Bếp Nhà" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("region", { name: "Trợ lý Bếp Nhà" })).not.toBeInTheDocument()
     await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
 
-    expect(await screen.findByRole("heading", { name: "Trợ lý Bếp Nhà" })).toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: "Bữa nào nên xem thử để đa dạng hơn?" }))
-    await user.click(await screen.findByRole("button", { name: "Xem bữa thay thế cho Thứ Tư" }))
+    expect(await screen.findByRole("region", { name: "Trợ lý Bếp Nhà" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Xem bữa thay thế cho Thứ Tư" }))
 
     expect(api.preview).toHaveBeenCalledOnce()
     expect(api.preview).toHaveBeenCalledWith("token", {
