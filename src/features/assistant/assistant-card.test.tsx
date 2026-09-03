@@ -17,7 +17,13 @@ function api(result: Awaited<ReturnType<AssistantApi["ask"]>>): AssistantApi {
 
 describe("AssistantCard", () => {
   test("offers bounded presets and free text", () => {
-    render(<AssistantCard {...props} assistantApi={api({ ok: false, error: "ASSISTANT_DISABLED" })} onPreviewDay={vi.fn()} />)
+    render(
+      <AssistantCard
+        {...props}
+        assistantApi={api({ ok: false, error: "ASSISTANT_DISABLED" })}
+        onPreviewDay={vi.fn()}
+      />
+    )
 
     expect(screen.getByRole("heading", { name: "Trợ lý Bếp Nhà" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Giải thích kế hoạch này" })).toBeInTheDocument()
@@ -44,7 +50,9 @@ describe("AssistantCard", () => {
 
     await user.click(screen.getByRole("button", { name: "Giải thích kế hoạch này" }))
 
-    expect(await screen.findByText("Kế hoạch có bảy bữa chính đã được tính tất định.")).toBeInTheDocument()
+    expect(
+      await screen.findByText("Kế hoạch có bảy bữa chính đã được tính tất định.")
+    ).toBeInTheDocument()
     expect(screen.getByText("Chi phí đang trong ngân sách.")).toBeInTheDocument()
     expect(assistantApi.ask).toHaveBeenCalledWith("access-token", {
       planId: props.planId,
@@ -82,7 +90,9 @@ describe("AssistantCard", () => {
     ["STALE_ASSISTANT_CONTEXT", "Kế hoạch đã thay đổi. Hãy hỏi lại trên bản kế hoạch mới."]
   ] as const)("shows bounded error state for %s", async (error, copy) => {
     const user = userEvent.setup()
-    render(<AssistantCard {...props} assistantApi={api({ ok: false, error })} onPreviewDay={vi.fn()} />)
+    render(
+      <AssistantCard {...props} assistantApi={api({ ok: false, error })} onPreviewDay={vi.fn()} />
+    )
 
     await user.click(screen.getByRole("button", { name: "Giải thích kế hoạch này" }))
 

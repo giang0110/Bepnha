@@ -1,6 +1,9 @@
 import { useState } from "react"
 
-import { ASSISTANT_QUESTION_MAX_LENGTH, type AssistantResult } from "@/application/assistant/meal-assistant"
+import {
+  ASSISTANT_QUESTION_MAX_LENGTH,
+  type AssistantResult
+} from "@/application/assistant/meal-assistant"
 import { Button } from "@/app/components/ui/button"
 
 import type { AssistantApi } from "./assistant-api"
@@ -67,13 +70,17 @@ export function AssistantCard({
   }
 
   return (
-    <section className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm" aria-labelledby="assistant-title">
+    <section
+      className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm"
+      aria-labelledby="assistant-title"
+    >
       <div className="grid gap-1">
         <h2 className="font-semibold" id="assistant-title">
           Trợ lý Bếp Nhà
         </h2>
         <p className="text-sm text-slate-600">
-          Trợ lý chỉ giải thích và gợi ý ngày nên xem thử. Mọi bữa thay thế vẫn do bộ lập kế hoạch tất định kiểm tra.
+          Trợ lý chỉ giải thích và gợi ý ngày nên xem thử. Mọi bữa thay thế vẫn do bộ lập kế hoạch
+          tất định kiểm tra.
         </p>
       </div>
 
@@ -113,12 +120,19 @@ export function AssistantCard({
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
         />
-        <Button disabled={advice.status === "loading" || question.trim().length === 0} type="submit">
+        <Button
+          disabled={advice.status === "loading" || question.trim().length === 0}
+          type="submit"
+        >
           Hỏi trợ lý
         </Button>
       </form>
 
-      {advice.status === "loading" ? <p role="status" className="mt-3">Đang xem kế hoạch…</p> : null}
+      {advice.status === "loading" ? (
+        <p role="status" className="mt-3">
+          Đang xem kế hoạch…
+        </p>
+      ) : null}
 
       {advice.status === "error" ? (
         <div className="mt-3 text-sm" role="alert">
