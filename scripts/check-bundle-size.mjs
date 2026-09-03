@@ -1,6 +1,8 @@
+import console from "node:console"
 import { readdirSync, statSync } from "node:fs"
-import { fileURLToPath } from "node:url"
 import { join, resolve } from "node:path"
+import process from "node:process"
+import { fileURLToPath } from "node:url"
 
 export function oversizedJavaScriptAssets(entries, maxBytes = 500_000) {
   return entries.filter((entry) => entry.name.endsWith(".js") && entry.size > maxBytes)
