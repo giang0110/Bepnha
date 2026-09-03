@@ -8,6 +8,7 @@ import { useAuth } from "@/app/auth/auth-context"
 import { RequireAuth } from "@/app/auth/require-auth"
 import { NotFoundPage } from "@/app/not-found-page"
 import type { AssistantApi } from "@/features/assistant/assistant-api"
+import { AssistantCard } from "@/features/assistant/assistant-card"
 import { SignInPage } from "@/features/auth/sign-in-page"
 import { SignUpPage } from "@/features/auth/sign-up-page"
 import { HouseholdSummaryPage } from "@/features/household/household-summary-page"
@@ -60,9 +61,17 @@ export function AppRouter({
           path="/plan"
           element={
             <WeeklyPlanPage
-              assistantApi={assistantApi}
               householdRepository={householdRepository}
               plannerApi={plannerApi}
+              renderAssistant={({ accessToken, expectedRevisionId, onPreviewDay, planId }) => (
+                <AssistantCard
+                  accessToken={accessToken}
+                  assistantApi={assistantApi}
+                  expectedRevisionId={expectedRevisionId}
+                  planId={planId}
+                  onPreviewDay={onPreviewDay}
+                />
+              )}
             />
           }
         />
