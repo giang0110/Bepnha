@@ -69,6 +69,9 @@ export function AssistantCard({
     )
   }
 
+  const replacementProposal =
+    advice.status === "ready" && advice.value.kind === "replacement_proposal" ? advice.value : null
+
   return (
     <section
       className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm"
@@ -164,18 +167,18 @@ export function AssistantCard({
         </p>
       ) : null}
 
-      {advice.status === "ready" && advice.value.kind === "replacement_proposal" ? (
+      {replacementProposal === null ? null : (
         <div className="mt-3 grid gap-2 text-sm">
-          <p>{advice.value.reasonVi}</p>
+          <p>{replacementProposal.reasonVi}</p>
           <Button
             type="button"
             variant="outline"
-            onClick={() => onPreviewDay(advice.value.targetDayIndex)}
+            onClick={() => onPreviewDay(replacementProposal.targetDayIndex)}
           >
-            Xem bữa thay thế cho {DAY_LABELS[advice.value.targetDayIndex]}
+            Xem bữa thay thế cho {DAY_LABELS[replacementProposal.targetDayIndex]}
           </Button>
         </div>
-      ) : null}
+      )}
     </section>
   )
 }
