@@ -60,7 +60,7 @@ function request() {
 }
 
 describe("in-memory assistant rate limiter", () => {
-  test("enforces a rolling five-request burst independently per user", async () => {
+  test("burst quota", async () => {
     const limiter = createInMemoryAssistantRateLimiter({
       burstLimit: 5,
       burstWindowMs: 60_000,
@@ -68,24 +68,36 @@ describe("in-memory assistant rate limiter", () => {
     })
 
     for (let index = 0; index < 5; index += 1) {
-      await expect(
-        limiter.consume({ actorUserId: "user-a", nowMs: 1_000 + index })
-      ).resolves.toEqual({ allowed: true })
+      const result = await limiter.consume({
+        actorUserId: "user-a",
+        nowMs: 1_000 + index
+      })
+      expect(result).toEqual({ allowed: true })
     }
 
-    const denied = await limiter.consume({ actorUserId: "user-a", nowMs: 2_000 })
+    const denied = await limiter.consume({
+      actorUserId: "user-a",
+      nowMs: 2_000
+    })
     expect(denied.allowed).toBe(false)
-    if (!denied.allowed) expect(denied.retryAfterSeconds).toBeGreaterThan(0)
+    if (!denied.allowed) {
+      expect(denied.retryAfterSeconds).toBeGreaterThan(0)
+    }
 
-    await expect(
-      limiter.consume({ actorUserId: "user-b", nowMs: 2_000 })
-    ).resolves.toEqual({ allowed: true })
-    await expect(
-      limiter.consume({ actorUserId: "user-a", nowMs: 61_001 })
-    ).resolves.toEqual({ allowed: true })
+    const otherUser = await limiter.consume({
+      actorUserId: "user-b",
+      nowMs: 2_000
+    })
+    expect(otherUser).toEqual({ allowed: true })
+
+    const advanced = await limiter.consume({
+      actorUserId: "user-a",
+      nowMs: 61_001
+    })
+    expect(advanced).toEqual({ allowed: true })
   })
 
-  test("enforces the daily quota and resets at the next UTC day", async () => {
+  test("daily quota", async () => {
     const limiter = createInMemoryAssistantRateLimiter({
       burstLimit: 100,
       burstWindowMs: 60_000,
@@ -94,9 +106,11 @@ describe("in-memory assistant rate limiter", () => {
     const dayStart = Date.UTC(2026, 8, 3)
 
     for (let index = 0; index < 50; index += 1) {
-      await expect(
-        limiter.consume({ actorUserId: "user-a", nowMs: dayStart + index * 1_000 })
-      ).resolves.toEqual({ allowed: true })
+      const result = await limiter.consume({
+        actorUserId: "user-a",
+        nowMs: dayStart + index * 1_000
+      })
+      expect(result).toEqual({ allowed: true })
     }
 
     const denied = await limiter.consume({
@@ -105,27 +119,32 @@ describe("in-memory assistant rate limiter", () => {
     })
     expect(denied.allowed).toBe(false)
 
-    await expect(
-      limiter.consume({ actorUserId: "user-a", nowMs: dayStart + 86_400_000 })
-    ).resolves.toEqual({ allowed: true })
+    const nextDay = await limiter.consume({
+      actorUserId: "user-a",
+      nowMs: dayStart + 86_400_000
+    })
+    expect(nextDay).toEqual({ allowed: true })
   })
 })
 
 describe("assistant HTTP rate-limit boundary", () => {
-  test("returns a bounded 429 after verified current context and before provider invocation", async () => {
+  test("returns 429 before provider invocation", async () => {
     const respond = vi.fn()
-    const consume = vi.fn(() =>
-      Promise.resolve({ allowed: false as const, retryAfterSeconds: 12 })
-    )
+    const consume = vi.fn(() => {
+      return Promise.resolve({
+        allowed: false as const,
+        retryAfterSeconds: 12
+      })
+    })
     const handler = createAssistantHttpHandler({
       auth: { verify: vi.fn(() => Promise.resolve({ userId: "user-1" })) },
       contextRepositoryFor: () => ({
-        loadCurrent: vi.fn(() =>
-          Promise.resolve({
+        loadCurrent: vi.fn(() => {
+          return Promise.resolve({
             ok: true as const,
             value: { currentRevisionId: REVISION_ID, evidence }
           })
-        )
+        })
       }),
       assistant: { respond },
       rateLimiter: { consume },
@@ -138,28 +157,31 @@ describe("assistant HTTP rate-limit boundary", () => {
     await handler(request(), response)
 
     expect(consume).toHaveBeenCalledOnce()
-    expect(consume).toHaveBeenCalledWith({ actorUserId: "user-1", nowMs: 100 })
+    expect(consume).toHaveBeenCalledWith({
+      actorUserId: "user-1",
+      nowMs: 100
+    })
     expect(respond).not.toHaveBeenCalled()
     expect(state.statusCode).toBe(429)
     expect(state.body).toEqual({ error: "ASSISTANT_RATE_LIMITED" })
     expect(state.headers.get("Retry-After")).toBe("12")
   })
 
-  test("does not consume quota for stale assistant context", async () => {
+  test("stale context does not consume quota", async () => {
     const consume = vi.fn()
     const respond = vi.fn()
     const handler = createAssistantHttpHandler({
       auth: { verify: vi.fn(() => Promise.resolve({ userId: "user-1" })) },
       contextRepositoryFor: () => ({
-        loadCurrent: vi.fn(() =>
-          Promise.resolve({
+        loadCurrent: vi.fn(() => {
+          return Promise.resolve({
             ok: true as const,
             value: {
               currentRevisionId: "50000000-0000-0000-0000-000000000099",
               evidence
             }
           })
-        )
+        })
       }),
       assistant: { respond },
       rateLimiter: { consume },
