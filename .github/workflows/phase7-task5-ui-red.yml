@@ -1,4 +1,4 @@
-name: Phase 7 Task 5 Integration FORMAT
+name: Phase 7 Task 5 Integration GREEN
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  format:
+  green:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,8 +18,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx prettier --write src/features/plans/weekly-plan-page.test.tsx
-      - run: git diff -- src/features/plans/weekly-plan-page.test.tsx
-      - run: npx vitest run src/features/assistant/assistant-api.test.ts src/features/assistant/assistant-card.test.tsx src/features/plans/weekly-plan-page.test.tsx
+      - run: npx vitest run src/features/assistant/assistant-api.test.ts src/features/assistant/assistant-card.test.tsx src/features/plans/weekly-plan-page.test.tsx src/features/plans/weekly-plan-recovery.test.tsx src/app/App.test.tsx
+      - run: npx prettier --check src/features/assistant/assistant-api.ts src/features/assistant/assistant-api.test.ts src/features/assistant/assistant-card.tsx src/features/assistant/assistant-card.test.tsx src/features/plans/weekly-plan-page.tsx src/features/plans/weekly-plan-page.test.tsx src/features/plans/weekly-plan-recovery.test.tsx src/app/App.tsx src/app/router.tsx
       - run: npm run typecheck
       - run: npm run lint
