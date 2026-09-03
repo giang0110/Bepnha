@@ -17,7 +17,7 @@ type UnknownRecord = Record<string, unknown>
 
 interface AssistantHttpDependencies {
   readonly auth: ServerAuthVerifier
-  readonly contextRepository: AssistantContextRepository
+  readonly contextRepositoryFor: (accessToken: string) => AssistantContextRepository
   readonly assistant: MealAssistantPort | null
   readonly telemetry?: OperationalTelemetry
   readonly createCorrelationId?: () => string
@@ -137,9 +137,17 @@ export function createAssistantHttpHandler(dependencies: AssistantHttpDependenci
       return
     }
 
+    let repository: AssistantContextRepository
+    try {
+      repository = dependencies.contextRepositoryFor(accessToken)
+    } catch {
+      sendError(503, "ASSISTANT_UNAVAILABLE")
+      return
+    }
+
     let loaded: Awaited<ReturnType<AssistantContextRepository["loadCurrent"]>>
     try {
-      loaded = await dependencies.contextRepository.loadCurrent({
+      loaded = await repository.loadCurrent({
         actorUserId: identity.userId,
         planId: input.planId
       })
