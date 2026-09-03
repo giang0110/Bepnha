@@ -150,7 +150,8 @@ describe("assistant HTTP rate-limit boundary", () => {
       rateLimiter: { consume },
       telemetry: { emit: vi.fn() },
       createCorrelationId: () => "phase8-rate-limit",
-      now: () => 100
+      now: () => 100,
+      rateLimitNow: () => 100
     })
     const { state, response } = responseDouble()
 
@@ -187,7 +188,8 @@ describe("assistant HTTP rate-limit boundary", () => {
       rateLimiter: { consume },
       telemetry: { emit: vi.fn() },
       createCorrelationId: () => "phase8-stale",
-      now: () => 100
+      now: () => 100,
+      rateLimitNow: () => 100
     })
     const { state, response } = responseDouble()
 
