@@ -6,6 +6,7 @@ import { describe, expect, test, vi } from "vitest"
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import { AuthContext } from "@/app/auth/auth-context"
 import type { HouseholdSetup } from "@/domain/household/household"
+import type { AssistantApi } from "@/features/assistant/assistant-api"
 
 import type { PlanItemView, PlannerApi, PlannerReadyResponse } from "./planner-api"
 import { WeeklyPlanPage } from "./weekly-plan-page"
@@ -75,7 +76,13 @@ function ready(overrides: Partial<PlannerReadyResponse> = {}): PlannerReadyRespo
   }
 }
 
-function setup(apiOverrides: Partial<PlannerApi> = {}) {
+function disabledAssistantApi(): AssistantApi {
+  return {
+    ask: vi.fn().mockResolvedValue({ ok: false, error: "ASSISTANT_DISABLED" })
+  }
+}
+
+function setup(apiOverrides: Partial<PlannerApi> = {}, assistantApi: AssistantApi = disabledAssistantApi()) {
   const api: PlannerApi = {
     generate: vi.fn().mockResolvedValue({ ok: true, value: ready() }),
     preview: vi.fn().mockResolvedValue({
@@ -123,6 +130,7 @@ function setup(apiOverrides: Partial<PlannerApi> = {}) {
         }}
       >
         <WeeklyPlanPage
+          assistantApi={assistantApi}
           householdRepository={repository}
           plannerApi={api}
           today={() => new Date("2026-08-27T00:00:00+07:00")}
@@ -212,6 +220,37 @@ describe("WeeklyPlanPage", () => {
     const after = (await screen.findAllByTestId("meal-name")).map((node) => node.textContent)
     expect(after.filter((name, index) => name !== before[index])).toEqual(["Bữa thay thế"])
     expect(api.apply).toHaveBeenCalledOnce()
+  })
+
+  test("assistant proposal only starts deterministic preview and never applies directly", async () => {
+    const user = userEvent.setup()
+    const assistantApi: AssistantApi = {
+      ask: vi.fn().mockResolvedValue({
+        ok: true,
+        value: {
+          kind: "replacement_proposal",
+          targetDayIndex: 2,
+          reasonVi: "Có thể xem thử Thứ Tư để tăng độ đa dạng."
+        }
+      })
+    }
+    const { api } = setup({}, assistantApi)
+
+    expect(screen.queryByRole("heading", { name: "Trợ lý Bếp Nhà" })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+
+    expect(await screen.findByRole("heading", { name: "Trợ lý Bếp Nhà" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Bữa nào nên xem thử để đa dạng hơn?" }))
+    await user.click(await screen.findByRole("button", { name: "Xem bữa thay thế cho Thứ Tư" }))
+
+    expect(api.preview).toHaveBeenCalledOnce()
+    expect(api.preview).toHaveBeenCalledWith("token", {
+      planId: ready().planId,
+      targetDayIndex: 2,
+      expectedPlanVersion: 1
+    })
+    expect(api.apply).not.toHaveBeenCalled()
+    expect(await screen.findByRole("button", { name: "Áp dụng bữa thay thế" })).toBeInTheDocument()
   })
 
   test("renders typed empty/failure states and asks for reload on stale version", async () => {

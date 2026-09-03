@@ -1,4 +1,4 @@
-name: Phase 7 Task 5 UI GREEN
+name: Phase 7 Task 5 Integration RED
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  green:
+  red:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,7 +18,4 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx vitest run src/features/assistant/assistant-api.test.ts src/features/assistant/assistant-card.test.tsx
-      - run: npx prettier --check src/features/assistant/assistant-api.ts src/features/assistant/assistant-api.test.ts src/features/assistant/assistant-card.tsx src/features/assistant/assistant-card.test.tsx
-      - run: npm run typecheck
-      - run: npm run lint
+      - run: npx vitest run src/features/assistant/assistant-api.test.ts src/features/assistant/assistant-card.test.tsx src/features/plans/weekly-plan-page.test.tsx
