@@ -55,10 +55,7 @@ function responseDouble() {
   const response = {
     statusCode: 0,
     setHeader(name: string, value: string | number | readonly string[]) {
-      headers.set(
-        name.toLowerCase(),
-        Array.isArray(value) ? value.join(",") : String(value)
-      )
+      headers.set(name.toLowerCase(), Array.isArray(value) ? value.join(",") : String(value))
       return response
     },
     status(code: number) {
@@ -187,9 +184,7 @@ beforeAll(async () => {
   if (users.error !== null) {
     throw new Error("Unable to inspect local planner fixture user")
   }
-  const plannerUser = users.data.users.find((user) =>
-    user.email?.startsWith("phase3-planner-")
-  )
+  const plannerUser = users.data.users.find((user) => user.email?.startsWith("phase3-planner-"))
   if (plannerUser?.email === undefined) {
     throw new Error("Assistant integration requires planner integration fixture first")
   }
@@ -293,10 +288,7 @@ describe("Phase 7 assistant API integration", () => {
     const fake = fakeAssistant()
     const response = responseDouble()
     await assistantHandler(fake.assistant)(
-      request(
-        { planId, expectedRevisionId: revisionId, question: "Giải thích" },
-        otherToken
-      ),
+      request({ planId, expectedRevisionId: revisionId, question: "Giải thích" }, otherToken),
       response.response
     )
 
@@ -329,18 +321,13 @@ describe("Phase 7 assistant API integration", () => {
     const fake = fakeAssistant({ ok: false, error: "ASSISTANT_UNAVAILABLE" })
     const response = responseDouble()
     await assistantHandler(fake.assistant, "assistant-int-provider-failure")(
-      request(
-        { planId, expectedRevisionId: revisionId, question: "Giải thích" },
-        ownerToken
-      ),
+      request({ planId, expectedRevisionId: revisionId, question: "Giải thích" }, ownerToken),
       response.response
     )
 
     expect(response.state.statusCode).toBe(503)
     expect(response.state.body).toEqual({ error: "ASSISTANT_UNAVAILABLE" })
-    expect(response.state.headers.get("x-correlation-id")).toBe(
-      "assistant-int-provider-failure"
-    )
+    expect(response.state.headers.get("x-correlation-id")).toBe("assistant-int-provider-failure")
     expect(fake.calls).toHaveLength(1)
   })
 
@@ -348,10 +335,7 @@ describe("Phase 7 assistant API integration", () => {
     const fake = fakeAssistant()
     const response = responseDouble()
     await assistantHandler(fake.assistant)(
-      request(
-        { planId, expectedRevisionId: revisionId, question: "Giải thích" },
-        null
-      ),
+      request({ planId, expectedRevisionId: revisionId, question: "Giải thích" }, null),
       response.response
     )
 

@@ -64,14 +64,10 @@ async function onboard(page: Page) {
     .fill(`phase7-browser-${crypto.randomUUID()}@example.test`)
   await page.getByLabel("Mật khẩu").fill("phase7-browser-test-password")
   await page.getByRole("button", { name: "Tạo tài khoản" }).click()
-  await expect(
-    page.getByRole("heading", { name: "Thành viên trong gia đình" })
-  ).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Thành viên trong gia đình" })).toBeVisible()
   await page.getByRole("spinbutton", { name: "Người lớn" }).fill("2")
   await page.getByRole("button", { name: "Tiếp tục" }).click()
-  await page
-    .getByRole("textbox", { name: "Ngân sách tuần (VND)" })
-    .fill("1200000")
+  await page.getByRole("textbox", { name: "Ngân sách tuần (VND)" }).fill("1200000")
   await page.getByRole("button", { name: "Tiếp tục" }).click()
   await page.getByRole("button", { name: "Tiếp tục" }).click()
   await page.getByRole("button", { name: "Tiếp tục" }).click()
@@ -118,9 +114,7 @@ test("mobile assistant remains advisory and deterministic replacement requires e
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(
-        ready(replacementItems, "50000000-0000-0000-0000-000000000011", 2)
-      )
+      body: JSON.stringify(ready(replacementItems, "50000000-0000-0000-0000-000000000011", 2))
     })
   })
   await page.route("**/api/assistant", async (route) => {
@@ -166,9 +160,7 @@ test("mobile assistant remains advisory and deterministic replacement requires e
   await expect(page.getByRole("heading", { name: "Trợ lý Bếp Nhà" })).toBeVisible()
 
   await page.getByRole("button", { name: "Giải thích kế hoạch này" }).click()
-  await expect(
-    page.getByText("Bảy bữa chính đều nằm trong kế hoạch tất định.")
-  ).toBeVisible()
+  await expect(page.getByText("Bảy bữa chính đều nằm trong kế hoạch tất định.")).toBeVisible()
 
   await page.getByRole("button", { name: "Bữa nào nên xem thử để đa dạng hơn?" }).click()
   await expect(page.getByText("Có thể xem thử Thứ Tư để tăng độ đa dạng.")).toBeVisible()
