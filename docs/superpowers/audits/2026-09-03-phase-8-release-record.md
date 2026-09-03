@@ -8,7 +8,7 @@ Base main: `ba8b90ea8cfd32dc02964fb28197a7f84e598995`
 
 `PHASE_8_BLOCKED`
 
-Phase 8 is in implementation. Repository hardening gates and external production gates are tracked separately. A green repository does not imply `PRODUCTION_READY`.
+Phase 8 repository hardening is implemented through Task 4. Repository hardening gates and external production gates are tracked separately. A green repository does not imply `PRODUCTION_READY`.
 
 ## Repository governance
 
@@ -21,16 +21,16 @@ Required protection:
 - force pushes disabled;
 - branch deletion disabled.
 
-The connected GitHub surface exposes branch-protection/ruleset reads but no write action. Until an operator enables the rules in GitHub settings or another authorized write surface becomes available, record `MAIN_GOVERNANCE_BLOCKED`.
+The connected GitHub surface exposes branch-protection/ruleset reads but no write action. Until an operator enables the rules in GitHub settings or explicitly accepts this platform blocker, record `MAIN_GOVERNANCE_BLOCKED`.
 
 ## Repository gates
 
 - [ ] main governance enforced or exact platform blocker accepted by operator
-- [ ] canonical CI cleaned and upgraded to supported Actions runtime
-- [ ] assistant rate limiting implemented and verified
-- [ ] production in-memory limiter prevented
-- [ ] bundle ceiling <= 500000 bytes enforced
-- [ ] coverage floors enforced: statements 78, branches 70, functions 84, lines 82
+- [x] canonical CI cleaned and upgraded to supported Actions runtime
+- [x] assistant rate limiting implemented and verified
+- [x] production in-memory limiter prevented
+- [x] bundle ceiling <= 500000 bytes enforced
+- [x] coverage floors enforced: statements 78, branches 70, functions 84, lines 82
 - [ ] exact-head Fast CI success
 - [ ] exact-head PR `web` + `database` success
 - [ ] review checkpoint complete
@@ -67,3 +67,43 @@ Exact-main CI run `33752677760` (#450): `web` success and `database` success, in
 ## Phase 8 evidence log
 
 Evidence is appended only after the exact corresponding run/action completes. Ancestor runs do not satisfy exact-head or exact-main gates.
+
+### Repository hardening implementation
+
+- Canonical `.github/workflows/ci.yml` and `.github/workflows/fast-ci.yml` use `actions/checkout@v7` and `actions/setup-node@v7`; temporary Phase 7 release/reset workflows were removed from the Phase 8 branch.
+- Assistant HTTP rate limiting is applied only after authenticated owner/current-revision validation and before provider invocation. Denial returns HTTP 429 with bounded `Retry-After`; limiter failure fails closed with `ASSISTANT_UNAVAILABLE`.
+- Production fail-closed behavior is explicit: when `VERCEL_ENV === "production"`, the default runtime factory returns no in-memory limiter, so configured Gemini remains disabled until a shared production adapter exists.
+- No `supabase/migrations/*` file and no deterministic planner-domain authority file is changed in the Phase 8 branch compare against `main`.
+
+### Task 4 exact implementation-head evidence
+
+Implementation head: `e5f58bfa5dba240858d79fd862566637c9640cff`.
+
+Fast CI run `33769737396` (#132), job `100696594293`: success.
+
+`npm run verify:web` completed successfully and included environment validation, secret scan, dependency audit, formatting, lint, typecheck, coverage, production build, and `bundle:check`.
+
+Coverage on that run:
+
+- statements: `79.04%` (floor `78%`)
+- branches: `70.86%` (floor `70%`)
+- functions: `84.38%` (floor `84%`)
+- lines: `82.36%` (floor `82%`)
+- tests: `614 passed`, `0 failed`
+
+Production build largest JavaScript asset: `vendor-BoFYqdTK.js`, `174546` bytes. Bundle ceiling: `500000` bytes. `bundle:check` passed.
+
+### Task 5 pre-PR topology and audit
+
+At implementation head `e5f58bfa5dba240858d79fd862566637c9640cff`, comparison against current `main` returned `ahead_by = 39`, `behind_by = 0`, merge base `ba8b90ea8cfd32dc02964fb28197a7f84e598995`.
+
+Pre-PR changed-file audit found:
+
+- no Supabase migration change;
+- no deterministic planner-domain authority change;
+- no browser Gemini/service-role secret path introduced;
+- no provider-before-limiter path;
+- no production in-memory limiter path;
+- existing router regression assertions remain present and passed in Fast CI.
+
+This release-record commit changes the branch head after run #132. Therefore run #132 is retained as Task 4 evidence only and does **not** satisfy the final Task 5 exact-head Fast CI checkbox. A fresh Fast CI run on this documentation commit is required before any PR can be considered merge-ready.
