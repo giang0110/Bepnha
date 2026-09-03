@@ -86,7 +86,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
       },
       (error: unknown) => {
         clearTimeout(timer)
-        reject(error)
+        reject(error instanceof Error ? error : new Error("ASSISTANT_PROVIDER_FAILURE"))
       }
     )
   })
@@ -122,7 +122,7 @@ export function createGeminiMealAssistant(dependencies: Dependencies): MealAssis
 
         let parsed: unknown
         try {
-          parsed = JSON.parse(interaction.output_text)
+          parsed = JSON.parse(interaction.output_text) as unknown
         } catch {
           return unavailable
         }
