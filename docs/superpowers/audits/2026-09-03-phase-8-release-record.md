@@ -8,7 +8,7 @@ Phase 8 PR: `#4`
 
 `PHASE_8_BLOCKED`
 
-Repository hardening has been implemented, reviewed, merged, and verified on the merge commit. `PRODUCTION_READY` is still blocked by unresolved repository-governance and external production targets.
+Repository hardening has been implemented, reviewed, merged, and verified on the merge commit and current main. `PRODUCTION_READY` is still blocked by unresolved repository-governance and external production targets.
 
 Current blockers:
 
@@ -42,6 +42,7 @@ The connected GitHub surface exposes branch-protection/ruleset reads but no writ
 - [x] review checkpoint complete
 - [x] authorized merge complete
 - [x] exact-merge-main `web` + `database` success
+- [x] exact-current-main `web` + `database` success after corrective-history verification
 
 ## Phase 8 repository evidence
 
@@ -65,7 +66,7 @@ Current main after the corrective delete is `3157411ea453dc7ca5d8612d6e2594d494c
 
 A compare from merge SHA `385888c9b5fda7bc548980c2315a0c2a78220409` to current main reports two commits and `files: []`; current main therefore has the same repository tree as the verified merge commit (`6b71952351a329827aea106c01370b1c8844428a`).
 
-Exact-current-main CI run `33827975243` (#454) was triggered for `3157411ea453dc7ca5d8612d6e2594d494c6e625`; at the time of this evidence commit it was still in progress. This run must complete before claiming a fresh exact-current-main PASS.
+Exact-current-main CI run `33827975243` (#454) on `3157411ea453dc7ca5d8612d6e2594d494c6e625` completed with conclusion `success` on attempt 2. The database job passed the complete local Supabase/integration/catalog/E2E/type-generation/cleanup sequence. The first web attempt failed only because `npm audit --audit-level=moderate` timed out while contacting the npm advisories endpoint; environment validation and secret scanning had already passed. No code, dependency, threshold, or security-gate change was made. Only the failed web job was retried; on retry, `verify:web`, dependency audit, planner performance, Chromium installation, and full web E2E all passed. This confirms the first web failure was a transient npm-registry network failure, not a repository regression.
 
 ## External production gates
 
@@ -88,6 +89,8 @@ Exact-current-main CI run `33827975243` (#454) was triggered for `3157411ea453dc
 
 No connected Supabase management surface is available in this chat. The repository contains no committed production `supabase.co` URL or `SUPABASE_PROJECT` identifier that can prove the intended production target. Repository database verification commands are local-only and must never be pointed at a guessed remote database.
 
+A Supabase integration is available to connect through ChatGPT and has been surfaced to the operator for future read-only project discovery. Until that connection is established and the intended BepNha production project is positively identified, the target remains unresolved.
+
 Result: `PRODUCTION_SUPABASE_UNRESOLVED`. No production database mutation was attempted.
 
 ### Vercel
@@ -101,6 +104,12 @@ Read-only project listing exposes only:
 No project linked to `ntgiang1235-ux/Bepnha` is visible in the connected team.
 
 Result: `PRODUCTION_VERCEL_UNRESOLVED`. No Vercel project creation, environment-variable mutation, or production deployment was attempted.
+
+## Evidence-branch verification
+
+Evidence commit `c7c7215c1f08606239ccfec224f0bc2cfd9eceb8` passed Fast CI run `33828168860` (#135), including `npm run verify:web`. This proves the release-record-only update did not weaken or break repository web gates.
+
+This final evidence update changes the evidence branch head again and therefore requires a fresh Fast CI run before that branch is proposed for integration.
 
 ## Launch rule
 
