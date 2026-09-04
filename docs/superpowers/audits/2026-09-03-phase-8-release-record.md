@@ -9,82 +9,124 @@ Phase 8 PR: `#4`
 
 `PHASE_8_BLOCKED`
 
-Repository hardening has been implemented, reviewed, merged, and verified on the merge commit and current `main`. `PRODUCTION_READY` remains blocked by repository governance plus unresolved production Supabase/Vercel targets.
+Repository hardening is implemented, reviewed, merged, and verified. Production Supabase is now positively identified, but production launch remains blocked by governance, unapplied schema/catalog work, and unresolved Vercel access.
 
 Current blockers:
 
 - `MAIN_GOVERNANCE_BLOCKED`
-- `PRODUCTION_SUPABASE_UNRESOLVED`
+- `PRODUCTION_SUPABASE_SCHEMA_NOT_APPLIED`
+- `PRODUCTION_CATALOG_NOT_READY`
 - `PRODUCTION_VERCEL_UNRESOLVED`
 
-Gemini is optional. Production Gemini must remain disabled unless a multi-instance-safe shared rate limiter is configured; this does not block deterministic planner launch.
+Gemini is optional. Production Gemini remains disabled until a multi-instance-safe shared limiter exists; deterministic planner launch does not depend on Gemini.
 
-## Repository transfer and access
+## Repository identity and access
 
-The repository has been transferred from `ntgiang1235-ux/Bepnha` to `giang0110/Bepnha`. Current repository identity is `giang0110/Bepnha`.
+Canonical repository is now `giang0110/Bepnha` after transfer from `ntgiang1235-ux/Bepnha`.
 
-The active GitHub connection is now authenticated as `giang0110`. GitHub App installation `158997825` exposes `giang0110/Bepnha`, and repository permissions report `admin`, `maintain`, `push`, `pull`, and `triage` access.
+Active GitHub connection: `giang0110`.
+GitHub App installation: `158997825`.
+Repository permissions report admin/maintain/push/pull/triage access, and evidence-branch content writes succeed.
 
-Repository content writes on the evidence branch are therefore available again after the transfer.
+Current `main`: `3157411ea453dc7ca5d8612d6e2594d494c6e625`.
+Current `main` remains `protected: false`.
 
-## Repository governance
-
-Latest readback shows `main` at `3157411ea453dc7ca5d8612d6e2594d494c6e625` and still `protected: false`.
-
-Required governance remains:
-
-- changes through pull requests;
-- required canonical `CI` checks `web` and `database`;
-- force pushes disabled;
-- branch deletion disabled.
-
-The connected GitHub action surface exposes branch-protection/ruleset reads but no branch-protection write action. Even though the authenticated account now has repository admin permission, protection cannot be changed through the available connector action set. Do not mark `PHASE_8_PASS` until protection is enabled by an operator or this exact blocker is explicitly accepted.
+The available GitHub connector exposes branch-protection/ruleset reads but no protection write action. Required governance remains PR required, canonical `web` + `database` required, force-push disabled, deletion disabled.
 
 ## Repository gates
 
-- [ ] main governance enforced or exact platform blocker accepted by operator
+- [ ] main governance enforced or exact blocker explicitly accepted by operator
 - [x] canonical CI cleaned and upgraded to Actions v7
 - [x] assistant rate limiting implemented and verified
 - [x] production in-memory limiter prevented
 - [x] bundle ceiling <= 500000 bytes enforced
 - [x] coverage floors enforced: statements 78, branches 70, functions 84, lines 82
-- [x] exact-head Fast CI success
+- [x] exact-head Phase 8 Fast CI success before PR
 - [x] exact-head PR `web` + `database` success
-- [x] review checkpoint complete
-- [x] authorized merge complete
+- [x] formal review checkpoint complete
+- [x] authorized PR #4 merge complete
 - [x] exact-merge-main `web` + `database` success
 - [x] exact-current-main `web` + `database` success after corrective-history verification
 
 ## Phase 8 repository evidence
 
-Final PR head: `577a46c483e669252f46c9f68df2286227e3d734`.
+Final Phase 8 PR head: `577a46c483e669252f46c9f68df2286227e3d734`.
 
 Fast CI #133 on that exact head passed `verify:web` with 614 tests, coverage `79.04 / 70.86 / 84.38 / 82.36`, production build, and bundle ceiling. Largest JavaScript asset was `174546` bytes.
 
-PR #4 canonical CI run `33813341110` (#451) completed successfully on the exact PR head with both `web` and `database` green. Database verification included Supabase start/reset/lint/pgTAP, generated types, catalog/admin/planner/assistant/shopping/pantry integration suites, isolated catalog-readiness, onboarding/planner/assistant/shopping/pantry/accessibility E2E, artifact generation, and cleanup.
+PR #4 canonical CI run `33813341110` (#451) completed successfully with both `web` and `database` green. Formal review reported no Critical/Important findings and no unresolved review threads.
 
-Formal review checkpoint on PR #4 reported no Critical or Important findings and no unresolved review threads.
+PR #4 merged as `385888c9b5fda7bc548980c2315a0c2a78220409`. Exact-merge-main CI `33818618908` (#452) completed successfully.
 
-PR #4 was merged to `main` as merge commit `385888c9b5fda7bc548980c2315a0c2a78220409`. Exact-main CI run `33818618908` (#452) completed successfully on that merge SHA with `web` and `database` both green.
+During post-merge evidence work, an accidental placeholder was created directly on `main` then immediately removed by forward-fix; no force-push/history rewrite was used. Current main `3157411ea453dc7ca5d8612d6e2594d494c6e625` has the same repository tree as the verified merge commit (`6b71952351a329827aea106c01370b1c8844428a`). Exact-current-main CI `33827975243` (#454) completed successfully on attempt 2; the first web attempt failed only from a transient npm advisories endpoint timeout and passed unchanged on retry.
 
-No Phase 8 `supabase/migrations/*` file was introduced and no deterministic planner/search/price/portion/allergy authority file was changed.
+No Phase 8 migration was introduced and no deterministic planner/search/price/portion/allergy authority file changed.
 
-## Corrective-history note — 2026-09-04
+## Production Supabase read-only preflight — 2026-09-04
 
-During post-merge evidence work, a placeholder file was accidentally created directly on `main` and immediately removed by a forward-fix commit. No force push or history rewrite was used.
+Resolved production project:
 
-Current `main` after the corrective delete is `3157411ea453dc7ca5d8612d6e2594d494c6e625`.
+- name: `Bepnha`
+- project ref: `vkrqzwlpneocgjwhqbsl`
+- organization: `giang0110's Org` (`nwzcwogxfmuvmrgdgzfg`)
+- organization plan: Free
+- region: `ap-southeast-1`
+- PostgreSQL: 17 (`17.6.1.166`)
+- status: `ACTIVE_HEALTHY`
+- API URL: `https://vkrqzwlpneocgjwhqbsl.supabase.co`
 
-A compare from merge SHA `385888c9b5fda7bc548980c2315a0c2a78220409` to current `main` reports two commits and `files: []`; current `main` therefore has the same repository tree as the verified merge commit (`6b71952351a329827aea106c01370b1c8844428a`).
+A modern enabled publishable key exists and is available for deployment configuration; key values are intentionally omitted from this record.
 
-Exact-current-main CI run `33827975243` (#454) on `3157411ea453dc7ca5d8612d6e2594d494c6e625` completed with conclusion `success` on attempt 2. The first web attempt failed only because `npm audit --audit-level=moderate` timed out contacting the npm advisories endpoint. No code, dependency, threshold, or security-gate change was made. Only the failed web job was retried; on retry, `verify:web`, dependency audit, planner performance, Chromium installation, and full web E2E all passed. The database job passed the complete local Supabase/integration/catalog/E2E/type-generation/cleanup sequence.
+Initial production database state:
+
+- remote migration history: 0 migrations
+- `public` tables: 0
+
+Repository `main` contains exactly eight ordered migration files:
+
+1. `20260825000000_phase_0_security_baseline.sql`
+2. `20260825010000_phase_1_household.sql`
+3. `20260826000000_qualify_household_rpc_constraints.sql`
+4. `20260826010000_phase_2_food_recipe.sql`
+5. `20260826020000_phase_3_planner.sql`
+6. `20260827000000_phase_4_shopping_list.sql`
+7. `20260901000000_phase_5_pantry.sql`
+8. `20260902000000_phase_5_pantry_shopping_trace.sql`
+
+The production project is therefore a clean bootstrap target, not a drift-repair target. No production migration has been applied. Applying the eight-migration chain requires explicit mutation authorization for project `vkrqzwlpneocgjwhqbsl`.
+
+Static migration review found no `TRUNCATE`, `DELETE FROM`, or `DROP TABLE` data-destruction path. Local canonical database CI has repeatedly applied the full chain successfully with lint, pgTAP, generated types, integrations, E2E, and cleanup.
+
+### Catalog distinction
+
+Schema migrations create reference taxonomy and catalog/planner structures but do not seed launch-ready `foods`, `recipes`, or `meal_options`.
+
+`tests/integration/catalog-readiness.integration.test.ts` creates its own launch fixtures, food facts, prices, recipes, meal options, user, and household. It is strictly a local/CI fixture and must never run against production.
+
+Result: production catalog readiness cannot pass immediately after schema bootstrap. Real curated catalog data must be published separately under reviewed mutation authorization, then readiness must be evaluated read-only using the deterministic >=21 eligible-meal-option and coverage/protein-capacity rules.
+
+### Backup/restore
+
+The organization is on Supabase Free. Current Supabase documentation recommends Free-plan projects regularly create logical backups with `supabase db dump` and store them off-site; automatic scheduled backups are provided for paid plans.
+
+The production database was empty at preflight, so there is no application data to preserve before the initial schema bootstrap. Once production contains catalog/user data, launch requires an off-site logical backup cadence and a restore drill into a disposable/non-production database. Operator owner defaults to `giang0110` unless explicitly delegated.
+
+## Vercel read-only preflight — latest
+
+The Vercel integration reports `installed: true`, but currently exposes no accessible teams (`list_teams` returns an empty list). Listing projects by both the previously visible team ID/slug fails.
+
+Earlier read-only evidence exposed only a `nuoidaycon` Vercel project linked to `giang0110/nuoidaycon`; no BepNha project was identified.
+
+Result: `PRODUCTION_VERCEL_UNRESOLVED`. Do not invoke a generic/current-project deploy command. A production project must first be positively identified or created and linked to `giang0110/Bepnha`.
 
 ## External production gates
 
-- [ ] production Supabase target resolved
-- [ ] production migration state verified read-only before any write
-- [ ] production catalog readiness verified without destructive reset/test fixtures
-- [ ] backup/restore owner confirmed before production migration
+- [x] production Supabase target resolved
+- [ ] production schema migration chain applied under explicit authorization
+- [ ] post-migration history/schema/security/performance verified read-only
+- [ ] production real catalog curated/published under explicit authorization
+- [ ] production catalog readiness verified read-only without fixtures
+- [ ] off-site backup cadence + restore owner/drill documented once data exists
 - [ ] BepNha Vercel project resolved and linked to `giang0110/Bepnha`
 - [ ] approved exact-main deployment verified
 - [ ] `/api/health` returns exactly `{ "status": "ok" }`
@@ -92,38 +134,16 @@ Exact-current-main CI run `33827975243` (#454) on `3157411ea453dc7ca5d8612d6e259
 - [ ] deterministic authenticated production smoke verified
 - [ ] Gemini safely disabled or shared-rate-limited assistant smoke verified
 - [ ] production runtime error review complete
-- [ ] backup/restore/deletion/rollback/key-rotation ownership documented
-
-## Production-target read-only preflight — 2026-09-04
-
-### Supabase
-
-No connected Supabase management surface is currently available to this workflow. The repository contains only the local Supabase project identifier `bepnha-local`; it does not contain a committed production `supabase.co` URL or production project identifier that proves the intended target.
-
-A Supabase integration is available in ChatGPT but remains unconnected. Until it is connected and the intended BepNha production project is positively identified, the target remains unresolved.
-
-Result: `PRODUCTION_SUPABASE_UNRESOLVED`. No production database mutation has been attempted.
-
-### Vercel
-
-Connected team: `ntgiang1235` (`team_JEJujcQnsYa3xLgA5l05MdLd`, Hobby).
-
-Latest read-only project listing exposes only:
-
-- `nuoidaycon` — `prj_RTVQVfQ2JwsRMZptUIPcmRNI1adH`, linked to `giang0110/nuoidaycon`.
-
-No project linked to `giang0110/Bepnha` is visible in the connected team.
-
-Result: `PRODUCTION_VERCEL_UNRESOLVED`. No Vercel project creation, environment-variable mutation, or production deployment has been attempted.
+- [ ] account-deletion/rollback/key-rotation ownership documented
 
 ## Evidence-branch verification
 
-Evidence commit `c7c7215c1f08606239ccfec224f0bc2cfd9eceb8` passed Fast CI run `33828168860` (#135).
+Evidence commit `c7c7215c1f08606239ccfec224f0bc2cfd9eceb8` passed Fast CI #135 (`33828168860`).
 
-Evidence commit `2908eab7f5839db358401687959542004d09fa49` passed Fast CI run `33829368700` (#136), including `npm run verify:web`.
+Evidence commit `2908eab7f5839db358401687959542004d09fa49` passed Fast CI #136 (`33829368700`).
 
-This repository-transfer refresh changes the evidence branch head again and therefore requires a fresh Fast CI run before the branch is proposed for integration.
+Repository-transfer evidence commit `1dd7036ea4276c099a7508357f8186cb63d01c89` triggered Fast CI #137 (`33863198528`). Subsequent runbook/Supabase evidence commits advance the branch head, so only a fresh Fast CI on the final resulting head may be used for integration evidence.
 
 ## Launch rule
 
-Do not record `PRODUCTION_READY` until every mandatory external gate is green. Missing Gemini configuration disables only the assistant; missing Supabase/Vercel target resolution blocks production launch rather than weakening deterministic safety or deploying to another project.
+Do not record `PRODUCTION_READY` until every mandatory external gate is green. Missing Gemini configuration disables only the assistant. Missing schema/catalog/Vercel readiness blocks production launch rather than weakening deterministic safety or deploying to another target.
