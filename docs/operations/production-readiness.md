@@ -2,45 +2,55 @@
 
 ## Release authority and scope
 
-BepNha's deterministic domain and persistence rules remain authoritative. Phase 7 adds only an optional advisory Gemini assistant; it does not change planner feasibility, meal selection, budget ordering, package rounding, pantry subtraction, allergy rules, nutrition calculations, shopping quantities, or immutable revision semantics. Gemini may explain the current authoritative plan or propose a day to preview, but it never selects the replacement meal and never applies or persists a change automatically.
+BepNha's deterministic domain and persistence rules are authoritative. The planner, serving quantities, nutrition, prices, shopping quantities, allergy/exclusion safety, meal eligibility, pantry subtraction, budget evaluation, and immutable revision semantics must never be authored or overridden by Gemini.
 
-No repository command provisions, links, migrates, or deploys a remote Supabase or Vercel project. Production configuration, migration, deployment, and data changes remain explicit operator actions.
+The Gemini assistant is optional and advisory. It may explain an authoritative plan or propose a day for deterministic replacement preview, but it never chooses the replacement meal, never applies a replacement automatically, and never writes directly to the database.
 
-Before a Phase 7 release, audit the full Phase 7 delta from the pre-Phase-7 main SHA and reject any unplanned planner/search/price/portion/allergy authority change, Supabase migration, assistant secret-client access, browser Gemini SDK/key, provider tool/function-calling/search/grounding/background state, direct assistant database write, or automatic replacement apply path.
+Production configuration, database migration, deployment, and catalog mutation are explicit operator actions. Never run a remote reset, test fixture, destructive cleanup, or guessed-target deployment.
+
+## Repository and governance
+
+Canonical repository: `giang0110/Bepnha`.
+
+Production changes should enter `main` through a pull request. Required governance target:
+
+- pull request required for changes to `main`;
+- canonical CI jobs `web` and `database` required before merge;
+- force pushes disabled;
+- branch deletion disabled.
+
+As of the 2026-09-04 Phase 8 preflight, `main` remains `protected: false`. The authenticated GitHub account has repository admin permission, but the connected GitHub action surface exposes protection/ruleset reads and no branch-protection write action. Until an operator enables the rules in GitHub or explicitly accepts this exact blocker, record `MAIN_GOVERNANCE_BLOCKED`.
+
+After the repository transfer, local clones should use:
+
+```powershell
+git remote set-url origin https://github.com/giang0110/Bepnha.git
+```
 
 ## Environment separation and secrets
 
-Use separate Supabase/Vercel/Gemini projects or environments for development, test/staging, and production where practical. Never reuse production credentials for local verification or CI.
+Use separate development/test and production credentials. Never reuse production credentials in local test suites or CI fixtures.
 
-Public configuration names are:
+Public configuration:
 
-- `SUPABASE_URL`
-- `SUPABASE_PUBLISHABLE_KEY`
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
 
-Server-only runtime configuration additionally uses `SUPABASE_SECRET_KEY` where catalog administration or planner persistence requires it. Never expose a secret/service-role/private key through `VITE_*`, logs, source control, screenshots, issue text, or client responses.
+Server-only configuration may additionally include:
 
-Phase 7 adds two optional server-only Gemini variables:
+- `SUPABASE_SECRET_KEY`
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL`
+- `ASSISTANT_RATE_LIMIT_BURST`
+- `ASSISTANT_RATE_LIMIT_DAILY`
 
-- `GEMINI_API_KEY` — Gemini authorization key suitable for the September 2026 API-key migration requirement;
-- `GEMINI_MODEL` — explicit stable model identifier approved for the deployment.
+Never expose a Supabase secret/service-role key or Gemini key through `VITE_*`, source control, logs, screenshots, issue/PR text, telemetry, or client responses.
 
-Never define `VITE_GEMINI_API_KEY`, `VITE_GEMINI_MODEL`, or another browser-visible Gemini credential. Do not commit a real Gemini key or model assignment. If either server variable is absent, the assistant is disabled while deterministic planner, replacement, pantry, and shopping features remain available.
+Run `npm run env:check`, `npm run secrets:check`, and `npm run security:dependencies` before promotion. Do not use `npm audit fix --force` to silence a gate.
 
-Before enabling Gemini in production:
-
-1. Confirm the key belongs to the intended production Gemini project and is an authorization key appropriate for the September 2026 key migration.
-2. Review the Gemini project's data-use/logging settings and do not opt assistant prompts/responses into provider logging or datasets beyond the approved project policy.
-3. Confirm the configured model identifier matches the reviewed deployment choice.
-4. Confirm every application interaction is single-turn with `store: false`.
-5. Confirm no Gemini tools, grounding, Google Search, URL context, file search, code execution, function declarations, previous interaction state, or background execution are enabled.
-
-Rotate `GEMINI_API_KEY` through the deployment platform's server-side secret configuration. After rotation, revoke the old key according to the Gemini project procedure and perform the assistant smoke below. Never print the old/new value while troubleshooting.
-
-Run `npm run env:check`, `npm run secrets:check`, and `npm run security:dependencies` before release. The dependency gate fails on moderate-or-higher advisories. Do not use `npm audit fix --force` to silence a gate; make a reviewed, lockfile-pinned change and rerun the full verifier.
-
-## Exact-head verification
+## Exact-head repository verification
 
 From the exact candidate SHA:
 
@@ -51,7 +61,7 @@ npm run verify:release:web
 git diff --check
 ```
 
-When Docker is available:
+When Docker/local Supabase is available:
 
 ```powershell
 npm run supabase:start
@@ -62,103 +72,182 @@ try {
 }
 ```
 
-The database command is local-only. It resets the local database before the general integration suites and again immediately before catalog-readiness evaluation. Never replace either reset with a remote database command.
+Database verification commands are local-only. `supabase db reset --local`, catalog-readiness fixtures, E2E users, and cleanup must never be pointed at production.
 
-The final GitHub Actions run for the exact candidate SHA must have both `web` and `database` jobs successful. A run for an ancestor SHA is not release evidence. Phase 7 database evidence must include assistant owner-isolation/no-write integration and assistant mobile E2E using a fake provider; CI must never call the real Gemini API.
+Phase 8 repository gates additionally require:
 
-## Catalog-readiness report
+- statements coverage >= 78%;
+- branches >= 70%;
+- functions >= 84%;
+- lines >= 82%;
+- no built JavaScript chunk > 500000 bytes minified;
+- assistant rate-limit tests green;
+- production runtime unable to fall back to a per-instance in-memory assistant limiter.
 
-The launch gate uses the same normalization and eligibility domain as production planning. Launch-ready representative scenarios require at least 21 eligible curated meal options and sufficient primary-protein-group capacity; vegetarian scenarios use the explicitly narrower vegetarian protein-capacity rule. Coverage failures such as incomplete lineage or unusable price evidence fail closed. The intentionally infeasible time/catalog scenario must report its precise deterministic blocker rather than being counted as launch-ready.
+The final CI evidence must be for the exact SHA being promoted. An ancestor run is not sufficient.
 
-Do not lower thresholds or weaken hard rules to make a release pass. Expand curated immutable catalog data only when evidence demonstrates genuine insufficiency.
+## Production Supabase target
 
-## Health and post-deploy smoke
+Resolved production project as of 2026-09-04:
 
-After an approved deployment, issue an unauthenticated `GET /api/health`. Expected response is HTTP 200 with exactly:
+- name: `Bepnha`;
+- project ref: `vkrqzwlpneocgjwhqbsl`;
+- region: `ap-southeast-1`;
+- PostgreSQL engine: 17;
+- status at preflight: `ACTIVE_HEALTHY`;
+- API URL: `https://vkrqzwlpneocgjwhqbsl.supabase.co`.
+
+The repository's `supabase/config.toml` uses `bepnha-local`; that identifier is local-only and must never be treated as the production ref.
+
+At the initial read-only production preflight, the production project had zero recorded migrations and zero `public` tables. The repository `main` contains eight ordered migration files:
+
+1. `20260825000000_phase_0_security_baseline.sql`
+2. `20260825010000_phase_1_household.sql`
+3. `20260826000000_qualify_household_rpc_constraints.sql`
+4. `20260826010000_phase_2_food_recipe.sql`
+5. `20260826020000_phase_3_planner.sql`
+6. `20260827000000_phase_4_shopping_list.sql`
+7. `20260901000000_phase_5_pantry.sql`
+8. `20260902000000_phase_5_pantry_shopping_trace.sql`
+
+Therefore the first production schema operation is a bootstrap of the complete reviewed migration chain, not an incremental drift repair. Do not apply any migration until the operator explicitly authorizes mutation of project `vkrqzwlpneocgjwhqbsl`.
+
+After an authorized migration, verify read-only before any catalog mutation:
+
+- remote migration history exactly matches the eight repository migrations;
+- expected public tables/functions exist;
+- generated database types remain compatible;
+- Supabase Security Advisor is reviewed;
+- Supabase Performance Advisor is reviewed;
+- no test users, launch-readiness fixtures, local reset artifacts, or cleanup jobs were run remotely.
+
+## Production catalog readiness
+
+Schema/reference migrations create taxonomy and persistence structures but do not populate a launch-ready food/recipe/meal-option catalog.
+
+The integration test `tests/integration/catalog-readiness.integration.test.ts` deliberately creates curated fixtures, food facts, recipes, prices, meal options, users, and households. It is a local/CI test harness and must never run against production.
+
+Production readiness must use real curated catalog data and read-only evaluation. Required representative scenarios need at least 21 eligible meal options, adequate primary-protein-group capacity, and complete lineage/usable price coverage. Vegetarian scenarios use the narrower vegetarian protein-capacity rule.
+
+Do not lower deterministic thresholds or weaken hard rules to make production pass. If production has insufficient catalog data, record a catalog blocker and curate/publish real data through the reviewed catalog-admin path under separate mutation authorization.
+
+## Supabase Free-plan backup and recovery
+
+The resolved Supabase organization is on the Free plan. Supabase documentation states that scheduled daily backups are provided for Pro/Team/Enterprise projects and recommends Free-plan projects regularly export logical backups with `supabase db dump` and retain them off-site.
+
+Because the project was empty at the initial preflight, there is no application data to preserve before the first schema bootstrap. Once production contains schema/catalog/user data, the production operator must establish an off-site logical backup cadence before considering launch complete.
+
+Minimum ownership requirement:
+
+- owner: the repository/project operator (`giang0110`) unless explicitly delegated;
+- create logical dumps using a current supported Supabase CLI/Postgres-compatible procedure;
+- store backups outside the Supabase project;
+- document retention and encryption/access controls;
+- perform and record a restore drill into a disposable/non-production database;
+- never use a production reset as a restore test.
+
+Deleting a Supabase project is irreversible and removes project data/backups. Project deletion is never a routine troubleshooting action.
+
+## Gemini production rate-limit gate
+
+Default assistant limits are:
+
+- 5 accepted requests per rolling 60 seconds per authenticated user;
+- 50 accepted requests per UTC day per authenticated user.
+
+Validated server-only overrides may change the defaults within the reviewed bounds. A denied request returns HTTP 429 with `ASSISTANT_RATE_LIMITED` and a safe `Retry-After` when available.
+
+Ownership/stale-context failures occur before quota consumption. Provider attempts occur only after acceptance by the limiter.
+
+A per-instance in-memory limiter is permitted only outside production. For `VERCEL_ENV=production`, production Gemini must remain disabled until a multi-instance-safe shared limiter adapter exists and is reviewed. Missing Gemini configuration disables only the assistant; deterministic planner, replacement, shopping, and pantry features remain usable.
+
+## Vercel production gate
+
+The production Vercel target must be a project linked to `giang0110/Bepnha`. Never deploy BepNha into a project linked to `nuoidaycon` or another repository.
+
+Approved production environment shape:
+
+Public/runtime Supabase variables:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+
+Server-only where required:
+
+- `SUPABASE_SECRET_KEY`
+- optional Gemini variables only if the production shared-limiter requirement is met.
+
+As of the latest Phase 8 preflight, the Vercel integration is installed but exposes no accessible teams; project listing fails. Record `PRODUCTION_VERCEL_UNRESOLVED` until a connected Vercel account/team exposes or safely creates a BepNha project linked to `giang0110/Bepnha`.
+
+Do not invoke a generic/current-project deploy command while the project identity is unresolved.
+
+## Health, headers, deep links, and post-deploy smoke
+
+After an explicitly authorized exact-main deployment, issue unauthenticated `GET /api/health`. Expected response is HTTP 200 with exactly:
 
 ```json
 { "status": "ok" }
 ```
 
-The endpoint is a process/configuration smoke only; it does not expose database records or secrets. A non-GET request must not be used as a health probe.
+Verify production responses preserve:
 
-Then manually verify the deterministic application independently of Gemini: sign-in/onboarding, `/household`, generation on `/plan`, deterministic replacement preview/apply, `/pantry`, and an owned `/shopping/:planId` flow against the intended environment without modifying unrelated production records.
+- `X-Content-Type-Options: nosniff`;
+- `Referrer-Policy: no-referrer`;
+- `X-Frame-Options: DENY`;
+- restrictive `Permissions-Policy`.
 
-Run the assistant smoke separately so an assistant outage cannot be confused with planner availability:
+Verify direct/deep-link navigation for protected routes without weakening authentication:
 
-- With Gemini intentionally unconfigured in a non-production check, verify `/plan` still generates/replaces meals and the assistant reports a bounded disabled/unavailable state rather than breaking planner controls.
-- With production Gemini configuration enabled, open a ready owned plan and request `Giải thích kế hoạch này`; verify a bounded advisory result returns without any authoritative plan/revision change.
-- Request the variety proposal; verify it can only open the existing deterministic replacement preview and no revision is persisted until the user explicitly chooses `Áp dụng bữa thay thế`.
-- Verify the assistant result clears/remounts after a successful revision change so old advice is not shown against a new revision.
+- `/household`
+- `/settings/household`
+- `/pantry`
+- `/plan`
+- owned `/shopping/:planId`
 
-Do not use production smoke testing to probe prompts containing secrets, tokens, personal data, or unrelated production records.
+Then perform a deterministic authenticated smoke using only intended test/launch records: sign-in/onboarding, household setup, plan generation, replacement preview/apply, pantry, and shopping. Do not probe unrelated production records.
 
-## Gemini privacy and telemetry
+If Gemini remains intentionally disabled, verify the deterministic app works and the assistant returns a bounded disabled/unavailable state. If Gemini is later enabled with an approved shared limiter, run assistant smoke separately and verify no plan revision changes until explicit deterministic apply.
 
-Every assistant call must use the minimal authoritative evidence projection and `store: false`. Never send Supabase access tokens, secret keys, user/household/plan/revision IDs, idempotency keys, raw planner snapshots, pantry rows, unpublished catalog data, or the full candidate search space to Gemini.
+## Privacy, telemetry, and correlation IDs
 
-Application telemetry must not contain the assistant question, provider prompt, model response, access token, or API key. Bounded operational telemetry may contain only the safe correlation ID, assistant operation/outcome, rounded duration, HTTP status, and model identifier when useful. Do not add provider raw errors to client responses or logs.
+Never send Supabase tokens, secret keys, user/household/plan/revision IDs, idempotency keys, raw planner snapshots, pantry rows, unpublished catalog data, or full candidate search space to Gemini.
 
-## Correlation-ID troubleshooting
+Operational telemetry must not contain assistant questions, provider prompts/responses, access tokens, API keys, household payloads, or full request/response bodies. Safe bounded telemetry may include correlation ID, operation/outcome, rounded duration, HTTP status, and reviewed model identifier.
 
-Planner generate/preview/apply and the assistant endpoint use the safe correlation-ID pattern. Use the returned correlation ID to correlate a client-visible failure with bounded server telemetry.
+## Performance and accessibility
 
-Operational planner logs contain only:
+`npm run test:performance:planner` remains the repeatable deterministic performance gate. Do not weaken frontier limits or correctness semantics solely to improve timing.
 
-- `event=planner_request`
-- operation (`generate`, `preview`, or `apply`)
-- correlation ID
-- rounded `durationMs`
-- HTTP status
-- outcome code
+Before promotion, verify narrow-width and keyboard behavior in addition to automated Playwright coverage: skip-link focus, primary actions, meaningful labels/messages, and absence of document-level horizontal overflow.
 
-Assistant telemetry is similarly bounded and excludes prompt/response contents. Do not add household payloads, access tokens, food free text, secret keys, provider prompt/output, or full request/response bodies to operational telemetry.
+## Rollback, deletion, and key rotation
 
-## Performance
+For application regressions, prefer rollback/promotion to a previously verified immutable application deployment.
 
-`npm run test:performance:planner` is the repeatable CI regression gate and remains separate from coverage instrumentation. Before production launch and after material infrastructure changes, collect production-like planner latency samples using representative launch catalog size and household scenarios. Record sample count and p50/p95/max with the release evidence. Investigate any material regression before promotion; do not relax planner frontier limits or correctness semantics solely to improve a timing number.
+For an already-applied database migration, prefer an explicitly reviewed forward-fix migration. Do not perform destructive ad-hoc rollback unless a tested recovery procedure explicitly requires it.
 
-The assistant has a bounded provider timeout and is optional. Provider latency or outage must not alter deterministic planner SLOs or availability.
+For Gemini degradation, disable/remove Gemini server variables or roll back application configuration without changing deterministic planner data.
 
-## Accessibility and responsive smoke
+The production operator must document account-deletion handling: requester identity verification, owned household/planner/pantry/shopping records to remove or retain under policy, completion evidence, and retention rules. Do not retain secrets in support tickets.
 
-Automated Playwright covers protected deep links, skip-link focus, primary keyboard focus, and no document-level horizontal overflow at 320 px; Phase 7 also includes the assistant mobile journey at 390×844. Before promotion, also perform a manual keyboard and screen-reader smoke at narrow width:
+Rotate server secrets through the deployment platform's server-side secret store. Revoke old keys after successful verification. Never print old/new secret values during troubleshooting.
 
-1. Tab from the address/page start and confirm the skip link is visible and moves focus to main content.
-2. Traverse primary actions on household, plan, assistant, pantry, and shopping pages without a pointer.
-3. Confirm headings, labels, validation/recovery messages, assistant unavailable state, and button/link names are announced meaningfully.
-4. Confirm zoom/narrow width does not hide required controls or create horizontal document scrolling.
+## Phase 8 release evidence
 
-## Schema changes, backup, rollback, retention, and deletion
+The Phase 8 release record must contain:
 
-Production schema changes are migration-only. Phase 7 itself requires no database migration. Do not run ad-hoc DDL in production. Review the exact migration history and backup/restore readiness before applying an approved migration outside this repository's verification commands.
+- exact feature branch SHA, merge SHA, and current `main` SHA;
+- exact successful Fast CI and canonical `web`/`database` runs;
+- dependency, secret, coverage, bundle, and planner-performance evidence;
+- assistant limiter/fail-closed review evidence;
+- branch-governance state or exact accepted blocker;
+- resolved Supabase project ref and pre/post migration history;
+- production catalog readiness result based on real curated data, not fixtures;
+- Vercel project identity and exact-main deployment identity;
+- `/api/health`, security-header, deep-link, deterministic smoke, and runtime-error review;
+- Gemini disabled/shared-limited state;
+- backup/restore owner, restore-drill evidence, deletion owner, rollback policy, and key-rotation owner.
 
-The production operator owns backup cadence, restore drills, retention policy, and account-deletion handling. This repository does not claim an automated production backup, retention scheduler, or end-user account-deletion workflow. Before launch, the operator must document who receives deletion requests, how identity/ownership is verified, which owned household/planner/pantry/shopping records are removed or retained under the applicable policy, and how deletion completion is recorded without retaining secrets in tickets.
-
-For an application regression, prefer promotion/rollback to a previously verified immutable application deployment. For an already-applied database migration, use an explicitly reviewed forward-fix migration rather than destructive ad-hoc rollback unless a tested recovery plan requires otherwise. If only Gemini is degraded, disable/remove the Gemini runtime variables or roll back the application configuration without changing deterministic planner data.
-
-## Security headers and browser boundary
-
-Production responses are expected to preserve the repository's same-origin hardening: `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and the restrictive `Permissions-Policy`. API handlers also apply their server security headers. Do not weaken these controls to work around embedding or cross-origin integration without a separate security review.
-
-The Gemini SDK and credentials remain server-only. Browser code communicates only with the same-origin `/api/assistant` endpoint and must not call Gemini directly.
-
-## Release evidence record
-
-Keep one Phase 7 release record containing:
-
-- exact feature Git commit SHA and exact resulting `main` SHA after approved integration;
-- exact GitHub Actions run URLs with successful `web`/`database` jobs for both required exact-head gates;
-- dependency and secret-scan result;
-- generated database-type drift result;
-- catalog-readiness result;
-- assistant owner-isolation/no-write integration result and assistant mobile E2E result;
-- Phase 7 scope/security exit-audit result;
-- planner performance result plus production-like p95 sample when applicable;
-- narrow-width keyboard/screen-reader manual smoke result;
-- post-deploy deterministic `/api/health` and planner smoke result;
-- separate assistant disabled/enabled smoke result when Gemini is activated;
-- Gemini key/project logging review and rotation owner;
-- migration/backup owner and rollback decision.
-
-If any mandatory Phase 7 item is missing or failed, record `PHASE_7_BLOCKED`; do not promote the candidate as Phase 7 complete.
+Record `PRODUCTION_READY` only when every mandatory external gate is green. Otherwise keep the precise blocker codes; do not weaken safety gates to force a launch.
