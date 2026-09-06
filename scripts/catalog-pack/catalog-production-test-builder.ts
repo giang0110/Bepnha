@@ -1,5 +1,8 @@
 import type { CatalogPackV1 } from "./catalog-pack-types.ts"
-import type { CatalogProductionSnapshot, ProductionRecipeTagRow } from "./catalog-production-types.ts"
+import type {
+  CatalogProductionSnapshot,
+  ProductionRecipeTagRow
+} from "./catalog-production-types.ts"
 
 const id = (group: number, index: number): string =>
   `900${group}0000-0000-0000-0000-${String(index).padStart(12, "0")}`
@@ -56,10 +59,7 @@ const nutrientCodes = [
 function recipeTagsFor(pack: CatalogPackV1): ProductionRecipeTagRow[] {
   const tags = new Map<string, ProductionRecipeTagRow>()
   let index = 1
-  const add = (
-    code: string,
-    tagKind: ProductionRecipeTagRow["tagKind"]
-  ): void => {
+  const add = (code: string, tagKind: ProductionRecipeTagRow["tagKind"]): void => {
     if (tags.has(code)) return
     tags.set(code, { id: id(7, index), code, tagKind })
     index += 1
@@ -73,7 +73,13 @@ function recipeTagsFor(pack: CatalogPackV1): ProductionRecipeTagRow[] {
 
   for (const recipe of pack.recipes) {
     for (const code of recipe.version.tagCodes) {
-      if (code === "main" || code === "staple" || code === "vegetable" || code === "soup" || code === "side") {
+      if (
+        code === "main" ||
+        code === "staple" ||
+        code === "vegetable" ||
+        code === "soup" ||
+        code === "side"
+      ) {
         add(`role_${code}`, "dish_role")
       }
     }
@@ -103,9 +109,7 @@ export function buildResolvableProductionSnapshot(pack: CatalogPackV1): CatalogP
       code,
       requiredForPublication: true
     })),
-    priceRegions: [
-      { id: id(6, 1), code: "vn_baseline", isLaunchDefault: true }
-    ],
+    priceRegions: [{ id: id(6, 1), code: "vn_baseline", isLaunchDefault: true }],
     recipeTags: recipeTagsFor(pack),
     foods: [],
     foodFactVersions: [],
