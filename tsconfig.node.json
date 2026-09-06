@@ -35,8 +35,7 @@
     "eslint.config.js",
     "playwright.config.ts",
     "scripts/**/*",
-    "tests/**/*.ts",
-    "src/domain/catalog/catalog.ts"
+    "tests/**/*.ts"
   ],
-  "exclude": ["tests/integration"]
+  "exclude": ["tests/integration", "scripts/catalog-pack"]
 }
