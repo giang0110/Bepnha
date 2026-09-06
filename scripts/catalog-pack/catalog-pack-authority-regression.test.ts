@@ -96,12 +96,15 @@ describe("catalog pack publication authority constraints", () => {
     )
   })
 
-  test.each(["pending", "placeholder"])("rejects the placeholder price source %s", (placeholder) => {
-    const pack = structuredClone(buildReadyCatalogPack())
-    pack.priceBook.prices[0]!.sourceReference = placeholder
+  test.each(["pending", "placeholder"])(
+    "rejects the placeholder price source %s",
+    (placeholder) => {
+      const pack = structuredClone(buildReadyCatalogPack())
+      pack.priceBook.prices[0]!.sourceReference = placeholder
 
-    expect(validateCatalogPackValue(pack).diagnostics.map((item) => item.code)).toContain(
-      "INVALID_SOURCE_REFERENCE"
-    )
-  })
+      expect(validateCatalogPackValue(pack).diagnostics.map((item) => item.code)).toContain(
+        "INVALID_SOURCE_REFERENCE"
+      )
+    }
+  )
 })
