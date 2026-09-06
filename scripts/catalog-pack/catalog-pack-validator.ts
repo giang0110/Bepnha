@@ -95,7 +95,12 @@ function isNonNegativeSafeInteger(value: number): boolean {
 
 function validateCode(value: string, path: string, diagnostics: CatalogPackDiagnostic[]): void {
   if (!CODE_PATTERN.test(value)) {
-    addError(diagnostics, "INVALID_CODE", path, "Code must use lower-case ASCII letters, digits, and underscores")
+    addError(
+      diagnostics,
+      "INVALID_CODE",
+      path,
+      "Code must use lower-case ASCII letters, digits, and underscores"
+    )
   }
 }
 
@@ -106,7 +111,12 @@ function validateLabel(
   maxLength = 120
 ): void {
   if (!isTrimmedLength(value, 1, maxLength)) {
-    addError(diagnostics, "INVALID_LABEL", path, `Label must be trimmed and 1..${maxLength} characters`)
+    addError(
+      diagnostics,
+      "INVALID_LABEL",
+      path,
+      `Label must be trimmed and 1..${maxLength} characters`
+    )
   }
 }
 
@@ -116,7 +126,12 @@ function validateProvenance(
   diagnostics: CatalogPackDiagnostic[]
 ): void {
   if (!isTrimmedLength(value, 1, 500)) {
-    addError(diagnostics, "INVALID_PROVENANCE", path, "Provenance must be trimmed and 1..500 characters")
+    addError(
+      diagnostics,
+      "INVALID_PROVENANCE",
+      path,
+      "Provenance must be trimmed and 1..500 characters"
+    )
   }
 }
 
@@ -162,7 +177,12 @@ function validateEdibleFraction(
     maxScale: 6
   })
   if (!parsed.ok || parsed.value.gt(1)) {
-    addError(diagnostics, "INVALID_DECIMAL", path, "Edible fraction must be a canonical decimal in (0, 1]")
+    addError(
+      diagnostics,
+      "INVALID_DECIMAL",
+      path,
+      "Edible fraction must be a canonical decimal in (0, 1]"
+    )
   }
 }
 
@@ -203,7 +223,12 @@ function validateContiguousOrder(
   diagnostics: CatalogPackDiagnostic[]
 ): void {
   if (items.some((item, index) => !isPositiveSafeInteger(item.order) || item.order !== index + 1)) {
-    addError(diagnostics, "INVALID_ORDER", path, "Order values must be contiguous from 1 in array order")
+    addError(
+      diagnostics,
+      "INVALID_ORDER",
+      path,
+      "Order values must be contiguous from 1 in array order"
+    )
   }
 }
 
@@ -237,7 +262,12 @@ function validateSupportedUnit(
 function validateTopLevelFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): void {
   validateCode(pack.catalogCode, "$.catalogCode", diagnostics)
   if (!isValidRfc3339(pack.preparedAt)) {
-    addError(diagnostics, "INVALID_TIMESTAMP", "$.preparedAt", "preparedAt must be RFC3339 with an explicit offset or Z")
+    addError(
+      diagnostics,
+      "INVALID_TIMESTAMP",
+      "$.preparedAt",
+      "preparedAt must be RFC3339 with an explicit offset or Z"
+    )
   }
   validateLabel(pack.source.name, "$.source.name", diagnostics)
   validateProvenance(pack.source.provenance, "$.source.provenance", diagnostics)
@@ -385,7 +415,11 @@ function validateFoodFields(
         blockers.add("REFERENCE_CODE_UNSUPPORTED")
         nutritionCoverageInvalid = true
       }
-      validateNonNegativeDecimal(nutrient.amountPer100g, `${nutrientPath}.amountPer100g`, diagnostics)
+      validateNonNegativeDecimal(
+        nutrient.amountPer100g,
+        `${nutrientPath}.amountPer100g`,
+        diagnostics
+      )
       validateProvenance(nutrient.provenance, `${nutrientPath}.provenance`, diagnostics)
     })
     if (
@@ -415,13 +449,22 @@ function validateFoodFields(
     }
     food.fact.conversions.forEach((conversion, conversionIndex) => {
       const conversionPath = `${path}.fact.conversions[${conversionIndex}]`
-      validateSupportedUnit(conversion.unitCode, `${conversionPath}.unitCode`, diagnostics, blockers)
+      validateSupportedUnit(
+        conversion.unitCode,
+        `${conversionPath}.unitCode`,
+        diagnostics,
+        blockers
+      )
       validatePositiveDecimal(
         conversion.baseQuantityPerUnit,
         `${conversionPath}.baseQuantityPerUnit`,
         diagnostics
       )
-      validatePositiveDecimal(conversion.grossGramsPerUnit, `${conversionPath}.grossGramsPerUnit`, diagnostics)
+      validatePositiveDecimal(
+        conversion.grossGramsPerUnit,
+        `${conversionPath}.grossGramsPerUnit`,
+        diagnostics
+      )
       validatePositiveDecimal(conversion.displayStep, `${conversionPath}.displayStep`, diagnostics)
       validateProvenance(conversion.provenance, `${conversionPath}.provenance`, diagnostics)
     })
@@ -444,7 +487,11 @@ function validateRecipeFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagn
     const path = `$.recipes[${recipeIndex}]`
     validateCode(recipe.code, `${path}.code`, diagnostics)
     validateLabel(recipe.nameVi, `${path}.nameVi`, diagnostics)
-    validatePositiveVersion(recipe.version.versionNumber, `${path}.version.versionNumber`, diagnostics)
+    validatePositiveVersion(
+      recipe.version.versionNumber,
+      `${path}.version.versionNumber`,
+      diagnostics
+    )
     validatePositiveDecimal(
       recipe.version.yieldAdultEquivalent,
       `${path}.version.yieldAdultEquivalent`,
@@ -529,11 +576,22 @@ function validatePriceFields(
 
   const effectiveFromValid = isValidDate(pack.priceBook.effectiveFrom)
   if (!effectiveFromValid) {
-    addError(diagnostics, "INVALID_DATE", "$.priceBook.effectiveFrom", "effectiveFrom must be YYYY-MM-DD")
+    addError(
+      diagnostics,
+      "INVALID_DATE",
+      "$.priceBook.effectiveFrom",
+      "effectiveFrom must be YYYY-MM-DD"
+    )
   }
-  const effectiveToValid = pack.priceBook.effectiveTo === null || isValidDate(pack.priceBook.effectiveTo)
+  const effectiveToValid =
+    pack.priceBook.effectiveTo === null || isValidDate(pack.priceBook.effectiveTo)
   if (!effectiveToValid) {
-    addError(diagnostics, "INVALID_DATE", "$.priceBook.effectiveTo", "effectiveTo must be null or YYYY-MM-DD")
+    addError(
+      diagnostics,
+      "INVALID_DATE",
+      "$.priceBook.effectiveTo",
+      "effectiveTo must be null or YYYY-MM-DD"
+    )
   }
   if (
     effectiveFromValid &&
@@ -557,7 +615,11 @@ function validatePriceFields(
   pack.priceBook.prices.forEach((price, priceIndex) => {
     const path = `$.priceBook.prices[${priceIndex}]`
     validateCode(price.foodCode, `${path}.foodCode`, diagnostics)
-    validatePositiveVersion(price.foodFactVersionNumber, `${path}.foodFactVersionNumber`, diagnostics)
+    validatePositiveVersion(
+      price.foodFactVersionNumber,
+      `${path}.foodFactVersionNumber`,
+      diagnostics
+    )
     validatePositiveDecimal(price.packageQuantity, `${path}.packageQuantity`, diagnostics)
     validateSupportedUnit(price.packageUnitCode, `${path}.packageUnitCode`, diagnostics, blockers)
     validatePositiveDecimal(price.packageBaseQuantity, `${path}.packageBaseQuantity`, diagnostics)
@@ -600,7 +662,11 @@ function validateMealOptionFields(pack: CatalogPackV1, diagnostics: CatalogPackD
     const path = `$.mealOptions[${mealIndex}]`
     validateCode(meal.code, `${path}.code`, diagnostics)
     validateLabel(meal.nameVi, `${path}.nameVi`, diagnostics)
-    validatePositiveVersion(meal.version.versionNumber, `${path}.version.versionNumber`, diagnostics)
+    validatePositiveVersion(
+      meal.version.versionNumber,
+      `${path}.version.versionNumber`,
+      diagnostics
+    )
     validatePositiveDecimal(
       meal.version.yieldAdultEquivalent,
       `${path}.version.yieldAdultEquivalent`,
@@ -617,7 +683,11 @@ function validateMealOptionFields(pack: CatalogPackV1, diagnostics: CatalogPackD
     meal.version.cookingStyleCodes.forEach((code, styleIndex) => {
       validateCode(code, `${path}.version.cookingStyleCodes[${styleIndex}]`, diagnostics)
     })
-    validateUniqueCodes(meal.version.cookingStyleCodes, `${path}.version.cookingStyleCodes`, diagnostics)
+    validateUniqueCodes(
+      meal.version.cookingStyleCodes,
+      `${path}.version.cookingStyleCodes`,
+      diagnostics
+    )
     if (meal.version.cookingStyleCodes.length === 0) {
       addError(
         diagnostics,
@@ -641,8 +711,16 @@ function validateMealOptionFields(pack: CatalogPackV1, diagnostics: CatalogPackD
     meal.version.components.forEach((component, componentIndex) => {
       const componentPath = `${path}.version.components[${componentIndex}]`
       validateCode(component.recipeCode, `${componentPath}.recipeCode`, diagnostics)
-      validatePositiveVersion(component.recipeVersionNumber, `${componentPath}.recipeVersionNumber`, diagnostics)
-      validatePositiveDecimal(component.quantityMultiplier, `${componentPath}.quantityMultiplier`, diagnostics)
+      validatePositiveVersion(
+        component.recipeVersionNumber,
+        `${componentPath}.recipeVersionNumber`,
+        diagnostics
+      )
+      validatePositiveDecimal(
+        component.quantityMultiplier,
+        `${componentPath}.quantityMultiplier`,
+        diagnostics
+      )
     })
 
     if (
@@ -696,7 +774,8 @@ export function validateCatalogPackValue(value: unknown): CatalogPackValidationC
       recipes: pack.recipes.length,
       priceRows: pack.priceBook.prices.length,
       mealOptions: pack.mealOptions.length,
-      primaryProteinGroups: new Set(pack.mealOptions.map((meal) => meal.version.proteinHintCode)).size,
+      primaryProteinGroups: new Set(pack.mealOptions.map((meal) => meal.version.proteinHintCode))
+        .size,
       reachableFoods: 0,
       pricedReachableFoods: 0
     }
