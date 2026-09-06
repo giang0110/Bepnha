@@ -36,6 +36,7 @@ describe("resolveCatalogProductionReferences", () => {
       buildResolvableProductionSnapshot(pack)
     )
 
+    expect(manifest.resolved).toBe(true)
     expect(manifest.references.priceRegion?.code).toBe("vn_baseline")
     expect(manifest.references.recipeTags).toEqual(
       expect.arrayContaining([
