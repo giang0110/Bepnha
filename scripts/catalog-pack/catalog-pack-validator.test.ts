@@ -368,7 +368,9 @@ const graphCases: readonly GraphCase[] = [
   {
     name: "rejects missing reachable food price",
     mutate: (pack) => {
-      pack.priceBook.prices = pack.priceBook.prices.filter((price) => price.foodCode !== "test_fish")
+      pack.priceBook.prices = pack.priceBook.prices.filter(
+        (price) => price.foodCode !== "test_fish"
+      )
     },
     diagnosticCode: "MISSING_REACHABLE_PRICE",
     blocker: "PRICE_COVERAGE_INCOMPLETE",
