@@ -13,6 +13,7 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "types": ["node", "@playwright/test"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
