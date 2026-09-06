@@ -2,45 +2,44 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a deterministic, offline `CatalogPackV1` validator and CLI that can prove a human-curated BepNha production catalog pack is structurally valid and launch-pack ready before any production database write.
+**Goal:** Build a deterministic, offline `CatalogPackV1` validator and CLI that proves a human-curated BepNha production catalog pack is structurally valid and launch-pack ready before any production database write.
 
-**Architecture:** Keep Phase 9A entirely under `scripts/catalog-pack/` so it cannot acquire Supabase write capabilities by accident. A strict Zod parser establishes shape, a semantic validator checks authoritative field/graph invariants, a readiness evaluator computes launch blockers/warnings, and a tiny Node 24 CLI reads bytes, computes a stable report, and exits with the spec-defined code. Runtime modules use relative `.ts` imports and Node 24 native TypeScript stripping; only self-contained deterministic domain helpers/constants are reused from `src/domain`.
+**Architecture:** Keep Phase 9A under `scripts/catalog-pack/`. A strict Zod parser handles JSON shape only; a semantic validator checks authoritative values and code-based graph pins; deterministic readiness logic calculates blockers/warnings; a Node 24 CLI reads original bytes, emits a stable SHA-256 report, and maps validity/readiness to exit codes. The CLI uses Node 24 native TypeScript stripping with relative `.ts` imports, reusing only self-contained deterministic domain constants/helpers.
 
-**Tech Stack:** Node 24, native TypeScript type stripping, TypeScript 6/7 toolchain already in the repo, Zod 4, Decimal.js through the existing `parseCanonicalDecimal`, Vitest 4, Node `crypto`/`fs` APIs.
+**Tech Stack:** Node 24, TypeScript, Zod 4, existing `parseCanonicalDecimal`, Vitest 4, Node `crypto`/`fs`/`child_process` APIs.
 
 **Spec:** `docs/superpowers/specs/2026-09-06-phase-9a-production-catalog-validator-design.md`
 
 ## Global Constraints
 
-- Phase 9A is offline only: no Supabase, Vercel, HTTP, scraping, Gemini, or other LLM calls.
-- Phase 9A never authors, infers, repairs, rounds, trims, lower-cases, substitutes, or defaults authoritative nutrition, allergy, yield, recipe quantity, conversion, meal composition, or price values.
-- Real production packs are input files supplied explicitly at runtime; they are not committed automatically.
-- The existing CI catalog-readiness fixture is test-only and must never be imported as production seed data.
+- Offline only: no Supabase, Vercel, HTTP, scraping, Gemini, or other LLM calls.
+- Never infer, repair, trim, lower-case, round, substitute, or default authoritative nutrition, allergy, yield, recipe quantity, conversion, meal composition, or price values.
+- Real production packs are supplied explicitly at runtime and are never generated from the existing CI readiness fixture.
 - Logical codes are validated offline; production UUID/reference resolution belongs to Phase 9B.
-- Existing planner/publication/allergy/price rules are not weakened.
-- `unknown` allergen assessment is invalid for a Phase 9A-valid pack because current deterministic food lineage rejects it.
-- Price `observedAt` remains a strict `YYYY-MM-DD` date to match the current catalog-admin authority path.
-- Existing launch requirement remains at least 21 meal options; Phase 9A additionally requires at least 3 distinct primary protein hint codes for generic launch-pack diversity.
-- No migration, production catalog mutation, PR creation, merge, or deployment is part of this plan.
-- Work stays on `codex/phase-9a-production-catalog-validator` until a separate review/PR authorization.
+- `unknown` allergen assessment is invalid because current deterministic food lineage rejects it.
+- `observedAt` remains strict `YYYY-MM-DD`, matching current catalog-admin validation.
+- Generic launch-pack readiness requires at least 21 meal options and at least 3 distinct `proteinHintCode` values.
+- Existing planner/publication/allergy/price rules and Phase 8 quality gates are not weakened.
+- No migration, production mutation, PR creation, merge, or deployment is part of this plan.
+- Work stays on `codex/phase-9a-production-catalog-validator` until separate review/PR authorization.
 
 ---
 
 ## File Structure
 
-- Create `scripts/catalog-pack/catalog-pack-types.ts` — public Phase 9A pack/report/diagnostic types and fixed launch reference sets.
-- Create `scripts/catalog-pack/catalog-pack-schema.ts` — strict Zod shape parser; primitive/unknown-key validation only.
-- Create `scripts/catalog-pack/catalog-pack-validator.ts` — field, graph, lineage, coverage, warning, and readiness validation.
-- Create `scripts/catalog-pack/catalog-pack-validator.test.ts` — unit tests for shape, semantic, graph, readiness, and deterministic ordering.
-- Create `scripts/catalog-pack/catalog-pack-test-builder.ts` — synthetic human-like test pack builder only; never exported by the production CLI.
-- Create `scripts/catalog-pack/catalog-pack-cli.ts` — argument parsing, file I/O, SHA-256, report output, exit-code mapping.
-- Create `scripts/catalog-pack/catalog-pack-cli.test.ts` — CLI contract tests using temporary files/directories.
-- Modify `tsconfig.node.json` — enable `.ts` import specifiers for no-emit Node 24 scripts.
-- Modify `package.json` — add `catalog:validate` and include validator tests naturally under existing script-project Vitest discovery.
+- Create `scripts/catalog-pack/catalog-pack-types.ts` — pack/report types and fixed launch reference sets.
+- Create `scripts/catalog-pack/catalog-pack-schema.ts` — strict Zod shape parser only.
+- Create `scripts/catalog-pack/catalog-pack-validator.ts` — semantic, graph, readiness, SHA/report logic.
+- Create `scripts/catalog-pack/catalog-pack-test-builder.ts` — mutable synthetic test pack builder only.
+- Create `scripts/catalog-pack/catalog-pack-validator.test.ts` — unit tests for shape, authority, graph, readiness, determinism.
+- Create `scripts/catalog-pack/catalog-pack-cli.ts` — argument parsing, file I/O, output, exit codes.
+- Create `scripts/catalog-pack/catalog-pack-cli.test.ts` — spawned CLI contract tests with temp files.
+- Modify `tsconfig.node.json` — permit explicit `.ts` import specifiers in no-emit Node scripts.
+- Modify `package.json` — add `catalog:validate`.
 
 ---
 
-### Task 1: Strict `CatalogPackV1` Shape and Launch Reference Policy
+### Task 1: Strict Pack Types, Reference Policy, and Shape Parser
 
 **Files:**
 - Create: `scripts/catalog-pack/catalog-pack-types.ts`
@@ -49,22 +48,22 @@
 - Modify: `tsconfig.node.json`
 
 **Interfaces:**
-- Consumes: `SUPPORTED_ALLERGEN_CODES` and `REQUIRED_NUTRIENT_CODES` from `../../src/domain/catalog/catalog.ts`.
-- Produces: `CatalogPackV1`, `CatalogPackDiagnostic`, `CatalogPackValidationReport`, launch reference constants, and `parseCatalogPackShape(value: unknown)`.
+- Consumes: `SUPPORTED_ALLERGEN_CODES`, `REQUIRED_NUTRIENT_CODES` from `../../src/domain/catalog/catalog.ts`.
+- Produces: `CatalogPackV1`, report/diagnostic types, launch constants, `parseCatalogPackShape(value: unknown)`.
 
-- [ ] **Step 1: Enable explicit `.ts` imports for Node scripts**
+- [ ] **Step 1: Enable explicit `.ts` imports**
 
-Add this compiler option to `tsconfig.node.json` next to `noEmit`:
+Add to `tsconfig.node.json`:
 
 ```json
 "allowImportingTsExtensions": true
 ```
 
-This is legal because the config is no-emit and allows Node 24 scripts to use the same explicit `.ts` paths that native TypeScript execution requires.
+Keep `noEmit: true` unchanged.
 
-- [ ] **Step 2: Define pack/report types and reviewed launch reference constants**
+- [ ] **Step 2: Define reviewed constants and report types**
 
-Create `scripts/catalog-pack/catalog-pack-types.ts` with the exact public shapes from the spec. The module must include these exported constants:
+Create `catalog-pack-types.ts` with:
 
 ```ts
 import {
@@ -77,20 +76,8 @@ export const LAUNCH_ALLERGEN_CODES = SUPPORTED_ALLERGEN_CODES
 export const LAUNCH_REQUIRED_NUTRIENT_CODES = REQUIRED_NUTRIENT_CODES
 export const LAUNCH_UNIT_CODES = ["g", "kg", "ml", "l", "tsp", "tbsp", "item"] as const
 export const LAUNCH_CATEGORY_CODES = [
-  "food",
-  "pork",
-  "beef",
-  "poultry",
-  "seafood",
-  "fish",
-  "crustacean",
-  "mollusc",
-  "egg",
-  "dairy",
-  "tofu",
-  "vegetable",
-  "staple",
-  "seasoning"
+  "food", "pork", "beef", "poultry", "seafood", "fish", "crustacean",
+  "mollusc", "egg", "dairy", "tofu", "vegetable", "staple", "seasoning"
 ] as const
 export const LAUNCH_REGION_CODE = "vn_baseline" as const
 
@@ -123,15 +110,14 @@ export interface CatalogPackValidationReport {
 }
 ```
 
-Define `CatalogPackFood`, `CatalogPackRecipe`, `CatalogPackPriceBook`, `CatalogPackMealOption`, and `CatalogPackV1` exactly as approved in the spec. Do not add UUIDs or database-only fields.
+Define the approved `CatalogPackFood`, `CatalogPackRecipe`, `CatalogPackPriceBook`, `CatalogPackMealOption`, and `CatalogPackV1` shapes exactly as the spec; do not add UUIDs, revision IDs, environment names, or database-only fields.
 
-- [ ] **Step 3: Write failing strict-shape tests**
+- [ ] **Step 3: Write RED strict-shape tests**
 
-In `scripts/catalog-pack/catalog-pack-validator.test.ts`, start with tests that prove strict parsing rejects unknown keys and wrong primitive types:
+Start `catalog-pack-validator.test.ts` with:
 
 ```ts
 import { describe, expect, test } from "vitest"
-
 import { parseCatalogPackShape } from "./catalog-pack-schema.ts"
 
 const minimumShape = {
@@ -152,95 +138,44 @@ const minimumShape = {
 } as const
 
 describe("parseCatalogPackShape", () => {
-  test("rejects unknown top-level keys", () => {
-    const result = parseCatalogPackShape({ ...minimumShape, unexpected: true })
-    expect(result.success).toBe(false)
+  test("rejects unknown keys", () => {
+    expect(parseCatalogPackShape({ ...minimumShape, unexpected: true }).success).toBe(false)
   })
 
-  test("does not coerce numbers from strings", () => {
-    const result = parseCatalogPackShape({
+  test("does not coerce strings into numbers", () => {
+    const value = {
       ...minimumShape,
       priceBook: { ...minimumShape.priceBook, versionNumber: "1" }
-    })
-    expect(result.success).toBe(false)
+    }
+    expect(parseCatalogPackShape(value).success).toBe(false)
   })
 })
 ```
 
-- [ ] **Step 4: Run the shape tests to prove RED**
-
-Run:
+- [ ] **Step 4: Run RED**
 
 ```bash
 npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts --project scripts
 ```
 
-Expected: FAIL because `catalog-pack-schema.ts` does not yet exist.
+Expected: FAIL because `catalog-pack-schema.ts` does not exist.
 
-- [ ] **Step 5: Implement strict Zod schemas**
+- [ ] **Step 5: Implement strict Zod shape only**
 
-Create `scripts/catalog-pack/catalog-pack-schema.ts`. Use `z.strictObject` at every object level and `z.array` without coercion. Keep this file limited to JSON shape and primitive enums; semantic checks belong to Task 2.
+Use `z.strictObject` for every object, `z.array` for arrays, literal/enums for structural enum values, and never use `z.coerce`, `.trim()`, `.transform()`, `.default()`, or numeric coercion.
 
-Core pattern:
+Top-level pattern:
 
 ```ts
 import { z } from "zod"
+import { CATALOG_PACK_SCHEMA_VERSION, LAUNCH_REGION_CODE } from "./catalog-pack-types.ts"
 
-import {
-  CATALOG_PACK_SCHEMA_VERSION,
-  LAUNCH_REGION_CODE,
-  type CatalogPackV1
-} from "./catalog-pack-types.ts"
+const codeText = z.string()
+const decimalText = z.string()
 
-const codeSchema = z.string()
-const trimmedStringSchema = z.string()
-const canonicalDecimalTextSchema = z.string()
-
-const foodSchema = z.strictObject({
-  code: codeSchema,
-  nameVi: trimmedStringSchema,
-  baseDimension: z.enum(["mass", "volume", "count"]),
-  baseUnitCode: codeSchema,
-  fact: z.strictObject({
-    versionNumber: z.number(),
-    categoryCode: codeSchema,
-    categoryAncestry: z.array(codeSchema),
-    edibleFraction: canonicalDecimalTextSchema,
-    provenance: trimmedStringSchema,
-    allergenAssessments: z.array(
-      z.strictObject({
-        allergenCode: codeSchema,
-        status: z.enum(["absent", "contains", "may_contain", "unknown"]),
-        provenance: trimmedStringSchema
-      })
-    ),
-    nutrients: z.array(
-      z.strictObject({
-        nutrientCode: codeSchema,
-        amountPer100g: canonicalDecimalTextSchema,
-        provenance: trimmedStringSchema
-      })
-    ),
-    dietaryTagCodes: z.array(codeSchema),
-    conversions: z.array(
-      z.strictObject({
-        unitCode: codeSchema,
-        baseQuantityPerUnit: canonicalDecimalTextSchema,
-        grossGramsPerUnit: canonicalDecimalTextSchema,
-        displayStep: canonicalDecimalTextSchema,
-        provenance: trimmedStringSchema
-      })
-    )
-  })
-})
-```
-
-Define the recipe, price-book, meal-option, source, and top-level schemas the same way. Top level must use:
-
-```ts
 const catalogPackSchema = z.strictObject({
   schemaVersion: z.literal(CATALOG_PACK_SCHEMA_VERSION),
-  catalogCode: codeSchema,
+  catalogCode: codeText,
   preparedAt: z.string(),
   source: z.strictObject({ name: z.string(), provenance: z.string() }),
   foods: z.array(foodSchema),
@@ -256,17 +191,13 @@ const catalogPackSchema = z.strictObject({
 })
 
 export function parseCatalogPackShape(value: unknown) {
-  return catalogPackSchema.safeParse(value) as ReturnType<typeof catalogPackSchema.safeParse> & {
-    readonly data?: CatalogPackV1
-  }
+  return catalogPackSchema.safeParse(value)
 }
 ```
 
-Do not put `.trim()`, `.toLowerCase()`, `z.coerce`, numeric rounding, or default values in any schema.
+Implement the nested schemas with the approved primitive fields only. Semantic code/date/decimal/length/reference checks stay out of this file.
 
-- [ ] **Step 6: Run focused tests and typecheck**
-
-Run:
+- [ ] **Step 6: Verify Task 1**
 
 ```bash
 npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts --project scripts
@@ -275,7 +206,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 1**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add tsconfig.node.json scripts/catalog-pack/catalog-pack-types.ts scripts/catalog-pack/catalog-pack-schema.ts scripts/catalog-pack/catalog-pack-validator.test.ts
@@ -284,49 +215,45 @@ git commit -m "feat: add Phase 9A catalog pack schema"
 
 ---
 
-### Task 2: Authoritative Field and Lineage Validation
+### Task 2: Synthetic Mutable Test Pack and Authoritative Field Validation
 
 **Files:**
+- Create: `scripts/catalog-pack/catalog-pack-test-builder.ts`
 - Create: `scripts/catalog-pack/catalog-pack-validator.ts`
 - Modify: `scripts/catalog-pack/catalog-pack-validator.test.ts`
 
 **Interfaces:**
-- Consumes: `parseCatalogPackShape`, launch reference constants, `parseCanonicalDecimal` from `../../src/domain/shared/decimal.ts`.
-- Produces: `validateCatalogPackValue(value: unknown): CatalogPackValidationCoreResult` where the core result contains `pack`, diagnostics, blocker candidates, and summary inputs but no input SHA.
+- Consumes: `parseCatalogPackShape`, launch constants, `parseCanonicalDecimal` from `../../src/domain/shared/decimal.ts`.
+- Produces: `validateCatalogPackValue(value: unknown): CatalogPackValidationCoreResult`.
 
-Define the internal result shape in `catalog-pack-validator.ts`:
+- [ ] **Step 1: Create a mutable test-only builder**
+
+Define a deep mutable helper so tests can clone and modify one authoritative field without TypeScript `readonly` errors:
 
 ```ts
-export interface CatalogPackValidationCoreResult {
-  readonly pack: CatalogPackV1 | null
-  readonly catalogCode: string | null
-  readonly diagnostics: readonly CatalogPackDiagnostic[]
-  readonly blockers: readonly string[]
-  readonly summary: CatalogPackValidationReport["summary"]
+import type { CatalogPackV1 } from "./catalog-pack-types.ts"
+
+type Mutable<T> =
+  T extends readonly (infer U)[] ? Mutable<U>[] :
+  T extends object ? { -readonly [K in keyof T]: Mutable<T[K]> } : T
+
+export type MutableCatalogPackV1 = Mutable<CatalogPackV1>
+
+export function buildReadyCatalogPack(): MutableCatalogPackV1 {
+  // return the concrete synthetic object described below
 }
 ```
 
-- [ ] **Step 1: Add a synthetic pack builder for tests**
+The returned pack must contain exactly 3 foods (`test_tofu`, `test_chicken`, `test_fish`), 3 recipes, 3 prices, and 21 meal options. Every source/provenance string must contain `Synthetic Phase 9A test data`. Each food has all 10 launch allergen assessments and all six required nutrients. Use `g` as base/conversion unit. Cycle meal protein hints `plant`, `poultry`, `fish`.
 
-Create `scripts/catalog-pack/catalog-pack-test-builder.ts` with `buildReadyCatalogPack()` returning a fully synthetic, deterministic pack. Use only obvious test values and label every provenance/source value as synthetic test data.
-
-The builder must create exactly:
-
-- 3 foods: `test_tofu`, `test_chicken`, `test_fish`;
-- 3 recipes: one per food;
-- one price row per food;
-- 21 meal options, cycling protein hints `plant`, `poultry`, `fish`;
-- all 10 allergen assessments per food, all explicitly `absent` except `soy: contains` for `test_tofu` and `fish: contains` for `test_fish`;
-- all six required nutrient entries with clearly synthetic numeric strings;
-- only `g` conversions/base units;
-- preparation/source/provenance strings containing `Synthetic Phase 9A test data`.
-
-Generate the 21 meal options programmatically so the test file stays readable:
+Generate meal options deterministically:
 
 ```ts
 const mealOptions = Array.from({ length: 21 }, (_, index) => {
   const slot = index % 3
-  const recipeCode = slot === 0 ? "test_tofu_recipe" : slot === 1 ? "test_chicken_recipe" : "test_fish_recipe"
+  const recipeCode = slot === 0
+    ? "test_tofu_recipe"
+    : slot === 1 ? "test_chicken_recipe" : "test_fish_recipe"
   const proteinHintCode = slot === 0 ? "plant" : slot === 1 ? "poultry" : "fish"
   return {
     code: `test_meal_${String(index + 1).padStart(2, "0")}`,
@@ -339,73 +266,75 @@ const mealOptions = Array.from({ length: 21 }, (_, index) => {
       proteinHintCode,
       cookingStyleCodes: ["boil"],
       dishRoleCodes: ["main"],
-      components: [
-        {
-          recipeCode,
-          recipeVersionNumber: 1,
-          quantityMultiplier: "1",
-          mealRole: "main" as const,
-          order: 1
-        }
-      ]
+      components: [{
+        recipeCode,
+        recipeVersionNumber: 1,
+        quantityMultiplier: "1",
+        mealRole: "main" as const,
+        order: 1
+      }]
     }
   }
 })
 ```
 
-This builder is test support only. `catalog-pack-cli.ts` must never import it.
+The CLI must never import this builder.
 
-- [ ] **Step 2: Write RED tests for exact authoritative-field invariants**
+- [ ] **Step 2: Write RED field-invariant tests**
 
-Add focused tests using the builder:
+Use `structuredClone(buildReadyCatalogPack())` and mutate exactly one field per test. Required examples:
 
 ```ts
-import { buildReadyCatalogPack } from "./catalog-pack-test-builder.ts"
-import { validateCatalogPackValue } from "./catalog-pack-validator.ts"
-
-test("rejects unknown allergen status instead of repairing it", () => {
+test("rejects unknown allergen lineage", () => {
   const pack = structuredClone(buildReadyCatalogPack())
   pack.foods[0]!.fact.allergenAssessments[0]!.status = "unknown"
-  const result = validateCatalogPackValue(pack)
-  expect(result.diagnostics.map((item) => item.code)).toContain("UNKNOWN_ALLERGEN_LINEAGE")
+  expect(validateCatalogPackValue(pack).diagnostics.map((d) => d.code))
+    .toContain("UNKNOWN_ALLERGEN_LINEAGE")
 })
 
 test("rejects non-canonical decimals", () => {
   const pack = structuredClone(buildReadyCatalogPack())
   pack.foods[0]!.fact.edibleFraction = "01.0"
-  const result = validateCatalogPackValue(pack)
-  expect(result.diagnostics.map((item) => item.code)).toContain("INVALID_DECIMAL")
+  expect(validateCatalogPackValue(pack).diagnostics.map((d) => d.code))
+    .toContain("INVALID_DECIMAL")
 })
 
-test("rejects observation timestamps because observedAt is a date", () => {
+test("observedAt must stay a calendar date", () => {
   const pack = structuredClone(buildReadyCatalogPack())
   pack.priceBook.prices[0]!.observedAt = "2026-09-06T12:00:00Z"
-  const result = validateCatalogPackValue(pack)
-  expect(result.diagnostics.map((item) => item.code)).toContain("INVALID_DATE")
+  expect(validateCatalogPackValue(pack).diagnostics.map((d) => d.code))
+    .toContain("INVALID_DATE")
 })
 ```
 
-Add at least one test each for: untrimmed label/provenance, unsupported unit/category, base-dimension mismatch, duplicate food code, duplicate allergen/nutrient/conversion code, missing required allergen/nutrient, invalid date ordering, placeholder source reference, invalid recipe timing/order, invalid meal-option timing/order, duplicate meal-option recipe component, and missing `main` component.
+Add explicit tests for: invalid/untrimmed `catalogCode`, `source.name`, `source.provenance`, `preparedAt`; duplicate food/recipe/meal codes; unsupported unit/category/region; base-dimension mismatch; duplicate/missing allergen; duplicate/missing nutrient; duplicate conversion; invalid edible fraction; invalid label/provenance length; invalid recipe yield/timing/order; recipe instruction >500; preparation note >120; invalid price effective dates; non-positive/non-integer VND; placeholder source reference (`unknown`, `n/a`, `na`, `todo`, `tbd` case-insensitive); invalid meal timing/order; duplicate meal recipe components; missing `main`; duplicate style/dish-role codes.
 
-- [ ] **Step 3: Run the focused validator tests to prove RED**
+`preparedAt` must be accepted only when it is an RFC3339 timestamp with explicit `Z` or numeric offset; validation does not rewrite it.
 
-Run:
+- [ ] **Step 3: Run RED**
 
 ```bash
 npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts --project scripts
 ```
 
-Expected: FAIL because `validateCatalogPackValue` is not implemented.
+Expected: FAIL because semantic validation is missing.
 
-- [ ] **Step 4: Implement deterministic primitive helpers**
+- [ ] **Step 4: Implement pure validation helpers**
 
-In `catalog-pack-validator.ts`, implement only pure helpers. Reuse `parseCanonicalDecimal` rather than introducing a second decimal parser:
+Start `catalog-pack-validator.ts` with:
 
 ```ts
 import { parseCanonicalDecimal } from "../../src/domain/shared/decimal.ts"
+import { parseCatalogPackShape } from "./catalog-pack-schema.ts"
+import type {
+  CatalogPackDiagnostic,
+  CatalogPackV1,
+  CatalogPackValidationReport
+} from "./catalog-pack-types.ts"
 
 const CODE_PATTERN = /^[a-z][a-z0-9_]*$/u
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u
+const RFC3339_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u
 const PLACEHOLDER_SOURCE = /^(?:unknown|n\/a|na|todo|tbd)$/iu
 
 function isTrimmedLength(value: string, min: number, max: number): boolean {
@@ -419,80 +348,50 @@ function isValidDate(value: string): boolean {
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value
 }
 
-function isPositiveDecimal(value: string): boolean {
-  return parseCanonicalDecimal(value, {
-    maxScale: 18,
-    maxIntegerDigits: 34,
-    allowNegative: false,
-    allowZero: false
-  }).ok
-}
-
-function isNonNegativeDecimal(value: string): boolean {
-  return parseCanonicalDecimal(value, {
-    maxScale: 6,
-    maxIntegerDigits: 12,
-    allowNegative: false
-  }).ok
+function isValidRfc3339(value: string): boolean {
+  return RFC3339_PATTERN.test(value) && Number.isFinite(Date.parse(value))
 }
 ```
 
-For `edibleFraction`, use the existing parser with `{ maxScale: 6, maxIntegerDigits: 1, allowNegative: false, allowZero: false }` and separately reject values greater than `1`.
+Use existing `parseCanonicalDecimal` with the same constraints as current domain/catalog validation. Do not write another decimal parser.
 
-- [ ] **Step 5: Implement diagnostics without input mutation**
+- [ ] **Step 5: Implement field validation without mutation**
 
-Use one helper for diagnostics:
-
-```ts
-function pushDiagnostic(
-  diagnostics: CatalogPackDiagnostic[],
-  severity: "error" | "warning",
-  code: string,
-  path: string,
-  message: string
-): void {
-  diagnostics.push({ severity, code, path, message })
-}
-```
-
-Validate the original parsed pack without modifying it. Paths must use deterministic JSON-path-like strings, for example:
-
-- `$.foods[0].fact.edibleFraction`
-- `$.recipes[2].version.ingredients[1].foodCode`
-- `$.priceBook.prices[0].sourceReference`
-- `$.mealOptions[5].version.components[0].recipeCode`
-
-For shape failures, translate each Zod issue into code `INVALID_SHAPE` and a path built from the issue path. Do not expose stack traces.
-
-- [ ] **Step 6: Implement food, recipe, price, and meal-option field validation**
-
-Use small pure functions:
+Implement these functions:
 
 ```ts
+function validateTopLevelFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): void
 function validateFoodFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): void
 function validateRecipeFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): void
-function validatePriceBookFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): void
+function validatePriceFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): void
 function validateMealOptionFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): void
 ```
 
-Required behaviors are exactly those in the spec. In particular:
+Rules to encode directly:
 
-- allergen set must equal the 10 launch allergen codes and no assessment may be `unknown`;
-- nutrient set must equal the six required nutrient codes;
-- `categoryAncestry[0] === categoryCode` and the last entry is `food`;
-- launch unit/category codes only;
-- unit dimension mapping is `g/kg -> mass`, `ml/l/tsp/tbsp -> volume`, `item -> count`;
-- recipe ingredient/step/component orders are contiguous `1..N`;
-- recipe step instruction maximum is 500 characters, matching current deterministic recipe authority;
-- preparation note maximum is 120 characters, matching the reviewed database constraint;
-- `packagePriceVnd` is a positive safe integer;
-- `observedAt` is `YYYY-MM-DD`;
-- placeholder source references are errors;
-- no automatic trimming/normalization occurs.
+- code pattern `^[a-z][a-z0-9_]*$`;
+- `nameVi` food/recipe/meal length 1..120 and already trimmed;
+- provenance/source reference 1..500 and trimmed;
+- preparation note null or 1..120 trimmed;
+- recipe instruction 1..500 trimmed;
+- positive safe integer versions; active minutes >=1; elapsed >= active and <=180;
+- positive canonical decimals for yield/quantity/conversions; nutrient amounts canonical non-negative; edible fraction `(0,1]` with max scale 6;
+- all 10 allergen codes exactly once, none `unknown`;
+- all six required nutrients exactly once;
+- only reviewed launch unit/category/region codes;
+- unit dimension map: `g/kg -> mass`, `ml/l/tsp/tbsp -> volume`, `item -> count`;
+- `categoryAncestry` unique, non-empty, first equals `categoryCode`, last equals `food`;
+- ingredient/step/component order exactly contiguous `1..N`;
+- price `observedAt` and effective dates are `YYYY-MM-DD`; `effectiveTo >= effectiveFrom` when not null;
+- `packagePriceVnd` positive safe integer;
+- placeholder price source references rejected;
+- meal option has >=1 component, >=1 `main`, unique recipe component codes, exactly one non-empty protein hint, >=1 unique cooking style, unique dish-role codes.
 
-- [ ] **Step 7: Run Task 2 tests and typecheck**
+For unsupported reference values emit `REFERENCE_CODE_UNSUPPORTED` and add blocker `REFERENCE_CODE_UNSUPPORTED`. Missing nutrient/allergen coverage also adds `REQUIRED_NUTRITION_COVERAGE_INCOMPLETE` / `ALLERGEN_COVERAGE_INCOMPLETE` respectively.
 
-Run:
+Shape failures become `INVALID_SHAPE` diagnostics with deterministic JSON-like paths. If shape parsing fails, no semantic layer runs and summary counts are all zero.
+
+- [ ] **Step 6: Verify Task 2**
 
 ```bash
 npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts --project scripts
@@ -501,7 +400,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit Task 2**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add scripts/catalog-pack/catalog-pack-test-builder.ts scripts/catalog-pack/catalog-pack-validator.ts scripts/catalog-pack/catalog-pack-validator.test.ts
@@ -510,56 +409,52 @@ git commit -m "feat: validate Phase 9A catalog pack fields"
 
 ---
 
-### Task 3: Cross-Pack Graph Validation and Launch Readiness
+### Task 3: Cross-Pack Graph, Coverage, Warnings, and Readiness
 
 **Files:**
 - Modify: `scripts/catalog-pack/catalog-pack-validator.ts`
 - Modify: `scripts/catalog-pack/catalog-pack-validator.test.ts`
 
 **Interfaces:**
-- Consumes: a shape-valid `CatalogPackV1`.
-- Produces: graph diagnostics, stable blocker codes, reachable/price/protein summary counts, and final `valid`/`ready` semantics for the report builder.
+- Consumes: shape-valid `CatalogPackV1`.
+- Produces: code-based graph diagnostics, blocker set, reachable/price/protein summary counts.
 
-- [ ] **Step 1: Write RED graph tests**
+- [ ] **Step 1: Write RED graph/readiness tests**
 
-Add tests that mutate one field at a time from `buildReadyCatalogPack()`:
+Add:
 
 ```ts
-test("rejects recipe food references that do not resolve inside the pack", () => {
+test("blocks unresolved recipe food references", () => {
   const pack = structuredClone(buildReadyCatalogPack())
   pack.recipes[0]!.version.ingredients[0]!.foodCode = "missing_food"
   const result = validateCatalogPackValue(pack)
   expect(result.blockers).toContain("CATALOG_LINEAGE_INCOMPLETE")
-  expect(result.diagnostics.map((item) => item.code)).toContain("UNRESOLVED_FOOD_REFERENCE")
+  expect(result.diagnostics.map((d) => d.code)).toContain("UNRESOLVED_FOOD_REFERENCE")
 })
 
-test("blocks readiness when a reachable food has no price", () => {
+test("blocks missing reachable price", () => {
   const pack = structuredClone(buildReadyCatalogPack())
-  pack.priceBook.prices = pack.priceBook.prices.filter((row) => row.foodCode !== "test_fish")
-  const result = validateCatalogPackValue(pack)
-  expect(result.blockers).toContain("PRICE_COVERAGE_INCOMPLETE")
+  pack.priceBook.prices = pack.priceBook.prices.filter((p) => p.foodCode !== "test_fish")
+  expect(validateCatalogPackValue(pack).blockers).toContain("PRICE_COVERAGE_INCOMPLETE")
 })
 
-test("blocks readiness below 21 meal options", () => {
+test("requires 21 meal options", () => {
   const pack = structuredClone(buildReadyCatalogPack())
   pack.mealOptions = pack.mealOptions.slice(0, 20)
-  const result = validateCatalogPackValue(pack)
-  expect(result.blockers).toContain("MINIMUM_MEAL_OPTIONS_NOT_MET")
+  expect(validateCatalogPackValue(pack).blockers).toContain("MINIMUM_MEAL_OPTIONS_NOT_MET")
 })
 
-test("blocks readiness below three protein hint groups", () => {
+test("requires three protein groups", () => {
   const pack = structuredClone(buildReadyCatalogPack())
   for (const meal of pack.mealOptions) meal.version.proteinHintCode = "plant"
-  const result = validateCatalogPackValue(pack)
-  expect(result.blockers).toContain("INSUFFICIENT_PRIMARY_PROTEIN_GROUP_CAPACITY")
+  expect(validateCatalogPackValue(pack).blockers)
+    .toContain("INSUFFICIENT_PRIMARY_PROTEIN_GROUP_CAPACITY")
 })
 ```
 
-Also cover exact version pin mismatches, ingredient unit not present in conversion/base unit, unresolved step ingredient, ingredient never referenced by a step, unresolved meal-option recipe version, unused recipe warning, unused food warning, and `UNUSED_FOOD_WITHOUT_PRICE` warning.
+Also cover exact food-fact version mismatch, ingredient unit not base/conversion, unresolved step ingredient, ingredient never referenced by any step, exact recipe-version mismatch from meal option, unused recipe warning, unused food warning, and unused unpriced food warning.
 
-- [ ] **Step 2: Run graph tests to prove RED**
-
-Run:
+- [ ] **Step 2: Run RED**
 
 ```bash
 npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts --project scripts
@@ -567,78 +462,66 @@ npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts --project scr
 
 Expected: FAIL on graph/readiness expectations.
 
-- [ ] **Step 3: Build deterministic indexes without UUIDs**
+- [ ] **Step 3: Build deterministic code indexes**
 
-Inside `catalog-pack-validator.ts`, create code maps only after shape parsing:
+After duplicate checks, build:
 
 ```ts
 const foodsByCode = new Map(pack.foods.map((food) => [food.code, food]))
 const recipesByCode = new Map(pack.recipes.map((recipe) => [recipe.code, recipe]))
-const mealOptionsByCode = new Map(pack.mealOptions.map((meal) => [meal.code, meal]))
 const priceByFoodVersion = new Map(
   pack.priceBook.prices.map((price) => [`${price.foodCode}:${price.foodFactVersionNumber}`, price])
 )
 ```
 
-Duplicate detection must occur before trusting these maps. A duplicate remains an error even if JavaScript `Map` would overwrite one entry.
+Never use Map overwrite as duplicate resolution; duplicates remain validation errors.
 
-- [ ] **Step 4: Validate explicit graph/version pins**
+- [ ] **Step 4: Validate graph pins exactly**
 
-Implement exact graph checks:
+Implement:
 
 ```ts
-function validateGraph(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): {
-  readonly reachableFoodCodes: ReadonlySet<string>
-  readonly reachableRecipeCodes: ReadonlySet<string>
-  readonly pricedReachableFoodCodes: ReadonlySet<string>
+function validateGraph(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]) {
+  return {
+    reachableFoodCodes: new Set<string>(),
+    reachableRecipeCodes: new Set<string>(),
+    pricedReachableFoodCodes: new Set<string>()
+  }
 }
 ```
 
-Rules:
+Populate sets while enforcing:
 
-1. Every recipe ingredient resolves `foodCode` inside this pack.
-2. `foodFactVersionNumber` equals that food's `fact.versionNumber` exactly.
-3. Ingredient unit is either the food base unit or one of its fact conversion unit codes.
-4. Every step ingredient code resolves inside the same recipe; every recipe ingredient is referenced by at least one step.
-5. Every meal-option component resolves a recipe inside this pack and pins its exact version number.
-6. Reachability starts from all meal-option components, then follows recipe ingredients to foods.
-7. Every reachable food/version must have exactly one matching price row.
-8. No implicit latest-version behavior exists.
+1. recipe ingredient `foodCode` resolves inside this pack;
+2. ingredient `foodFactVersionNumber` equals referenced `food.fact.versionNumber`;
+3. ingredient unit equals food base unit or appears in fact conversions;
+4. step ingredient codes resolve inside same recipe and every ingredient appears in >=1 step;
+5. meal component `recipeCode` resolves and `recipeVersionNumber` equals exact recipe version;
+6. reachability begins at all meal-option components and flows recipe -> food;
+7. each reachable food/version has exactly one price row;
+8. no implicit latest-version lookup.
 
-Every unresolved required edge emits a specific error diagnostic and adds `CATALOG_LINEAGE_INCOMPLETE`; missing reachable prices add `PRICE_COVERAGE_INCOMPLETE`.
+Unresolved required edges emit specific errors and blocker `CATALOG_LINEAGE_INCOMPLETE`; missing reachable prices add `PRICE_COVERAGE_INCOMPLETE`.
 
-- [ ] **Step 5: Implement warnings for unused content**
+- [ ] **Step 5: Add deterministic warnings**
 
-Warnings are deterministic and do not set `valid` false:
+Emit warnings only:
 
-- food not reachable from any meal option -> `UNUSED_FOOD`;
-- recipe not reachable from any meal option -> `UNUSED_RECIPE`;
-- unused food with no price -> `UNUSED_FOOD_WITHOUT_PRICE`.
+- `UNUSED_RECIPE` for recipe not reachable from any meal option;
+- `UNUSED_FOOD` for food not reachable from any meal option;
+- `UNUSED_FOOD_WITHOUT_PRICE` for unused food with no price row.
 
-Do not warn twice for the same entity/code combination.
+Deduplicate by `(code,path)`.
 
-- [ ] **Step 6: Implement launch-pack blocker calculation**
-
-Calculate blockers after semantic/graph validation:
+- [ ] **Step 6: Add launch blockers and summary**
 
 ```ts
 if (pack.mealOptions.length < 21) blockers.add("MINIMUM_MEAL_OPTIONS_NOT_MET")
-
 const proteinGroups = new Set(pack.mealOptions.map((meal) => meal.version.proteinHintCode))
 if (proteinGroups.size < 3) blockers.add("INSUFFICIENT_PRIMARY_PROTEIN_GROUP_CAPACITY")
 ```
 
-Also add:
-
-- `REQUIRED_NUTRITION_COVERAGE_INCOMPLETE` if any food is missing/duplicates a required nutrient;
-- `ALLERGEN_COVERAGE_INCOMPLETE` if any food is missing/duplicates a required allergen or contains `unknown`;
-- `REFERENCE_CODE_UNSUPPORTED` for unsupported launch unit/category/region references.
-
-The validator may still report multiple blockers for one bad pack; it must not stop at the first semantic failure.
-
-- [ ] **Step 7: Compute summary counts from validated graph facts**
-
-Return exactly:
+Summary must be:
 
 ```ts
 {
@@ -647,16 +530,12 @@ Return exactly:
   priceRows: pack.priceBook.prices.length,
   mealOptions: pack.mealOptions.length,
   primaryProteinGroups: proteinGroups.size,
-  reachableFoods: reachableFoodCodes.size,
-  pricedReachableFoods: pricedReachableFoodCodes.size
+  reachableFoods: graph.reachableFoodCodes.size,
+  pricedReachableFoods: graph.pricedReachableFoodCodes.size
 }
 ```
 
-For a Layer-1 shape failure, all summary counters are zero because no typed pack exists.
-
-- [ ] **Step 8: Run Task 3 tests and typecheck**
-
-Run:
+- [ ] **Step 7: Verify Task 3**
 
 ```bash
 npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts --project scripts
@@ -665,7 +544,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit Task 3**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add scripts/catalog-pack/catalog-pack-validator.ts scripts/catalog-pack/catalog-pack-validator.test.ts
@@ -674,81 +553,68 @@ git commit -m "feat: add catalog pack graph readiness checks"
 
 ---
 
-### Task 4: Stable Report Construction and Byte-Level SHA-256
+### Task 4: Stable Byte-Level SHA and Final Report
 
 **Files:**
 - Modify: `scripts/catalog-pack/catalog-pack-validator.ts`
 - Modify: `scripts/catalog-pack/catalog-pack-validator.test.ts`
 
 **Interfaces:**
-- Consumes: original input bytes and parsed JSON value.
-- Produces: `validateCatalogPackBytes(input: Uint8Array): CatalogPackValidationReport` as the single API the CLI uses.
+- Produces: `validateCatalogPackBytes(input: Uint8Array): CatalogPackValidationReport`, the only validator API used by CLI.
 
 - [ ] **Step 1: Write RED determinism tests**
 
-Add:
-
 ```ts
-import { TextEncoder } from "node:util"
-
 import { validateCatalogPackBytes } from "./catalog-pack-validator.ts"
 
-test("produces the same report for identical bytes", () => {
-  const bytes = new TextEncoder().encode(JSON.stringify(buildReadyCatalogPack()))
-  expect(validateCatalogPackBytes(bytes)).toEqual(validateCatalogPackBytes(bytes))
+function bytes(value: unknown): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(value))
+}
+
+test("ready synthetic pack is valid and ready", () => {
+  const report = validateCatalogPackBytes(bytes(buildReadyCatalogPack()))
+  expect(report.valid).toBe(true)
+  expect(report.ready).toBe(true)
+  expect(report.summary.mealOptions).toBe(21)
+  expect(report.summary.primaryProteinGroups).toBe(3)
+  expect(report.blockers).toEqual([])
 })
 
-test("hashes original bytes rather than normalized JSON", () => {
-  const compact = new TextEncoder().encode('{"schemaVersion":"1"}')
-  const spaced = new TextEncoder().encode('{ "schemaVersion": "1" }')
-  expect(validateCatalogPackBytes(compact).inputSha256).not.toBe(
-    validateCatalogPackBytes(spaced).inputSha256
-  )
+test("identical bytes produce identical report", () => {
+  const input = bytes(buildReadyCatalogPack())
+  expect(validateCatalogPackBytes(input)).toEqual(validateCatalogPackBytes(input))
 })
 
-test("sorts blockers and diagnostics deterministically", () => {
-  const pack = structuredClone(buildReadyCatalogPack())
-  pack.mealOptions = []
-  const report = validateCatalogPackBytes(new TextEncoder().encode(JSON.stringify(pack)))
-  expect(report.blockers).toEqual([...report.blockers].sort())
-  expect(report.diagnostics).toEqual(
-    [...report.diagnostics].sort((left, right) => {
-      const leftKey = `${left.severity}\u0000${left.code}\u0000${left.path}\u0000${left.message}`
-      const rightKey = `${right.severity}\u0000${right.code}\u0000${right.path}\u0000${right.message}`
-      return leftKey.localeCompare(rightKey)
-    })
-  )
+test("SHA is over original bytes", () => {
+  const a = new TextEncoder().encode('{"schemaVersion":"1"}')
+  const b = new TextEncoder().encode('{ "schemaVersion": "1" }')
+  expect(validateCatalogPackBytes(a).inputSha256)
+    .not.toBe(validateCatalogPackBytes(b).inputSha256)
 })
 ```
 
-- [ ] **Step 2: Run report tests to prove RED**
+Also assert blockers are lexicographically sorted and diagnostics sort by severity, code, path, message.
 
-Run:
+- [ ] **Step 2: Run RED**
 
 ```bash
 npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts --project scripts
 ```
 
-Expected: FAIL because byte-level report construction does not yet exist.
+Expected: FAIL because byte-level report API is missing.
 
-- [ ] **Step 3: Implement original-byte hashing and UTF-8/JSON handling**
-
-Use Node crypto:
+- [ ] **Step 3: Implement fatal UTF-8 decode, JSON parse, and SHA**
 
 ```ts
 import { createHash } from "node:crypto"
 
-function sha256(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex")
+function sha256(input: Uint8Array): string {
+  return createHash("sha256").update(input).digest("hex")
 }
-```
 
-Decode with a fatal UTF-8 decoder so malformed bytes are not silently replaced:
-
-```ts
-function parseJsonBytes(bytes: Uint8Array): { ok: true; value: unknown } | { ok: false } {
+function parseJsonBytes(input: Uint8Array): { ok: true; value: unknown } | { ok: false } {
   try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(input)
     return { ok: true, value: JSON.parse(text) as unknown }
   } catch {
     return { ok: false }
@@ -756,11 +622,9 @@ function parseJsonBytes(bytes: Uint8Array): { ok: true; value: unknown } | { ok:
 }
 ```
 
-A UTF-8/JSON parse failure returns one `error` diagnostic with code `INVALID_JSON`, `catalogCode: null`, zero summary counts, `valid: false`, and `ready: false`.
+Invalid UTF-8/JSON returns one `INVALID_JSON` error, `catalogCode: null`, zero summary counts, `valid: false`, `ready: false`.
 
-- [ ] **Step 4: Implement stable report sorting and booleans**
-
-Use explicit sort keys; never depend on insertion order:
+- [ ] **Step 4: Implement stable report ordering**
 
 ```ts
 function sortDiagnostics(items: readonly CatalogPackDiagnostic[]): CatalogPackDiagnostic[] {
@@ -776,7 +640,7 @@ function sortDiagnostics(items: readonly CatalogPackDiagnostic[]): CatalogPackDi
 }
 ```
 
-Build final booleans as:
+Final flags:
 
 ```ts
 const diagnostics = sortDiagnostics(core.diagnostics)
@@ -785,27 +649,9 @@ const valid = !diagnostics.some((item) => item.severity === "error")
 const ready = valid && blockers.length === 0
 ```
 
-Do not include current timestamps, random IDs, environment fields, filesystem paths, or database UUIDs in the report.
+Report contains no current time, random value, input path, environment value, UUID, token, or secret.
 
-- [ ] **Step 5: Verify a ready synthetic pack**
-
-Add one assertion that the builder's untouched pack is exactly valid/ready:
-
-```ts
-test("accepts the fully curated synthetic ready pack", () => {
-  const bytes = new TextEncoder().encode(JSON.stringify(buildReadyCatalogPack()))
-  const report = validateCatalogPackBytes(bytes)
-  expect(report.valid).toBe(true)
-  expect(report.ready).toBe(true)
-  expect(report.summary).toMatchObject({ mealOptions: 21, primaryProteinGroups: 3 })
-  expect(report.blockers).toEqual([])
-  expect(report.diagnostics.filter((item) => item.severity === "error")).toEqual([])
-})
-```
-
-- [ ] **Step 6: Run Task 4 tests and typecheck**
-
-Run:
+- [ ] **Step 5: Verify Task 4**
 
 ```bash
 npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts --project scripts
@@ -814,7 +660,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 4**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add scripts/catalog-pack/catalog-pack-validator.ts scripts/catalog-pack/catalog-pack-validator.test.ts
@@ -823,7 +669,7 @@ git commit -m "feat: produce deterministic catalog validation reports"
 
 ---
 
-### Task 5: Offline CLI Contract and Release Verification
+### Task 5: Offline CLI and Exact-Head Verification
 
 **Files:**
 - Create: `scripts/catalog-pack/catalog-pack-cli.ts`
@@ -831,34 +677,29 @@ git commit -m "feat: produce deterministic catalog validation reports"
 - Modify: `package.json`
 
 **Interfaces:**
-- Consumes: `validateCatalogPackBytes(input: Uint8Array)`.
-- Produces: `npm run catalog:validate -- --input <path> [--report <path>]` with exit codes 0/1/2/3 exactly as approved.
+- Consumes: `validateCatalogPackBytes`.
+- Produces: `npm run catalog:validate -- --input <path> [--report <path>]`.
+- Exit codes: `0` ready, `2` invalid, `3` valid-but-not-ready, `1` usage/I/O/internal error.
 
-- [ ] **Step 1: Write RED CLI tests against temporary input files**
-
-Use `mkdtemp`, `writeFile`, `readFile`, and `spawnSync` from Node. Do not call network services.
-
-Core tests:
+- [ ] **Step 1: Write RED spawned CLI tests**
 
 ```ts
+import { spawnSync } from "node:child_process"
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { spawnSync } from "node:child_process"
-import { describe, expect, test } from "vitest"
-
+import { expect, test } from "vitest"
 import { buildReadyCatalogPack } from "./catalog-pack-test-builder.ts"
 
 function runCli(args: readonly string[]) {
   return spawnSync(process.execPath, ["scripts/catalog-pack/catalog-pack-cli.ts", ...args], {
-    cwd: process.cwd(),
-    encoding: "utf8"
+    cwd: process.cwd(), encoding: "utf8"
   })
 }
 
-test("returns 0 and canonical JSON for a ready pack", () => {
-  const directory = mkdtempSync(join(tmpdir(), "bepnha-catalog-"))
-  const input = join(directory, "pack.json")
+test("ready pack exits 0", () => {
+  const dir = mkdtempSync(join(tmpdir(), "bepnha-catalog-"))
+  const input = join(dir, "pack.json")
   writeFileSync(input, JSON.stringify(buildReadyCatalogPack()), "utf8")
   const result = runCli(["--input", input])
   expect(result.status).toBe(0)
@@ -866,48 +707,34 @@ test("returns 0 and canonical JSON for a ready pack", () => {
   expect(result.stderr).toBe("")
 })
 
-test("returns 2 for validation errors", () => {
-  const directory = mkdtempSync(join(tmpdir(), "bepnha-catalog-"))
-  const input = join(directory, "pack.json")
-  writeFileSync(input, JSON.stringify({ schemaVersion: "2" }), "utf8")
-  const result = runCli(["--input", input])
-  expect(result.status).toBe(2)
+test("invalid pack exits 2", () => {
+  const dir = mkdtempSync(join(tmpdir(), "bepnha-catalog-"))
+  const input = join(dir, "pack.json")
+  writeFileSync(input, '{"schemaVersion":"2"}', "utf8")
+  expect(runCli(["--input", input]).status).toBe(2)
 })
 
-test("returns 3 for valid but not ready packs", () => {
-  const directory = mkdtempSync(join(tmpdir(), "bepnha-catalog-"))
-  const input = join(directory, "pack.json")
+test("valid but not ready pack exits 3", () => {
+  const dir = mkdtempSync(join(tmpdir(), "bepnha-catalog-"))
+  const input = join(dir, "pack.json")
   const pack = buildReadyCatalogPack()
   pack.mealOptions = pack.mealOptions.slice(0, 20)
   writeFileSync(input, JSON.stringify(pack), "utf8")
-  const result = runCli(["--input", input])
-  expect(result.status).toBe(3)
+  expect(runCli(["--input", input]).status).toBe(3)
 })
 ```
 
-Also test:
+Also test: missing/duplicate `--input`, unknown flag, missing value, nonexistent input -> `1`; `--report` file equals stdout byte-for-byte; stdout contains no absolute input path.
 
-- missing `--input` -> exit `1`, usage text on stderr, empty stdout;
-- unreadable/nonexistent input -> exit `1`, concise I/O error on stderr;
-- `--report` writes byte-for-byte the same canonical JSON plus trailing newline as stdout;
-- unknown CLI flag -> exit `1`;
-- the ready CLI report contains no absolute input path.
-
-- [ ] **Step 2: Run CLI tests to prove RED**
-
-Run:
+- [ ] **Step 2: Run RED**
 
 ```bash
 npx vitest run scripts/catalog-pack/catalog-pack-cli.test.ts --project scripts
 ```
 
-Expected: FAIL because the CLI does not exist.
+Expected: FAIL because CLI is missing.
 
-- [ ] **Step 3: Implement a no-prompt argument parser**
-
-In `catalog-pack-cli.ts`, parse only `--input` and optional `--report`. Reject duplicates, missing values, positional args, and unknown flags.
-
-Use a typed result:
+- [ ] **Step 3: Implement no-prompt argument parser**
 
 ```ts
 type CliArgs = { readonly input: string; readonly report: string | null }
@@ -916,16 +743,14 @@ type ParseArgsResult =
   | { readonly ok: false; readonly message: string }
 ```
 
-The parser must not inspect environment variables or prompt.
+Accept only `--input <value>` and optional `--report <value>`. Reject duplicates, positional args, unknown flags, and missing values. Do not read environment variables.
 
-- [ ] **Step 4: Implement CLI file/read/report behavior**
-
-Use synchronous Node APIs intentionally: this is a one-shot validation command and simpler deterministic error handling is preferred.
+- [ ] **Step 4: Implement file/report/exit behavior**
 
 ```ts
 import { readFileSync, writeFileSync } from "node:fs"
 import process from "node:process"
-
+import type { CatalogPackValidationReport } from "./catalog-pack-types.ts"
 import { validateCatalogPackBytes } from "./catalog-pack-validator.ts"
 
 function exitCodeForReport(report: CatalogPackValidationReport): 0 | 2 | 3 {
@@ -934,7 +759,7 @@ function exitCodeForReport(report: CatalogPackValidationReport): 0 | 2 | 3 {
 }
 ```
 
-Serialize report with exactly:
+Serialize exactly:
 
 ```ts
 const output = `${JSON.stringify(report, null, 2)}\n`
@@ -943,45 +768,26 @@ if (args.report !== null) writeFileSync(args.report, output, "utf8")
 process.exitCode = exitCodeForReport(report)
 ```
 
-On usage/I/O/internal errors, print one concise line to stderr and set exit code `1`. Do not print stack traces by default.
+Usage/I/O/unexpected errors print one concise stderr line and exit `1`; no stack trace, secret, env variable, or input file content is printed.
 
-- [ ] **Step 5: Add the package script**
-
-Modify `package.json` scripts:
+- [ ] **Step 5: Add package command**
 
 ```json
 "catalog:validate": "node scripts/catalog-pack/catalog-pack-cli.ts"
 ```
 
-Do not add Supabase env wrappers or credentials to this command.
+Do not wrap it with any Supabase env helper.
 
-- [ ] **Step 6: Run CLI tests and an actual command invocation**
-
-Run:
-
-```bash
-npx vitest run scripts/catalog-pack/catalog-pack-cli.test.ts --project scripts
-npm run catalog:validate -- --input scripts/catalog-pack/does-not-exist.json
-```
-
-Expected:
-
-- CLI tests PASS;
-- nonexistent-file invocation exits `1` with a concise stderr I/O error and no secret/env output.
-
-- [ ] **Step 7: Run all focused Phase 9A tests**
-
-Run:
+- [ ] **Step 6: Verify focused CLI behavior**
 
 ```bash
 npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts scripts/catalog-pack/catalog-pack-cli.test.ts --project scripts
+npm run catalog:validate -- --input scripts/catalog-pack/does-not-exist.json
 ```
 
-Expected: PASS.
+Expected: tests PASS; nonexistent input exits `1` with concise stderr only.
 
-- [ ] **Step 8: Run repository verification gates**
-
-Run in this order:
+- [ ] **Step 7: Run repository quality gates**
 
 ```bash
 npm run format:check
@@ -992,19 +798,11 @@ npm run build
 npm run bundle:check
 ```
 
-Expected: every command PASS; Phase 8 coverage floors remain at statements >= 78, branches >= 70, functions >= 84, lines >= 82; no generated production catalog data appears in the repository.
+Expected: all PASS. Keep Phase 8 coverage floors statements >=78, branches >=70, functions >=84, lines >=82 and bundle ceiling unchanged.
 
-If formatting is the only failure, run:
+If formatting alone fails, run `npm run format`, then rerun the full sequence; do not weaken gates.
 
-```bash
-npm run format
-```
-
-Then rerun `npm run format:check` and the remaining verification gates. Do not weaken formatting/lint/coverage/bundle thresholds.
-
-- [ ] **Step 9: Prove Phase 9A has no production/database surface**
-
-Run:
+- [ ] **Step 8: Prove scope containment**
 
 ```bash
 git diff --check
@@ -1012,50 +810,37 @@ git diff --name-only 7d9ff0dfe135d09d61424b647cfa61216ae2a77a...HEAD
 git status --short
 ```
 
-Review the file list. It may contain only the approved spec/plan plus `scripts/catalog-pack/**`, `tsconfig.node.json`, and `package.json`. It must not contain:
+Allowed changed paths are only the approved spec/plan, `scripts/catalog-pack/**`, `tsconfig.node.json`, and `package.json`. Reject the implementation if the diff contains `supabase/migrations/**`, production catalog data, `.env*`, Vercel config, or service-role/secret material.
 
-- `supabase/migrations/**`;
-- production catalog JSON/CSV;
-- `.env*` changes;
-- Vercel deployment config changes;
-- service-role/secret material.
-
-- [ ] **Step 10: Commit Task 5**
+- [ ] **Step 9: Commit Task 5**
 
 ```bash
 git add scripts/catalog-pack/catalog-pack-cli.ts scripts/catalog-pack/catalog-pack-cli.test.ts package.json
 git commit -m "feat: add offline catalog validation CLI"
 ```
 
-- [ ] **Step 11: Final exact-head verification evidence**
-
-Capture:
+- [ ] **Step 10: Fresh exact-head completion verification**
 
 ```bash
 git rev-parse HEAD
 git status --short
-npm run typecheck
 npx vitest run scripts/catalog-pack/catalog-pack-validator.test.ts scripts/catalog-pack/catalog-pack-cli.test.ts --project scripts
 npm run verify:web
 ```
 
-`npm run verify:web` includes environment check, secret scan, dependency audit, format, lint, typecheck, coverage, build, and bundle ceiling. Report the exact final HEAD and fresh results. Do not claim `PHASE_9A_PASS` until these commands have actually passed.
+Do not claim `PHASE_9A_PASS` without fresh PASS output for these exact-head checks. Do not create a PR, merge, mutate production, or deploy without separate user authorization.
 
 ---
 
-## Plan Self-Review Checklist
+## Plan Self-Review Coverage
 
-Before implementation completion, verify all of the following against the spec:
-
-1. Strict JSON object shape and no coercion/defaulting are covered by Task 1.
-2. Human-owned authoritative values are only validated, never inferred or repaired.
-3. All 10 launch allergens and six required nutrients are mandatory; `unknown` is rejected.
-4. Launch units/categories/region and dimension compatibility are validated offline.
-5. Recipe, step, meal-option, version, conversion, and price graph pins are exact and code-based.
-6. Reachable price coverage and unused-entity warnings are covered.
-7. Generic launch pack thresholds are 21 meal options and three protein-hint groups.
-8. Report SHA uses original bytes; report/blocker/diagnostic ordering is deterministic.
-9. Exit codes are exactly 0 ready, 2 invalid, 3 valid-but-not-ready, 1 invocation/I/O/internal failure.
-10. CLI never accesses Supabase/network/env secrets and does not import the synthetic test builder.
-11. No migration, production mutation, PR, merge, or Vercel deployment occurs.
-12. Full repository verification is rerun on the exact implementation head before any PASS claim.
+- Strict shape/no coercion: Task 1.
+- Authoritative values never inferred/repaired: Task 2.
+- 10 allergens + six nutrients + `unknown` rejection: Task 2.
+- Units/categories/region/dimension and exact date/decimal rules: Task 2.
+- Recipe/step/meal/version/conversion/price graph pins: Task 3.
+- Reachable price coverage and unused warnings: Task 3.
+- 21 meal options + three protein hints: Task 3.
+- Original-byte SHA and deterministic sorting: Task 4.
+- Exit codes 0/1/2/3 and no-network/no-secret CLI: Task 5.
+- Full repo verification and scope containment: Task 5.
