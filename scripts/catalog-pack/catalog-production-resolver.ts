@@ -8,7 +8,6 @@ import type {
   ProductionCategoryRow,
   ProductionCodeRow,
   ProductionRecipeTagRow,
-  ProductionUnitRow,
   ResolvedCatalogManifestV1,
   ResolvedCategoryReference,
   ResolvedIdentityVersion,
@@ -57,7 +56,12 @@ function exactRowByCode<T extends { readonly code: string }>(
 ): T | null {
   const matches = rows.filter((row) => row.code === code)
   if (matches.length === 0) {
-    addError(diagnostics, "REFERENCE_NOT_FOUND", path, `Production reference ${code} was not found`)
+    addError(
+      diagnostics,
+      "REFERENCE_NOT_FOUND",
+      path,
+      `Production reference ${code} was not found`
+    )
     return null
   }
   if (matches.length !== 1) {
@@ -122,7 +126,10 @@ function expectedCategoryChains(pack: CatalogPackV1): Map<string, readonly strin
     food.fact.categoryAncestry.forEach((code, index) => {
       const chain = food.fact.categoryAncestry.slice(index)
       const existing = chains.get(code)
-      if (existing === undefined || chain.join("\u0000") === existing.join("\u0000")) {
+      if (
+        existing === undefined ||
+        chain.join("\u0000") === existing.join("\u0000")
+      ) {
         chains.set(code, chain)
       }
     })
@@ -192,7 +199,9 @@ function resolveSimpleCodes(
 }
 
 function requiredAllergenCodes(pack: CatalogPackV1): string[] {
-  return pack.foods.flatMap((food) => food.fact.allergenAssessments.map((item) => item.allergenCode))
+  return pack.foods.flatMap((food) =>
+    food.fact.allergenAssessments.map((item) => item.allergenCode)
+  )
 }
 
 function requiredNutrientCodes(pack: CatalogPackV1): string[] {
@@ -349,16 +358,11 @@ function resolveRecipeTags(
     }
   }
 
-  const semanticRecipeCodes = new Set(pack.recipes.flatMap((recipe) => recipe.version.tagCodes))
+  const semanticRecipeCodes = new Set(
+    pack.recipes.flatMap((recipe) => recipe.version.tagCodes)
+  )
   for (const code of [...semanticRecipeCodes].sort()) {
-    add(
-      resolveSemanticRecipeTag(
-        code,
-        `$.recipes.tags.${code}`,
-        snapshot,
-        diagnostics
-      )
-    )
+    add(resolveSemanticRecipeTag(code, `$.recipes.tags.${code}`, snapshot, diagnostics))
   }
 
   return [...resolved.values()].sort((left, right) => {
