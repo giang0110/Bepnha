@@ -16,6 +16,7 @@ function diagnosticKey(item: {
   return [item.severity, item.code, item.path, item.message].join("\u0000")
 }
 
+// prettier-ignore
 describe("validateCatalogPackBytes", () => {
   test("marks the ready synthetic pack valid and ready", () => {
     const report = validateCatalogPackBytes(bytes(buildReadyCatalogPack()))
