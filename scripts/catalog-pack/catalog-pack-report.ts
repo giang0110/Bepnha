@@ -21,9 +21,9 @@ function sha256(input: Uint8Array): string {
   return createHash("sha256").update(input).digest("hex")
 }
 
-function parseJsonBytes(input: Uint8Array):
-  | { readonly ok: true; readonly value: unknown }
-  | { readonly ok: false } {
+function parseJsonBytes(
+  input: Uint8Array
+): { readonly ok: true; readonly value: unknown } | { readonly ok: false } {
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(input)
     return { ok: true, value: JSON.parse(text) as unknown }
