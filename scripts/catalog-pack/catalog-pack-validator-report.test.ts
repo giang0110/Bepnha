@@ -7,9 +7,9 @@ function bytes(value: unknown): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(value))
 }
 
-function sortedDiagnostics<T extends { severity: string; code: string; path: string; message: string }>(
-  items: readonly T[]
-): T[] {
+function sortedDiagnostics<
+  T extends { severity: string; code: string; path: string; message: string }
+>(items: readonly T[]): T[] {
   return [...items].sort((left, right) => {
     const severity = left.severity.localeCompare(right.severity)
     if (severity !== 0) return severity
@@ -69,7 +69,11 @@ describe("validateCatalogPackBytes", () => {
         blockers: []
       })
       expect(report.diagnostics).toEqual([
-        expect.objectContaining({ severity: "error", code: "INVALID_JSON", path: "$" })
+        expect.objectContaining({
+          severity: "error",
+          code: "INVALID_JSON",
+          path: "$"
+        })
       ])
     }
   })
