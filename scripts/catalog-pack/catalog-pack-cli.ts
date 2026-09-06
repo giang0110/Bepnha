@@ -6,10 +6,20 @@ import type { CatalogPackValidationReport } from "./catalog-pack-types.ts"
 
 const USAGE = "Usage: npm run catalog:validate -- --input <path> [--report <path>]"
 
-type CliArgs = { readonly input: string; readonly report: string | null }
+type CliArgs = {
+  readonly input: string
+  readonly report: string | null
+}
+
 type ParseArgsResult =
-  | { readonly ok: true; readonly value: CliArgs }
-  | { readonly ok: false; readonly message: string }
+  | {
+      readonly ok: true
+      readonly value: CliArgs
+    }
+  | {
+      readonly ok: false
+      readonly message: string
+    }
 
 function parseArgs(argv: readonly string[]): ParseArgsResult {
   let input: string | null = null
