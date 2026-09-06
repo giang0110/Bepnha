@@ -76,8 +76,8 @@ export function validateCatalogPackBytes(input: Uint8Array): CatalogPackValidati
 
   const core = validateCatalogPackValue(parsed.value)
   const diagnostics = sortDiagnostics(core.diagnostics)
-  const blockers = [...new Set(core.blockers)].sort()
   const valid = !diagnostics.some((diagnostic) => diagnostic.severity === "error")
+  const blockers = valid ? [...new Set(core.blockers)].sort() : []
 
   return {
     schemaVersion: CATALOG_PACK_SCHEMA_VERSION,
