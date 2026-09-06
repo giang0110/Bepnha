@@ -80,13 +80,12 @@ describe("validateCatalogPackBytes", () => {
     }
   })
 
-  test("sorts blockers and diagnostics deterministically", () => {
+  test("sorts readiness blockers and diagnostics deterministically for a valid pack", () => {
     const pack = buildReadyCatalogPack()
     pack.mealOptions = pack.mealOptions.slice(0, 20)
     for (const meal of pack.mealOptions) {
       meal.version.proteinHintCode = "plant"
     }
-    pack.catalogCode = "Bad"
 
     const report = validateCatalogPackBytes(bytes(pack))
     const diagnosticKeys = report.diagnostics.map(diagnosticKey)
@@ -96,8 +95,24 @@ describe("validateCatalogPackBytes", () => {
       "MINIMUM_MEAL_OPTIONS_NOT_MET"
     ])
     expect(diagnosticKeys).toEqual([...diagnosticKeys].sort())
+    expect(report.valid).toBe(true)
+    expect(report.ready).toBe(false)
+  })
+
+  test("suppresses readiness blockers whenever validation errors exist", () => {
+    const pack = buildReadyCatalogPack()
+    pack.mealOptions = pack.mealOptions.slice(0, 20)
+    for (const meal of pack.mealOptions) {
+      meal.version.proteinHintCode = "plant"
+    }
+    pack.catalogCode = "Bad"
+
+    const report = validateCatalogPackBytes(bytes(pack))
+
     expect(report.valid).toBe(false)
     expect(report.ready).toBe(false)
+    expect(report.blockers).toEqual([])
+    expect(report.diagnostics.map((item) => item.code)).toContain("INVALID_CODE")
   })
 
   test("does not add runtime metadata to the report", () => {
