@@ -76,7 +76,8 @@ The production reader may use the existing server-only `SUPABASE_URL` and `SUPAB
 The credential itself is privileged, so Phase 9B enforces read-only behavior at the code boundary:
 
 - the reader interface exposes only load/query methods;
-- the Supabase implementation uses only `.select(...)`, filters, and read-only RPCs if an already-existing RPC is required;
+- the Supabase implementation uses only table `.select(...)` calls and read filters on the approved Phase 9B table whitelist;
+- Phase 9B does not call any Supabase RPC, even an existing read-oriented RPC;
 - it must not call `.insert`, `.upsert`, `.update`, `.delete`, or any lifecycle/publication RPC;
 - tests use a recording/fake client or repository seam to prove no mutation path is reachable;
 - the CLI exits before constructing the reader if Phase 9A validation/readiness fails.
@@ -317,6 +318,7 @@ Use a fake/recording Supabase seam to verify:
 
 - only approved tables are queried;
 - only read operations are reachable;
+- no RPC method is called;
 - minimal fields are selected;
 - unexpected/malformed row shapes fail closed;
 - secrets/vendor error details do not enter deterministic diagnostics.
