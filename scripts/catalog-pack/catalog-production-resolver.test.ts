@@ -358,12 +358,22 @@ describe("resolveCatalogProductionReferences", () => {
   test("same logical snapshot hashes identically regardless of database row order", () => {
     const pack = buildReadyCatalogPack()
     const first = buildResolvableProductionSnapshot(pack)
-    const reversed = Object.fromEntries(
-      Object.entries(first).map(([key, value]) => [
-        key,
-        Array.isArray(value) ? [...value].reverse() : value
-      ])
-    ) as unknown as CatalogProductionSnapshot
+    const reversed: CatalogProductionSnapshot = {
+      units: [...first.units].reverse(),
+      categories: [...first.categories].reverse(),
+      allergens: [...first.allergens].reverse(),
+      dietaryTags: [...first.dietaryTags].reverse(),
+      nutrients: [...first.nutrients].reverse(),
+      priceRegions: [...first.priceRegions].reverse(),
+      recipeTags: [...first.recipeTags].reverse(),
+      foods: [...first.foods].reverse(),
+      foodFactVersions: [...first.foodFactVersions].reverse(),
+      recipes: [...first.recipes].reverse(),
+      recipeVersions: [...first.recipeVersions].reverse(),
+      priceBooks: [...first.priceBooks].reverse(),
+      mealOptions: [...first.mealOptions].reverse(),
+      mealOptionVersions: [...first.mealOptionVersions].reverse()
+    }
 
     const a = resolveCatalogProductionReferences(pack, INPUT_SHA, first)
     const b = resolveCatalogProductionReferences(pack, INPUT_SHA, reversed)
