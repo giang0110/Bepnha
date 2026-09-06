@@ -36,8 +36,7 @@
     "playwright.config.ts",
     "scripts/**/*",
     "tests/**/*.ts",
-    "src/domain/catalog/catalog.ts",
-    "src/domain/shared/decimal.ts"
+    "src/domain/catalog/catalog.ts"
   ],
   "exclude": ["tests/integration"]
 }
