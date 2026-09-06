@@ -5,6 +5,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "bundle:check": "node scripts/check-bundle-size.mjs",
+    "catalog:validate": "node scripts/catalog-pack/catalog-pack-cli.ts",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
