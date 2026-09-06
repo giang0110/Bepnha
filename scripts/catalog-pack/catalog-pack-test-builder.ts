@@ -68,11 +68,7 @@ function buildFood(
   }
 }
 
-function buildRecipe(
-  code: string,
-  nameVi: string,
-  foodCode: string
-): Mutable<CatalogPackRecipe> {
+function buildRecipe(code: string, nameVi: string, foodCode: string): Mutable<CatalogPackRecipe> {
   const ingredientCode = `${code}_ingredient`
   return {
     code,
@@ -109,14 +105,7 @@ function buildRecipe(
 export function buildReadyCatalogPack(): MutableCatalogPackV1 {
   const foods = [
     buildFood("test_tofu", "Đậu hũ kiểm thử", "tofu", ["tofu", "food"], "soy", true),
-    buildFood(
-      "test_chicken",
-      "Gà kiểm thử",
-      "poultry",
-      ["poultry", "food"],
-      null,
-      false
-    ),
+    buildFood("test_chicken", "Gà kiểm thử", "poultry", ["poultry", "food"], null, false),
     buildFood("test_fish", "Cá kiểm thử", "fish", ["fish", "seafood", "food"], "fish", false)
   ]
 
@@ -142,11 +131,7 @@ export function buildReadyCatalogPack(): MutableCatalogPackV1 {
   const mealOptions = Array.from({ length: 21 }, (_, index) => {
     const slot = index % 3
     const recipeCode =
-      slot === 0
-        ? "test_tofu_recipe"
-        : slot === 1
-          ? "test_chicken_recipe"
-          : "test_fish_recipe"
+      slot === 0 ? "test_tofu_recipe" : slot === 1 ? "test_chicken_recipe" : "test_fish_recipe"
     const proteinHintCode = slot === 0 ? "plant" : slot === 1 ? "poultry" : "fish"
     return {
       code: `test_meal_${String(index + 1).padStart(2, "0")}`,

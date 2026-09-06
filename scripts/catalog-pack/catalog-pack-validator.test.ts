@@ -1,10 +1,7 @@
 import { describe, expect, test } from "vitest"
 
 import { parseCatalogPackShape } from "./catalog-pack-schema.ts"
-import {
-  buildReadyCatalogPack,
-  type MutableCatalogPackV1
-} from "./catalog-pack-test-builder.ts"
+import { buildReadyCatalogPack, type MutableCatalogPackV1 } from "./catalog-pack-test-builder.ts"
 import { validateCatalogPackValue } from "./catalog-pack-validator.ts"
 
 const minimumShape = {

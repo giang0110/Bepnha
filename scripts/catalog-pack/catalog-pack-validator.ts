@@ -51,7 +51,8 @@ export function validateCatalogPackValue(value: unknown): CatalogPackValidationC
       recipes: pack.recipes.length,
       priceRows: pack.priceBook.prices.length,
       mealOptions: pack.mealOptions.length,
-      primaryProteinGroups: new Set(pack.mealOptions.map((meal) => meal.version.proteinHintCode)).size,
+      primaryProteinGroups: new Set(pack.mealOptions.map((meal) => meal.version.proteinHintCode))
+        .size,
       reachableFoods: 0,
       pricedReachableFoods: 0
     }
