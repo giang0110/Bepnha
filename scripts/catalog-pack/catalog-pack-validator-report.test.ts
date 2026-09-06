@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest"
 
 import { buildReadyCatalogPack } from "./catalog-pack-test-builder.ts"
-import { validateCatalogPackBytes } from "./catalog-pack-validator.ts"
+import { validateCatalogPackBytes } from "./catalog-pack-report.ts"
 
 function bytes(value: unknown): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(value))
