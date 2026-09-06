@@ -19,6 +19,12 @@ export interface CatalogPackValidationCoreResult {
   readonly summary: CatalogPackValidationReport["summary"]
 }
 
+interface GraphResult {
+  readonly reachableFoodCodes: ReadonlySet<string>
+  readonly reachableRecipeCodes: ReadonlySet<string>
+  readonly pricedReachableFoodCodes: ReadonlySet<string>
+}
+
 const CODE_PATTERN = /^[a-z][a-z0-9_]*$/u
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u
 const RFC3339_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u
@@ -49,23 +55,44 @@ const ZERO_SUMMARY: CatalogPackValidationReport["summary"] = {
   pricedReachableFoods: 0
 }
 
+const EMPTY_GRAPH: GraphResult = {
+  reachableFoodCodes: new Set(),
+  reachableRecipeCodes: new Set(),
+  pricedReachableFoodCodes: new Set()
+}
+
+function addDiagnostic(
+  diagnostics: CatalogPackDiagnostic[],
+  severity: CatalogPackDiagnostic["severity"],
+  code: string,
+  path: string,
+  message: string
+): void {
+  diagnostics.push({ severity, code, path, message })
+}
+
 function addError(
   diagnostics: CatalogPackDiagnostic[],
   code: string,
   path: string,
   message: string
 ): void {
-  diagnostics.push({ severity: "error", code, path, message })
+  addDiagnostic(diagnostics, "error", code, path, message)
+}
+
+function addWarning(
+  diagnostics: CatalogPackDiagnostic[],
+  code: string,
+  path: string,
+  message: string
+): void {
+  addDiagnostic(diagnostics, "warning", code, path, message)
 }
 
 function issuePath(path: readonly PropertyKey[]): string {
   let result = "$"
   for (const segment of path) {
-    if (typeof segment === "number") {
-      result += `[${segment}]`
-    } else {
-      result += `.${String(segment)}`
-    }
+    result += typeof segment === "number" ? `[${segment}]` : `.${String(segment)}`
   }
   return result
 }
@@ -91,6 +118,10 @@ function isPositiveSafeInteger(value: number): boolean {
 
 function isNonNegativeSafeInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value >= 0
+}
+
+function hasDuplicates(values: readonly string[]): boolean {
+  return new Set(values).size !== values.length
 }
 
 function validateCode(value: string, path: string, diagnostics: CatalogPackDiagnostic[]): void {
@@ -140,7 +171,7 @@ function validatePositiveDecimal(
   path: string,
   diagnostics: CatalogPackDiagnostic[],
   maxScale?: number
-): boolean {
+): void {
   const parsed = parseCanonicalDecimal(value, {
     allowNegative: false,
     allowZero: false,
@@ -148,22 +179,17 @@ function validatePositiveDecimal(
   })
   if (!parsed.ok) {
     addError(diagnostics, "INVALID_DECIMAL", path, "Expected a positive canonical decimal")
-    return false
   }
-  return true
 }
 
 function validateNonNegativeDecimal(
   value: string,
   path: string,
   diagnostics: CatalogPackDiagnostic[]
-): boolean {
-  const parsed = parseCanonicalDecimal(value, { allowNegative: false, allowZero: true })
-  if (!parsed.ok) {
+): void {
+  if (!parseCanonicalDecimal(value, { allowNegative: false, allowZero: true }).ok) {
     addError(diagnostics, "INVALID_DECIMAL", path, "Expected a non-negative canonical decimal")
-    return false
   }
-  return true
 }
 
 function validateEdibleFraction(
@@ -232,16 +258,12 @@ function validateContiguousOrder(
   }
 }
 
-function duplicateValues(values: readonly string[]): boolean {
-  return new Set(values).size !== values.length
-}
-
 function validateUniqueCodes(
   values: readonly string[],
   path: string,
   diagnostics: CatalogPackDiagnostic[]
 ): void {
-  if (duplicateValues(values)) {
+  if (hasDuplicates(values)) {
     addError(diagnostics, "DUPLICATE_CATALOG_ENTRY", path, "Duplicate code is not allowed")
   }
 }
@@ -250,12 +272,12 @@ function validateSupportedUnit(
   value: string,
   path: string,
   diagnostics: CatalogPackDiagnostic[],
-  blockers: Set<string>
+  blockers?: Set<string>
 ): void {
   validateCode(value, path, diagnostics)
   if (!LAUNCH_UNIT_SET.has(value)) {
     addError(diagnostics, "REFERENCE_CODE_UNSUPPORTED", path, `Unsupported launch unit: ${value}`)
-    blockers.add("REFERENCE_CODE_UNSUPPORTED")
+    blockers?.add("REFERENCE_CODE_UNSUPPORTED")
   }
 }
 
@@ -327,7 +349,7 @@ function validateFoodFields(
     })
     if (
       ancestry.length === 0 ||
-      duplicateValues(ancestry) ||
+      hasDuplicates(ancestry) ||
       ancestry[0] !== food.fact.categoryCode ||
       ancestry.at(-1) !== "food"
     ) {
@@ -342,9 +364,9 @@ function validateFoodFields(
     validateEdibleFraction(food.fact.edibleFraction, `${path}.fact.edibleFraction`, diagnostics)
     validateProvenance(food.fact.provenance, `${path}.fact.provenance`, diagnostics)
 
-    const allergenCodes = food.fact.allergenAssessments.map((assessment) => assessment.allergenCode)
-    let allergenCoverageInvalid = duplicateValues(allergenCodes)
-    if (duplicateValues(allergenCodes)) {
+    const allergenCodes = food.fact.allergenAssessments.map((item) => item.allergenCode)
+    let allergenCoverageInvalid = hasDuplicates(allergenCodes)
+    if (hasDuplicates(allergenCodes)) {
       addError(
         diagnostics,
         "DUPLICATE_CATALOG_ENTRY",
@@ -392,9 +414,9 @@ function validateFoodFields(
       blockers.add("ALLERGEN_COVERAGE_INCOMPLETE")
     }
 
-    const nutrientCodes = food.fact.nutrients.map((nutrient) => nutrient.nutrientCode)
-    let nutritionCoverageInvalid = duplicateValues(nutrientCodes)
-    if (duplicateValues(nutrientCodes)) {
+    const nutrientCodes = food.fact.nutrients.map((item) => item.nutrientCode)
+    let nutritionCoverageInvalid = hasDuplicates(nutrientCodes)
+    if (hasDuplicates(nutrientCodes)) {
       addError(
         diagnostics,
         "DUPLICATE_CATALOG_ENTRY",
@@ -438,8 +460,8 @@ function validateFoodFields(
       blockers.add("REQUIRED_NUTRITION_COVERAGE_INCOMPLETE")
     }
 
-    const conversionCodes = food.fact.conversions.map((conversion) => conversion.unitCode)
-    if (duplicateValues(conversionCodes)) {
+    const conversionCodes = food.fact.conversions.map((item) => item.unitCode)
+    if (hasDuplicates(conversionCodes)) {
       addError(
         diagnostics,
         "DUPLICATE_CATALOG_ENTRY",
@@ -520,15 +542,7 @@ function validateRecipeFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagn
         diagnostics
       )
       validatePositiveDecimal(ingredient.quantity, `${ingredientPath}.quantity`, diagnostics)
-      validateCode(ingredient.unitCode, `${ingredientPath}.unitCode`, diagnostics)
-      if (!LAUNCH_UNIT_SET.has(ingredient.unitCode)) {
-        addError(
-          diagnostics,
-          "REFERENCE_CODE_UNSUPPORTED",
-          `${ingredientPath}.unitCode`,
-          `Unsupported launch unit: ${ingredient.unitCode}`
-        )
-      }
+      validateSupportedUnit(ingredient.unitCode, `${ingredientPath}.unitCode`, diagnostics)
       if (
         ingredient.preparationNoteVi !== null &&
         !isTrimmedLength(ingredient.preparationNoteVi, 1, 120)
@@ -575,6 +589,8 @@ function validatePriceFields(
   validatePositiveVersion(pack.priceBook.versionNumber, "$.priceBook.versionNumber", diagnostics)
 
   const effectiveFromValid = isValidDate(pack.priceBook.effectiveFrom)
+  const effectiveToValid =
+    pack.priceBook.effectiveTo === null || isValidDate(pack.priceBook.effectiveTo)
   if (!effectiveFromValid) {
     addError(
       diagnostics,
@@ -583,8 +599,6 @@ function validatePriceFields(
       "effectiveFrom must be YYYY-MM-DD"
     )
   }
-  const effectiveToValid =
-    pack.priceBook.effectiveTo === null || isValidDate(pack.priceBook.effectiveTo)
   if (!effectiveToValid) {
     addError(
       diagnostics,
@@ -607,10 +621,11 @@ function validatePriceFields(
     )
   }
 
-  const priceKeys = pack.priceBook.prices.map(
-    (price) => `${price.foodCode}:${price.foodFactVersionNumber}`
+  validateUniqueCodes(
+    pack.priceBook.prices.map((price) => `${price.foodCode}:${price.foodFactVersionNumber}`),
+    "$.priceBook.prices",
+    diagnostics
   )
-  validateUniqueCodes(priceKeys, "$.priceBook.prices", diagnostics)
 
   pack.priceBook.prices.forEach((price, priceIndex) => {
     const path = `$.priceBook.prices[${priceIndex}]`
@@ -625,7 +640,6 @@ function validatePriceFields(
     validatePositiveDecimal(price.packageBaseQuantity, `${path}.packageBaseQuantity`, diagnostics)
     validateSupportedUnit(price.baseUnitCode, `${path}.baseUnitCode`, diagnostics, blockers)
     validatePositiveDecimal(price.purchaseIncrement, `${path}.purchaseIncrement`, diagnostics)
-
     if (!Number.isSafeInteger(price.packagePriceVnd) || price.packagePriceVnd <= 0) {
       addError(
         diagnostics,
@@ -737,6 +751,198 @@ function validateMealOptionFields(pack: CatalogPackV1, diagnostics: CatalogPackD
   })
 }
 
+function validateGraph(
+  pack: CatalogPackV1,
+  diagnostics: CatalogPackDiagnostic[],
+  blockers: Set<string>
+): GraphResult {
+  const foodCodes = pack.foods.map((food) => food.code)
+  const recipeCodes = pack.recipes.map((recipe) => recipe.code)
+  const priceKeys = pack.priceBook.prices.map(
+    (price) => `${price.foodCode}:${price.foodFactVersionNumber}`
+  )
+  if (hasDuplicates(foodCodes) || hasDuplicates(recipeCodes) || hasDuplicates(priceKeys)) {
+    return EMPTY_GRAPH
+  }
+
+  const foodsByCode = new Map(pack.foods.map((food) => [food.code, food]))
+  const recipesByCode = new Map(pack.recipes.map((recipe) => [recipe.code, recipe]))
+  const priceByFoodVersion = new Map(
+    pack.priceBook.prices.map((price) => [
+      `${price.foodCode}:${price.foodFactVersionNumber}`,
+      price
+    ])
+  )
+
+  for (const [recipeIndex, recipe] of pack.recipes.entries()) {
+    const recipePath = `$.recipes[${recipeIndex}].version`
+    const ingredientsByCode = new Map(
+      recipe.version.ingredients.map((ingredient) => [ingredient.ingredientCode, ingredient])
+    )
+    const referencedIngredientCodes = new Set<string>()
+
+    for (const [ingredientIndex, ingredient] of recipe.version.ingredients.entries()) {
+      const path = `${recipePath}.ingredients[${ingredientIndex}]`
+      const food = foodsByCode.get(ingredient.foodCode)
+      if (food === undefined) {
+        addError(
+          diagnostics,
+          "UNRESOLVED_FOOD_REFERENCE",
+          `${path}.foodCode`,
+          `Food reference ${ingredient.foodCode} does not exist`
+        )
+        blockers.add("CATALOG_LINEAGE_INCOMPLETE")
+        continue
+      }
+      if (ingredient.foodFactVersionNumber !== food.fact.versionNumber) {
+        addError(
+          diagnostics,
+          "FOOD_FACT_VERSION_MISMATCH",
+          `${path}.foodFactVersionNumber`,
+          "Ingredient must pin the exact food fact version"
+        )
+        blockers.add("CATALOG_LINEAGE_INCOMPLETE")
+      }
+      const unitPinned =
+        ingredient.unitCode === food.baseUnitCode ||
+        food.fact.conversions.some((conversion) => conversion.unitCode === ingredient.unitCode)
+      if (!unitPinned) {
+        addError(
+          diagnostics,
+          "UNPINNED_UNIT_CONVERSION",
+          `${path}.unitCode`,
+          `Unit ${ingredient.unitCode} is not pinned by the referenced food fact`
+        )
+        blockers.add("CATALOG_LINEAGE_INCOMPLETE")
+      }
+    }
+
+    for (const [stepIndex, step] of recipe.version.steps.entries()) {
+      for (const [referenceIndex, ingredientCode] of step.ingredientCodes.entries()) {
+        if (!ingredientsByCode.has(ingredientCode)) {
+          addError(
+            diagnostics,
+            "UNRESOLVED_INGREDIENT_REFERENCE",
+            `${recipePath}.steps[${stepIndex}].ingredientCodes[${referenceIndex}]`,
+            `Recipe ingredient ${ingredientCode} does not exist`
+          )
+          blockers.add("CATALOG_LINEAGE_INCOMPLETE")
+        } else {
+          referencedIngredientCodes.add(ingredientCode)
+        }
+      }
+    }
+
+    for (const [ingredientIndex, ingredient] of recipe.version.ingredients.entries()) {
+      if (!referencedIngredientCodes.has(ingredient.ingredientCode)) {
+        addError(
+          diagnostics,
+          "UNUSED_RECIPE_INGREDIENT",
+          `${recipePath}.ingredients[${ingredientIndex}].ingredientCode`,
+          "Every recipe ingredient must be referenced by at least one step"
+        )
+        blockers.add("CATALOG_LINEAGE_INCOMPLETE")
+      }
+    }
+  }
+
+  const reachableRecipeCodes = new Set<string>()
+  for (const [mealIndex, meal] of pack.mealOptions.entries()) {
+    for (const [componentIndex, component] of meal.version.components.entries()) {
+      const path = `$.mealOptions[${mealIndex}].version.components[${componentIndex}]`
+      const recipe = recipesByCode.get(component.recipeCode)
+      if (recipe === undefined) {
+        addError(
+          diagnostics,
+          "UNRESOLVED_RECIPE_REFERENCE",
+          `${path}.recipeCode`,
+          `Recipe reference ${component.recipeCode} does not exist`
+        )
+        blockers.add("CATALOG_LINEAGE_INCOMPLETE")
+        continue
+      }
+      if (component.recipeVersionNumber !== recipe.version.versionNumber) {
+        addError(
+          diagnostics,
+          "RECIPE_VERSION_MISMATCH",
+          `${path}.recipeVersionNumber`,
+          "Meal component must pin the exact recipe version"
+        )
+        blockers.add("CATALOG_LINEAGE_INCOMPLETE")
+        continue
+      }
+      reachableRecipeCodes.add(recipe.code)
+    }
+  }
+
+  const reachableFoodCodes = new Set<string>()
+  for (const recipeCode of reachableRecipeCodes) {
+    const recipe = recipesByCode.get(recipeCode)
+    if (recipe === undefined) continue
+    for (const ingredient of recipe.version.ingredients) {
+      const food = foodsByCode.get(ingredient.foodCode)
+      if (food !== undefined && ingredient.foodFactVersionNumber === food.fact.versionNumber) {
+        reachableFoodCodes.add(food.code)
+      }
+    }
+  }
+
+  const pricedReachableFoodCodes = new Set<string>()
+  for (const foodCode of reachableFoodCodes) {
+    const food = foodsByCode.get(foodCode)
+    if (food === undefined) continue
+    const priceKey = `${food.code}:${food.fact.versionNumber}`
+    if (priceByFoodVersion.has(priceKey)) {
+      pricedReachableFoodCodes.add(food.code)
+    } else {
+      addError(
+        diagnostics,
+        "MISSING_REACHABLE_PRICE",
+        "$.priceBook.prices",
+        `Reachable food ${food.code} is missing an exact-version price`
+      )
+      blockers.add("PRICE_COVERAGE_INCOMPLETE")
+    }
+  }
+
+  pack.recipes.forEach((recipe, recipeIndex) => {
+    if (!reachableRecipeCodes.has(recipe.code)) {
+      addWarning(
+        diagnostics,
+        "UNUSED_RECIPE",
+        `$.recipes[${recipeIndex}].code`,
+        `Recipe ${recipe.code} is not reachable from any meal option`
+      )
+    }
+  })
+
+  pack.foods.forEach((food, foodIndex) => {
+    if (reachableFoodCodes.has(food.code)) return
+    addWarning(
+      diagnostics,
+      "UNUSED_FOOD",
+      `$.foods[${foodIndex}].code`,
+      `Food ${food.code} is not reachable from any meal option`
+    )
+    if (!priceByFoodVersion.has(`${food.code}:${food.fact.versionNumber}`)) {
+      addWarning(
+        diagnostics,
+        "UNUSED_FOOD_WITHOUT_PRICE",
+        `$.foods[${foodIndex}].code`,
+        `Unused food ${food.code} has no exact-version price`
+      )
+    }
+  })
+
+  return { reachableFoodCodes, reachableRecipeCodes, pricedReachableFoodCodes }
+}
+
+function addLaunchReadinessBlockers(pack: CatalogPackV1, blockers: Set<string>): void {
+  if (pack.mealOptions.length < 21) blockers.add("MINIMUM_MEAL_OPTIONS_NOT_MET")
+  const proteinGroups = new Set(pack.mealOptions.map((meal) => meal.version.proteinHintCode))
+  if (proteinGroups.size < 3) blockers.add("INSUFFICIENT_PRIMARY_PROTEIN_GROUP_CAPACITY")
+}
+
 export function validateCatalogPackValue(value: unknown): CatalogPackValidationCoreResult {
   const parsed = parseCatalogPackShape(value)
   if (!parsed.success) {
@@ -764,6 +970,14 @@ export function validateCatalogPackValue(value: unknown): CatalogPackValidationC
   validatePriceFields(pack, diagnostics, blockers)
   validateMealOptionFields(pack, diagnostics)
 
+  if (diagnostics.some((item) => item.code === "REFERENCE_CODE_UNSUPPORTED")) {
+    blockers.add("REFERENCE_CODE_UNSUPPORTED")
+  }
+
+  const graph = validateGraph(pack, diagnostics, blockers)
+  addLaunchReadinessBlockers(pack, blockers)
+  const proteinGroups = new Set(pack.mealOptions.map((meal) => meal.version.proteinHintCode))
+
   return {
     pack,
     catalogCode: pack.catalogCode,
@@ -774,10 +988,9 @@ export function validateCatalogPackValue(value: unknown): CatalogPackValidationC
       recipes: pack.recipes.length,
       priceRows: pack.priceBook.prices.length,
       mealOptions: pack.mealOptions.length,
-      primaryProteinGroups: new Set(pack.mealOptions.map((meal) => meal.version.proteinHintCode))
-        .size,
-      reachableFoods: 0,
-      pricedReachableFoods: 0
+      primaryProteinGroups: proteinGroups.size,
+      reachableFoods: graph.reachableFoodCodes.size,
+      pricedReachableFoods: graph.pricedReachableFoodCodes.size
     }
   }
 }
