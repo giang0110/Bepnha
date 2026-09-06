@@ -154,7 +154,10 @@ describe("resolveCatalogProductionReferences", () => {
   test("compatible existing food identity with unused version remains resolvable", () => {
     const pack = buildReadyCatalogPack()
     const snapshot = buildResolvableProductionSnapshot(pack)
-    const g = requiredRow(snapshot.units.find((row) => row.code === "g"), "unit g")
+    const g = requiredRow(
+      snapshot.units.find((row) => row.code === "g"),
+      "unit g"
+    )
     const manifest = resolveCatalogProductionReferences(pack, INPUT_SHA, {
       ...snapshot,
       foods: [
@@ -185,7 +188,10 @@ describe("resolveCatalogProductionReferences", () => {
   test("existing requested food version blocks handoff", () => {
     const pack = buildReadyCatalogPack()
     const snapshot = buildResolvableProductionSnapshot(pack)
-    const g = requiredRow(snapshot.units.find((row) => row.code === "g"), "unit g")
+    const g = requiredRow(
+      snapshot.units.find((row) => row.code === "g"),
+      "unit g"
+    )
     const foodId = "91000000-0000-0000-0000-000000000001"
     const manifest = resolveCatalogProductionReferences(pack, INPUT_SHA, {
       ...snapshot,
@@ -226,7 +232,10 @@ describe("resolveCatalogProductionReferences", () => {
   ])("existing food identity %s is a conflict", (_name, nameVi, status) => {
     const pack = buildReadyCatalogPack()
     const snapshot = buildResolvableProductionSnapshot(pack)
-    const g = requiredRow(snapshot.units.find((row) => row.code === "g"), "unit g")
+    const g = requiredRow(
+      snapshot.units.find((row) => row.code === "g"),
+      "unit g"
+    )
     const manifest = resolveCatalogProductionReferences(pack, INPUT_SHA, {
       ...snapshot,
       foods: [
