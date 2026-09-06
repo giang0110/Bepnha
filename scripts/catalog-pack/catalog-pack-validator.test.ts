@@ -270,3 +270,155 @@ describe("validateCatalogPackValue authoritative fields", () => {
     expect(validateCatalogPackValue(pack).diagnostics.map((item) => item.code)).toContain(code)
   })
 })
+
+type GraphCase = {
+  readonly name: string
+  readonly mutate: (pack: MutableCatalogPackV1) => void
+  readonly diagnosticCode?: string
+  readonly blocker?: string
+  readonly severity?: "error" | "warning"
+}
+
+function appendUnusedRecipe(pack: MutableCatalogPackV1): void {
+  const recipe = structuredClone(pack.recipes[0]!)
+  recipe.code = "unused_recipe"
+  recipe.nameVi = "Món không dùng"
+  recipe.version.ingredients[0]!.ingredientCode = "unused_recipe_ingredient"
+  recipe.version.steps[0]!.ingredientCodes = ["unused_recipe_ingredient"]
+  pack.recipes.push(recipe)
+}
+
+function appendUnusedFood(pack: MutableCatalogPackV1, withPrice: boolean): void {
+  const food = structuredClone(pack.foods[0]!)
+  food.code = "unused_food"
+  food.nameVi = "Thực phẩm không dùng"
+  pack.foods.push(food)
+
+  if (withPrice) {
+    const price = structuredClone(pack.priceBook.prices[0]!)
+    price.foodCode = "unused_food"
+    pack.priceBook.prices.push(price)
+  }
+}
+
+const graphCases: readonly GraphCase[] = [
+  {
+    name: "rejects unresolved recipe food reference",
+    mutate: (pack) => {
+      pack.recipes[0]!.version.ingredients[0]!.foodCode = "missing_food"
+    },
+    diagnosticCode: "UNRESOLVED_FOOD_REFERENCE",
+    blocker: "CATALOG_LINEAGE_INCOMPLETE",
+    severity: "error"
+  },
+  {
+    name: "rejects food fact version mismatch",
+    mutate: (pack) => {
+      pack.recipes[0]!.version.ingredients[0]!.foodFactVersionNumber = 2
+    },
+    diagnosticCode: "FOOD_FACT_VERSION_MISMATCH",
+    blocker: "CATALOG_LINEAGE_INCOMPLETE",
+    severity: "error"
+  },
+  {
+    name: "rejects unpinned ingredient unit conversion",
+    mutate: (pack) => {
+      pack.recipes[0]!.version.ingredients[0]!.unitCode = "kg"
+    },
+    diagnosticCode: "UNPINNED_UNIT_CONVERSION",
+    blocker: "CATALOG_LINEAGE_INCOMPLETE",
+    severity: "error"
+  },
+  {
+    name: "rejects unresolved step ingredient reference",
+    mutate: (pack) => {
+      pack.recipes[0]!.version.steps[0]!.ingredientCodes[0] = "missing_ingredient"
+    },
+    diagnosticCode: "UNRESOLVED_INGREDIENT_REFERENCE",
+    blocker: "CATALOG_LINEAGE_INCOMPLETE",
+    severity: "error"
+  },
+  {
+    name: "rejects unused recipe ingredient",
+    mutate: (pack) => {
+      pack.recipes[0]!.version.steps[0]!.ingredientCodes = []
+    },
+    diagnosticCode: "UNUSED_RECIPE_INGREDIENT",
+    blocker: "CATALOG_LINEAGE_INCOMPLETE",
+    severity: "error"
+  },
+  {
+    name: "rejects unresolved meal recipe reference",
+    mutate: (pack) => {
+      pack.mealOptions[0]!.version.components[0]!.recipeCode = "missing_recipe"
+    },
+    diagnosticCode: "UNRESOLVED_RECIPE_REFERENCE",
+    blocker: "CATALOG_LINEAGE_INCOMPLETE",
+    severity: "error"
+  },
+  {
+    name: "rejects meal recipe version mismatch",
+    mutate: (pack) => {
+      pack.mealOptions[0]!.version.components[0]!.recipeVersionNumber = 2
+    },
+    diagnosticCode: "RECIPE_VERSION_MISMATCH",
+    blocker: "CATALOG_LINEAGE_INCOMPLETE",
+    severity: "error"
+  },
+  {
+    name: "rejects missing reachable food price",
+    mutate: (pack) => {
+      pack.priceBook.prices = pack.priceBook.prices.filter((price) => price.foodCode !== "test_fish")
+    },
+    diagnosticCode: "MISSING_REACHABLE_PRICE",
+    blocker: "PRICE_COVERAGE_INCOMPLETE",
+    severity: "error"
+  },
+  {
+    name: "requires at least 21 meal options",
+    mutate: (pack) => {
+      pack.mealOptions = pack.mealOptions.slice(0, 20)
+    },
+    blocker: "MINIMUM_MEAL_OPTIONS_NOT_MET"
+  },
+  {
+    name: "requires at least three primary protein groups",
+    mutate: (pack) => {
+      for (const meal of pack.mealOptions) meal.version.proteinHintCode = "plant"
+    },
+    blocker: "INSUFFICIENT_PRIMARY_PROTEIN_GROUP_CAPACITY"
+  },
+  {
+    name: "warns about an unused recipe",
+    mutate: appendUnusedRecipe,
+    diagnosticCode: "UNUSED_RECIPE",
+    severity: "warning"
+  },
+  {
+    name: "warns about an unused priced food",
+    mutate: (pack) => appendUnusedFood(pack, true),
+    diagnosticCode: "UNUSED_FOOD",
+    severity: "warning"
+  },
+  {
+    name: "warns about an unused unpriced food",
+    mutate: (pack) => appendUnusedFood(pack, false),
+    diagnosticCode: "UNUSED_FOOD_WITHOUT_PRICE",
+    severity: "warning"
+  }
+]
+
+describe("validateCatalogPackValue graph and readiness", () => {
+  test.each(graphCases)("$name", ({ mutate, diagnosticCode, blocker, severity }) => {
+    const pack = structuredClone(buildReadyCatalogPack())
+    mutate(pack)
+    const result = validateCatalogPackValue(pack)
+
+    if (diagnosticCode !== undefined) {
+      const diagnostic = result.diagnostics.find((item) => item.code === diagnosticCode)
+      expect(diagnostic).toBeDefined()
+      if (severity !== undefined) expect(diagnostic?.severity).toBe(severity)
+    }
+    if (blocker !== undefined) expect(result.blockers).toContain(blocker)
+  })
+})
