@@ -3,22 +3,22 @@ import { describe, expect, test } from "vitest"
 import { buildReadyCatalogPack } from "./catalog-pack-test-builder.ts"
 import { validateCatalogPackBytes } from "./catalog-pack-validator.ts"
 
+type SortableDiagnostic = {
+  readonly severity: string
+  readonly code: string
+  readonly path: string
+  readonly message: string
+}
+
+const UUID_PATTERN =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/iu
+
 function bytes(value: unknown): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(value))
 }
 
-function sortedDiagnostics<
-  T extends { severity: string; code: string; path: string; message: string }
->(items: readonly T[]): T[] {
-  return [...items].sort((left, right) => {
-    const severity = left.severity.localeCompare(right.severity)
-    if (severity !== 0) return severity
-    const code = left.code.localeCompare(right.code)
-    if (code !== 0) return code
-    const path = left.path.localeCompare(right.path)
-    if (path !== 0) return path
-    return left.message.localeCompare(right.message)
-  })
+function diagnosticKey(item: SortableDiagnostic): string {
+  return [item.severity, item.code, item.path, item.message].join("\u0000")
 }
 
 describe("validateCatalogPackBytes", () => {
@@ -51,7 +51,9 @@ describe("validateCatalogPackBytes", () => {
   })
 
   test("returns INVALID_JSON for malformed JSON and invalid UTF-8", () => {
-    for (const input of [new TextEncoder().encode("{"), new Uint8Array([0xff])]) {
+    const malformedInputs = [new TextEncoder().encode("{"), new Uint8Array([0xff])]
+
+    for (const input of malformedInputs) {
       const report = validateCatalogPackBytes(input)
       expect(report).toMatchObject({
         catalogCode: null,
@@ -68,13 +70,12 @@ describe("validateCatalogPackBytes", () => {
         },
         blockers: []
       })
-      expect(report.diagnostics).toEqual([
-        expect.objectContaining({
-          severity: "error",
-          code: "INVALID_JSON",
-          path: "$"
-        })
-      ])
+      expect(report.diagnostics).toHaveLength(1)
+      expect(report.diagnostics[0]).toMatchObject({
+        severity: "error",
+        code: "INVALID_JSON",
+        path: "$"
+      })
     }
   })
 
@@ -85,13 +86,13 @@ describe("validateCatalogPackBytes", () => {
     pack.catalogCode = "Bad"
 
     const report = validateCatalogPackBytes(bytes(pack))
+    const diagnosticKeys = report.diagnostics.map(diagnosticKey)
 
-    expect(report.blockers).toEqual([...report.blockers].sort())
     expect(report.blockers).toEqual([
       "INSUFFICIENT_PRIMARY_PROTEIN_GROUP_CAPACITY",
       "MINIMUM_MEAL_OPTIONS_NOT_MET"
     ])
-    expect(report.diagnostics).toEqual(sortedDiagnostics(report.diagnostics))
+    expect(diagnosticKeys).toEqual([...diagnosticKeys].sort())
     expect(report.valid).toBe(false)
     expect(report.ready).toBe(false)
   })
@@ -100,19 +101,17 @@ describe("validateCatalogPackBytes", () => {
     const report = validateCatalogPackBytes(bytes(buildReadyCatalogPack()))
     const serialized = JSON.stringify(report)
 
-    expect(Object.keys(report).sort()).toEqual(
-      [
-        "blockers",
-        "catalogCode",
-        "diagnostics",
-        "inputSha256",
-        "ready",
-        "schemaVersion",
-        "summary",
-        "valid"
-      ].sort()
-    )
+    expect(Object.keys(report).sort()).toEqual([
+      "blockers",
+      "catalogCode",
+      "diagnostics",
+      "inputSha256",
+      "ready",
+      "schemaVersion",
+      "summary",
+      "valid"
+    ])
     expect(serialized).not.toContain(process.cwd())
-    expect(serialized).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/iu)
+    expect(serialized).not.toMatch(UUID_PATTERN)
   })
 })
