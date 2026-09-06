@@ -21,9 +21,7 @@ function sha256(input: Uint8Array): string {
   return createHash("sha256").update(input).digest("hex")
 }
 
-function parseJsonBytes(
-  input: Uint8Array
-):
+function parseJsonBytes(input: Uint8Array):
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false } {
   try {
@@ -34,10 +32,7 @@ function parseJsonBytes(
   }
 }
 
-function compareDiagnostics(
-  left: CatalogPackDiagnostic,
-  right: CatalogPackDiagnostic
-): number {
+function compareDiagnostics(left: CatalogPackDiagnostic, right: CatalogPackDiagnostic): number {
   const severity = left.severity.localeCompare(right.severity)
   if (severity !== 0) return severity
 
@@ -50,9 +45,7 @@ function compareDiagnostics(
   return left.message.localeCompare(right.message)
 }
 
-function sortDiagnostics(
-  diagnostics: readonly CatalogPackDiagnostic[]
-): CatalogPackDiagnostic[] {
+function sortDiagnostics(diagnostics: readonly CatalogPackDiagnostic[]): CatalogPackDiagnostic[] {
   return [...diagnostics].sort(compareDiagnostics)
 }
 
