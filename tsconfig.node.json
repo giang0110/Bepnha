@@ -8,11 +8,12 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "types": ["node", "@playwright/test"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -34,7 +35,9 @@
     "eslint.config.js",
     "playwright.config.ts",
     "scripts/**/*",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "src/domain/catalog/catalog.ts",
+    "src/domain/shared/decimal.ts"
   ],
   "exclude": ["tests/integration"]
 }
