@@ -85,7 +85,7 @@ function recipeTagsFor(pack: CatalogPackV1): ProductionRecipeTagRow[] {
     }
   }
 
-  return [...tags.values()]
+  return [...tags.values()].sort((left, right) => left.code.localeCompare(right.code))
 }
 
 export function buildResolvableProductionSnapshot(pack: CatalogPackV1): CatalogProductionSnapshot {
