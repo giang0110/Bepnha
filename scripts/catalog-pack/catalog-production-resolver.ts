@@ -623,7 +623,9 @@ function sortByStableKey<T>(rows: readonly T[], key: (row: T) => string): T[] {
   return [...rows].sort((left, right) => key(left).localeCompare(key(right)))
 }
 
-function normalizedProductionSnapshot(snapshot: CatalogProductionSnapshot): CatalogProductionSnapshot {
+function normalizedProductionSnapshot(
+  snapshot: CatalogProductionSnapshot
+): CatalogProductionSnapshot {
   const codeIdKey = (row: ProductionCodeRow): string => `${row.code}\u0000${row.id}`
   const categoryKey = (row: ProductionCategoryRow): string => `${row.code}\u0000${row.id}`
   const foodKey = (row: ProductionFoodRow): string => `${row.code}\u0000${row.id}`
