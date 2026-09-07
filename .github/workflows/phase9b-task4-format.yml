@@ -1,0 +1,35 @@
+name: Phase 9B Task 4 Formatter
+
+on:
+  push:
+    branches:
+      - codex/phase-9b-production-reference-resolver
+    paths:
+      - scripts/catalog-pack/catalog-production-reader.ts
+      - scripts/catalog-pack/catalog-production-reader.test.ts
+      - scripts/catalog-pack/supabase-catalog-production-reader.ts
+      - .github/workflows/phase9b-task4-format.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write scripts/catalog-pack/catalog-production-reader.ts scripts/catalog-pack/catalog-production-reader.test.ts scripts/catalog-pack/supabase-catalog-production-reader.ts
+      - name: Commit formatted Task 4 files and remove one-shot workflow
+        run: |
+          rm .github/workflows/phase9b-task4-format.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/catalog-pack/catalog-production-reader.ts scripts/catalog-pack/catalog-production-reader.test.ts scripts/catalog-pack/supabase-catalog-production-reader.ts .github/workflows/phase9b-task4-format.yml
+          git diff --cached --check
+          git commit -m "style: format Phase 9B production reader"
+          git push origin HEAD:codex/phase-9b-production-reference-resolver
