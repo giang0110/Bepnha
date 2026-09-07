@@ -17,7 +17,7 @@
     "test:e2e": "playwright test tests/smoke.spec.ts",
     "test:e2e:onboarding": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/household-onboarding.spec.ts",
     "test:e2e:planner": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/planner.spec.ts",
-    "test:e2e:assistant": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx playwright test tests/assistant.spec.ts",
+    "test:e2e:assistant": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/assistant.spec.ts",
     "test:e2e:shopping": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx playwright test tests/shopping-list.spec.ts",
     "test:e2e:pantry": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx playwright test tests/pantry.spec.ts",
     "test:e2e:accessibility": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx playwright test tests/accessibility-mobile.spec.ts",
