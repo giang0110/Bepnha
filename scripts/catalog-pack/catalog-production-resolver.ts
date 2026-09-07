@@ -576,13 +576,19 @@ function resolvePriceRegion(
   diagnostics: CatalogResolutionDiagnostic[]
 ): ResolvedReference | null {
   const code = pack.priceBook.regionCode
-  const row = exactRowByCode(
-    snapshot.priceRegions,
-    code,
-    `$.references.priceRegion.${code}`,
-    diagnostics
-  )
-  return row === null ? null : asReference(code, row)
+  const path = `$.references.priceRegion.${code}`
+  const row = exactRowByCode(snapshot.priceRegions, code, path, diagnostics)
+  if (row === null) return null
+  if (!row.isLaunchDefault) {
+    addError(
+      diagnostics,
+      "REFERENCE_DRIFT",
+      path,
+      `Production price region ${code} is no longer the launch default`
+    )
+    return null
+  }
+  return asReference(code, row)
 }
 
 function resolvePriceBookTarget(
