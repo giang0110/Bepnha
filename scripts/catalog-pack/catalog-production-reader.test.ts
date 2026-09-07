@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest"
 
 import { buildReadyCatalogPack } from "./catalog-pack-test-builder.ts"
 import {
+  CATALOG_PRODUCTION_TABLES,
   createCatalogProductionReader,
   type CatalogSelectGateway,
   type CatalogSelectRequest
@@ -120,6 +121,7 @@ describe("CatalogReferenceReader", () => {
       await createCatalogProductionReader(gateway).loadSnapshot(buildReadyCatalogPack())
 
     expect(result.ok).toBe(true)
+    expect(CATALOG_PRODUCTION_TABLES).toEqual(Object.keys(EXPECTED_COLUMNS))
     expect(new Set(requests.map((item) => item.table))).toEqual(EXPECTED_TABLES)
     for (const request of requests) {
       expect(request.columns).toBe(EXPECTED_COLUMNS[request.table])
