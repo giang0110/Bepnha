@@ -1,16 +1,25 @@
 import { createHash } from "node:crypto"
 
 import { canonicalUtf8 } from "../../src/domain/shared/canonical-json.ts"
-import type { CatalogPackV1 } from "./catalog-pack-types.ts"
+import type {
+  CatalogPackFood,
+  CatalogPackMealOption,
+  CatalogPackRecipe,
+  CatalogPackV1
+} from "./catalog-pack-types.ts"
 import type {
   CatalogProductionSnapshot,
   CatalogResolutionDiagnostic,
   ProductionCategoryRow,
   ProductionCodeRow,
+  ProductionFoodRow,
+  ProductionIdentityRow,
   ProductionRecipeTagRow,
+  ProductionVersionRow,
   ResolvedCatalogManifestV1,
   ResolvedCategoryReference,
   ResolvedIdentityVersion,
+  ResolvedPriceBookTarget,
   ResolvedRecipeTagReference,
   ResolvedReference
 } from "./catalog-production-types.ts"
@@ -376,6 +385,191 @@ function missingIdentityVersion(code: string, versionNumber: number): ResolvedId
   }
 }
 
+function conflictIdentityVersion(
+  code: string,
+  versionNumber: number,
+  row: ProductionFoodRow | ProductionIdentityRow | null
+): ResolvedIdentityVersion {
+  return {
+    code,
+    requestedVersionNumber: versionNumber,
+    identity: {
+      state: "conflict",
+      id: row?.id ?? null,
+      revision: row?.revision ?? null,
+      status: row?.status ?? null
+    },
+    version: {
+      state: row === null ? "pending_parent_creation" : "missing",
+      id: null,
+      revision: null,
+      publicationStatus: null
+    }
+  }
+}
+
+function classifyVersion(
+  parentId: string | null,
+  requestedVersionNumber: number,
+  rows: readonly ProductionVersionRow[]
+): ResolvedIdentityVersion["version"] {
+  if (parentId === null) {
+    return {
+      state: "pending_parent_creation",
+      id: null,
+      revision: null,
+      publicationStatus: null
+    }
+  }
+
+  const matches = rows
+    .filter((row) => row.parentId === parentId && row.versionNumber === requestedVersionNumber)
+    .sort((left, right) => left.id.localeCompare(right.id))
+  if (matches.length === 0) {
+    return { state: "missing", id: null, revision: null, publicationStatus: null }
+  }
+
+  const row = matches[0]
+  if (row === undefined) {
+    return { state: "missing", id: null, revision: null, publicationStatus: null }
+  }
+  return {
+    state: "collision",
+    id: row.id,
+    revision: row.revision,
+    publicationStatus: row.publicationStatus
+  }
+}
+
+function addVersionCollisionDiagnostic(
+  version: ResolvedIdentityVersion["version"],
+  path: string,
+  diagnostics: CatalogResolutionDiagnostic[]
+): void {
+  if (version.state !== "collision") return
+  addError(
+    diagnostics,
+    "VERSION_ALREADY_EXISTS",
+    path,
+    "Requested production version already exists"
+  )
+}
+
+function exactUnitId(snapshot: CatalogProductionSnapshot, code: string): string | null {
+  const matches = snapshot.units.filter((row) => row.code === code)
+  return matches.length === 1 ? (matches[0]?.id ?? null) : null
+}
+
+function resolveFoodIdentityVersion(
+  food: CatalogPackFood,
+  snapshot: CatalogProductionSnapshot,
+  diagnostics: CatalogResolutionDiagnostic[]
+): ResolvedIdentityVersion {
+  const path = `$.foods.${food.code}`
+  const matches = snapshot.foods.filter((row) => row.code === food.code)
+  if (matches.length === 0) return missingIdentityVersion(food.code, food.fact.versionNumber)
+
+  if (matches.length !== 1) {
+    addError(
+      diagnostics,
+      "IDENTITY_CONFLICT",
+      path,
+      `Production food identity ${food.code} did not resolve uniquely`
+    )
+    return conflictIdentityVersion(food.code, food.fact.versionNumber, null)
+  }
+
+  const row = matches[0]
+  if (row === undefined) return missingIdentityVersion(food.code, food.fact.versionNumber)
+  const expectedBaseUnitId = exactUnitId(snapshot, food.baseUnitCode)
+  const compatible =
+    row.nameVi === food.nameVi &&
+    row.baseDimension === food.baseDimension &&
+    expectedBaseUnitId !== null &&
+    row.baseUnitId === expectedBaseUnitId &&
+    row.status !== "retired"
+
+  if (!compatible) {
+    addError(
+      diagnostics,
+      "IDENTITY_CONFLICT",
+      path,
+      `Production food identity ${food.code} conflicts with reviewed immutable metadata`
+    )
+    const conflict = conflictIdentityVersion(food.code, food.fact.versionNumber, row)
+    const version = classifyVersion(row.id, food.fact.versionNumber, snapshot.foodFactVersions)
+    addVersionCollisionDiagnostic(version, `${path}.fact.versionNumber`, diagnostics)
+    return { ...conflict, version }
+  }
+
+  const version = classifyVersion(row.id, food.fact.versionNumber, snapshot.foodFactVersions)
+  addVersionCollisionDiagnostic(version, `${path}.fact.versionNumber`, diagnostics)
+  return {
+    code: food.code,
+    requestedVersionNumber: food.fact.versionNumber,
+    identity: {
+      state: "existing",
+      id: row.id,
+      revision: row.revision,
+      status: row.status
+    },
+    version
+  }
+}
+
+function resolveNamedIdentityVersion(
+  item: CatalogPackRecipe | CatalogPackMealOption,
+  rows: readonly ProductionIdentityRow[],
+  versions: readonly ProductionVersionRow[],
+  rootPath: "recipes" | "mealOptions",
+  diagnostics: CatalogResolutionDiagnostic[]
+): ResolvedIdentityVersion {
+  const path = `$.${rootPath}.${item.code}`
+  const versionNumber = item.version.versionNumber
+  const matches = rows.filter((row) => row.code === item.code)
+  if (matches.length === 0) return missingIdentityVersion(item.code, versionNumber)
+
+  if (matches.length !== 1) {
+    addError(
+      diagnostics,
+      "IDENTITY_CONFLICT",
+      path,
+      `Production ${rootPath === "recipes" ? "recipe" : "meal-option"} identity ${item.code} did not resolve uniquely`
+    )
+    return conflictIdentityVersion(item.code, versionNumber, null)
+  }
+
+  const row = matches[0]
+  if (row === undefined) return missingIdentityVersion(item.code, versionNumber)
+  const compatible = row.nameVi === item.nameVi && row.status !== "retired"
+  const version = classifyVersion(row.id, versionNumber, versions)
+
+  if (!compatible) {
+    addError(
+      diagnostics,
+      "IDENTITY_CONFLICT",
+      path,
+      `Production ${rootPath === "recipes" ? "recipe" : "meal-option"} identity ${item.code} conflicts with reviewed immutable metadata`
+    )
+    addVersionCollisionDiagnostic(version, `${path}.version.versionNumber`, diagnostics)
+    const conflict = conflictIdentityVersion(item.code, versionNumber, row)
+    return { ...conflict, version }
+  }
+
+  addVersionCollisionDiagnostic(version, `${path}.version.versionNumber`, diagnostics)
+  return {
+    code: item.code,
+    requestedVersionNumber: versionNumber,
+    identity: {
+      state: "existing",
+      id: row.id,
+      revision: row.revision,
+      status: row.status
+    },
+    version
+  }
+}
+
 function resolvePriceRegion(
   pack: CatalogPackV1,
   snapshot: CatalogProductionSnapshot,
@@ -389,6 +583,74 @@ function resolvePriceRegion(
     diagnostics
   )
   return row === null ? null : asReference(code, row)
+}
+
+function resolvePriceBookTarget(
+  pack: CatalogPackV1,
+  priceRegion: ResolvedReference | null,
+  snapshot: CatalogProductionSnapshot,
+  diagnostics: CatalogResolutionDiagnostic[]
+): ResolvedPriceBookTarget | null {
+  if (priceRegion === null) return null
+
+  const matches = snapshot.priceBooks
+    .filter(
+      (row) =>
+        row.regionId === priceRegion.id && row.versionNumber === pack.priceBook.versionNumber
+    )
+    .sort((left, right) => left.id.localeCompare(right.id))
+  const row = matches[0]
+  const version: ResolvedIdentityVersion["version"] =
+    row === undefined
+      ? { state: "missing", id: null, revision: null, publicationStatus: null }
+      : {
+          state: "collision",
+          id: row.id,
+          revision: row.revision,
+          publicationStatus: row.publicationStatus
+        }
+
+  addVersionCollisionDiagnostic(version, "$.priceBook.versionNumber", diagnostics)
+  return {
+    regionCode: pack.priceBook.regionCode,
+    regionId: priceRegion.id,
+    requestedVersionNumber: pack.priceBook.versionNumber,
+    version
+  }
+}
+
+function sortByStableKey<T>(rows: readonly T[], key: (row: T) => string): T[] {
+  return [...rows].sort((left, right) => key(left).localeCompare(key(right)))
+}
+
+function normalizedProductionSnapshot(snapshot: CatalogProductionSnapshot): CatalogProductionSnapshot {
+  const codeIdKey = (row: ProductionCodeRow): string => `${row.code}\u0000${row.id}`
+  const categoryKey = (row: ProductionCategoryRow): string => `${row.code}\u0000${row.id}`
+  const foodKey = (row: ProductionFoodRow): string => `${row.code}\u0000${row.id}`
+  const identityKey = (row: ProductionIdentityRow): string => `${row.code}\u0000${row.id}`
+  const versionKey = (row: ProductionVersionRow): string =>
+    `${row.parentId}\u0000${String(row.versionNumber).padStart(12, "0")}\u0000${row.id}`
+
+  return {
+    units: sortByStableKey(snapshot.units, (row) => `${row.code}\u0000${row.id}`),
+    categories: sortByStableKey(snapshot.categories, categoryKey),
+    allergens: sortByStableKey(snapshot.allergens, codeIdKey),
+    dietaryTags: sortByStableKey(snapshot.dietaryTags, codeIdKey),
+    nutrients: sortByStableKey(snapshot.nutrients, codeIdKey),
+    priceRegions: sortByStableKey(snapshot.priceRegions, codeIdKey),
+    recipeTags: sortByStableKey(snapshot.recipeTags, codeIdKey),
+    foods: sortByStableKey(snapshot.foods, foodKey),
+    foodFactVersions: sortByStableKey(snapshot.foodFactVersions, versionKey),
+    recipes: sortByStableKey(snapshot.recipes, identityKey),
+    recipeVersions: sortByStableKey(snapshot.recipeVersions, versionKey),
+    priceBooks: sortByStableKey(
+      snapshot.priceBooks,
+      (row) =>
+        `${row.regionId}\u0000${String(row.versionNumber).padStart(12, "0")}\u0000${row.id}`
+    ),
+    mealOptions: sortByStableKey(snapshot.mealOptions, identityKey),
+    mealOptionVersions: sortByStableKey(snapshot.mealOptionVersions, versionKey)
+  }
 }
 
 export function resolveCatalogProductionReferences(
@@ -414,13 +676,39 @@ export function resolveCatalogProductionReferences(
   )
   const priceRegion = resolvePriceRegion(pack, snapshot, diagnostics)
   const recipeTags = resolveRecipeTags(pack, snapshot, diagnostics)
+  const foods = pack.foods
+    .map((food) => resolveFoodIdentityVersion(food, snapshot, diagnostics))
+    .sort((left, right) => left.code.localeCompare(right.code))
+  const recipes = pack.recipes
+    .map((recipe) =>
+      resolveNamedIdentityVersion(
+        recipe,
+        snapshot.recipes,
+        snapshot.recipeVersions,
+        "recipes",
+        diagnostics
+      )
+    )
+    .sort((left, right) => left.code.localeCompare(right.code))
+  const priceBook = resolvePriceBookTarget(pack, priceRegion, snapshot, diagnostics)
+  const mealOptions = pack.mealOptions
+    .map((meal) =>
+      resolveNamedIdentityVersion(
+        meal,
+        snapshot.mealOptions,
+        snapshot.mealOptionVersions,
+        "mealOptions",
+        diagnostics
+      )
+    )
+    .sort((left, right) => left.code.localeCompare(right.code))
   const sortedDiagnostics = [...diagnostics].sort(compareDiagnostics)
 
   return {
     schemaVersion: "1",
     catalogCode: pack.catalogCode,
     inputSha256,
-    productionSnapshotSha256: sha256(snapshot),
+    productionSnapshotSha256: sha256(normalizedProductionSnapshot(snapshot)),
     resolved: sortedDiagnostics.length === 0,
     references: {
       units,
@@ -431,29 +719,10 @@ export function resolveCatalogProductionReferences(
       priceRegion,
       recipeTags
     },
-    foods: pack.foods
-      .map((food) => missingIdentityVersion(food.code, food.fact.versionNumber))
-      .sort((left, right) => left.code.localeCompare(right.code)),
-    recipes: pack.recipes
-      .map((recipe) => missingIdentityVersion(recipe.code, recipe.version.versionNumber))
-      .sort((left, right) => left.code.localeCompare(right.code)),
-    priceBook:
-      priceRegion === null
-        ? null
-        : {
-            regionCode: pack.priceBook.regionCode,
-            regionId: priceRegion.id,
-            requestedVersionNumber: pack.priceBook.versionNumber,
-            version: {
-              state: "missing",
-              id: null,
-              revision: null,
-              publicationStatus: null
-            }
-          },
-    mealOptions: pack.mealOptions
-      .map((meal) => missingIdentityVersion(meal.code, meal.version.versionNumber))
-      .sort((left, right) => left.code.localeCompare(right.code)),
+    foods,
+    recipes,
+    priceBook,
+    mealOptions,
     diagnostics: sortedDiagnostics
   }
 }
