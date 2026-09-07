@@ -195,7 +195,9 @@ describe("catalog production resolver CLI", () => {
     const pack = buildReadyCatalogPack()
     const inputPath = writeInput(pack)
     const outputPath = join(createTemporaryDirectory(), "resolved.json")
-    const captured = captureDependencies(() => readerForSnapshot(buildResolvableProductionSnapshot(pack)))
+    const captured = captureDependencies(() =>
+      readerForSnapshot(buildResolvableProductionSnapshot(pack))
+    )
 
     const code = await runCatalogResolveCli(
       ["--input", inputPath, "--output", outputPath],
@@ -222,7 +224,9 @@ describe("catalog production resolver CLI", () => {
     const pack = buildReadyCatalogPack()
     const inputPath = writeInput(pack)
     const outputDirectory = createTemporaryDirectory()
-    const captured = captureDependencies(() => readerForSnapshot(buildResolvableProductionSnapshot(pack)))
+    const captured = captureDependencies(() =>
+      readerForSnapshot(buildResolvableProductionSnapshot(pack))
+    )
 
     const code = await runCatalogResolveCli(
       ["--input", inputPath, "--output", outputDirectory],
