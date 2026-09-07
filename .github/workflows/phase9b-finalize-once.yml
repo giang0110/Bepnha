@@ -1,0 +1,66 @@
+name: Phase 9B Finalize Once
+
+on:
+  push:
+    branches:
+      - codex/phase-9b-production-reference-resolver
+    paths:
+      - .github/workflows/phase9b-finalize-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Enforce launch-default price region drift check
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/catalog-pack/catalog-production-resolver.ts")
+          text = path.read_text()
+          old = '''  const row = exactRowByCode(
+            snapshot.priceRegions,
+            code,
+            `$.references.priceRegion.${code}`,
+            diagnostics
+          )
+          return row === null ? null : asReference(code, row)
+          '''
+          new = '''  const path = `$.references.priceRegion.${code}`
+          const row = exactRowByCode(snapshot.priceRegions, code, path, diagnostics)
+          if (row === null) return null
+          if (!row.isLaunchDefault) {
+            addError(
+              diagnostics,
+              "REFERENCE_DRIFT",
+              path,
+              `Production price region ${code} is no longer the launch default`
+            )
+            return null
+          }
+          return asReference(code, row)
+          '''
+          if old not in text:
+              raise SystemExit("expected resolvePriceRegion block not found")
+          path.write_text(text.replace(old, new))
+          PY
+      - run: npx prettier --write scripts/catalog-pack/catalog-production-resolver-cli.ts scripts/catalog-pack/catalog-production-price-region.test.ts scripts/catalog-pack/catalog-production-resolver.ts package.json
+      - run: npx vitest run scripts/catalog-pack/catalog-production-resolver-cli.test.ts scripts/catalog-pack/catalog-production-price-region.test.ts --project scripts
+      - run: npm run typecheck
+      - name: Commit finalized Phase 9B files and remove one-shot workflow
+        run: |
+          rm .github/workflows/phase9b-finalize-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/catalog-pack/catalog-production-resolver-cli.ts scripts/catalog-pack/catalog-production-price-region.test.ts scripts/catalog-pack/catalog-production-resolver.ts package.json .github/workflows/phase9b-finalize-once.yml
+          git diff --cached --check
+          git commit -m "feat: finalize Phase 9B resolver handoff"
+          git push origin HEAD:codex/phase-9b-production-reference-resolver
