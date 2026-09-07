@@ -17,8 +17,7 @@ interface CliArgs {
 }
 
 type ParseArgsResult =
-  | { readonly ok: true; readonly value: CliArgs }
-  | { readonly ok: false; readonly message: string }
+  { readonly ok: true; readonly value: CliArgs } | { readonly ok: false; readonly message: string }
 
 export interface CatalogResolveCliDependencies {
   readonly createReader: (env: NodeJS.ProcessEnv) => CatalogReferenceReader | null
