@@ -116,7 +116,8 @@ describe("CatalogReferenceReader", () => {
       }
     }
 
-    const result = await createCatalogProductionReader(gateway).loadSnapshot(buildReadyCatalogPack())
+    const result =
+      await createCatalogProductionReader(gateway).loadSnapshot(buildReadyCatalogPack())
 
     expect(result.ok).toBe(true)
     expect(new Set(requests.map((item) => item.table))).toEqual(EXPECTED_TABLES)
@@ -142,7 +143,8 @@ describe("CatalogReferenceReader", () => {
       }
     }
 
-    const result = await createCatalogProductionReader(gateway).loadSnapshot(buildReadyCatalogPack())
+    const result =
+      await createCatalogProductionReader(gateway).loadSnapshot(buildReadyCatalogPack())
 
     expect(result.ok).toBe(true)
     expect(requests.map((item) => item.table)).not.toContain("food_fact_versions")

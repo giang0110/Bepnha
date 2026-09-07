@@ -45,8 +45,7 @@ export interface CatalogSelectRequest {
 }
 
 export type CatalogSelectGatewayResult =
-  | { readonly ok: true; readonly rows: readonly unknown[] }
-  | { readonly ok: false }
+  { readonly ok: true; readonly rows: readonly unknown[] } | { readonly ok: false }
 
 export interface CatalogSelectGateway {
   readonly select: (request: CatalogSelectRequest) => Promise<CatalogSelectGatewayResult>
@@ -116,10 +115,7 @@ function nullableUuidField(
   return undefined
 }
 
-function positiveIntegerField(
-  row: Readonly<Record<string, unknown>>,
-  key: string
-): number | null {
+function positiveIntegerField(row: Readonly<Record<string, unknown>>, key: string): number | null {
   const value = row[key]
   return typeof value === "number" && Number.isInteger(value) && value >= 1 ? value : null
 }
@@ -536,7 +532,9 @@ async function loadSnapshot(
   }
 }
 
-export function createCatalogProductionReader(gateway: CatalogSelectGateway): CatalogReferenceReader {
+export function createCatalogProductionReader(
+  gateway: CatalogSelectGateway
+): CatalogReferenceReader {
   return {
     loadSnapshot(pack) {
       return loadSnapshot(gateway, pack)
