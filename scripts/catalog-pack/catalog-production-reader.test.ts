@@ -111,9 +111,9 @@ describe("CatalogReferenceReader", () => {
   test("uses only the approved production whitelist with exact minimal columns", async () => {
     const requests: CatalogSelectRequest[] = []
     const gateway: CatalogSelectGateway = {
-      async select(request) {
+      select(request) {
         requests.push(request)
-        return { ok: true, rows: rowsForRequest(request) }
+        return Promise.resolve({ ok: true, rows: rowsForRequest(request) })
       }
     }
 
@@ -131,7 +131,7 @@ describe("CatalogReferenceReader", () => {
   test("queries version tables only after production parent IDs are known", async () => {
     const requests: CatalogSelectRequest[] = []
     const gateway: CatalogSelectGateway = {
-      async select(request) {
+      select(request) {
         requests.push(request)
         if (
           request.table === "foods" ||
@@ -139,9 +139,9 @@ describe("CatalogReferenceReader", () => {
           request.table === "meal_options" ||
           request.table === "price_regions"
         ) {
-          return { ok: true, rows: [] }
+          return Promise.resolve({ ok: true, rows: [] })
         }
-        return { ok: true, rows: rowsForRequest(request) }
+        return Promise.resolve({ ok: true, rows: rowsForRequest(request) })
       }
     }
 
@@ -157,8 +157,8 @@ describe("CatalogReferenceReader", () => {
 
   test("fails closed when the gateway dependency is unavailable", async () => {
     const gateway: CatalogSelectGateway = {
-      async select() {
-        return { ok: false }
+      select() {
+        return Promise.resolve({ ok: false })
       }
     }
 
@@ -169,9 +169,11 @@ describe("CatalogReferenceReader", () => {
 
   test("fails closed when a production row is malformed", async () => {
     const gateway: CatalogSelectGateway = {
-      async select(request) {
-        if (request.table === "units") return { ok: true, rows: [{ id: 123, code: "g" }] }
-        return { ok: true, rows: rowsForRequest(request) }
+      select(request) {
+        if (request.table === "units") {
+          return Promise.resolve({ ok: true, rows: [{ id: 123, code: "g" }] })
+        }
+        return Promise.resolve({ ok: true, rows: rowsForRequest(request) })
       }
     }
 
