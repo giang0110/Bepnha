@@ -595,8 +595,7 @@ function resolvePriceBookTarget(
 
   const matches = snapshot.priceBooks
     .filter(
-      (row) =>
-        row.regionId === priceRegion.id && row.versionNumber === pack.priceBook.versionNumber
+      (row) => row.regionId === priceRegion.id && row.versionNumber === pack.priceBook.versionNumber
     )
     .sort((left, right) => left.id.localeCompare(right.id))
   const row = matches[0]
@@ -647,8 +646,7 @@ function normalizedProductionSnapshot(
     recipeVersions: sortByStableKey(snapshot.recipeVersions, versionKey),
     priceBooks: sortByStableKey(
       snapshot.priceBooks,
-      (row) =>
-        `${row.regionId}\u0000${String(row.versionNumber).padStart(12, "0")}\u0000${row.id}`
+      (row) => `${row.regionId}\u0000${String(row.versionNumber).padStart(12, "0")}\u0000${row.id}`
     ),
     mealOptions: sortByStableKey(snapshot.mealOptions, identityKey),
     mealOptionVersions: sortByStableKey(snapshot.mealOptionVersions, versionKey)
