@@ -265,11 +265,13 @@ The planner never emits a rename, retire, repair, or identity update.
 
 ## Draft revision semantics
 
-New version drafts require an `expectedRevision` command field even though no production version row exists yet. Existing repository behavior inserts a new version when the supplied version UUID is absent and returns its revision. The execution design therefore treats the first save as a create-draft operation with the initial expected revision contract defined by the current application path.
+New food-fact, recipe-version, and meal-option-version save commands require a positive `expectedRevision` even when the executor-supplied version UUID does not yet exist. Current repository insert paths do not compare that value on first insert, while application validation requires it to be a positive safe integer.
 
-Phase 9C records the expected first-save revision symbolically rather than guessing later revisions produced by writes. Publication operations depend on the save operation output and use the exact revision returned by that save at execution time.
+Phase 9C therefore fixes the first-save contract at `expectedRevision: 1` for every new version draft. This is a command-validation value for the not-yet-existing version, not a claim that production already contains revision 1.
 
-Likewise, `create_price_book` returns the real price-book ID and revision; `save_price_book_draft` uses those returned values, and `publish_price_book` uses the revision returned by the save.
+After the first save succeeds, every later operation must use the exact `revision` returned by the preceding authoritative command result. In particular, publication must use the revision returned by the save operation, never the literal `1` from the first-save template and never a stale revision copied from Phase 9B.
+
+`create_price_book` returns the real price-book ID and revision. `save_price_book_draft` must use that returned ID and revision, and `publish_price_book` must use the revision returned by the save.
 
 A future executor must never reuse a revision embedded from an earlier production snapshot when a preceding operation in the same execution has returned a newer authoritative revision.
 
@@ -394,6 +396,8 @@ Use synthetic packs/manifests to prove:
 - existing identity skips create and binds its real UUID;
 - missing identity emits exactly one create and dependent symbolic binding;
 - new version uses an executor-time UUID allocation binding, never a fake UUID in the plan;
+- first save of each new version uses the fixed `expectedRevision: 1` contract;
+- every later revision comes from the preceding operation result binding;
 - food facts are saved/published before dependent recipes;
 - recipes are published before dependent meal options;
 - price-book operations bind the exact region and food/fact/unit references;
@@ -463,7 +467,7 @@ A future Phase 9D executor should consume a reviewed `CatalogMutationPlanV1` and
 
 - bind symbolic identity outputs to real IDs returned by create commands;
 - allocate real UUIDs at execution time for new food-fact, recipe-version, and meal-option-version rows whose current command contracts require caller-supplied IDs;
-- use revisions returned by preceding commands rather than stale planned revisions;
+- use `expectedRevision: 1` only for the first save of a newly allocated version UUID and then use revisions returned by preceding commands;
 - call only existing application-layer catalog/meal-option commands, not direct table writes invented by the executor;
 - stop immediately on any failed operation;
 - record an execution journal sufficient to diagnose partial progress;
