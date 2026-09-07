@@ -23,13 +23,13 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx prettier --write scripts/catalog-pack/catalog-production-resolver-cli.test.ts scripts/catalog-pack/catalog-production-resolver-cli.ts package.json
+      - run: npx prettier --write --no-error-on-unmatched-pattern scripts/catalog-pack/catalog-production-resolver-cli.test.ts scripts/catalog-pack/catalog-production-resolver-cli.ts package.json
       - name: Commit formatted Task 5 files and remove one-shot workflow
         run: |
           rm .github/workflows/phase9b-task5-format.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add scripts/catalog-pack/catalog-production-resolver-cli.test.ts scripts/catalog-pack/catalog-production-resolver-cli.ts package.json .github/workflows/phase9b-task5-format.yml
+          git add -A scripts/catalog-pack package.json .github/workflows/phase9b-task5-format.yml
           git diff --cached --check
           git commit -m "style: format Phase 9B resolver CLI"
           git push origin HEAD:codex/phase-9b-production-reference-resolver
