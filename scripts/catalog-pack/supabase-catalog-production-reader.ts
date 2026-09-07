@@ -1,6 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { createClient } from "@supabase/supabase-js"
 
-import type { Database } from "../../src/infrastructure/supabase/database.types.ts"
 import {
   createCatalogProductionReader,
   type CatalogProductionTable,
@@ -50,12 +49,11 @@ function applyFilters(
 }
 
 export function createSupabaseCatalogSelectGateway(
-  client: SupabaseClient<Database>
+  client: CatalogSelectClient
 ): CatalogSelectGateway {
-  const selectClient = client as unknown as CatalogSelectClient
   return {
     async select(request) {
-      const initial = selectClient.from(request.table).select(request.columns)
+      const initial = client.from(request.table).select(request.columns)
       const query = applyFilters(initial, request)
       if (query === null) return { ok: false }
       const { data, error } = await query
@@ -66,7 +64,7 @@ export function createSupabaseCatalogSelectGateway(
 }
 
 export function createSupabaseCatalogProductionReader(
-  client: SupabaseClient<Database>
+  client: CatalogSelectClient
 ): CatalogReferenceReader {
   return createCatalogProductionReader(createSupabaseCatalogSelectGateway(client))
 }
@@ -80,12 +78,13 @@ export function createRuntimeCatalogProductionReader(
     return null
   }
 
-  const client = createClient<Database>(url, secretKey, {
+  const client = createClient(url, secretKey, {
     auth: {
       autoRefreshToken: false,
       detectSessionInUrl: false,
       persistSession: false
     }
-  })
+  }) as unknown as CatalogSelectClient
+
   return createSupabaseCatalogProductionReader(client)
 }
