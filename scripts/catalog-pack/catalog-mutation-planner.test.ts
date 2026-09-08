@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vitest"
 
-import {
-  buildPlanningFixture,
-  encodeJson
-} from "./catalog-mutation-test-builder.ts"
+import { buildPlanningFixture, encodeJson } from "./catalog-mutation-test-builder.ts"
 import { parseResolvedCatalogManifestBytes } from "./catalog-mutation-manifest-parser.ts"
 
 describe("parseResolvedCatalogManifestBytes", () => {
@@ -30,9 +27,7 @@ describe("parseResolvedCatalogManifestBytes", () => {
     const fixture = buildPlanningFixture()
 
     expect(
-      parseResolvedCatalogManifestBytes(
-        encodeJson({ ...fixture.manifest, schemaVersion: "2" })
-      )
+      parseResolvedCatalogManifestBytes(encodeJson({ ...fixture.manifest, schemaVersion: "2" }))
     ).toEqual({ ok: false })
   })
 
@@ -56,7 +51,10 @@ describe("parseResolvedCatalogManifestBytes", () => {
           ...fixture.manifest,
           references: {
             ...fixture.manifest.references,
-            units: [{ ...firstUnit, unexpected: true }, ...fixture.manifest.references.units.slice(1)]
+            units: [
+              { ...firstUnit, unexpected: true },
+              ...fixture.manifest.references.units.slice(1)
+            ]
           }
         })
       )
@@ -120,7 +118,10 @@ describe("parseResolvedCatalogManifestBytes", () => {
           ...fixture.manifest,
           references: {
             ...fixture.manifest.references,
-            units: [{ ...firstUnit, id: "not-a-uuid" }, ...fixture.manifest.references.units.slice(1)]
+            units: [
+              { ...firstUnit, id: "not-a-uuid" },
+              ...fixture.manifest.references.units.slice(1)
+            ]
           }
         })
       )
