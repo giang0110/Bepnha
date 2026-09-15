@@ -742,7 +742,7 @@ describe("planCatalogMutations determinism", () => {
     const shuffledManifest = resolveCatalogProductionReferences(
       shuffledPack,
       sha256(shuffledPackBytes),
-      buildResolvableProductionSnapshot(shuffledPack)
+      buildResolvableProductionSnapshot(fixture.pack)
     )
     const shuffledPlan = planCatalogMutations(shuffledPackBytes, encodeJson(shuffledManifest))
     const baseline = planCatalogMutations(fixture.packBytes, fixture.manifestBytes)
