@@ -188,11 +188,7 @@ function validateReferences(
     }
   }
 
-  const simpleReferences: readonly [
-    readonly string[],
-    readonly ResolvedReference[],
-    string
-  ][] = [
+  const simpleReferences: readonly [readonly string[], readonly ResolvedReference[], string][] = [
     [requiredAllergenCodes(pack), manifest.references.allergens, "allergens"],
     [requiredNutrientCodes(pack), manifest.references.nutrients, "nutrients"],
     [requiredDietaryTagCodes(pack), manifest.references.dietaryTags, "dietaryTags"]
@@ -222,7 +218,8 @@ function validateReferences(
   for (const required of requiredRecipeTags(pack)) {
     const matches = manifest.references.recipeTags.filter(
       (reference) =>
-        reference.code === required.code && (required.kind === null || reference.kind === required.kind)
+        reference.code === required.code &&
+        (required.kind === null || reference.kind === required.kind)
     )
     if (matches.length !== 1) {
       return diagnostic(
@@ -241,7 +238,11 @@ function targetStateIssue(
   path: string
 ): CatalogMutationDiagnostic | null {
   if (target.identity.state === "conflict") {
-    return diagnostic("IDENTITY_STATE_INVALID", `${path}.identity`, "Identity conflict is not executable")
+    return diagnostic(
+      "IDENTITY_STATE_INVALID",
+      `${path}.identity`,
+      "Identity conflict is not executable"
+    )
   }
 
   if (target.identity.state === "existing") {
@@ -308,30 +309,18 @@ function exactTarget(
   const matches = targets.filter((target) => target.code === code)
   if (matches.length === 0) {
     return {
-      issue: diagnostic(
-        "MANIFEST_TARGET_MISSING",
-        path,
-        `Manifest target ${code} is missing`
-      )
+      issue: diagnostic("MANIFEST_TARGET_MISSING", path, `Manifest target ${code} is missing`)
     }
   }
   if (matches.length !== 1) {
     return {
-      issue: diagnostic(
-        "MANIFEST_TARGET_DUPLICATE",
-        path,
-        `Manifest target ${code} is duplicated`
-      )
+      issue: diagnostic("MANIFEST_TARGET_DUPLICATE", path, `Manifest target ${code} is duplicated`)
     }
   }
   const target = matches[0]
   if (target === undefined) {
     return {
-      issue: diagnostic(
-        "MANIFEST_TARGET_MISSING",
-        path,
-        `Manifest target ${code} is missing`
-      )
+      issue: diagnostic("MANIFEST_TARGET_MISSING", path, `Manifest target ${code} is missing`)
     }
   }
   return { target }
@@ -370,7 +359,11 @@ function validateTargets(
   }
 
   for (const mealOption of pack.mealOptions) {
-    const result = exactTarget(manifest.mealOptions, mealOption.code, `$.mealOptions.${mealOption.code}`)
+    const result = exactTarget(
+      manifest.mealOptions,
+      mealOption.code,
+      `$.mealOptions.${mealOption.code}`
+    )
     if ("issue" in result) return result.issue
     if (result.target.requestedVersionNumber !== mealOption.version.versionNumber) {
       return diagnostic(
