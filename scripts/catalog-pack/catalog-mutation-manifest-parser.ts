@@ -9,11 +9,9 @@ import type {
 } from "./catalog-production-types.ts"
 
 export type ParseResolvedManifestResult =
-  | { readonly ok: true; readonly manifest: ResolvedCatalogManifestV1 }
-  | { readonly ok: false }
+  { readonly ok: true; readonly manifest: ResolvedCatalogManifestV1 } | { readonly ok: false }
 
-const UUID_SHAPE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
 const SHA256 = /^[0-9a-f]{64}$/u
 
 const diagnosticCodes = new Set([
@@ -77,10 +75,7 @@ function isResolvedReference(value: unknown): value is ResolvedReference {
 }
 
 function isResolvedCategoryReference(value: unknown): value is ResolvedCategoryReference {
-  if (
-    !isRecord(value) ||
-    !exactKeys(value, ["code", "productionCode", "id", "ancestryCodes"])
-  ) {
+  if (!isRecord(value) || !exactKeys(value, ["code", "productionCode", "id", "ancestryCodes"])) {
     return false
   }
   return (
@@ -118,10 +113,7 @@ function isIdentity(value: unknown): value is ResolvedIdentityVersion["identity"
 }
 
 function isVersion(value: unknown): value is ResolvedIdentityVersion["version"] {
-  if (
-    !isRecord(value) ||
-    !exactKeys(value, ["state", "id", "revision", "publicationStatus"])
-  ) {
+  if (!isRecord(value) || !exactKeys(value, ["state", "id", "revision", "publicationStatus"])) {
     return false
   }
   return (
@@ -248,9 +240,7 @@ function isManifest(value: unknown): value is ResolvedCatalogManifestV1 {
   )
 }
 
-export function parseResolvedCatalogManifestBytes(
-  bytes: Uint8Array
-): ParseResolvedManifestResult {
+export function parseResolvedCatalogManifestBytes(bytes: Uint8Array): ParseResolvedManifestResult {
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes)
     const value = JSON.parse(text) as unknown
