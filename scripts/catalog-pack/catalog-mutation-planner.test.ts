@@ -363,7 +363,7 @@ describe("planCatalogMutations symbolic bindings", () => {
 
   test("uses the resolved UUID binding for an existing compatible food identity", () => {
     const fixture = buildPlanningFixture()
-    const firstFood = fixture.manifest.foods[0]
+    const firstFood = fixture.manifest.foods.find((food) => food.code === "test_tofu")
     if (firstFood === undefined) throw new Error("Fixture must include a food target")
     const existingFoodId = "9abc0000-0000-0000-0000-000000000001"
     const manifestBytes = encodeJson({
