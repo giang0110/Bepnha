@@ -1,0 +1,23 @@
+name: Phase 9C Task 3 RED Verify Once
+
+on:
+  push:
+    paths:
+      - ".github/workflows/phase9c-t3-red-verify-once.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 865c38b1617ed08cc8439b25ca31469f5f968696
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run scripts/catalog-pack/catalog-mutation-planner.test.ts --reporter=verbose
