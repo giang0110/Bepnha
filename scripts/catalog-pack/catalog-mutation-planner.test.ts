@@ -141,10 +141,7 @@ describe("parseResolvedCatalogManifestBytes", () => {
 
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
 
-function expectFailure(
-  plan: CatalogMutationPlanV1,
-  code: CatalogMutationDiagnosticCode
-): void {
+function expectFailure(plan: CatalogMutationPlanV1, code: CatalogMutationDiagnosticCode): void {
   expect(plan.executable).toBe(false)
   expect(plan.operations).toEqual([])
   expect(plan.bindings).toEqual([])
@@ -156,10 +153,7 @@ describe("planCatalogMutations integrity gates", () => {
     const fixture = buildPlanningFixture()
     const invalidPackBytes = encodeJson({ ...fixture.pack, catalogCode: "Launch" })
 
-    expectFailure(
-      planCatalogMutations(invalidPackBytes, fixture.manifestBytes),
-      "PHASE_9A_INVALID"
-    )
+    expectFailure(planCatalogMutations(invalidPackBytes, fixture.manifestBytes), "PHASE_9A_INVALID")
   })
 
   test("fails closed when Phase 9A input is valid but not ready", () => {
@@ -188,10 +182,7 @@ describe("planCatalogMutations integrity gates", () => {
     const fixture = buildPlanningFixture()
 
     expectFailure(
-      planCatalogMutations(
-        fixture.packBytes,
-        encodeJson({ ...fixture.manifest, resolved: false })
-      ),
+      planCatalogMutations(fixture.packBytes, encodeJson({ ...fixture.manifest, resolved: false })),
       "MANIFEST_NOT_RESOLVED"
     )
 
