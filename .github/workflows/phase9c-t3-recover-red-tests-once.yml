@@ -1,0 +1,58 @@
+name: Phase 9C Task 3 Recover RED Tests Once
+
+on:
+  push:
+    paths:
+      - ".github/workflows/phase9c-t3-recover-red-tests-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  recover-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/phase-9c-t3-red
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Recover Task 3 RED tests from invalid harness
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path(".github/workflows/phase9c-t3-red-tests-once.yml")
+          source = source_path.read_text()
+          marker = "appendix = r'''"
+          if marker not in source:
+              raise SystemExit("Task 3 appendix marker not found")
+          appendix = source.split(marker, 1)[1].split("\n'''", 1)[0].lstrip("\n")
+
+          test_path = Path("scripts/catalog-pack/catalog-mutation-planner.test.ts")
+          text = test_path.read_text()
+          text = text.replace(
+              'import type {\n  CatalogMutationDiagnosticCode,\n  CatalogMutationPlanV1\n} from "./catalog-mutation-types.ts"',
+              'import type {\n  CatalogMutationDiagnosticCode,\n  CatalogMutationPlanOperationV1,\n  CatalogMutationPlanV1\n} from "./catalog-mutation-types.ts"'
+          )
+          text = text.replace(
+              'import { buildPlanningFixture, encodeJson } from "./catalog-mutation-test-builder.ts"',
+              'import { buildPlanningFixture, encodeJson, sha256 } from "./catalog-mutation-test-builder.ts"\nimport { resolveCatalogProductionReferences } from "./catalog-production-resolver.ts"\nimport { buildResolvableProductionSnapshot } from "./catalog-production-test-builder.ts"'
+          )
+          if 'describe("planCatalogMutations command templates"' in text:
+              raise SystemExit("Task 3 RED tests already present")
+          test_path.write_text(text + "\n" + appendix)
+          PY
+          npx prettier --write scripts/catalog-pack/catalog-mutation-planner.test.ts
+      - name: Commit RED tests and remove temporary harnesses
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/phase9c-t3-red-tests-once.yml
+          git rm .github/workflows/phase9c-t3-recover-red-tests-once.yml
+          git add scripts/catalog-pack/catalog-mutation-planner.test.ts
+          git commit -m "test: define Phase 9C mutation DAG RED"
+          git push origin HEAD:codex/phase-9c-t3-red
