@@ -105,6 +105,11 @@ describe("parseResolvedCatalogManifestBytes", () => {
         encodeJson({ ...fixture.manifest, inputSha256: "not-a-sha" })
       )
     ).toEqual({ ok: false })
+    expect(
+      parseResolvedCatalogManifestBytes(
+        encodeJson({ ...fixture.manifest, productionSnapshotSha256: "not-a-sha" })
+      )
+    ).toEqual({ ok: false })
   })
 
   test("rejects malformed UUID-shaped production IDs", () => {
