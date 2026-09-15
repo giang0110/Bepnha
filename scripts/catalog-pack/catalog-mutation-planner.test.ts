@@ -376,6 +376,12 @@ describe("planCatalogMutations symbolic bindings", () => {
             id: existingFoodId,
             revision: 1,
             status: "published"
+          },
+          version: {
+            state: "missing",
+            id: null,
+            revision: null,
+            publicationStatus: null
           }
         },
         ...fixture.manifest.foods.slice(1)
