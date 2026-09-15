@@ -368,24 +368,25 @@ describe("planCatalogMutations symbolic bindings", () => {
     const existingFoodId = "9abc0000-0000-0000-0000-000000000001"
     const manifestBytes = encodeJson({
       ...fixture.manifest,
-      foods: [
-        {
-          ...firstFood,
-          identity: {
-            state: "existing",
-            id: existingFoodId,
-            revision: 1,
-            status: "published"
-          },
-          version: {
-            state: "missing",
-            id: null,
-            revision: null,
-            publicationStatus: null
-          }
-        },
-        ...fixture.manifest.foods.slice(1)
-      ]
+      foods: fixture.manifest.foods.map((food) =>
+        food.code === firstFood.code
+          ? {
+              ...food,
+              identity: {
+                state: "existing",
+                id: existingFoodId,
+                revision: 1,
+                status: "published"
+              },
+              version: {
+                state: "missing",
+                id: null,
+                revision: null,
+                publicationStatus: null
+              }
+            }
+          : food
+      )
     })
 
     const plan = planCatalogMutations(fixture.packBytes, manifestBytes)
