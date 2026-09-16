@@ -17,6 +17,11 @@ test("applies the production API security header baseline", () => {
       "Permissions-Policy",
       "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
     ],
+    ["Strict-Transport-Security", "max-age=31536000; includeSubDomains"],
+    [
+      "Content-Security-Policy",
+      "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    ],
     ["Cache-Control", "no-store"]
   ])
 })

@@ -139,6 +139,15 @@ describe("Vercel routing", () => {
             key: "Permissions-Policy",
             value:
               "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains"
+          },
+          {
+            key: "Content-Security-Policy",
+            value:
+              "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
           }
         ]
       }
@@ -146,5 +155,22 @@ describe("Vercel routing", () => {
     expect(JSON.stringify(configuration.headers)).not.toMatch(
       /Access-Control-Allow-Origin|unsafe-eval/i
     )
+  })
+
+  it("keeps the static content policy strict where it matters", async () => {
+    const configuration = await readVercelConfiguration()
+    const policy =
+      configuration.headers?.[0]?.headers.find((header) => header.key === "Content-Security-Policy")
+        ?.value ?? ""
+
+    // The production document loads one external module script and no inline script, so no script
+    // nonce or hash is needed and inline script must stay forbidden.
+    expect(policy).toContain("script-src 'self';")
+    expect(policy).not.toMatch(/script-src[^;]*unsafe-inline/u)
+    expect(policy).toContain("object-src 'none'")
+    expect(policy).toContain("base-uri 'none'")
+    expect(policy).toContain("frame-ancestors 'none'")
+    // The browser client reaches Supabase REST, Auth and Realtime directly and nothing else.
+    expect(policy).toContain("connect-src 'self' https://*.supabase.co wss://*.supabase.co")
   })
 })
