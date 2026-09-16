@@ -183,6 +183,24 @@ As of the latest Phase 8 preflight, the Vercel integration is installed but expo
 
 Do not invoke a generic/current-project deploy command while the project identity is unresolved.
 
+### Function region and duration
+
+`vercel.json` pins `regions: ["sin1"]` so Functions run in Singapore alongside the resolved
+`ap-southeast-1` Supabase project. A single region is valid on every plan; the platform default is
+`iad1` (US East), which would place every planner round trip on a trans-Pacific path. Never remove
+the pin without moving the database first.
+
+`maxDuration` is intentionally **not** set in `vercel.json` because the accepted ceiling depends on
+the plan the production project ends up on. After the Vercel project identity is resolved, confirm
+the plan's ceiling and, if planner generation needs more headroom than the plan default, add:
+
+```json
+"functions": { "api/**/*.ts": { "maxDuration": <plan ceiling> } }
+```
+
+Record the measured p95 of `POST /api/plans/generate` against the real production catalog before
+deciding. Do not raise the duration to mask a fan-out regression.
+
 ## Health, headers, deep links, and post-deploy smoke
 
 After an explicitly authorized exact-main deployment, issue unauthenticated `GET /api/health`. Expected response is HTTP 200 with exactly:
