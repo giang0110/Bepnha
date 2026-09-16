@@ -1,0 +1,26 @@
+name: Phase 9C Task 4 RED Verify Once
+
+on:
+  push:
+    branches:
+      - codex/phase-9c-t4-red
+    paths:
+      - .github/workflows/phase9c-t4-red-verify-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  red:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 1e52ab04783bca4334120e0582b03e857a2369d0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --check scripts/catalog-pack/catalog-mutation-cli.test.ts
+      - run: npx vitest run scripts/catalog-pack/catalog-mutation-cli.test.ts --reporter=verbose
