@@ -5,6 +5,7 @@ import {
   type HouseholdRuleCode
 } from "@/domain/household/household-rules"
 import type { MealOptionRecipeInput, MealOptionTagInput } from "@/domain/meal-option/meal-option"
+import { PLANNER_CONFIG_V1 } from "@/domain/planner/planner-config"
 import type { PlannerCandidateInput, PlannerInputV1 } from "@/domain/planner/planner-input"
 import type { ReadyPlan } from "@/domain/planner/search-week"
 import type { FoodPriceInput } from "@/domain/pricing/pricing"
@@ -93,6 +94,169 @@ async function loadUnits(client: SupabaseClient<Database>) {
   return new Map(data.map((unit) => [unit.id, unit] as const))
 }
 
+const PLANNER_LOADER_CONCURRENCY = 8
+
+async function mapWithConcurrency<Item, Mapped>(
+  items: readonly Item[],
+  limit: number,
+  map: (item: Item) => Promise<Mapped>
+): Promise<Mapped[]> {
+  const results = new Array<Mapped>(items.length)
+  let nextIndex = 0
+
+  async function worker(): Promise<void> {
+    for (;;) {
+      const index = nextIndex
+      nextIndex += 1
+      const item = items[index]
+      if (index >= items.length || item === undefined) return
+      results[index] = await map(item)
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      await worker()
+    })
+  )
+  return results
+}
+
+interface LoadedMealOptionComponent {
+  readonly component: MealOptionRecipeInput
+  readonly lineage: readonly PlannerCandidateInput["ingredientLineage"][number][]
+  readonly prices: ReadonlyMap<string, FoodPriceInput>
+  readonly priceBookContentHash: string
+}
+
+async function loadComponent(
+  client: SupabaseClient<Database>,
+  componentRow: UnknownRecord,
+  priceBookId: string,
+  units: Awaited<ReturnType<typeof loadUnits>>
+): Promise<LoadedMealOptionComponent> {
+  const lineage: PlannerCandidateInput["ingredientLineage"][number][] = []
+  const priceById = new Map<string, FoodPriceInput>()
+
+  const recipeData = object(
+    await rpc(client, "get_published_recipe_calculation_input", {
+      p_recipe_version_id: string(componentRow.recipeVersionId),
+      p_price_book_id: priceBookId
+    })
+  )
+  const recipe = object(recipeData.recipe)
+  const priceBook = object(recipeData.priceBook)
+  const priceBookContentHash = string(priceBook.contentHash)
+  const steps = await recipeEditorial(client, string(recipe.recipeVersionId))
+  const ingredients = array(recipe.ingredients).map((rawIngredient) => {
+    const ingredient = object(rawIngredient)
+    const food = object(ingredient.food)
+    const fact = object(ingredient.fact)
+    const conversion = object(fact.conversion)
+    const sourceUnit = units.get(string(ingredient.unitId))
+    const foodBaseUnit = units.get(string(food.baseUnitId))
+    const baseDimension = string(food.baseDimension)
+    if (
+      sourceUnit === undefined ||
+      foodBaseUnit === undefined ||
+      foodBaseUnit.dimension !== baseDimension
+    ) {
+      throw new Error("INCOMPLETE_UNIT_LINEAGE")
+    }
+    const recipeIngredientId = string(ingredient.recipeIngredientId)
+    lineage.push({
+      mealOptionRecipeId: string(componentRow.mealOptionRecipeId),
+      recipeIngredientId,
+      foodId: string(food.foodId),
+      foodFactVersionId: string(fact.foodFactVersionId),
+      foodFactContentHash: string(fact.contentHash),
+      foodFactStatus: "published",
+      edibleFraction: string(fact.edibleFraction),
+      baseUnitId: string(food.baseUnitId),
+      baseDimension: foodBaseUnit.dimension,
+      allergenAssessments: array(fact.allergenAssessments).map((raw) => {
+        const assessment = object(raw)
+        const status = string(assessment.status)
+        if (!["absent", "contains", "may_contain", "unknown"].includes(status)) {
+          throw new Error("INVALID_ALLERGEN_LINEAGE")
+        }
+        return {
+          allergenCode: string(assessment.allergenCode),
+          status: status as "absent" | "contains" | "may_contain" | "unknown"
+        }
+      }),
+      categoryAncestry: stringArray(fact.categoryAncestry),
+      dietaryTagCodes: stringArray(fact.dietaryTagCodes),
+      nutrients: array(fact.nutrients).map((raw) => {
+        const nutrient = object(raw)
+        return {
+          nutrientCode: string(nutrient.nutrientCode),
+          amountPer100g: string(nutrient.amountPer100g)
+        }
+      })
+    })
+    return {
+      recipeIngredientId,
+      foodId: string(food.foodId),
+      foodFactVersionId: string(fact.foodFactVersionId),
+      quantity: string(ingredient.quantity),
+      order: integer(ingredient.order),
+      conversion: {
+        unitId: sourceUnit.id,
+        unitCode: sourceUnit.code,
+        sourceDimension: sourceUnit.dimension,
+        sourceToDimensionBase: String(sourceUnit.to_dimension_base),
+        foodBaseUnitId: foodBaseUnit.id,
+        foodBaseDimension: foodBaseUnit.dimension,
+        foodBaseUnitToDimensionBase: String(foodBaseUnit.to_dimension_base),
+        baseQuantityPerUnit: string(conversion.baseQuantityPerUnit),
+        grossGramsPerUnit: string(conversion.grossGramsPerUnit),
+        displayStep: string(conversion.displayStep)
+      }
+    }
+  })
+  const recipeFoodIds = new Set(ingredients.map((ingredient) => ingredient.foodId))
+  for (const rawPrice of array(priceBook.prices)) {
+    const price = object(rawPrice)
+    const foodId = string(price.foodId)
+    if (!recipeFoodIds.has(foodId)) continue
+    const mapped: FoodPriceInput = {
+      foodPriceId: string(price.foodPriceId),
+      priceBookId: string(priceBook.priceBookId),
+      foodId,
+      foodFactVersionId: string(price.foodFactVersionId),
+      baseUnitId: string(price.baseUnitId),
+      packageBaseQuantity: string(price.packageBaseQuantity),
+      packagePriceVnd: integer(price.packagePriceVnd),
+      purchaseIncrement: string(price.purchaseIncrement),
+      observedAt: string(price.observedAt)
+    }
+    priceById.set(mapped.foodPriceId, mapped)
+  }
+  const component: MealOptionRecipeInput = {
+    mealOptionRecipeId: string(componentRow.mealOptionRecipeId),
+    recipeId: string(componentRow.recipeId),
+    recipeVersionId: string(componentRow.recipeVersionId),
+    recipeVersionNumber: integer(componentRow.recipeVersionNumber),
+    recipeContentHash: string(componentRow.recipeContentHash),
+    recipeStatus: "published",
+    quantityMultiplier: string(componentRow.quantityMultiplier),
+    mealRole: string(componentRow.mealRole) as MealOptionRecipeInput["mealRole"],
+    sortOrder: integer(componentRow.sortOrder),
+    recipe: {
+      recipeId: string(recipe.recipeId),
+      recipeVersionId: string(recipe.recipeVersionId),
+      yieldAdultEquivalent: string(recipe.yieldAdultEquivalent),
+      activeMinutes: integer(recipe.activeMinutes),
+      elapsedMinutes: integer(recipe.elapsedMinutes),
+      ingredients,
+      steps
+    }
+  }
+
+  return { component, lineage, prices: priceById, priceBookContentHash }
+}
+
 async function candidate(
   client: SupabaseClient<Database>,
   mealOptionVersionId: string,
@@ -108,127 +272,24 @@ async function candidate(
   const version = object(aggregate.version)
   const componentRows = array(aggregate.components).map(object)
   const tagRows = array(aggregate.tags).map(object)
+
+  // Components are fetched concurrently but merged strictly in source order, so lineage order,
+  // price insertion order, and the resulting canonical snapshot stay byte-identical.
+  const loaded = await mapWithConcurrency(
+    componentRows,
+    PLANNER_LOADER_CONCURRENCY,
+    async (componentRow) => await loadComponent(client, componentRow, priceBookId, units)
+  )
+
   const lineage: PlannerCandidateInput["ingredientLineage"][number][] = []
   const priceById = new Map<string, FoodPriceInput>()
-  let priceBookContentHash = ""
-
   const components: MealOptionRecipeInput[] = []
-  for (const componentRow of componentRows) {
-    const recipeData = object(
-      await rpc(client, "get_published_recipe_calculation_input", {
-        p_recipe_version_id: string(componentRow.recipeVersionId),
-        p_price_book_id: priceBookId
-      })
-    )
-    const recipe = object(recipeData.recipe)
-    const priceBook = object(recipeData.priceBook)
-    priceBookContentHash = string(priceBook.contentHash)
-    const steps = await recipeEditorial(client, string(recipe.recipeVersionId))
-    const ingredients = array(recipe.ingredients).map((rawIngredient) => {
-      const ingredient = object(rawIngredient)
-      const food = object(ingredient.food)
-      const fact = object(ingredient.fact)
-      const conversion = object(fact.conversion)
-      const sourceUnit = units.get(string(ingredient.unitId))
-      const foodBaseUnit = units.get(string(food.baseUnitId))
-      const baseDimension = string(food.baseDimension)
-      if (
-        sourceUnit === undefined ||
-        foodBaseUnit === undefined ||
-        foodBaseUnit.dimension !== baseDimension
-      ) {
-        throw new Error("INCOMPLETE_UNIT_LINEAGE")
-      }
-      const recipeIngredientId = string(ingredient.recipeIngredientId)
-      lineage.push({
-        mealOptionRecipeId: string(componentRow.mealOptionRecipeId),
-        recipeIngredientId,
-        foodId: string(food.foodId),
-        foodFactVersionId: string(fact.foodFactVersionId),
-        foodFactContentHash: string(fact.contentHash),
-        foodFactStatus: "published",
-        edibleFraction: string(fact.edibleFraction),
-        baseUnitId: string(food.baseUnitId),
-        baseDimension: foodBaseUnit.dimension,
-        allergenAssessments: array(fact.allergenAssessments).map((raw) => {
-          const assessment = object(raw)
-          const status = string(assessment.status)
-          if (!["absent", "contains", "may_contain", "unknown"].includes(status)) {
-            throw new Error("INVALID_ALLERGEN_LINEAGE")
-          }
-          return {
-            allergenCode: string(assessment.allergenCode),
-            status: status as "absent" | "contains" | "may_contain" | "unknown"
-          }
-        }),
-        categoryAncestry: stringArray(fact.categoryAncestry),
-        dietaryTagCodes: stringArray(fact.dietaryTagCodes),
-        nutrients: array(fact.nutrients).map((raw) => {
-          const nutrient = object(raw)
-          return {
-            nutrientCode: string(nutrient.nutrientCode),
-            amountPer100g: string(nutrient.amountPer100g)
-          }
-        })
-      })
-      return {
-        recipeIngredientId,
-        foodId: string(food.foodId),
-        foodFactVersionId: string(fact.foodFactVersionId),
-        quantity: string(ingredient.quantity),
-        order: integer(ingredient.order),
-        conversion: {
-          unitId: sourceUnit.id,
-          unitCode: sourceUnit.code,
-          sourceDimension: sourceUnit.dimension,
-          sourceToDimensionBase: String(sourceUnit.to_dimension_base),
-          foodBaseUnitId: foodBaseUnit.id,
-          foodBaseDimension: foodBaseUnit.dimension,
-          foodBaseUnitToDimensionBase: String(foodBaseUnit.to_dimension_base),
-          baseQuantityPerUnit: string(conversion.baseQuantityPerUnit),
-          grossGramsPerUnit: string(conversion.grossGramsPerUnit),
-          displayStep: string(conversion.displayStep)
-        }
-      }
-    })
-    const recipeFoodIds = new Set(ingredients.map((ingredient) => ingredient.foodId))
-    for (const rawPrice of array(priceBook.prices)) {
-      const price = object(rawPrice)
-      const foodId = string(price.foodId)
-      if (!recipeFoodIds.has(foodId)) continue
-      const mapped: FoodPriceInput = {
-        foodPriceId: string(price.foodPriceId),
-        priceBookId: string(priceBook.priceBookId),
-        foodId,
-        foodFactVersionId: string(price.foodFactVersionId),
-        baseUnitId: string(price.baseUnitId),
-        packageBaseQuantity: string(price.packageBaseQuantity),
-        packagePriceVnd: integer(price.packagePriceVnd),
-        purchaseIncrement: string(price.purchaseIncrement),
-        observedAt: string(price.observedAt)
-      }
-      priceById.set(mapped.foodPriceId, mapped)
-    }
-    components.push({
-      mealOptionRecipeId: string(componentRow.mealOptionRecipeId),
-      recipeId: string(componentRow.recipeId),
-      recipeVersionId: string(componentRow.recipeVersionId),
-      recipeVersionNumber: integer(componentRow.recipeVersionNumber),
-      recipeContentHash: string(componentRow.recipeContentHash),
-      recipeStatus: "published",
-      quantityMultiplier: string(componentRow.quantityMultiplier),
-      mealRole: string(componentRow.mealRole) as MealOptionRecipeInput["mealRole"],
-      sortOrder: integer(componentRow.sortOrder),
-      recipe: {
-        recipeId: string(recipe.recipeId),
-        recipeVersionId: string(recipe.recipeVersionId),
-        yieldAdultEquivalent: string(recipe.yieldAdultEquivalent),
-        activeMinutes: integer(recipe.activeMinutes),
-        elapsedMinutes: integer(recipe.elapsedMinutes),
-        ingredients,
-        steps
-      }
-    })
+  let priceBookContentHash = ""
+  for (const entry of loaded) {
+    components.push(entry.component)
+    lineage.push(...entry.lineage)
+    for (const [foodPriceId, price] of entry.prices) priceById.set(foodPriceId, price)
+    priceBookContentHash = entry.priceBookContentHash
   }
 
   const tags: MealOptionTagInput[] = tagRows.map((raw) => ({
@@ -265,13 +326,23 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
   const household = object(root.household)
   const householdId = string(household.id)
   const priceBook = object(root.priceBook)
-  const units = await loadUnits(client)
-  const candidates: PlannerCandidateInput[] = []
-  for (const id of stringArray(root.mealOptionVersionIds)) {
-    candidates.push(await candidate(client, id, string(priceBook.priceBookId), units))
-  }
+  const [units, pantrySnapshot] = await Promise.all([
+    loadUnits(client),
+    loadPantrySnapshot(client, householdId)
+  ])
+  // The RPC returns every published meal option. Hydrating one past the domain candidate limit is
+  // enough for `normalizePlannerInput` to raise the same CATALOG_CANDIDATE_LIMIT_EXCEEDED error it
+  // raises today, so the outcome is unchanged while the fan-out stays bounded.
+  const hydrationIds = stringArray(root.mealOptionVersionIds).slice(
+    0,
+    PLANNER_CONFIG_V1.candidateLimit + 1
+  )
+  const candidates = await mapWithConcurrency(
+    hydrationIds,
+    PLANNER_LOADER_CONCURRENCY,
+    async (id) => await candidate(client, id, string(priceBook.priceBookId), units)
+  )
   const rules = stringArray(root.foodRules)
-  const pantrySnapshot = await loadPantrySnapshot(client, householdId)
   return {
     householdId,
     householdSetupVersion: integer(household.version),
