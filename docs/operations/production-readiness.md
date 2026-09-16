@@ -183,6 +183,28 @@ As of the latest Phase 8 preflight, the Vercel integration is installed but expo
 
 Do not invoke a generic/current-project deploy command while the project identity is unresolved.
 
+### Build toolchain resolution
+
+`vercel.json` pins `installCommand` to `npm ci --include=dev`. This is load-bearing, not a preference.
+
+`npm run build` invokes `tsc`, but the declared devDependency is
+`"typescript": "npm:@typescript/typescript6"`, and that package ships only a `tsc6` binary. The `tsc`
+binary is supplied by its own transitive dependency (`@typescript/old`, itself `npm:typescript@^6`),
+and npm only guarantees `node_modules/.bin` entries for direct dependencies. A cached or incremental
+platform install can therefore leave `node_modules/.bin/tsc` unlinked, and the build dies with
+`sh: line 1: tsc: command not found` / `exited with 127` before any application code is compiled.
+Every Vercel deployment of this repository failed this way, which is why no deployment had ever
+succeeded. `npm ci` rebuilds the tree from the committed lockfile exactly as the canonical CI jobs
+do, and `--include=dev` keeps the build toolchain present even if the platform environment sets a
+production `NODE_ENV`.
+
+Do not remove or weaken this install command to speed up builds. `api/health.test.ts` locks it.
+
+The underlying fragility remains: the build depends on a binary name the declared dependency does not
+itself provide. A follow-up may switch the `typecheck`/`build` scripts to the `tsc6` binary that
+`@typescript/typescript6` actually ships — verified working — but that changes which compiler checks
+the project, so it needs its own review rather than riding a deployment fix.
+
 ## Health, headers, deep links, and post-deploy smoke
 
 After an explicitly authorized exact-main deployment, issue unauthenticated `GET /api/health`. Expected response is HTTP 200 with exactly:

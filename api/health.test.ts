@@ -19,6 +19,7 @@ type VercelConfiguration = {
     headers: Array<{ key: string; value: string }>
     source: string
   }>
+  installCommand?: string
   rewrites: Array<{ destination: string; source: string }>
 }
 
@@ -108,6 +109,20 @@ describe("Vercel routing", () => {
     expect(deepLink).not.toMatch(new RegExp(apiRewrite.source))
     expect(deepLink).toMatch(new RegExp(spaRewrite.source))
     expect(spaRewrite.destination).toBe("/index.html")
+  })
+
+  it("installs from the lockfile so the build never depends on a hoisted transitive binary", async () => {
+    const configuration = await readVercelConfiguration()
+
+    // `npm run build` runs `tsc`, but the declared devDependency
+    // `typescript -> npm:@typescript/typescript6` only ships a `tsc6` binary. The `tsc` binary comes
+    // from its own transitive dependency, and npm only guarantees `node_modules/.bin` entries for
+    // direct dependencies. An incremental or cached platform install can therefore leave `tsc`
+    // unlinked and fail the build with `tsc: command not found` (exit 127), which is what every
+    // Vercel deployment of this repository did. `npm ci` rebuilds the tree from the lockfile exactly
+    // as CI does, and `--include=dev` keeps the build toolchain present even when the platform sets
+    // a production NODE_ENV.
+    expect(configuration.installCommand).toBe("npm ci --include=dev")
   })
 
   it("applies defensive SPA headers without broadening cross-origin access", async () => {
