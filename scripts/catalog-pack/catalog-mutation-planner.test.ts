@@ -559,21 +559,25 @@ describe("planCatalogMutations command templates", () => {
       expectedRevision: revisionOutput("create_price_book:vn_baseline:1"),
       effectiveFrom: priceBook.effectiveFrom,
       effectiveTo: priceBook.effectiveTo,
-      prices: priceBook.prices.map((price) => ({
-        foodPriceId: `price:vn_baseline:1:${price.foodCode}`,
-        foodId: binding(`identity:food:${price.foodCode}`),
-        foodFactVersionId: binding(
-          `version:food_fact:${price.foodCode}:${price.foodFactVersionNumber}`
-        ),
-        packageQuantity: price.packageQuantity,
-        packageUnitId: binding(`reference:unit:${price.packageUnitCode}`),
-        packageBaseQuantity: price.packageBaseQuantity,
-        baseUnitId: binding(`reference:unit:${price.baseUnitCode}`),
-        packagePriceVnd: price.packagePriceVnd,
-        purchaseIncrement: price.purchaseIncrement,
-        observedAt: price.observedAt,
-        sourceReference: price.sourceReference
-      }))
+      prices: [...priceBook.prices]
+        .sort((left, right) =>
+          left.foodCode < right.foodCode ? -1 : left.foodCode > right.foodCode ? 1 : 0
+        )
+        .map((price) => ({
+          foodPriceId: `price:vn_baseline:1:${price.foodCode}`,
+          foodId: binding(`identity:food:${price.foodCode}`),
+          foodFactVersionId: binding(
+            `version:food_fact:${price.foodCode}:${price.foodFactVersionNumber}`
+          ),
+          packageQuantity: price.packageQuantity,
+          packageUnitId: binding(`reference:unit:${price.packageUnitCode}`),
+          packageBaseQuantity: price.packageBaseQuantity,
+          baseUnitId: binding(`reference:unit:${price.baseUnitCode}`),
+          packagePriceVnd: price.packagePriceVnd,
+          purchaseIncrement: price.purchaseIncrement,
+          observedAt: price.observedAt,
+          sourceReference: price.sourceReference
+        }))
     })
     expect(byId(plan, "publish_price_book:vn_baseline:1")?.input).toEqual({
       priceBookId: binding("identity:price_book:vn_baseline:1"),
