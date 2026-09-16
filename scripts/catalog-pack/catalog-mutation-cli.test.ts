@@ -4,15 +4,11 @@ import { join } from "node:path"
 
 import { afterEach, describe, expect, test } from "vitest"
 
-import {
-  runCatalogPlanCli,
-  type CatalogPlanCliDependencies
-} from "./catalog-mutation-cli.ts"
+import { runCatalogPlanCli, type CatalogPlanCliDependencies } from "./catalog-mutation-cli.ts"
 import { buildPlanningFixture, encodeJson } from "./catalog-mutation-test-builder.ts"
 
 const temporaryDirectories: string[] = []
-const usage =
-  "Usage: npm run catalog:plan -- --input <path> --manifest <path> [--output <path>]\n"
+const usage = "Usage: npm run catalog:plan -- --input <path> --manifest <path> [--output <path>]\n"
 
 function createTemporaryDirectory(): string {
   const directory = mkdtempSync(join(tmpdir(), "bepnha-catalog-plan-cli-"))
@@ -142,7 +138,10 @@ describe("catalog mutation plan CLI", () => {
 
   test("returns 3 for a valid but not-ready Phase 9A pack", () => {
     const fixture = buildPlanningFixture()
-    const notReadyBytes = encodeJson({ ...fixture.pack, mealOptions: fixture.pack.mealOptions.slice(0, 20) })
+    const notReadyBytes = encodeJson({
+      ...fixture.pack,
+      mealOptions: fixture.pack.mealOptions.slice(0, 20)
+    })
     const inputPath = writeBytes("not-ready.json", notReadyBytes)
     const manifestPath = writeBytes("catalog.resolved.json", fixture.manifestBytes)
     const captured = captureDependencies()
@@ -159,10 +158,7 @@ describe("catalog mutation plan CLI", () => {
   test("returns 4 for manifest or integrity planning failures", () => {
     const fixture = buildPlanningFixture()
     const inputPath = writeBytes("catalog.json", fixture.packBytes)
-    const malformedManifestPath = writeBytes(
-      "catalog.resolved.json",
-      new TextEncoder().encode("{")
-    )
+    const malformedManifestPath = writeBytes("catalog.resolved.json", new TextEncoder().encode("{"))
     const captured = captureDependencies()
 
     expect(
