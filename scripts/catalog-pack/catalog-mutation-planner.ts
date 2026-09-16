@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto"
+import { hash } from "node:crypto"
 
 import { parseResolvedCatalogManifestBytes } from "./catalog-mutation-manifest-parser.ts"
 import type {
@@ -22,7 +22,7 @@ import type {
 } from "./catalog-production-types.ts"
 
 function digest(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex")
+  return hash("sha256", bytes, "hex")
 }
 
 function diagnostic(
