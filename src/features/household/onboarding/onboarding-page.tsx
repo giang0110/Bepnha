@@ -49,7 +49,11 @@ export function OnboardingPage({ repository }: OnboardingPageProps) {
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-md overflow-x-hidden px-4 py-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto min-h-screen w-full max-w-md overflow-x-hidden px-4 py-6"
+    >
       <div className="mb-6 flex items-center gap-3">
         <progress
           aria-label="Tiến độ thiết lập"

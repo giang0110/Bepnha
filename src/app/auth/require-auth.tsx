@@ -1,5 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router"
 
+import { AppNav } from "@/app/components/app-nav"
+import { AppSkipLink } from "@/app/components/app-skip-link"
 import { SignOutButton } from "@/features/auth/sign-out-button"
 
 import { useAuth } from "./auth-context"
@@ -20,6 +22,9 @@ export function RequireAuth() {
   }
   return (
     <>
+      {/* Order matters: the skip link must precede the navigation so the first Tab reaches it. */}
+      <AppSkipLink />
+      <AppNav />
       <Outlet />
       <div className="mx-auto w-full max-w-md px-4 pb-6">
         <SignOutButton />

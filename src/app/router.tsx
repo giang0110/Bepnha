@@ -8,6 +8,7 @@ import type { ShoppingListRepository } from "@/application/shopping/shopping-lis
 import { useAuth } from "@/app/auth/auth-context"
 import { RequireAuth } from "@/app/auth/require-auth"
 import { NotFoundPage } from "@/app/not-found-page"
+import { AppPageShell } from "@/app/components/app-page-shell"
 import type { AssistantApi } from "@/features/assistant/assistant-api"
 import { ForgotPasswordPage } from "@/features/auth/forgot-password-page"
 import { ResetPasswordPage } from "@/features/auth/reset-password-page"
@@ -40,7 +41,11 @@ const ShoppingListPage = lazy(async () => ({
 }))
 
 function ProtectedRouteFallback() {
-  return <p role="status">Đang tải…</p>
+  return (
+    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-4 px-4 py-6">
+      <p role="status">Đang tải…</p>
+    </AppPageShell>
+  )
 }
 
 function HomeRedirect() {
