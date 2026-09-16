@@ -87,7 +87,9 @@ function renderPage(apiOverrides: Partial<PlannerApi>, createId: () => string) {
           session: { accessToken: "token", identity: { userId: "user", email: null } },
           signIn: vi.fn(),
           signOut: vi.fn(),
-          signUp: vi.fn()
+          signUp: vi.fn(),
+          requestPasswordReset: vi.fn(),
+          updatePassword: vi.fn()
         }}
       >
         <WeeklyPlanPage

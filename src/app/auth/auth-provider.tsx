@@ -67,6 +67,12 @@ export function AuthProvider({
           setStatus("signed-out")
         }
         return result
+      },
+      requestPasswordReset(email, redirectTo) {
+        return port.requestPasswordReset(email, redirectTo)
+      },
+      updatePassword(password) {
+        return port.updatePassword(password)
       }
     }),
     [port, session, status]

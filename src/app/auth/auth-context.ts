@@ -1,15 +1,22 @@
 import { createContext, use } from "react"
 
-import type { AuthOperationResult, AuthSession } from "@/application/auth/auth-session-port"
+import type {
+  AuthOperationResult,
+  AuthSession,
+  PasswordResetRequestResult,
+  PasswordUpdateResult
+} from "@/application/auth/auth-session-port"
 
 export type AuthStatus = "authenticated" | "loading" | "signed-out"
 
 export interface AuthContextValue {
+  requestPasswordReset(email: string, redirectTo: string): Promise<PasswordResetRequestResult>
   session: AuthSession | null
   signIn(email: string, password: string): Promise<AuthOperationResult>
   signOut(): Promise<{ ok: true } | { ok: false; reason: "RETRYABLE_FAILURE" }>
   signUp(email: string, password: string): Promise<AuthOperationResult>
   status: AuthStatus
+  updatePassword(password: string): Promise<PasswordUpdateResult>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
