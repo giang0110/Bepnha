@@ -45,6 +45,8 @@ Server-only configuration may additionally include:
 - `GEMINI_MODEL`
 - `ASSISTANT_RATE_LIMIT_BURST`
 - `ASSISTANT_RATE_LIMIT_DAILY`
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
 
 Never expose a Supabase secret/service-role key or Gemini key through `VITE_*`, source control, logs, screenshots, issue/PR text, telemetry, or client responses.
 
@@ -159,7 +161,11 @@ Validated server-only overrides may change the defaults within the reviewed boun
 
 Ownership/stale-context failures occur before quota consumption. Provider attempts occur only after acceptance by the limiter.
 
-A per-instance in-memory limiter is permitted only outside production. For `VERCEL_ENV=production`, production Gemini must remain disabled until a multi-instance-safe shared limiter adapter exists and is reviewed. Missing Gemini configuration disables only the assistant; deterministic planner, replacement, shopping, and pantry features remain usable.
+A per-instance in-memory limiter is permitted only outside production. For `VERCEL_ENV=production`, production Gemini must remain disabled until a multi-instance-safe shared limiter adapter exists and is reviewed.
+
+The reviewed shared adapter is `src/infrastructure/server/upstash-rate-limiter.ts`. It evaluates and consumes the burst and daily windows inside a single Redis Lua script, so two serverless instances cannot both observe "under the limit" and then both consume. It is selected automatically whenever `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are both present and the URL is HTTPS; otherwise production still resolves to no limiter and Gemini stays disabled. The assistant limiter fails **closed**: if Redis is unreachable the request is denied rather than reaching the paid provider.
+
+Both variables are server-only. Never define `VITE_UPSTASH_*` or any browser-visible Redis credential, and never point production at the same Redis database as a local or preview runtime. Missing Gemini configuration disables only the assistant; deterministic planner, replacement, shopping, and pantry features remain usable.
 
 ## Vercel production gate
 
@@ -227,6 +233,36 @@ Verify direct/deep-link navigation for protected routes without weakening authen
 Then perform a deterministic authenticated smoke using only intended test/launch records: sign-in/onboarding, household setup, plan generation, replacement preview/apply, pantry, and shopping. Do not probe unrelated production records.
 
 If Gemini remains intentionally disabled, verify the deterministic app works and the assistant returns a bounded disabled/unavailable state. If Gemini is later enabled with an approved shared limiter, run assistant smoke separately and verify no plan revision changes until explicit deterministic apply.
+
+## Planner abuse protection
+
+`POST /api/plans/generate`, `/api/plans/replacements-preview` and `/api/plans/replacements-apply` are the most expensive authenticated endpoints. When the shared limiter is configured they are throttled per authenticated user under the `bepnha:planner` namespace, separate from the assistant's `bepnha:assistant` counters. Defaults are in `PLANNER_RATE_LIMIT_CONFIG`: 10 accepted requests per rolling 60 seconds and 200 per UTC day. A denied request returns HTTP 429 with `PLANNER_RATE_LIMITED` and a `Retry-After` when one can be bounded.
+
+Quota is consumed only after the caller's token is verified, so an anonymous or forged request can never spend a real user's allowance.
+
+Unlike the assistant limiter, the planner limiter fails **open**. Planner endpoints are already behind authentication and RLS ownership, so a Redis outage must cost throttling rather than the core deterministic feature. Do not change this to fail closed without an explicit availability decision.
+
+When no Upstash configuration is present the handlers behave exactly as before, which keeps local and preview runtimes dependency-free.
+
+## Free-plan inactivity
+
+Supabase pauses Free Plan projects after 7 days of inactivity. Pausing does not destroy data — the project is restored from the dashboard and the first request afterwards cold-starts — but the application is unavailable until an operator restores it.
+
+`.github/workflows/supabase-keepalive.yml` issues a real PostgREST query twice a week and fails loudly if the project does not answer. It requires `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` repository secrets and must never be given a secret/service-role key.
+
+`GET /api/health` deliberately performs no database work, so pinging the deployed health endpoint does not reset the inactivity timer. Any replacement keep-alive must query the project API directly.
+
+GitHub disables scheduled workflows after 60 days without repository activity. Re-enable the workflow after a long quiet period, or remove it once the project moves to a paid plan, where projects do not pause.
+
+## Browser and API response policy
+
+Static responses carry `Strict-Transport-Security` and a `Content-Security-Policy` that allows `script-src 'self'` only — the production build emits one external module script and no inline script, so no script nonce or hash is required. `connect-src` allows the Supabase REST, Auth and Realtime origins the browser client uses; widen it only for an origin the application actually calls.
+
+`style-src` currently permits `'unsafe-inline'` because UI primitives may set inline style attributes at runtime. Tightening it requires verifying every rendered screen, not only the ones with automated coverage.
+
+API responses carry the stricter `default-src 'none'` policy. `src/infrastructure/server/security-headers.test.ts` locks both baselines, including the exact `vercel.json` values.
+
+Client-side error reporting is **not** wired to a third-party provider. `AppErrorBoundary` keeps an unexpected render failure from producing a blank document and exposes an `onError` hook, but no reporter is attached. A hosted reporter such as Sentry captures URL breadcrumbs by default, and BepNha routes contain plan identifiers (`/shopping/:planId`), which this runbook forbids sending to telemetry. Any reporter must be configured with URL and payload scrubbing reviewed against the privacy section below before it is enabled.
 
 ## Privacy, telemetry, and correlation IDs
 

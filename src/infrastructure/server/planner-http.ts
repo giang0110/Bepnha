@@ -7,6 +7,7 @@ import {
   type PlannerRepository
 } from "@/application/planner/planner-use-cases"
 import type { ContentHasher } from "@/application/shared/content-hasher"
+import type { RateLimiter } from "@/application/shared/rate-limiter"
 import {
   correlationId,
   createConsoleOperationalTelemetry,
@@ -33,6 +34,12 @@ interface PlannerHttpDependencies {
   readonly telemetry?: OperationalTelemetry
   readonly createCorrelationId?: () => string
   readonly now?: () => number
+  /**
+   * Abuse protection for the most expensive authenticated endpoints. Optional: when it is absent the
+   * handlers behave exactly as before, which keeps local and preview runtimes dependency-free.
+   */
+  readonly rateLimiter?: RateLimiter
+  readonly rateLimitNow?: () => number
 }
 
 const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu
@@ -295,6 +302,36 @@ function preflight(
   return true
 }
 
+async function withinRateLimit(
+  response: VercelResponse,
+  actorUserId: string,
+  dependencies: PlannerHttpDependencies,
+  finish: (httpStatus: number, outcomeCode: string) => void
+): Promise<boolean> {
+  const limiter = dependencies.rateLimiter
+  if (limiter === undefined) return true
+  // Quota is consumed only after the caller is authenticated, so an anonymous or forged request can
+  // never spend a real user's allowance.
+  let decision: Awaited<ReturnType<RateLimiter["consume"]>>
+  try {
+    decision = await limiter.consume({
+      actorUserId,
+      nowMs: (dependencies.rateLimitNow ?? Date.now)()
+    })
+  } catch {
+    // The adapter owns its own failure policy; a limiter that throws must never take the planner
+    // down, so abuse protection degrades rather than the feature.
+    return true
+  }
+  if (decision.allowed) return true
+  if (decision.retryAfterSeconds !== undefined) {
+    response.setHeader("Retry-After", String(decision.retryAfterSeconds))
+  }
+  response.status(429).json({ error: "PLANNER_RATE_LIMITED" })
+  finish(429, "PLANNER_RATE_LIMITED")
+  return false
+}
+
 function sendResult(
   response: VercelResponse,
   result: Awaited<ReturnType<typeof generateMealPlan>>,
@@ -335,6 +372,7 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
       if (!preflight(request, response, operational.finish)) return
       const actor = await identity(request, response, dependencies.auth, operational.finish)
       if (actor === null) return
+      if (!(await withinRateLimit(response, actor.userId, dependencies, operational.finish))) return
       const command = generationCommand(request.body)
       if (command === null) {
         response.status(400).json({ error: "VALIDATION_FAILED" })
@@ -358,6 +396,7 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
       if (!preflight(request, response, operational.finish)) return
       const actor = await identity(request, response, dependencies.auth, operational.finish)
       if (actor === null) return
+      if (!(await withinRateLimit(response, actor.userId, dependencies, operational.finish))) return
       const command = replacementCommand(request.body, false)
       if (command === null) {
         response.status(400).json({ error: "VALIDATION_FAILED" })
@@ -386,6 +425,7 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
       if (!preflight(request, response, operational.finish)) return
       const actor = await identity(request, response, dependencies.auth, operational.finish)
       if (actor === null) return
+      if (!(await withinRateLimit(response, actor.userId, dependencies, operational.finish))) return
       const command = replacementCommand(request.body, true)
       if (command === null) {
         response.status(400).json({ error: "VALIDATION_FAILED" })

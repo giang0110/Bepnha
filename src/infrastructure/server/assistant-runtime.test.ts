@@ -6,7 +6,10 @@ import type { AssistantRateLimiter } from "@/application/assistant/assistant-rat
 import type { MealAssistantPort } from "@/application/assistant/meal-assistant"
 import type { ServerAuthVerifier } from "@/infrastructure/supabase/server-auth"
 
-import { createAssistantRuntimeDependencies } from "./assistant-runtime"
+import {
+  createAssistantRuntimeDependencies,
+  createDefaultAssistantRateLimiter
+} from "./assistant-runtime"
 
 const auth: ServerAuthVerifier = { verify: vi.fn() }
 const context: AssistantContextRepository = { loadCurrent: vi.fn() }
@@ -169,5 +172,36 @@ describe("assistant runtime", () => {
       /createSupabasePlannerRepository|persistRevision|persist_meal_plan_revision/u
     )
     expect(source).not.toMatch(/VITE_GEMINI/u)
+  })
+})
+
+describe("default assistant rate-limit policy", () => {
+  const config = { burstLimit: 5, burstWindowMs: 60_000, dailyLimit: 50 }
+  const upstash = {
+    UPSTASH_REDIS_REST_URL: "https://example.upstash.io",
+    UPSTASH_REDIS_REST_TOKEN: "redis-token"
+  }
+
+  test("allows production Gemini once a shared limiter is configured", () => {
+    expect(
+      createDefaultAssistantRateLimiter(config, { ...upstash, VERCEL_ENV: "production" })
+    ).not.toBeNull()
+  })
+
+  test("still refuses production Gemini when only a per-instance limiter is available", () => {
+    expect(createDefaultAssistantRateLimiter(config, { VERCEL_ENV: "production" })).toBeNull()
+  })
+
+  test("refuses production Gemini when the shared limiter pair is incomplete", () => {
+    expect(
+      createDefaultAssistantRateLimiter(config, {
+        UPSTASH_REDIS_REST_URL: upstash.UPSTASH_REDIS_REST_URL,
+        VERCEL_ENV: "production"
+      })
+    ).toBeNull()
+  })
+
+  test("keeps the per-instance limiter usable outside production", () => {
+    expect(createDefaultAssistantRateLimiter(config, { VERCEL_ENV: "preview" })).not.toBeNull()
   })
 })
