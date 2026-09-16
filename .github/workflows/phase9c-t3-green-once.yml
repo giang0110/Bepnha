@@ -1,0 +1,537 @@
+name: Phase 9C Task 3 Green Once
+
+on:
+  push:
+    branches:
+      - codex/phase-9c-t3-red
+    paths:
+      - .github/workflows/phase9c-t3-green-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/phase-9c-t3-red
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Implement Task 3 planner
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/catalog-pack/catalog-mutation-planner.ts")
+          text = path.read_text()
+
+          old_import = '''import type {
+            CatalogMutationDiagnostic,
+            CatalogMutationDiagnosticCode,
+            CatalogMutationPlanV1,
+            MutationPlanBindingV1
+          } from "./catalog-mutation-types.ts"'''
+          new_import = '''import type {
+            CatalogMutationDiagnostic,
+            CatalogMutationDiagnosticCode,
+            CatalogMutationOperationKind,
+            CatalogMutationPlanOperationV1,
+            CatalogMutationPlanV1,
+            MutationBindingReference,
+            MutationOperationOutputReference,
+            MutationPlanBindingV1
+          } from "./catalog-mutation-types.ts"'''
+          if old_import not in text:
+              raise SystemExit("planner type import marker not found")
+          text = text.replace(old_import, new_import, 1)
+
+          marker = '''export function planCatalogMutations(
+            inputBytes: Uint8Array,
+            manifestBytes: Uint8Array
+          ): CatalogMutationPlanV1 {'''
+          if marker not in text:
+              raise SystemExit("planner function marker not found")
+
+          helper = r'''const operationId = {
+            createFood: (code: string): string => `create_food:${code}`,
+            saveFoodFact: (code: string, version: number): string =>
+              `save_food_fact_draft:${code}:${version}`,
+            publishFoodFact: (code: string, version: number): string =>
+              `publish_food_fact:${code}:${version}`,
+            createRecipe: (code: string): string => `create_recipe:${code}`,
+            saveRecipe: (code: string, version: number): string =>
+              `save_recipe_version_draft:${code}:${version}`,
+            publishRecipe: (code: string, version: number): string =>
+              `publish_recipe:${code}:${version}`,
+            createPriceBook: (region: string, version: number): string =>
+              `create_price_book:${region}:${version}`,
+            savePriceBook: (region: string, version: number): string =>
+              `save_price_book_draft:${region}:${version}`,
+            publishPriceBook: (region: string, version: number): string =>
+              `publish_price_book:${region}:${version}`,
+            createMealOption: (code: string): string => `create_meal_option:${code}`,
+            saveMealOption: (code: string, version: number): string =>
+              `save_meal_option_version_draft:${code}:${version}`,
+            publishMealOption: (code: string, version: number): string =>
+              `publish_meal_option:${code}:${version}`
+          } as const
+
+          const operationRank: Record<CatalogMutationOperationKind, number> = {
+            create_food: 1,
+            save_food_fact_draft: 2,
+            publish_food_fact: 3,
+            create_recipe: 4,
+            save_recipe_version_draft: 5,
+            publish_recipe: 6,
+            create_price_book: 7,
+            save_price_book_draft: 8,
+            publish_price_book: 9,
+            create_meal_option: 10,
+            save_meal_option_version_draft: 11,
+            publish_meal_option: 12
+          }
+
+          const commandOutputs = ["id", "revision", "status"] as const
+
+          const bind = (handle: string): MutationBindingReference => ({ $binding: handle })
+
+          const output = (
+            operation: string,
+            field: "id" | "revision"
+          ): MutationOperationOutputReference => ({
+            $operationOutput: { operationId: operation, field }
+          })
+
+          function operationCompare(
+            left: CatalogMutationPlanOperationV1,
+            right: CatalogMutationPlanOperationV1
+          ): number {
+            const rankDifference = operationRank[left.kind] - operationRank[right.kind]
+            if (rankDifference !== 0) return rankDifference
+            const logicalDifference = lexical(left.logicalKey, right.logicalKey)
+            return logicalDifference !== 0 ? logicalDifference : lexical(left.operationId, right.operationId)
+          }
+
+          export function orderMutationOperations(
+            operations: readonly CatalogMutationPlanOperationV1[]
+          ):
+            | { readonly ok: true; readonly operations: readonly CatalogMutationPlanOperationV1[] }
+            | { readonly ok: false; readonly code: "DEPENDENCY_MISSING" | "DEPENDENCY_CYCLE" } {
+            const normalized = operations.map((operation) => ({
+              ...operation,
+              dependsOn: uniqueCodes(operation.dependsOn)
+            }))
+            const byId = new Map(normalized.map((operation) => [operation.operationId, operation]))
+            if (byId.size !== normalized.length) return { ok: false, code: "DEPENDENCY_MISSING" }
+
+            const indegree = new Map<string, number>()
+            const dependents = new Map<string, string[]>()
+            for (const operation of normalized) {
+              indegree.set(operation.operationId, operation.dependsOn.length)
+              for (const dependency of operation.dependsOn) {
+                if (!byId.has(dependency)) return { ok: false, code: "DEPENDENCY_MISSING" }
+                const rows = dependents.get(dependency) ?? []
+                rows.push(operation.operationId)
+                dependents.set(dependency, rows)
+              }
+            }
+
+            const ready = normalized
+              .filter((operation) => indegree.get(operation.operationId) === 0)
+              .sort(operationCompare)
+            const ordered: CatalogMutationPlanOperationV1[] = []
+
+            while (ready.length > 0) {
+              const next = ready.shift()
+              if (next === undefined) break
+              ordered.push(next)
+              for (const dependentId of dependents.get(next.operationId) ?? []) {
+                const remaining = (indegree.get(dependentId) ?? 0) - 1
+                indegree.set(dependentId, remaining)
+                if (remaining === 0) {
+                  const dependent = byId.get(dependentId)
+                  if (dependent !== undefined) ready.push(dependent)
+                }
+              }
+              ready.sort(operationCompare)
+            }
+
+            return ordered.length === normalized.length
+              ? { ok: true, operations: ordered }
+              : { ok: false, code: "DEPENDENCY_CYCLE" }
+          }
+
+          function recipeTagHandle(
+            manifest: ResolvedCatalogManifestV1,
+            code: string
+          ): string | null {
+            const matches = manifest.references.recipeTags.filter((reference) => reference.code === code)
+            return matches.length === 1
+              ? `reference:recipe_tag:${matches[0]?.kind}:${code}`
+              : null
+          }
+
+          function buildOperations(
+            pack: CatalogPackV1,
+            manifest: ResolvedCatalogManifestV1
+          ): CatalogMutationPlanOperationV1[] {
+            const operations: CatalogMutationPlanOperationV1[] = []
+            const foodFactPublishes = new Map<string, string>()
+            const recipePublishes = new Map<string, string>()
+
+            for (const food of [...pack.foods].sort((left, right) => lexical(left.code, right.code))) {
+              const target = manifest.foods.find((item) => item.code === food.code)
+              if (target === undefined) continue
+              const createId = operationId.createFood(food.code)
+              const saveId = operationId.saveFoodFact(food.code, food.fact.versionNumber)
+              const publishId = operationId.publishFoodFact(food.code, food.fact.versionNumber)
+
+              if (target.identity.state === "missing") {
+                operations.push({
+                  operationId: createId,
+                  kind: "create_food",
+                  logicalKey: `food:${food.code}`,
+                  dependsOn: [],
+                  input: {
+                    code: food.code,
+                    nameVi: food.nameVi,
+                    baseDimension: food.baseDimension,
+                    baseUnitId: bind(`reference:unit:${food.baseUnitCode}`)
+                  },
+                  outputs: commandOutputs
+                })
+              }
+
+              operations.push({
+                operationId: saveId,
+                kind: "save_food_fact_draft",
+                logicalKey: `food_fact:${food.code}:${food.fact.versionNumber}`,
+                dependsOn: target.identity.state === "missing" ? [createId] : [],
+                input: {
+                  foodFactVersionId: bind(foodFactVersionHandle(food.code, food.fact.versionNumber)),
+                  expectedRevision: 1,
+                  foodId: bind(foodIdentityHandle(food.code)),
+                  versionNumber: food.fact.versionNumber,
+                  categoryId: bind(`reference:category:${food.fact.categoryCode}`),
+                  edibleFraction: food.fact.edibleFraction,
+                  provenance: food.fact.provenance,
+                  allergenAssessments: food.fact.allergenAssessments,
+                  nutrients: food.fact.nutrients,
+                  categoryAncestry: food.fact.categoryAncestry,
+                  dietaryTagCodes: food.fact.dietaryTagCodes,
+                  conversions: food.fact.conversions.map((conversion) => ({
+                    unitId: bind(`reference:unit:${conversion.unitCode}`),
+                    baseQuantityPerUnit: conversion.baseQuantityPerUnit,
+                    grossGramsPerUnit: conversion.grossGramsPerUnit,
+                    displayStep: conversion.displayStep,
+                    provenance: conversion.provenance
+                  }))
+                },
+                outputs: commandOutputs
+              })
+              operations.push({
+                operationId: publishId,
+                kind: "publish_food_fact",
+                logicalKey: `food_fact:${food.code}:${food.fact.versionNumber}`,
+                dependsOn: [saveId],
+                input: {
+                  foodFactVersionId: bind(foodFactVersionHandle(food.code, food.fact.versionNumber)),
+                  expectedRevision: output(saveId, "revision")
+                },
+                outputs: commandOutputs
+              })
+              foodFactPublishes.set(`${food.code}:${food.fact.versionNumber}`, publishId)
+            }
+
+            for (const recipe of [...pack.recipes].sort((left, right) => lexical(left.code, right.code))) {
+              const target = manifest.recipes.find((item) => item.code === recipe.code)
+              if (target === undefined) continue
+              const version = recipe.version.versionNumber
+              const createId = operationId.createRecipe(recipe.code)
+              const saveId = operationId.saveRecipe(recipe.code, version)
+              const publishId = operationId.publishRecipe(recipe.code, version)
+              const dependencies = target.identity.state === "missing" ? [createId] : []
+              for (const ingredient of recipe.version.ingredients) {
+                const dependency = foodFactPublishes.get(
+                  `${ingredient.foodCode}:${ingredient.foodFactVersionNumber}`
+                )
+                if (dependency !== undefined) dependencies.push(dependency)
+              }
+
+              if (target.identity.state === "missing") {
+                operations.push({
+                  operationId: createId,
+                  kind: "create_recipe",
+                  logicalKey: `recipe:${recipe.code}`,
+                  dependsOn: [],
+                  input: { code: recipe.code, nameVi: recipe.nameVi },
+                  outputs: commandOutputs
+                })
+              }
+
+              const tagHandles = recipe.version.tagCodes
+                .map((code) => recipeTagHandle(manifest, code))
+                .filter((handle): handle is string => handle !== null)
+                .sort(lexical)
+
+              operations.push({
+                operationId: saveId,
+                kind: "save_recipe_version_draft",
+                logicalKey: `recipe_version:${recipe.code}:${version}`,
+                dependsOn: uniqueCodes(dependencies),
+                input: {
+                  recipeVersionId: bind(recipeVersionHandle(recipe.code, version)),
+                  expectedRevision: 1,
+                  recipeId: bind(recipeIdentityHandle(recipe.code)),
+                  versionNumber: version,
+                  yieldAdultEquivalent: recipe.version.yieldAdultEquivalent,
+                  activeMinutes: recipe.version.activeMinutes,
+                  elapsedMinutes: recipe.version.elapsedMinutes,
+                  ingredients: recipe.version.ingredients.map((ingredient) => ({
+                    recipeIngredientId: `ingredient:${recipe.code}:${ingredient.ingredientCode}`,
+                    foodId: bind(foodIdentityHandle(ingredient.foodCode)),
+                    foodFactVersionId: bind(
+                      foodFactVersionHandle(ingredient.foodCode, ingredient.foodFactVersionNumber)
+                    ),
+                    quantity: ingredient.quantity,
+                    unitId: bind(`reference:unit:${ingredient.unitCode}`),
+                    preparationNoteVi: ingredient.preparationNoteVi,
+                    order: ingredient.order
+                  })),
+                  steps: recipe.version.steps.map((step) => ({
+                    order: step.order,
+                    instructionVi: step.instructionVi,
+                    timerMinutes: step.timerMinutes,
+                    ingredientIds: step.ingredientCodes.map(
+                      (code) => `ingredient:${recipe.code}:${code}`
+                    )
+                  })),
+                  tagIds: tagHandles.map(bind)
+                },
+                outputs: commandOutputs
+              })
+              operations.push({
+                operationId: publishId,
+                kind: "publish_recipe",
+                logicalKey: `recipe_version:${recipe.code}:${version}`,
+                dependsOn: [saveId],
+                input: {
+                  recipeVersionId: bind(recipeVersionHandle(recipe.code, version)),
+                  expectedRevision: output(saveId, "revision")
+                },
+                outputs: commandOutputs
+              })
+              recipePublishes.set(`${recipe.code}:${version}`, publishId)
+            }
+
+            const priceBook = pack.priceBook
+            const priceCreateId = operationId.createPriceBook(priceBook.regionCode, priceBook.versionNumber)
+            const priceSaveId = operationId.savePriceBook(priceBook.regionCode, priceBook.versionNumber)
+            const pricePublishId = operationId.publishPriceBook(priceBook.regionCode, priceBook.versionNumber)
+            const priceDependencies = [priceCreateId]
+            for (const price of priceBook.prices) {
+              const dependency = foodFactPublishes.get(
+                `${price.foodCode}:${price.foodFactVersionNumber}`
+              )
+              if (dependency !== undefined) priceDependencies.push(dependency)
+            }
+            const canonicalPrices = [...priceBook.prices].sort((left, right) => {
+              const leftKey = `${left.foodCode}:${left.foodFactVersionNumber}:${left.packageUnitCode}:${left.observedAt}:${left.sourceReference}`
+              const rightKey = `${right.foodCode}:${right.foodFactVersionNumber}:${right.packageUnitCode}:${right.observedAt}:${right.sourceReference}`
+              return lexical(leftKey, rightKey)
+            })
+
+            operations.push({
+              operationId: priceCreateId,
+              kind: "create_price_book",
+              logicalKey: `price_book:${priceBook.regionCode}:${priceBook.versionNumber}`,
+              dependsOn: [],
+              input: {
+                regionId: bind(`reference:price_region:${priceBook.regionCode}`),
+                versionNumber: priceBook.versionNumber,
+                effectiveFrom: priceBook.effectiveFrom,
+                effectiveTo: priceBook.effectiveTo
+              },
+              outputs: commandOutputs
+            })
+            operations.push({
+              operationId: priceSaveId,
+              kind: "save_price_book_draft",
+              logicalKey: `price_book:${priceBook.regionCode}:${priceBook.versionNumber}`,
+              dependsOn: uniqueCodes(priceDependencies),
+              input: {
+                priceBookId: bind(priceBookHandle(priceBook.regionCode, priceBook.versionNumber)),
+                expectedRevision: output(priceCreateId, "revision"),
+                effectiveFrom: priceBook.effectiveFrom,
+                effectiveTo: priceBook.effectiveTo,
+                prices: canonicalPrices.map((price) => ({
+                  foodPriceId: `price:${priceBook.regionCode}:${priceBook.versionNumber}:${price.foodCode}`,
+                  foodId: bind(foodIdentityHandle(price.foodCode)),
+                  foodFactVersionId: bind(
+                    foodFactVersionHandle(price.foodCode, price.foodFactVersionNumber)
+                  ),
+                  packageQuantity: price.packageQuantity,
+                  packageUnitId: bind(`reference:unit:${price.packageUnitCode}`),
+                  packageBaseQuantity: price.packageBaseQuantity,
+                  baseUnitId: bind(`reference:unit:${price.baseUnitCode}`),
+                  packagePriceVnd: price.packagePriceVnd,
+                  purchaseIncrement: price.purchaseIncrement,
+                  observedAt: price.observedAt,
+                  sourceReference: price.sourceReference
+                }))
+              },
+              outputs: commandOutputs
+            })
+            operations.push({
+              operationId: pricePublishId,
+              kind: "publish_price_book",
+              logicalKey: `price_book:${priceBook.regionCode}:${priceBook.versionNumber}`,
+              dependsOn: [priceSaveId],
+              input: {
+                priceBookId: bind(priceBookHandle(priceBook.regionCode, priceBook.versionNumber)),
+                expectedRevision: output(priceSaveId, "revision")
+              },
+              outputs: commandOutputs
+            })
+
+            for (const mealOption of [...pack.mealOptions].sort((left, right) =>
+              lexical(left.code, right.code)
+            )) {
+              const target = manifest.mealOptions.find((item) => item.code === mealOption.code)
+              if (target === undefined) continue
+              const version = mealOption.version.versionNumber
+              const createId = operationId.createMealOption(mealOption.code)
+              const saveId = operationId.saveMealOption(mealOption.code, version)
+              const publishId = operationId.publishMealOption(mealOption.code, version)
+              const dependencies = target.identity.state === "missing" ? [createId] : []
+              for (const component of mealOption.version.components) {
+                const dependency = recipePublishes.get(
+                  `${component.recipeCode}:${component.recipeVersionNumber}`
+                )
+                if (dependency !== undefined) dependencies.push(dependency)
+              }
+
+              if (target.identity.state === "missing") {
+                operations.push({
+                  operationId: createId,
+                  kind: "create_meal_option",
+                  logicalKey: `meal_option:${mealOption.code}`,
+                  dependsOn: [],
+                  input: { code: mealOption.code, nameVi: mealOption.nameVi },
+                  outputs: commandOutputs
+                })
+              }
+
+              const tagHandles = uniqueCodes([
+                `reference:recipe_tag:protein_hint:${mealOption.version.proteinHintCode}`,
+                ...mealOption.version.cookingStyleCodes.map(
+                  (code) => `reference:recipe_tag:cooking_style:${code}`
+                ),
+                ...mealOption.version.dishRoleCodes.map(
+                  (code) => `reference:recipe_tag:dish_role:${code}`
+                )
+              ])
+
+              operations.push({
+                operationId: saveId,
+                kind: "save_meal_option_version_draft",
+                logicalKey: `meal_option_version:${mealOption.code}:${version}`,
+                dependsOn: uniqueCodes(dependencies),
+                input: {
+                  mealOptionVersionId: bind(mealOptionVersionHandle(mealOption.code, version)),
+                  mealOptionId: bind(mealOptionIdentityHandle(mealOption.code)),
+                  expectedRevision: 1,
+                  versionNumber: version,
+                  yieldAdultEquivalent: mealOption.version.yieldAdultEquivalent,
+                  activeMinutes: mealOption.version.activeMinutes,
+                  elapsedMinutes: mealOption.version.elapsedMinutes,
+                  components: mealOption.version.components.map((component) => ({
+                    recipeId: bind(recipeIdentityHandle(component.recipeCode)),
+                    recipeVersionId: bind(
+                      recipeVersionHandle(component.recipeCode, component.recipeVersionNumber)
+                    ),
+                    quantityMultiplier: component.quantityMultiplier,
+                    mealRole: component.mealRole,
+                    order: component.order
+                  })),
+                  tagIds: tagHandles.map(bind)
+                },
+                outputs: commandOutputs
+              })
+              operations.push({
+                operationId: publishId,
+                kind: "publish_meal_option",
+                logicalKey: `meal_option_version:${mealOption.code}:${version}`,
+                dependsOn: [saveId],
+                input: {
+                  mealOptionVersionId: bind(mealOptionVersionHandle(mealOption.code, version)),
+                  expectedRevision: output(saveId, "revision")
+                },
+                outputs: commandOutputs
+              })
+            }
+
+            return operations
+          }
+
+          '''
+          text = text.replace(marker, helper + marker, 1)
+
+          tail_marker = '''  return {
+            schemaVersion: "1",
+            catalogCode: pack.catalogCode,'''
+          tail_replacement = '''  const orderedOperations = orderMutationOperations(buildOperations(pack, manifest))
+            if (!orderedOperations.ok) {
+              return failurePlan(
+                pack.catalogCode,
+                phase9A.inputSha256,
+                resolvedManifestSha256,
+                manifest.productionSnapshotSha256,
+                diagnostic(
+                  orderedOperations.code,
+                  "$.operations",
+                  orderedOperations.code === "DEPENDENCY_MISSING"
+                    ? "Mutation plan contains a missing operation dependency"
+                    : "Mutation plan contains a dependency cycle"
+                )
+              )
+            }
+
+            return {
+            schemaVersion: "1",
+            catalogCode: pack.catalogCode,'''
+          if tail_marker not in text:
+              raise SystemExit("planner success return marker not found")
+          text = text.replace(tail_marker, tail_replacement, 1)
+
+          old_operations = '''    operations: [],
+            bindings: buildBindings(pack, manifest),'''
+          new_operations = '''    operations: orderedOperations.operations,
+            bindings: buildBindings(pack, manifest),'''
+          if old_operations not in text:
+              raise SystemExit("planner operations marker not found")
+          text = text.replace(old_operations, new_operations, 1)
+
+          path.write_text(text)
+          PY
+      - run: npx prettier --write scripts/catalog-pack/catalog-mutation-planner.ts
+      - run: npx vitest run scripts/catalog-pack/catalog-mutation-planner.test.ts --reporter=verbose
+      - run: npm run typecheck
+      - run: npx prettier --check scripts/catalog-pack/catalog-mutation-planner.ts scripts/catalog-pack/catalog-mutation-planner.test.ts
+      - run: git diff --check
+      - name: Commit GREEN implementation
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/catalog-pack/catalog-mutation-planner.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: build Phase 9C mutation plan DAG"
+          git push origin HEAD:codex/phase-9c-t3-red
