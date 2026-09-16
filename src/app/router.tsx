@@ -10,6 +10,7 @@ import { RequireAuth } from "@/app/auth/require-auth"
 import { NotFoundPage } from "@/app/not-found-page"
 import type { AssistantApi } from "@/features/assistant/assistant-api"
 import { SignInPage } from "@/features/auth/sign-in-page"
+import { PrivacyPage, TermsPage } from "@/features/legal/legal-page"
 import { SignUpPage } from "@/features/auth/sign-up-page"
 import type { PlannerApi } from "@/features/plans/planner-api"
 
@@ -134,6 +135,8 @@ export function AppRouter({
           }
         />
       </Route>
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )

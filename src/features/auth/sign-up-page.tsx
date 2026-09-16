@@ -79,6 +79,14 @@ export function SignUpPage() {
           Đăng nhập
         </Link>
       </p>
+      <p className="flex flex-wrap gap-4 text-sm">
+        <Link className="underline" to="/privacy">
+          Chính sách riêng tư
+        </Link>
+        <Link className="underline" to="/terms">
+          Điều khoản sử dụng
+        </Link>
+      </p>
     </main>
   )
 }

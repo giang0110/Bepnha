@@ -285,6 +285,26 @@ API responses carry the stricter `default-src 'none'` policy. `src/infrastructur
 
 Client-side error reporting is **not** wired to a third-party provider. `AppErrorBoundary` keeps an unexpected render failure from producing a blank document and exposes an `onError` hook, but no reporter is attached. A hosted reporter such as Sentry captures URL breadcrumbs by default, and BepNha routes contain plan identifiers (`/shopping/:planId`), which this runbook forbids sending to telemetry. Any reporter must be configured with URL and payload scrubbing reviewed against the privacy section below before it is enabled.
 
+## Published legal notices
+
+`/privacy` and `/terms` are public routes linked from sign-in and sign-up. Their content is derived
+from the actual schema and module boundaries rather than a template: the collection inventory, the
+non-collection guarantees, the assistant-provider exclusions and the fail-closed allergy rule all
+restate behaviour this repository enforces. A migration that starts storing something new makes
+`src/features/legal/legal-content.ts` wrong until it is updated in the same change.
+
+Two launch blockers remain, neither of which the codebase can supply:
+
+- **Operator contact.** `LEGAL_OPERATOR.contactEmail` is an unset placeholder on the reserved
+  `.invalid` domain (RFC 2606), chosen so it can never silently ship as an address that delivers
+  somewhere unintended — mail to it is guaranteed to bounce. Replace it with a monitored address
+  before any public launch, and name the data controller alongside it.
+- **Legal review.** These notices were drafted from the system's real behaviour, not by a lawyer.
+  They are accurate about what the software does; whether they satisfy the obligations that apply to
+  the operator is a separate question that a qualified reviewer must answer before launch.
+
+Do not publish the application to real households with the placeholder contact still in place.
+
 ## Privacy, telemetry, and correlation IDs
 
 Never send Supabase tokens, secret keys, user/household/plan/revision IDs, idempotency keys, raw planner snapshots, pantry rows, unpublished catalog data, or full candidate search space to Gemini.
