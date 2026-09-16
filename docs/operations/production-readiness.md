@@ -329,6 +329,35 @@ Two production settings are required before this feature works for real users:
 
 Neither setting lives in this repository. Record both in the release evidence.
 
+## Account deletion
+
+`/settings/account` lets an owner delete their own account. `DELETE /api/account` verifies the
+caller's token, then removes that auth user with the server-only secret key. `profiles` and
+`households` reference `auth.users` with `on delete cascade`, and the household cascades onward, so
+member groups, rules, plans, revisions, pantry rows and shopping rows go with it in one transaction.
+
+Deletion is immediate and permanent by design: no grace period, no export step, no soft-delete flag.
+The confirmation is a retyped email that must match the signed-in address exactly, and the button
+stays disabled until it does.
+
+The endpoint never accepts a target account identifier. It deletes whoever the verified token
+belongs to and nothing else, and the request body is rejected unless its only key is the
+confirmation sentinel — so no request shape exists that could name someone else's household. The
+secret-backed deleter is constructed lazily, after verification, so an unauthenticated request never
+reaches the secret key.
+
+Catalog authorship is the one account that cannot self-delete. `food_fact_versions`,
+`recipe_versions`, `recipe_version_tags`, `price_books` and `meal_option_versions` reference
+`auth.users` with `on delete restrict`, as does `admin_audit_log.actor_user_id`. Removing such an
+account would destroy immutable catalog provenance, so the endpoint answers
+`ACCOUNT_RETAINED_FOR_CATALOG_AUTHORSHIP` with HTTP 409 and the UI tells the owner to contact the
+operator. That is a deliberate refusal, not a fault: never widen the constraint to force a delete
+through.
+
+Operator obligations that remain outside the application: verifying a deletion request that arrives
+by email or support channel rather than through the signed-in UI, deciding what to do for a catalog
+author who asks to leave, and recording completion evidence. Retain no secrets in support tickets.
+
 ## Privacy, telemetry, and correlation IDs
 
 Never send Supabase tokens, secret keys, user/household/plan/revision IDs, idempotency keys, raw planner snapshots, pantry rows, unpublished catalog data, or full candidate search space to Gemini.

@@ -8,6 +8,7 @@ import type { ShoppingListRepository } from "@/application/shopping/shopping-lis
 import { useAuth } from "@/app/auth/auth-context"
 import { RequireAuth } from "@/app/auth/require-auth"
 import { NotFoundPage } from "@/app/not-found-page"
+import type { AccountApi } from "@/application/account/account-deletion"
 import type { AssistantApi } from "@/features/assistant/assistant-api"
 import { ForgotPasswordPage } from "@/features/auth/forgot-password-page"
 import { ResetPasswordPage } from "@/features/auth/reset-password-page"
@@ -16,6 +17,9 @@ import { PrivacyPage, TermsPage } from "@/features/legal/legal-page"
 import { SignUpPage } from "@/features/auth/sign-up-page"
 import type { PlannerApi } from "@/features/plans/planner-api"
 
+const AccountSettingsPage = lazy(async () => ({
+  default: (await import("@/features/account/account-settings-page")).AccountSettingsPage
+}))
 const AssistantCard = lazy(async () => ({
   default: (await import("@/features/assistant/assistant-card")).AssistantCard
 }))
@@ -52,6 +56,7 @@ function HomeRedirect() {
 }
 
 export function AppRouter({
+  accountApi,
   assistantApi,
   householdRepository,
   pantryFoodOptionsRepository,
@@ -59,6 +64,7 @@ export function AppRouter({
   plannerApi,
   shoppingListRepository
 }: Readonly<{
+  accountApi: AccountApi
   assistantApi: AssistantApi
   householdRepository: HouseholdRepository
   pantryFoodOptionsRepository: PantryFoodOptionsRepository
@@ -89,6 +95,14 @@ export function AppRouter({
           element={
             <Suspense fallback={<ProtectedRouteFallback />}>
               <HouseholdSummaryPage repository={householdRepository} />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/settings/account"
+          element={
+            <Suspense fallback={<ProtectedRouteFallback />}>
+              <AccountSettingsPage accountApi={accountApi} />
             </Suspense>
           }
         />
