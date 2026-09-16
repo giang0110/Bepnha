@@ -4,6 +4,10 @@ import { NodeContentHasher } from "@/infrastructure/server/node-content-hasher"
 import { createPlannerHttpHandlers } from "@/infrastructure/server/planner-http"
 import { createSupabasePlannerInputLoader } from "@/infrastructure/server/supabase-planner-input-loader"
 import { createSupabasePlannerRepository } from "@/infrastructure/server/supabase-planner-repository"
+import {
+  createUpstashRateLimiter,
+  readUpstashRestConfig
+} from "@/infrastructure/server/upstash-rate-limiter"
 import type { Database } from "@/infrastructure/supabase/database.types"
 import { createServerSupabaseAuthVerifier } from "@/infrastructure/supabase/server-auth"
 
@@ -14,6 +18,29 @@ function publicConfig() {
     throw new Error("PLANNER_CONFIG_UNAVAILABLE")
   return { url, publishableKey }
 }
+
+export const PLANNER_RATE_LIMIT_NAMESPACE = "bepnha:planner"
+
+export const PLANNER_RATE_LIMIT_CONFIG = {
+  burstLimit: 10,
+  burstWindowMs: 60_000,
+  dailyLimit: 200
+} as const
+
+function plannerRateLimiter() {
+  const rest = readUpstashRestConfig(process.env)
+  if (rest === null) return undefined
+  return createUpstashRateLimiter({
+    namespace: PLANNER_RATE_LIMIT_NAMESPACE,
+    config: PLANNER_RATE_LIMIT_CONFIG,
+    rest,
+    // Planner generation is already behind authentication and RLS ownership, so a Redis outage
+    // should cost throttling, not the core feature.
+    failureMode: "allow"
+  })
+}
+
+const rateLimiter = plannerRateLimiter()
 
 export const plannerHttpHandlers = createPlannerHttpHandlers({
   auth: {
@@ -54,5 +81,6 @@ export const plannerHttpHandlers = createPlannerHttpHandlers({
       }
     })
   },
-  hasher: new NodeContentHasher()
+  hasher: new NodeContentHasher(),
+  ...(rateLimiter === undefined ? {} : { rateLimiter })
 })

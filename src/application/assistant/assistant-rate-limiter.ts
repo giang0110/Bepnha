@@ -1,15 +1,11 @@
-export interface AssistantRateLimitRequest {
-  readonly actorUserId: string
-  readonly nowMs: number
-}
+import type {
+  RateLimitDecision,
+  RateLimiter,
+  RateLimitRequest
+} from "@/application/shared/rate-limiter"
 
-export type AssistantRateLimitDecision =
-  | { readonly allowed: true }
-  | {
-      readonly allowed: false
-      readonly retryAfterSeconds?: number
-    }
+export type AssistantRateLimitRequest = RateLimitRequest
 
-export interface AssistantRateLimiter {
-  consume(request: AssistantRateLimitRequest): Promise<AssistantRateLimitDecision>
-}
+export type AssistantRateLimitDecision = RateLimitDecision
+
+export type AssistantRateLimiter = RateLimiter

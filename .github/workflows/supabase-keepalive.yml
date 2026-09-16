@@ -1,0 +1,68 @@
+name: Supabase keep-alive
+
+# Supabase pauses Free Plan projects after 7 days of inactivity. Pausing does not lose data, but the
+# project must be restored by hand and the first request afterwards cold-starts. Any real database
+# request resets the timer, so this hits PostgREST twice a week with plenty of margin.
+#
+# `api/health.ts` deliberately does not touch the database, so pinging the deployed health endpoint
+# would NOT reset the timer. This workflow must keep querying the project API directly.
+#
+# Required repository secrets:
+#   SUPABASE_URL              - e.g. https://<ref>.supabase.co
+#   SUPABASE_PUBLISHABLE_KEY  - the public anon/publishable key, never a secret/service-role key
+#
+# Once the project is on a paid plan this workflow can be deleted; paid projects do not pause.
+# Note that GitHub disables scheduled workflows after 60 days without repository activity.
+
+on:
+  schedule:
+    - cron: "0 3 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query the project API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_PUBLISHABLE_KEY}" ]; then
+            echo "SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY repository secrets are required." >&2
+            exit 1
+          fi
+
+          # RLS keeps this anonymous read empty, which is fine: the point is that PostgREST reaches
+          # the database. Only the HTTP status is printed, never the response body or the key.
+          status="$(curl \
+            --silent \
+            --show-error \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            --max-time 30 \
+            --retry 3 \
+            --retry-delay 10 \
+            --retry-all-errors \
+            --header "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
+            --header "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}" \
+            "${SUPABASE_URL}/rest/v1/units?select=id&limit=1")"
+
+          echo "PostgREST responded with HTTP ${status}."
+
+          case "${status}" in
+            200 | 206) exit 0 ;;
+            *)
+              echo "Keep-alive ping failed; the project may already be paused." >&2
+              exit 1
+              ;;
+          esac

@@ -4,8 +4,14 @@ import { createClient } from "@supabase/supabase-js"
 import type { AssistantContextRepository } from "@/application/assistant/assistant-context-repository"
 import type { AssistantRateLimiter } from "@/application/assistant/assistant-rate-limiter"
 import type { MealAssistantPort } from "@/application/assistant/meal-assistant"
+import type { RateLimitConfig } from "@/application/shared/rate-limiter"
 import { createGeminiMealAssistant } from "@/infrastructure/server/gemini-meal-assistant"
 import { createInMemoryAssistantRateLimiter } from "@/infrastructure/server/in-memory-assistant-rate-limiter"
+import {
+  createUpstashRateLimiter,
+  readUpstashRestConfig,
+  type UpstashEnvironment
+} from "@/infrastructure/server/upstash-rate-limiter"
 import { createSupabaseAssistantContextRepository } from "@/infrastructure/server/supabase-assistant-context-repository"
 import { createSupabasePlannerInputLoader } from "@/infrastructure/server/supabase-planner-input-loader"
 import type { Database } from "@/infrastructure/supabase/database.types"
@@ -14,7 +20,9 @@ import {
   type ServerAuthVerifier
 } from "@/infrastructure/supabase/server-auth"
 
-export interface AssistantRuntimeEnvironment {
+export const ASSISTANT_RATE_LIMIT_NAMESPACE = "bepnha:assistant"
+
+export interface AssistantRuntimeEnvironment extends UpstashEnvironment {
   readonly SUPABASE_URL?: string
   readonly SUPABASE_PUBLISHABLE_KEY?: string
   readonly GEMINI_API_KEY?: string
@@ -27,12 +35,6 @@ export interface AssistantRuntimeEnvironment {
 interface PublicConfig {
   readonly url: string
   readonly publishableKey: string
-}
-
-interface RateLimitConfig {
-  readonly burstLimit: number
-  readonly burstWindowMs: number
-  readonly dailyLimit: number
 }
 
 interface RuntimeFactories {
@@ -111,14 +113,32 @@ function createGeminiAssistant(apiKey: string, model: string): MealAssistantPort
   })
 }
 
+/**
+ * Production may only run Gemini behind a limiter that is shared across instances. Upstash provides
+ * that; the per-instance in-memory limiter stays available for local and preview runtimes only.
+ */
+export function createDefaultAssistantRateLimiter(
+  config: RateLimitConfig,
+  environment: AssistantRuntimeEnvironment
+): AssistantRateLimiter | null {
+  const rest = readUpstashRestConfig(environment)
+  if (rest !== null) {
+    return createUpstashRateLimiter({
+      namespace: ASSISTANT_RATE_LIMIT_NAMESPACE,
+      config,
+      rest,
+      failureMode: "deny"
+    })
+  }
+  if (environment.VERCEL_ENV === "production") return null
+  return createInMemoryAssistantRateLimiter(config)
+}
+
 const defaultFactories: RuntimeFactories = {
   createAuth: createServerSupabaseAuthVerifier,
   createContext,
   createGeminiAssistant,
-  createRateLimiter(config, environment) {
-    if (environment.VERCEL_ENV === "production") return null
-    return createInMemoryAssistantRateLimiter(config)
-  }
+  createRateLimiter: createDefaultAssistantRateLimiter
 }
 
 export function createAssistantRuntimeDependencies(

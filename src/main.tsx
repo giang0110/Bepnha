@@ -2,6 +2,7 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
 import App from "@/app/App"
+import { AppErrorBoundary } from "@/app/app-error-boundary"
 import { createPlannerApi } from "@/features/plans/planner-api"
 import "@/index.css"
 import { createBrowserSupabaseClient } from "@/infrastructure/supabase/browser-client"
@@ -30,13 +31,15 @@ const shoppingListRepository = createSupabaseShoppingListRepository(supabase)
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App
-      authSession={authSession}
-      householdRepository={householdRepository}
-      pantryFoodOptionsRepository={pantryFoodOptionsRepository}
-      pantryRepository={pantryRepository}
-      plannerApi={plannerApi}
-      shoppingListRepository={shoppingListRepository}
-    />
+    <AppErrorBoundary>
+      <App
+        authSession={authSession}
+        householdRepository={householdRepository}
+        pantryFoodOptionsRepository={pantryFoodOptionsRepository}
+        pantryRepository={pantryRepository}
+        plannerApi={plannerApi}
+        shoppingListRepository={shoppingListRepository}
+      />
+    </AppErrorBoundary>
   </StrictMode>
 )
