@@ -1,0 +1,34 @@
+name: Phase 9C Task 4 Format RED Once
+
+on:
+  push:
+    branches:
+      - codex/phase-9c-t4-red
+    paths:
+      - .github/workflows/phase9c-t4-format-red-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format-red:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/phase-9c-t4-red
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write scripts/catalog-pack/catalog-mutation-cli.test.ts
+      - name: Commit formatted RED test and remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/phase9c-t4-format-red-once.yml
+          git add scripts/catalog-pack/catalog-mutation-cli.test.ts
+          git commit -m "test: format Phase 9C mutation plan CLI red"
+          git push origin HEAD:codex/phase-9c-t4-red
