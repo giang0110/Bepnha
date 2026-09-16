@@ -79,7 +79,9 @@ function createAuthPort(initialSession: AuthSession | null): {
       onAuthStateChange: vi.fn(() => unsubscribe),
       signIn: vi.fn(),
       signOut: vi.fn(),
-      signUp: vi.fn()
+      signUp: vi.fn(),
+      requestPasswordReset: vi.fn(),
+      updatePassword: vi.fn()
     }
   }
 }

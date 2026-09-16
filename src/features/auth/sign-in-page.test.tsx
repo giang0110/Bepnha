@@ -43,7 +43,9 @@ function renderSignIn(signIn: AuthSessionPort["signIn"], initialEntry = "/sign-i
     onAuthStateChange: vi.fn(() => vi.fn()),
     signIn,
     signOut: vi.fn(),
-    signUp: vi.fn()
+    signUp: vi.fn(),
+    requestPasswordReset: vi.fn(),
+    updatePassword: vi.fn()
   } as unknown as AuthSessionPort
   render(
     <MemoryRouter initialEntries={[initialEntry]}>

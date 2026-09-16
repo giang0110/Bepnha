@@ -285,6 +285,31 @@ API responses carry the stricter `default-src 'none'` policy. `src/infrastructur
 
 Client-side error reporting is **not** wired to a third-party provider. `AppErrorBoundary` keeps an unexpected render failure from producing a blank document and exposes an `onError` hook, but no reporter is attached. A hosted reporter such as Sentry captures URL breadcrumbs by default, and BepNha routes contain plan identifiers (`/shopping/:planId`), which this runbook forbids sending to telemetry. Any reporter must be configured with URL and payload scrubbing reviewed against the privacy section below before it is enabled.
 
+## Password recovery
+
+`/forgot-password` and `/reset-password` let an owner who lost their password regain access. Without
+them a forgotten password permanently strands the account and every household, plan, pantry and
+shopping record behind it, since the application has no other identity for the owner.
+
+The request step never reports whether an address has an account. Supabase answers a registered and
+an unregistered address the same way, the port carries no branch that distinguishes them, and the
+Vietnamese confirmation copy is identical in both cases. Do not "improve" that message into a
+not-found state: it would turn an anonymous endpoint into an account-existence oracle.
+
+Two production settings are required before this feature works for real users:
+
+- **Redirect allow-list.** The browser asks Supabase to return the user to
+  `<origin>/reset-password`. That exact URL, or a wildcard covering it, must be in the production
+  project's Auth redirect configuration. Origin-only entries do not match a path.
+  `supabase/config.toml` carries the equivalent wildcards for local origins.
+- **Custom SMTP.** Supabase's built-in email sender is rate limited and intended for development,
+  and `auth.rate_limit.email_sent` defaults to a handful of messages per hour. A production launch
+  needs a reviewed SMTP provider configured in the Supabase dashboard, otherwise reset emails are
+  silently throttled and owners are stranded exactly when they need the feature. Treat missing
+  production SMTP as a launch blocker for account recovery, not a nice-to-have.
+
+Neither setting lives in this repository. Record both in the release evidence.
+
 ## Privacy, telemetry, and correlation IDs
 
 Never send Supabase tokens, secret keys, user/household/plan/revision IDs, idempotency keys, raw planner snapshots, pantry rows, unpublished catalog data, or full candidate search space to Gemini.
