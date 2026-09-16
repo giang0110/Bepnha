@@ -189,6 +189,21 @@ As of the latest Phase 8 preflight, the Vercel integration is installed but expo
 
 Do not invoke a generic/current-project deploy command while the project identity is unresolved.
 
+### Serverless function budget
+
+Vercel turns **every** file under `api/` into a Serverless Function, `.test.ts` files included, and
+the Hobby plan rejects any deployment with more than 12. Four unit-test files silently occupied that
+budget — `api/health.test.ts`, `api/me.test.ts`, `api/admin/catalog.test.ts` and
+`api/admin/meal-options.test.ts` — leaving the repository sitting at exactly the ceiling. Adding the
+tenth real endpoint pushed it to 13 and the deployment failed.
+
+`.vercelignore` now excludes `api/**/*.test.ts`. That drops the count to the real endpoints and stops
+test sources being uploaded to public routes at all, which they should never have been.
+
+`api/health.test.ts` asserts both the ceiling and the ignore rule, so the next endpoint that would
+overflow fails in the local test run instead of at deploy time. If the count ever legitimately needs
+to exceed 12, the plan has to change — do not reach the ceiling by deleting tests.
+
 ### Build toolchain resolution
 
 `vercel.json` pins `installCommand` to `npm ci --include=dev`. This is load-bearing, not a preference.

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 import { resolve } from "node:path"
 
 import type { VercelRequest, VercelResponse } from "@vercel/node"
@@ -109,6 +109,25 @@ describe("Vercel routing", () => {
     expect(deepLink).not.toMatch(new RegExp(apiRewrite.source))
     expect(deepLink).toMatch(new RegExp(spaRewrite.source))
     expect(spaRewrite.destination).toBe("/index.html")
+  })
+
+  it("keeps the deployable function count inside the platform ceiling", async () => {
+    // Vercel turns every file under `api/` into a Serverless Function, `.test.ts` files included,
+    // and the Hobby plan rejects a deployment with more than 12. Four test files silently occupied
+    // that budget until `.vercelignore` excluded them; adding the tenth real endpoint would
+    // otherwise have failed at deploy time rather than here.
+    const HOBBY_FUNCTION_CEILING = 12
+
+    const entries = await readdir(resolve(import.meta.dirname), {
+      recursive: true,
+      withFileTypes: true
+    })
+    const deployable = entries.filter((entry) => entry.isFile() && !entry.name.endsWith(".test.ts"))
+
+    expect(deployable.length).toBeLessThanOrEqual(HOBBY_FUNCTION_CEILING)
+
+    const ignore = await readFile(".vercelignore", "utf8")
+    expect(ignore).toContain("api/**/*.test.ts")
   })
 
   it("installs from the lockfile so the build never depends on a hoisted transitive binary", async () => {
