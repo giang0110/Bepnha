@@ -5,8 +5,7 @@ import { fileURLToPath } from "node:url"
 import { planCatalogMutations } from "./catalog-mutation-planner.ts"
 import type { CatalogMutationPlanV1 } from "./catalog-mutation-types.ts"
 
-const USAGE =
-  "Usage: npm run catalog:plan -- --input <path> --manifest <path> [--output <path>]"
+const USAGE = "Usage: npm run catalog:plan -- --input <path> --manifest <path> [--output <path>]"
 
 interface CliArgs {
   readonly input: string
@@ -15,8 +14,7 @@ interface CliArgs {
 }
 
 type ParseArgsResult =
-  | { readonly ok: true; readonly value: CliArgs }
-  | { readonly ok: false; readonly message: string }
+  { readonly ok: true; readonly value: CliArgs } | { readonly ok: false; readonly message: string }
 
 export interface CatalogPlanCliDependencies {
   readonly stdout: (value: string) => void
