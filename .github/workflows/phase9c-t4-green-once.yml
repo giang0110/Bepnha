@@ -1,0 +1,38 @@
+name: Phase 9C Task 4 Green Once
+
+on:
+  push:
+    branches:
+      - codex/phase-9c-t4-red
+
+permissions:
+  contents: write
+
+jobs:
+  green:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/phase-9c-t4-red
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write scripts/catalog-pack/catalog-mutation-cli.ts
+      - run: npx vitest run scripts/catalog-pack/catalog-mutation-planner.test.ts scripts/catalog-pack/catalog-mutation-cli.test.ts --reporter=verbose
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: git diff --check
+      - name: Commit formatted GREEN implementation
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/catalog-pack/catalog-mutation-cli.ts
+          git commit -m "style: format Phase 9C mutation plan CLI"
+          git push origin HEAD:codex/phase-9c-t4-red
