@@ -9,6 +9,8 @@ import { useAuth } from "@/app/auth/auth-context"
 import { RequireAuth } from "@/app/auth/require-auth"
 import { NotFoundPage } from "@/app/not-found-page"
 import type { AssistantApi } from "@/features/assistant/assistant-api"
+import { ForgotPasswordPage } from "@/features/auth/forgot-password-page"
+import { ResetPasswordPage } from "@/features/auth/reset-password-page"
 import { SignInPage } from "@/features/auth/sign-in-page"
 import { PrivacyPage, TermsPage } from "@/features/legal/legal-page"
 import { SignUpPage } from "@/features/auth/sign-up-page"
@@ -69,6 +71,10 @@ export function AppRouter({
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/sign-in" element={<SignInPage />} />
       <Route path="/sign-up" element={<SignUpPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      {/* Outside RequireAuth: an expired link leaves no session, and this page explains that
+          instead of bouncing the user to sign-in with no idea what went wrong. */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<RequireAuth />}>
         <Route
           path="/onboarding"

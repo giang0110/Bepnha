@@ -81,6 +81,11 @@ export function SignInPage() {
         </Button>
       </form>
       <p className="text-sm">
+        <Link className="font-medium underline" to="/forgot-password">
+          Quên mật khẩu?
+        </Link>
+      </p>
+      <p className="text-sm">
         Chưa có tài khoản?{" "}
         <Link className="font-medium underline" to="/sign-up">
           Tạo tài khoản
