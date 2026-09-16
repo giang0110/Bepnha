@@ -1,0 +1,146 @@
+name: Phase 9C Task 3 Green Final Once
+
+on:
+  push:
+    branches:
+      - codex/phase-9c-t3-red
+    paths:
+      - .github/workflows/phase9c-t3-green-final-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  red-green:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/phase-9c-t3-red
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Correct canonical price-order expectation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/catalog-pack/catalog-mutation-planner.test.ts")
+          text = path.read_text()
+          old = '''      prices: priceBook.prices.map((price) => ({'''
+          new = '''      prices: [...priceBook.prices]
+            .sort((left, right) =>
+              left.foodCode < right.foodCode ? -1 : left.foodCode > right.foodCode ? 1 : 0
+            )
+            .map((price) => ({'''
+          if old not in text:
+              raise SystemExit("price expectation marker not found")
+          path.write_text(text.replace(old, new, 1))
+          PY
+          npx prettier --write scripts/catalog-pack/catalog-mutation-planner.test.ts
+      - name: Verify corrected tests remain RED before production code
+        shell: bash
+        run: |
+          set +e
+          npx vitest run scripts/catalog-pack/catalog-mutation-planner.test.ts --reporter=verbose > /tmp/red.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/red.log
+          test "$status" -ne 0
+          grep -q 'create_food:test_tofu' /tmp/red.log
+          grep -q 'orderMutationOperations' /tmp/red.log
+      - name: Apply Task 3 planner implementation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          planner = Path("scripts/catalog-pack/catalog-mutation-planner.ts")
+          text = planner.read_text()
+          workflow = Path(".github/workflows/phase9c-t3-green-once.yml").read_text()
+          match = re.search(r"helper = r'''(.*?)\n          '''", workflow, re.S)
+          if match is None:
+              raise SystemExit("helper source not found")
+          raw = match.group(1).splitlines()
+          helper_lines = [raw[0]] + [line[10:] if line.startswith("          ") else line for line in raw[1:]]
+          helper = "\n".join(helper_lines) + "\n\n"
+
+          old_import = '''import type {
+            CatalogMutationDiagnostic,
+            CatalogMutationDiagnosticCode,
+            CatalogMutationPlanV1,
+            MutationPlanBindingV1
+          } from "./catalog-mutation-types.ts"'''
+          new_import = '''import type {
+            CatalogMutationDiagnostic,
+            CatalogMutationDiagnosticCode,
+            CatalogMutationOperationKind,
+            CatalogMutationPlanOperationV1,
+            CatalogMutationPlanV1,
+            MutationBindingReference,
+            MutationOperationOutputReference,
+            MutationPlanBindingV1
+          } from "./catalog-mutation-types.ts"'''
+          if old_import not in text:
+              raise SystemExit("planner type import marker not found")
+          text = text.replace(old_import, new_import, 1)
+
+          function_marker = "export function planCatalogMutations(\n  inputBytes: Uint8Array,\n  manifestBytes: Uint8Array\n): CatalogMutationPlanV1 {"
+          if function_marker not in text:
+              raise SystemExit("planner function marker not found")
+          text = text.replace(function_marker, helper + function_marker, 1)
+
+          success_marker = '  return {\n    schemaVersion: "1",\n    catalogCode: pack.catalogCode,'
+          success_replacement = '''  const orderedOperations = orderMutationOperations(buildOperations(pack, manifest))
+          if (!orderedOperations.ok) {
+            return failurePlan(
+              pack.catalogCode,
+              phase9A.inputSha256,
+              resolvedManifestSha256,
+              manifest.productionSnapshotSha256,
+              diagnostic(
+                orderedOperations.code,
+                "$.operations",
+                orderedOperations.code === "DEPENDENCY_MISSING"
+                  ? "Mutation plan contains a missing operation dependency"
+                  : "Mutation plan contains a dependency cycle"
+              )
+            )
+          }
+
+          return {
+            schemaVersion: "1",
+            catalogCode: pack.catalogCode,'''
+          if success_marker not in text:
+              raise SystemExit("planner success return marker not found")
+          text = text.replace(success_marker, success_replacement, 1)
+
+          operations_marker = "    operations: [],\n    bindings: buildBindings(pack, manifest),"
+          if operations_marker not in text:
+              raise SystemExit("planner operations marker not found")
+          text = text.replace(
+              operations_marker,
+              "    operations: orderedOperations.operations,\n    bindings: buildBindings(pack, manifest),",
+              1,
+          )
+          planner.write_text(text)
+          PY
+          npx prettier --write scripts/catalog-pack/catalog-mutation-planner.ts
+      - name: Verify GREEN
+        run: npx vitest run scripts/catalog-pack/catalog-mutation-planner.test.ts --reporter=verbose
+      - run: npm run typecheck
+      - run: npx prettier --check scripts/catalog-pack/catalog-mutation-planner.ts scripts/catalog-pack/catalog-mutation-planner.test.ts
+      - run: git diff --check
+      - name: Commit Task 3
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/catalog-pack/catalog-mutation-planner.ts scripts/catalog-pack/catalog-mutation-planner.test.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: build Phase 9C mutation plan DAG"
+          git push origin HEAD:codex/phase-9c-t3-red
