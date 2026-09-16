@@ -1,0 +1,50 @@
+name: Phase 9C Task 5 Digest Fix Once
+
+on:
+  push:
+    branches:
+      - codex/phase-9c-t5-final
+    paths:
+      - .github/workflows/phase9c-t5-digest-fix-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/phase-9c-t5-final
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Replace streaming hash API with one-shot hash API
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/catalog-pack/catalog-mutation-planner.ts')
+          text = path.read_text()
+          old_import = 'import { createHash } from "node:crypto"'
+          old_digest = 'return createHash("sha256").update(bytes).digest("hex")'
+          if old_import not in text or old_digest not in text:
+              raise SystemExit('expected digest implementation not found')
+          text = text.replace(old_import, 'import { hash } from "node:crypto"', 1)
+          text = text.replace(old_digest, 'return hash("sha256", bytes, "hex")', 1)
+          path.write_text(text)
+          PY
+      - run: npx vitest run scripts/catalog-pack/catalog-mutation-authority-regression.test.ts scripts/catalog-pack/catalog-mutation-planner.test.ts --reporter=verbose
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: git diff --check
+      - name: Commit digest boundary fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/catalog-pack/catalog-mutation-planner.ts
+          git commit -m "fix: keep Phase 9C digest outside mutation guard"
+          git push origin HEAD:codex/phase-9c-t5-final
