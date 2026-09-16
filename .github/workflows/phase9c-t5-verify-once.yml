@@ -1,0 +1,33 @@
+name: Phase 9C Task 5 Final Verify Once
+
+on:
+  push:
+    branches:
+      - codex/phase-9c-t5-final
+    paths:
+      - .github/workflows/phase9c-t5-verify-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 78f50ce08f51332de5add8dff900d9e28d1537cb
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run scripts/catalog-pack/catalog-mutation-authority-regression.test.ts --reporter=verbose
+      - run: npx vitest run scripts/catalog-pack --reporter=verbose
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run verify:web
+      - run: git diff --check
+      - run: test -z "$(git status --porcelain)"
+      - run: test "$(git rev-parse HEAD)" = "78f50ce08f51332de5add8dff900d9e28d1537cb"
