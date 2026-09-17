@@ -93,11 +93,32 @@ quá 90 ngày thì món đó bị loại khỏi kế hoạch. Ghi ngày sai sẽ
 1. `npm run catalog:validate` — `valid` và `ready` cùng `true`
 2. `npm run catalog:resolve` — đối chiếu với trạng thái production hiện tại (Phase 9B)
 3. `npm run catalog:plan` — sinh kế hoạch ghi dạng dry-run (Phase 9C)
-4. Phase 9D, bộ thực thi kế hoạch đó, **chưa tồn tại**
+4. Phase 9D, bộ thực thi kế hoạch đó — **lõi đã có, phần nối vào production thì chưa**
 
-Ba bước đầu đều chạy hoàn toàn offline và không chạm production. Bước bốn là mắt xích còn thiếu giữa
-"pack đã được duyệt" và "dữ liệu nằm trong production", và nó chỉ đáng xây khi đã có pack thật để
-thực thi.
+Ba bước đầu đều chạy hoàn toàn offline và không chạm production.
+
+`catalog-mutation-executor.ts` là lõi của bước bốn: nó quyết định thứ tự thực thi, phân giải các
+tham chiếu tượng trưng thành định danh thật, và bảo đảm chạy lại được sau khi đứt giữa chừng. Nó
+không thực hiện I/O nào; bên gọi truyền vào hàm `runOperation`, và đó là nơi chứa quyền và
+credential.
+
+Điểm đáng lưu ý nhất là **khả năng chạy lại**. Một lần chạy đứt sau khi đã tạo hai mươi thực phẩm,
+khi chạy lại phải dùng đúng những định danh đã cấp. Nhật ký vì thế ghi cả các UUID được cấp phát,
+ngay trước thao tác dùng tới chúng, chứ không chỉ ghi thao tác đã hoàn tất — nếu không, lần chạy sau
+sẽ cấp UUID mới và tạo ra bản trùng mà kế hoạch tưởng là bản cũ.
+
+### Phần còn thiếu, và vì sao nó chưa được viết
+
+`runOperation` phải gọi tới `executeCatalogAdminCommand` và `executeMealOptionAdminCommand` — nơi đã
+có sẵn kiểm tra, chuẩn hoá và tính băm nội dung. Không được gọi thẳng RPC để đi vòng qua chúng.
+
+Nhưng `tsconfig.node.json` chỉ cho `scripts/` nhìn thấy đúng ba tệp domain, và kế hoạch 9C ghi rõ
+"Do not import/call application executors or repositories". Các script hiện có chạm Supabase bằng
+interface tự định nghĩa, không mượn tầng application. Viết phần nối trong `scripts/` sẽ buộc phải
+mở rộng `tsconfig.node.json` để kéo cả tầng application vào — tức là nới một ranh giới có chủ đích
+cho vừa với code mới.
+
+Nên chỗ đặt phần nối là một quyết định kiến trúc còn để ngỏ, không phải việc gõ thêm sáu mươi dòng.
 
 ## Điều tuyệt đối không làm
 
