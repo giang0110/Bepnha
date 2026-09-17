@@ -9,6 +9,7 @@ import {
   expectedSchemaFromMigrations,
   psqlArguments,
   readMigrationFiles,
+  standaloneSql,
   verifyProductionSchema
 } from "./verify-production-schema.mjs"
 
@@ -102,7 +103,10 @@ describe("verifyProductionSchema", () => {
     })
 
     expect(result.ok).toBe(false)
-    expect(result.findings[0]?.code).toBe("MIGRATION_HISTORY_MISMATCH")
+    expect(result.findings).toContainEqual({
+      code: "MIGRATION_MISSING",
+      detail: "20260826000000"
+    })
   })
 
   it("fails a database carrying a migration this repository does not have", () => {
@@ -118,7 +122,10 @@ describe("verifyProductionSchema", () => {
     })
 
     expect(result.ok).toBe(false)
-    expect(result.findings[0]?.detail).toContain("20260930000000")
+    expect(result.findings).toContainEqual({
+      code: "MIGRATION_UNEXPECTED",
+      detail: "20260930000000"
+    })
   })
 
   it("reports a missing table and an unexpected leftover table separately", () => {
@@ -255,5 +262,48 @@ describe("read-only and credential handling", () => {
     ["a wrong scheme", "https://vkrqzwlpneocgjwhqbsl.supabase.co"]
   ])("refuses %s instead of guessing a target", (_name, value) => {
     expect(() => connectionEnvironment(value)).toThrow(new RegExp(CONNECTION_ENV_VARIABLE, "u"))
+  })
+})
+
+describe("standaloneSql", () => {
+  const sql = standaloneSql(expected)
+
+  it("inlines the expectation so the statement needs nothing but a SQL editor", () => {
+    expect(sql).toContain("('20260825000000'), ('20260826000000')")
+    expect(sql).toContain("('households'), ('profiles')")
+    expect(sql).toContain("('save_household_setup')")
+  })
+
+  it("reports the same verdict strings as the psql path", () => {
+    expect(sql).toContain("PRODUCTION_SCHEMA_MATCHES_REPOSITORY")
+    expect(sql).toContain("SCHEMA_DRIFT")
+  })
+
+  it("covers the same finding codes as the psql path", () => {
+    for (const code of [
+      "MIGRATION_MISSING",
+      "MIGRATION_UNEXPECTED",
+      "TABLE_MISSING",
+      "TABLE_UNEXPECTED",
+      "FUNCTION_MISSING",
+      "FUNCTION_UNEXPECTED",
+      "RLS_DISABLED",
+      "RLS_WITHOUT_POLICY"
+    ]) {
+      expect(sql).toContain(code)
+    }
+  })
+
+  it("stays a single read, so pasting it into a SQL editor cannot change anything", () => {
+    expect(sql.trimStart().startsWith("with ")).toBe(true)
+    expect(sql).not.toMatch(
+      /\b(insert|update|delete|truncate|drop|alter|create|grant|revoke|copy)\b/iu
+    )
+  })
+
+  it("refuses to inline an identifier outside the derived character set", () => {
+    expect(() =>
+      standaloneSql({ ...expected, tables: ["households'; drop table households; --"] })
+    ).toThrow(/unexpected identifier/iu)
   })
 })

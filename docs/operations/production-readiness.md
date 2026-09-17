@@ -243,6 +243,16 @@ A table with row level security enabled and no policy is reported as a note, not
 
 Take the connection string from Supabase → Project Settings → Database → Connection string. It is a production credential: keep it out of the repository, out of shell history, and out of `VITE_*`.
 
+Use the **session pooler** string, not the direct one. `db.vkrqzwlpneocgjwhqbsl.supabase.co` resolves to an IPv6 address only, so on a network without IPv6 a direct connection fails with `Address family not supported by protocol` — which reads like a firewall problem but is an address-family one. The pooler host resolves to IPv4.
+
+Without `psql` installed, the same checks come out as one statement to paste into the Supabase SQL editor:
+
+```bash
+npm run verify:production:schema -- --print-sql
+```
+
+It returns a `verdict` row plus one row per finding, with the same codes. The expectation is inlined at the moment it is printed, so regenerate it rather than keeping a copy: a saved paste is a snapshot of one commit.
+
 The remaining checks stay manual:
 
 - generated database types remain compatible;

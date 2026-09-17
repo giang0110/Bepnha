@@ -99,39 +99,44 @@ export function verifyProductionSchema({ expected, observed }) {
   /** @type {{ code: string, detail: string }[]} */
   const notes = []
 
-  const observedMigrations = observed.migrations.map((row) => row.version)
-  if (observedMigrations.join(",") !== expected.migrations.join(",")) {
-    findings.push({
-      code: "MIGRATION_HISTORY_MISMATCH",
-      detail: `expected [${expected.migrations.join(", ")}] but the database reports [${observedMigrations.join(", ")}]`
-    })
-  }
-
   /**
    * @param {readonly string[]} expectedNames
    * @param {readonly string[]} observedNames
    * @param {string} kind
+   * @param {(name: string) => string} label
    */
-  function compareNames(expectedNames, observedNames, kind) {
+  function compareNames(expectedNames, observedNames, kind, label) {
     const present = new Set(observedNames)
     const wanted = new Set(expectedNames)
     for (const name of expectedNames) {
-      if (!present.has(name)) findings.push({ code: `${kind}_MISSING`, detail: `public.${name}` })
+      if (!present.has(name)) findings.push({ code: `${kind}_MISSING`, detail: label(name) })
     }
     for (const name of observedNames) {
-      if (!wanted.has(name)) findings.push({ code: `${kind}_UNEXPECTED`, detail: `public.${name}` })
+      if (!wanted.has(name)) findings.push({ code: `${kind}_UNEXPECTED`, detail: label(name) })
     }
   }
 
+  const qualified = (/** @type {string} */ name) => `public.${name}`
+
+  // Migration versions sort by their own timestamp prefix, so comparing them as a set is comparing
+  // them in order: there is no ordering a matching set could still get wrong.
+  compareNames(
+    expected.migrations,
+    observed.migrations.map((row) => row.version),
+    "MIGRATION",
+    (version) => version
+  )
   compareNames(
     expected.tables,
     observed.tables.map((row) => row.name),
-    "TABLE"
+    "TABLE",
+    qualified
   )
   compareNames(
     expected.functions,
     observed.functions.map((row) => row.name),
-    "FUNCTION"
+    "FUNCTION",
+    qualified
   )
 
   for (const table of observed.tables) {
@@ -185,6 +190,66 @@ export function connectionEnvironment(connectionString) {
 }
 
 /**
+ * The same verdict as a single self-contained statement, for an operator who has no `psql`: paste
+ * it into the Supabase SQL editor. The expected sets are inlined from `supabase/migrations/` at the
+ * moment it is printed, so a pasted copy is a snapshot of one commit and must be regenerated rather
+ * than kept around.
+ *
+ * @param {ReturnType<typeof expectedSchemaFromMigrations>} expected
+ */
+export function standaloneSql(expected) {
+  /** @param {readonly string[]} values */
+  function literals(values) {
+    for (const value of values) {
+      // Every name reaching here came from `^[a-z_]+` or `^\d{14}$`. Refuse anything else rather
+      // than interpolate it, so this can never become a place where a string is injected.
+      if (!/^[a-z0-9_]+$/u.test(value)) {
+        throw new Error(`Refusing to inline an unexpected identifier: ${value}`)
+      }
+    }
+    return values.map((value) => `('${value}')`).join(", ")
+  }
+
+  return `with expected_migrations (version) as (values ${literals(expected.migrations)}),
+     expected_tables (name) as (values ${literals(expected.tables)}),
+     expected_functions (name) as (values ${literals(expected.functions)}),
+     observed_tables as (${SCHEMA_QUERIES.tables}),
+     observed_functions as (${SCHEMA_QUERIES.functions}),
+     observed_migrations as (${SCHEMA_QUERIES.migrations}),
+     findings as (
+       select 'MIGRATION_MISSING' as code, version as detail from expected_migrations
+        where version not in (select version from observed_migrations)
+       union all
+       select 'MIGRATION_UNEXPECTED', version from observed_migrations
+        where version not in (select version from expected_migrations)
+       union all
+       select 'TABLE_MISSING', 'public.' || name from expected_tables
+        where name not in (select name from observed_tables)
+       union all
+       select 'TABLE_UNEXPECTED', 'public.' || name from observed_tables
+        where name not in (select name from expected_tables)
+       union all
+       select 'FUNCTION_MISSING', 'public.' || name from expected_functions
+        where name not in (select name from observed_functions)
+       union all
+       select 'FUNCTION_UNEXPECTED', 'public.' || name from observed_functions
+        where name not in (select name from expected_functions)
+       union all
+       select 'RLS_DISABLED', 'public.' || name from observed_tables where not rls
+     )
+select 0 as sort, 'verdict' as level,
+       case when exists (select 1 from findings)
+            then 'SCHEMA_DRIFT'
+            else 'PRODUCTION_SCHEMA_MATCHES_REPOSITORY' end as code,
+       '' as detail
+union all select 1, 'FAIL', code, detail from findings
+union all select 2, 'note', 'RLS_WITHOUT_POLICY', 'public.' || name from observed_tables
+ where rls and policies = 0
+order by sort, code, detail;
+`
+}
+
+/**
  * Both statements must carry `-c`. A bare trailing argument is read by psql as the database name,
  * not as a query, which fails with the query text quoted back as a missing database.
  *
@@ -226,16 +291,24 @@ async function runReadOnlyQuery(connection, sql) {
 }
 
 async function main() {
+  const expected = expectedSchemaFromMigrations(await readMigrationFiles())
+
+  if (process.argv.includes("--print-sql")) {
+    process.stdout.write(standaloneSql(expected))
+    return
+  }
+
   const connectionString = process.env[CONNECTION_ENV_VARIABLE]
   if (connectionString === undefined || connectionString === "") {
     throw new Error(
-      `Set ${CONNECTION_ENV_VARIABLE} to the target database connection string. Take it from ` +
-        "Supabase → Project Settings → Database → Connection string, and do not commit it."
+      `Set ${CONNECTION_ENV_VARIABLE} to the target database connection string, or pass ` +
+        "--print-sql to get the same checks as one statement to paste into the Supabase SQL " +
+        "editor. Take the connection string from Supabase → Project Settings → Database, and do " +
+        "not commit it."
     )
   }
 
   const connection = connectionEnvironment(connectionString)
-  const expected = expectedSchemaFromMigrations(await readMigrationFiles())
   const observed = {
     migrations: await runReadOnlyQuery(connection, SCHEMA_QUERIES.migrations),
     tables: await runReadOnlyQuery(connection, SCHEMA_QUERIES.tables),
