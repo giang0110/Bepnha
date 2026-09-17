@@ -1,18 +1,18 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 
-import type { AssistantContextRepository } from "@/application/assistant/assistant-context-repository"
-import type { AssistantRateLimiter } from "@/application/assistant/assistant-rate-limiter"
+import type { AssistantContextRepository } from "../../application/assistant/assistant-context-repository.js"
+import type { AssistantRateLimiter } from "../../application/assistant/assistant-rate-limiter.js"
 import {
   ASSISTANT_QUESTION_MAX_LENGTH,
   type MealAssistantPort
-} from "@/application/assistant/meal-assistant"
+} from "../../application/assistant/meal-assistant.js"
 import {
   correlationId,
   createConsoleOperationalTelemetry,
   type OperationalTelemetry
-} from "@/infrastructure/server/operational-telemetry"
-import { applyApiSecurityHeaders } from "@/infrastructure/server/security-headers"
-import { parseBearerToken, type ServerAuthVerifier } from "@/infrastructure/supabase/server-auth"
+} from "./operational-telemetry.js"
+import { applyApiSecurityHeaders } from "./security-headers.js"
+import { parseBearerToken, type ServerAuthVerifier } from "../supabase/server-auth.js"
 
 type UnknownRecord = Record<string, unknown>
 

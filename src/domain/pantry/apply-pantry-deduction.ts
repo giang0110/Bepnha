@@ -1,4 +1,4 @@
-import { ExactDecimal, decimalToCanonical, parseCanonicalDecimal } from "@/domain/shared/decimal"
+import { ExactDecimal, decimalToCanonical, parseCanonicalDecimal } from "../shared/decimal.js"
 
 export type PantryDeductionResult =
   | {

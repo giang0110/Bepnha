@@ -3,7 +3,7 @@ import type {
   RateLimitDecision,
   RateLimiter,
   RateLimitRequest
-} from "@/application/shared/rate-limiter"
+} from "../../application/shared/rate-limiter.js"
 
 /**
  * Multi-instance-safe limiter backed by Upstash Redis over its REST API.

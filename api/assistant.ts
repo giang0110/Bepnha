@@ -1,4 +1,4 @@
-import { createAssistantHttpHandler } from "@/infrastructure/server/assistant-http"
-import { createAssistantRuntimeDependencies } from "@/infrastructure/server/assistant-runtime"
+import { createAssistantHttpHandler } from "../src/infrastructure/server/assistant-http.js"
+import { createAssistantRuntimeDependencies } from "../src/infrastructure/server/assistant-runtime.js"
 
 export default createAssistantHttpHandler(createAssistantRuntimeDependencies())

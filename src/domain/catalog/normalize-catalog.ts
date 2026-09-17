@@ -2,8 +2,8 @@ import {
   REQUIRED_NUTRIENT_CODES,
   SUPPORTED_ALLERGEN_CODES,
   type FoodFactLineageInput
-} from "@/domain/catalog/catalog"
-import { parseCanonicalDecimal } from "@/domain/shared/decimal"
+} from "./catalog.js"
+import { parseCanonicalDecimal } from "../shared/decimal.js"
 
 export type CatalogNormalizationErrorCode =
   | "INVALID_DECIMAL"

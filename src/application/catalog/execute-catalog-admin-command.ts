@@ -3,19 +3,19 @@ import type {
   FoodFactDraftInput,
   PriceBookDraftInput,
   RecipeVersionDraftInput
-} from "@/application/catalog/catalog-admin-command"
+} from "./catalog-admin-command.js"
 import type {
   CatalogAdminRepository,
   CatalogAdminResult,
   CatalogPublicationAggregate,
   FoodFactPublicationAggregate,
   RecipePublicationAggregate
-} from "@/application/catalog/catalog-admin-repository"
-import type { ContentHasher } from "@/application/shared/content-hasher"
-import { normalizeFoodFactLineage } from "@/domain/catalog/normalize-catalog"
-import { normalizeRecipeSteps } from "@/domain/recipe/recipe"
-import { canonicalUtf8 } from "@/domain/shared/canonical-json"
-import { parseCanonicalDecimal } from "@/domain/shared/decimal"
+} from "./catalog-admin-repository.js"
+import type { ContentHasher } from "../shared/content-hasher.js"
+import { normalizeFoodFactLineage } from "../../domain/catalog/normalize-catalog.js"
+import { normalizeRecipeSteps } from "../../domain/recipe/recipe.js"
+import { canonicalUtf8 } from "../../domain/shared/canonical-json.js"
+import { parseCanonicalDecimal } from "../../domain/shared/decimal.js"
 
 const CODE_PATTERN = /^[a-z][a-z0-9_]*$/u
 const HASH_PATTERN = /^[0-9a-f]{64}$/u

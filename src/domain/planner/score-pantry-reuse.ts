@@ -1,5 +1,5 @@
-import type { CanonicalFoodDeduction, CanonicalFoodRequirement } from "@/domain/pricing/pricing"
-import { ExactDecimal, ROUND_HALF_UP } from "@/domain/shared/decimal"
+import type { CanonicalFoodDeduction, CanonicalFoodRequirement } from "../pricing/pricing.js"
+import { ExactDecimal, ROUND_HALF_UP } from "../shared/decimal.js"
 
 export interface PantryReuseScore {
   readonly penalty: number

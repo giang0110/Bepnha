@@ -2,7 +2,7 @@ import type {
   AssistantRateLimitDecision,
   AssistantRateLimiter,
   AssistantRateLimitRequest
-} from "@/application/assistant/assistant-rate-limiter"
+} from "../../application/assistant/assistant-rate-limiter.js"
 
 interface AssistantRateLimitConfig {
   readonly burstLimit: number

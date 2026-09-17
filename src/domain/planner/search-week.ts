@@ -1,17 +1,17 @@
-import { calculatePurchaseBasket } from "@/domain/pricing/calculate-purchase-basket"
+import { calculatePurchaseBasket } from "../pricing/calculate-purchase-basket.js"
 import {
   PRICE_FRESHNESS_CONFIG_V1,
   type CanonicalFoodDeduction,
   type FoodPriceInput,
   type PriceFreshnessConfigV1,
   type PurchaseBasketResult
-} from "@/domain/pricing/pricing"
-import { canonicalJson } from "@/domain/shared/canonical-json"
+} from "../pricing/pricing.js"
+import { canonicalJson } from "../shared/canonical-json.js"
 
-import type { EligibleMealOption } from "./evaluate-eligibility"
-import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config"
-import type { PlannerWarning } from "./planner-outcome"
-import { scaledPenalty, scoreWeeklyPlan, type WeeklyPlanScore } from "./score-week"
+import type { EligibleMealOption } from "./evaluate-eligibility.js"
+import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config.js"
+import type { PlannerWarning } from "./planner-outcome.js"
+import { scaledPenalty, scoreWeeklyPlan, type WeeklyPlanScore } from "./score-week.js"
 
 type PurchaseBasket = Extract<PurchaseBasketResult, { readonly ok: true }>["value"]
 
