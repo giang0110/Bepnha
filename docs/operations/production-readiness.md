@@ -8,6 +8,103 @@ The Gemini assistant is optional and advisory. It may explain an authoritative p
 
 Production configuration, database migration, deployment, and catalog mutation are explicit operator actions. Never run a remote reset, test fixture, destructive cleanup, or guessed-target deployment.
 
+## Production bring-up sequence
+
+The repository side is done: `main` is green on `web` and `database`, and production deployments
+succeed. Everything below is an operator action in a dashboard or terminal that holds production
+credentials. None of it can be performed from a repository automation context, which has no
+Supabase or Vercel credentials and no network route to either.
+
+The order is a dependency order, not a preference. Each step is unusable until the one above it is
+done.
+
+### 1. Vercel environment variables (Production scope)
+
+Until these exist the site loads and then fails to authenticate anyone, because the browser client
+is constructed from `VITE_*` values at build time.
+
+| Variable | Scope | Value |
+| --- | --- | --- |
+| `VITE_SUPABASE_URL` | public, build-time | `https://vkrqzwlpneocgjwhqbsl.supabase.co` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | public, build-time | project publishable/anon key |
+| `SUPABASE_URL` | public, server | same URL as above |
+| `SUPABASE_PUBLISHABLE_KEY` | public, server | same key as above |
+| `SUPABASE_SECRET_KEY` | **secret, server only** | project secret/service-role key |
+
+`VITE_*` values are compiled into the browser bundle and are readable by anyone. Never put
+`SUPABASE_SECRET_KEY`, a Gemini key or an Upstash token behind a `VITE_` prefix. A redeploy is
+required after changing a `VITE_*` value, because it is baked in at build time rather than read at
+runtime.
+
+Optional, and only once its own gate is met:
+
+| Variable | Gate |
+| --- | --- |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | enables the shared rate limiter; required before production Gemini |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | only after the shared limiter above is configured |
+| `ASSISTANT_RATE_LIMIT_BURST`, `ASSISTANT_RATE_LIMIT_DAILY` | optional overrides within reviewed bounds |
+
+### 2. Production database schema
+
+Production held zero tables at the last read-only preflight, so this is a bootstrap of the complete
+reviewed chain, not drift repair. Apply the eight migrations in exactly this order:
+
+1. `20260825000000_phase_0_security_baseline.sql`
+2. `20260825010000_phase_1_household.sql`
+3. `20260826000000_qualify_household_rpc_constraints.sql`
+4. `20260826010000_phase_2_food_recipe.sql`
+5. `20260826020000_phase_3_planner.sql`
+6. `20260827000000_phase_4_shopping_list.sql`
+7. `20260901000000_phase_5_pantry.sql`
+8. `20260902000000_phase_5_pantry_shopping_trace.sql`
+
+This is the single irreversible step in the sequence and requires explicit authorisation for project
+`vkrqzwlpneocgjwhqbsl` specifically. Verify read-only afterwards per **Production Supabase target**
+above: migration history matches these eight, expected tables and functions exist, generated types
+stay compatible, and both Supabase advisors are reviewed. Never run a remote reset, a test fixture,
+or a catalog-readiness fixture against production.
+
+### 3. Supabase Auth configuration
+
+Both are covered in **Password recovery** above and both are launch blockers for account recovery:
+
+- Redirect allow-list must cover `<production origin>/reset-password`. An origin-only entry does not
+  match a path.
+- Custom SMTP must be configured. The built-in sender is rate limited to a handful of messages per
+  hour, so without it reset emails are throttled exactly when an owner needs one.
+
+### 4. GitHub repository secrets
+
+`SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`, for the keep-alive workflow. The public key only —
+never a secret key in a repository secret. Without them the scheduled job fails loudly, which is
+intended: a pause-prevention job that fails silently is worse than none.
+
+### 5. Legal contact
+
+Replace the `.invalid` placeholder in `src/features/legal/legal-content.ts` with a monitored address
+and name the data controller, then have the notices reviewed. See **Published legal notices**.
+
+### 6. Backup and restore
+
+Establish the off-site logical backup cadence and perform a restore drill into a disposable database
+before considering launch complete. See **Supabase Free-plan backup and recovery**. This has to
+happen before real household data exists, not after.
+
+### 7. Catalog data
+
+The critical path, and the only remaining item that is neither configuration nor code. Schema alone
+gives an application where a user can sign up, complete onboarding, press "generate a plan" and get
+nothing back. Required thresholds and the prohibition on fixtures are in **Production catalog
+readiness**.
+
+### 8. Post-deploy verification
+
+`GET /api/health`, security headers, protected deep links and the deterministic authenticated smoke,
+per **Health, headers, deep links, and post-deploy smoke**.
+
+Steps 1, 3, 4 and 5 are configuration. Step 2 is irreversible and separately authorised. Steps 6 and
+7 are ongoing operator work. Only step 8 can confirm the result.
+
 ## Repository and governance
 
 Canonical repository: `giang0110/Bepnha`.
@@ -185,9 +282,18 @@ Server-only where required:
 - `SUPABASE_SECRET_KEY`
 - optional Gemini variables only if the production shared-limiter requirement is met.
 
-As of the latest Phase 8 preflight, the Vercel integration is installed but exposes no accessible teams; project listing fails. Record `PRODUCTION_VERCEL_UNRESOLVED` until a connected Vercel account/team exposes or safely creates a BepNha project linked to `giang0110/Bepnha`.
+`PRODUCTION_VERCEL_UNRESOLVED` is resolved. The Phase 8 preflight could not list any Vercel team; a
+project now exists, is linked to `giang0110/Bepnha`, and builds:
 
-Do not invoke a generic/current-project deploy command while the project identity is unresolved.
+- Vercel team: `ntg11990109-5768s-projects` — confirmed by the project operator on 2026-09-17.
+- Vercel project: `bepnha` (`prj_ytmKFxiv9EjO8Sld8E2R2eejM8Es`).
+- Production deployments have succeeded from `main` since the install command was pinned.
+
+That resolves the deployment *target*. It does not by itself make the deployment usable: the
+environment variables below are still required, and without them the site loads but cannot
+authenticate anyone.
+
+Never deploy BepNha into a project linked to `nuoidaycon` or another repository.
 
 ### Serverless function budget
 
