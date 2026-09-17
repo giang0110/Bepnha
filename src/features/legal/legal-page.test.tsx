@@ -67,10 +67,20 @@ describe("legal notices", () => {
     expect(text).toContain("bị loại bỏ thay vì được đoán là an toàn")
   })
 
-  it("keeps the unset operator contact on a reserved domain so it can never deliver", () => {
-    // RFC 2606 reserves `.invalid`. If this address ever ships, mail bounces loudly instead of
-    // going somewhere unintended, and the runbook marks replacing it as a launch blocker.
-    expect(LEGAL_OPERATOR.contactEmail).toMatch(/\.invalid$/u)
+  it("gives a contact address that can actually receive mail", () => {
+    // RFC 2606 reserves these for documentation and testing; mail to any of them is guaranteed to
+    // bounce. A privacy notice naming one tells people to write somewhere nobody reads.
+    expect(LEGAL_OPERATOR.contactEmail).not.toMatch(/\.(invalid|test|example|localhost)$/u)
+    expect(LEGAL_OPERATOR.contactEmail).toMatch(/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/u)
+  })
+
+  it.each([
+    ["privacy", renderPrivacy],
+    ["terms", renderTerms]
+  ])("prints that address on the %s notice", (_name, render) => {
+    render()
+
+    expect(document.body.textContent).toContain(LEGAL_OPERATOR.contactEmail)
   })
 
   it("cross-links the two notices so either one reaches the other", () => {
