@@ -233,6 +233,13 @@ Verify read-only before any catalog mutation. The structural checks are executab
 BEPNHA_PRODUCTION_DB_URL='postgres://...' npm run verify:production:schema
 ```
 
+PowerShell does not accept that leading assignment; set the variable first:
+
+```powershell
+$env:BEPNHA_PRODUCTION_DB_URL = "postgres://..."
+npm run verify:production:schema
+```
+
 The script derives its expectation from `supabase/migrations/` rather than a maintained list, so it cannot drift from the repository. It opens a read-only session, passes no part of the credential on the command line, and prints `PRODUCTION_SCHEMA_MATCHES_REPOSITORY` only when all of the following hold:
 
 - remote migration history exactly matches the eight repository migrations;
@@ -411,6 +418,15 @@ The read-only half of this section is executable:
 ```bash
 BEPNHA_PRODUCTION_URL=https://bepnhatoi.vercel.app npm run smoke:production
 ```
+
+Or, on the Windows machine this project is developed on:
+
+```powershell
+$env:BEPNHA_PRODUCTION_URL = "https://bepnhatoi.vercel.app"
+npm run smoke:production
+```
+
+Playwright needs a browser the first time: `npx playwright install chromium`.
 
 It checks `/api/health`, every security header `vercel.json` declares, that the content security policy is actually served and does not allow inline script, that the signed-out shell and each public deep link render on a phone viewport with no page errors or failed first-party assets, that an unknown deep link keeps its URL rather than falling through to the host's own 404, that both legal notices are reachable and carry a contact address that is not a `.invalid` placeholder, and that a protected route sends a signed-out visitor to sign-in.
 
