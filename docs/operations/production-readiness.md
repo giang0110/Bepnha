@@ -253,6 +253,19 @@ npm run verify:production:schema -- --print-sql
 
 It returns a `verdict` row plus one row per finding, with the same codes. The expectation is inlined at the moment it is printed, so regenerate it rather than keeping a copy: a saved paste is a snapshot of one commit.
 
+### Result on 2026-09-17
+
+The eight migrations are applied to `vkrqzwlpneocgjwhqbsl` and verified. `supabase migration list` shows all eight present remotely, in order, with timestamps matching the file names, and the schema check returns:
+
+```
+verdict  PRODUCTION_SCHEMA_MATCHES_REPOSITORY
+note     RLS_WITHOUT_POLICY   public.admin_audit_log
+```
+
+No findings: eight migrations, forty public tables, twenty public functions, row level security on every one. The single note is the intended state — `admin_audit_log` with row level security and no policy denies every PostgREST read and write, leaving the `security definer` functions as the only writers. An audit log a user could read or amend would be the defect.
+
+Note that `supabase db push` reporting `Remote database is up to date` proves only that the remote history table lists the same versions as `supabase/migrations/`; it never reads the schema. The check above is what establishes that the objects exist.
+
 The remaining checks stay manual:
 
 - generated database types remain compatible;
