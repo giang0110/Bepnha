@@ -101,6 +101,17 @@ describe("allergen conclusions", () => {
     expect(findings[0]).toMatchObject({ code: "ALLERGEN_ROWS_MISSING" })
   })
 
+  it("accepts one reason covering a single food's ten allergens, which is how assessment works", () => {
+    const rows = ten.map((allergenCode) => ({
+      foodCode: "gao_te",
+      allergenCode,
+      status: "absent",
+      provenance: "thực phẩm đơn nhất, khảo tại chợ Bà Chiểu 2026-09-20"
+    }))
+
+    expect(allergenFindings([], rows)).toEqual([])
+  })
+
   it("flags many absences citing one source, the signature of a bulk fill", () => {
     const rows = Array.from({ length: 12 }, (_, index) => ({
       foodCode: `food_${index}`,

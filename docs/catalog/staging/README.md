@@ -43,6 +43,30 @@ tức là các con số đến từ cùng một phép phân tích thật chứ k
 
 441 ô dị nguyên là phần lớn nhất và là phần duy nhất không công cụ nào chạm vào được.
 
+## Điền dị nguyên: 45 dòng thay vì 900 ô
+
+```bash
+npm run catalog:allergens -- export --dir docs/catalog/staging --out allergen-worksheet.csv
+# điền, rồi:
+npm run catalog:allergens -- apply --dir docs/catalog/staging --worksheet allergen-worksheet.csv
+npm run catalog:audit -- docs/catalog/staging
+```
+
+Worksheet xoay bảng lại: **một dòng một thực phẩm**, mười dị nguyên thành mười cột, và **một ô lý do
+dùng chung cho cả thực phẩm đó**. Bạn giữ một món trong đầu rồi quyết một lượt về nó, thay vì nhảy
+qua lại giữa 450 dòng.
+
+Ô để trống nghĩa là `unknown` và sẽ giữ nguyên là `unknown` — công cụ không bao giờ đoán hộ. Một kết
+luận (`absent`, `contains`, `may_contain`) mà cột `reason` trống thì **bị từ chối và không ghi gì
+cả**: một kết luận không ai giải trình được chính là thứ toàn bộ chuỗi này sinh ra để ngăn.
+
+Các ô đã có URL riêng, như `ca_loc` chứa `fish`, giữ nguyên nguồn cụ thể của nó chứ không bị lý do
+chung ghi đè.
+
+`catalog:audit` cảnh báo nếu **từ 10 thực phẩm trở lên** cùng viện một lý do cho kết luận `absent` —
+dấu hiệu của điền hàng loạt. Một lý do dùng cho cả mười dị nguyên của **một** thực phẩm thì bình
+thường, vì đó đúng là cách người ta khảo.
+
 Lưu ý về cách đọc kết quả validator: khi còn ô số để trống, pack không parse được nên các kiểm tra
 sâu **không chạy**, và báo cáo chỉ hiện vài chục lỗi hình dạng. Con số 441 chỉ lộ ra sau khi lấp đầy
 các ô số. Đừng nhầm "ít lỗi" với "gần xong".

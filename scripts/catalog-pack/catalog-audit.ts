@@ -201,21 +201,24 @@ export function allergenFindings(
     }
   }
 
-  // A single provenance string repeated across many `absent` conclusions is the signature of a
-  // bulk fill rather than of somebody assessing each food.
-  const byProvenance = new Map<string, number>()
+  // One reason covering a single food's ten allergens is normal: you assess that food once. The
+  // signature of a bulk fill is one reason spanning many *different* foods, so count foods, not
+  // rows, or this would punish exactly the careful per-food work it is meant to encourage.
+  const foodsByProvenance = new Map<string, Set<string>>()
   for (const row of assessments) {
     if (row["status"] !== "absent") continue
     const key = row["provenance"] ?? ""
-    byProvenance.set(key, (byProvenance.get(key) ?? 0) + 1)
+    const seen = foodsByProvenance.get(key) ?? new Set<string>()
+    seen.add(row["foodCode"] ?? "")
+    foodsByProvenance.set(key, seen)
   }
-  for (const [provenance, count] of byProvenance) {
-    if (count >= 10) {
+  for (const [provenance, seen] of foodsByProvenance) {
+    if (seen.size >= 10) {
       findings.push({
         severity: "warning",
         code: "ABSENT_BULK_FILLED",
-        subject: `${count} assessments`,
-        detail: `all cite the same source: ${provenance.slice(0, 60)}`
+        subject: `${seen.size} foods`,
+        detail: `share one justification: ${provenance.slice(0, 60)}`
       })
     }
   }
