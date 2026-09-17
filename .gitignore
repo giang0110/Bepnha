@@ -10,3 +10,7 @@ blob-report/
 !.env.example
 supabase/.branches/
 supabase/.temp/
+
+.worktrees/
+
+.worktrees/
