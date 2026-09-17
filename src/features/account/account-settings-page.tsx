@@ -49,7 +49,11 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-4 py-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-4 py-6"
+    >
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold">Tài khoản</h1>
         {email === null ? null : <p className="text-sm text-slate-600">{email}</p>}

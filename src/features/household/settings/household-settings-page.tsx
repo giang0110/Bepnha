@@ -5,6 +5,7 @@ import { loadHousehold, type LoadHouseholdResult } from "@/application/household
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import { saveHousehold } from "@/application/household/save-household"
 import { Button } from "@/app/components/ui/button"
+import { AppPageShell } from "@/app/components/app-page-shell"
 import type { HouseholdSetup } from "@/domain/household/household"
 
 import { parseVnd } from "../budget-vnd"
@@ -76,7 +77,11 @@ function HouseholdSettingsEditor({
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-md overflow-x-hidden px-4 py-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto min-h-screen w-full max-w-md overflow-x-hidden px-4 py-6"
+    >
       <div className="mb-6 flex items-center justify-between gap-3">
         <span className="text-sm font-medium">Bước {state.step}/5</span>
         <Button type="button" variant="outline" onClick={onCancel}>
@@ -165,10 +170,20 @@ export function HouseholdSettingsPage({ repository }: HouseholdSettingsPageProps
     }
   }, [repository])
 
-  if (state.status === "loading") return <p role="status">Đang tải thông tin để chỉnh sửa…</p>
+  if (state.status === "loading") {
+    return (
+      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-4 px-4 py-6">
+        <p role="status">Đang tải thông tin để chỉnh sửa…</p>
+      </AppPageShell>
+    )
+  }
   if (state.status === "error") {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-4 px-4 py-6">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-4 px-4 py-6"
+      >
         <p role="alert">
           {state.reason === "UNAUTHORIZED"
             ? "Phiên đăng nhập đã hết hạn."
@@ -182,7 +197,11 @@ export function HouseholdSettingsPage({ repository }: HouseholdSettingsPageProps
   }
   if (state.household === null) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-4 px-4 py-6">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-4 px-4 py-6"
+      >
         <h1 className="text-2xl font-semibold">Không có thông tin để chỉnh sửa</h1>
         <p>Trang này không tạo thêm gia đình.</p>
         <Link to="/onboarding">Quay lại thiết lập</Link>
