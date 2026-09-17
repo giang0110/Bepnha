@@ -34,6 +34,7 @@
     "vitest.integration.config.ts",
     "eslint.config.js",
     "playwright.config.ts",
+    "playwright.production.config.ts",
     "scripts/**/*",
     "tests/**/*.ts",
     "src/domain/catalog/catalog.ts",

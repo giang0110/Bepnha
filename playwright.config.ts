@@ -2,6 +2,9 @@ import { defineConfig } from "@playwright/test"
 
 export default defineConfig({
   testDir: "./tests",
+  // Production smoke lives under tests/production and runs from playwright.production.config.ts.
+  // Excluding it here is what stops an ordinary `npm run test:e2e` from reaching a live site.
+  testIgnore: "**/production/**",
   retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: "http://127.0.0.1:4173",

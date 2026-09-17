@@ -404,6 +404,20 @@ deciding. Do not raise the duration to mask a fan-out regression.
 
 ## Health, headers, deep links, and post-deploy smoke
 
+Production origin as of 2026-09-17: `https://bepnhatoi.vercel.app`.
+
+The read-only half of this section is executable:
+
+```bash
+BEPNHA_PRODUCTION_URL=https://bepnhatoi.vercel.app npm run smoke:production
+```
+
+It checks `/api/health`, every security header `vercel.json` declares, that the content security policy is actually served and does not allow inline script, that the signed-out shell and each public deep link render on a phone viewport with no page errors or failed first-party assets, that an unknown deep link keeps its URL rather than falling through to the host's own 404, that both legal notices are reachable and carry a contact address that is not a `.invalid` placeholder, and that a protected route sends a signed-out visitor to sign-in.
+
+Nothing in it signs up, signs in, or writes. Production holds real households, and a smoke test that created an account would leave one behind on every run. It lives in `tests/production/` under its own Playwright config, and the default config ignores that directory, so an ordinary `npm run test:e2e` cannot reach a live site.
+
+The authenticated smoke below remains manual, because it does write.
+
 After an explicitly authorized exact-main deployment, issue unauthenticated `GET /api/health`. Expected response is HTTP 200 with exactly:
 
 ```json
