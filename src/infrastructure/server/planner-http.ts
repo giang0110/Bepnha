@@ -5,16 +5,16 @@ import {
   generateMealPlan,
   previewMealReplacementUseCase,
   type PlannerRepository
-} from "@/application/planner/planner-use-cases"
-import type { ContentHasher } from "@/application/shared/content-hasher"
-import type { RateLimiter } from "@/application/shared/rate-limiter"
+} from "../../application/planner/planner-use-cases.js"
+import type { ContentHasher } from "../../application/shared/content-hasher.js"
+import type { RateLimiter } from "../../application/shared/rate-limiter.js"
 import {
   correlationId,
   createConsoleOperationalTelemetry,
   type OperationalTelemetry
-} from "@/infrastructure/server/operational-telemetry"
-import { applyApiSecurityHeaders } from "@/infrastructure/server/security-headers"
-import { parseBearerToken, type ServerAuthVerifier } from "@/infrastructure/supabase/server-auth"
+} from "./operational-telemetry.js"
+import { applyApiSecurityHeaders } from "./security-headers.js"
+import { parseBearerToken, type ServerAuthVerifier } from "../supabase/server-auth.js"
 
 type UnknownRecord = Record<string, unknown>
 type PlannerOperation = "generate" | "preview" | "apply"

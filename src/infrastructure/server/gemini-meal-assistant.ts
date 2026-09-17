@@ -2,8 +2,8 @@ import type {
   AssistantPlanEvidence,
   AssistantProviderResult,
   MealAssistantPort
-} from "@/application/assistant/meal-assistant"
-import { validateAssistantResult } from "@/application/assistant/meal-assistant"
+} from "../../application/assistant/meal-assistant.js"
+import { validateAssistantResult } from "../../application/assistant/meal-assistant.js"
 
 export interface GeminiInteractionRequest {
   readonly model: string

@@ -5,16 +5,16 @@ import {
   executeMealOptionAdminCommand,
   type MealOptionAdminCommand,
   type MealOptionAdminRepository
-} from "@/application/meal-option/execute-meal-option-admin-command"
-import type { ContentHasher } from "@/application/shared/content-hasher"
-import { NodeContentHasher } from "@/infrastructure/server/node-content-hasher"
-import { createSupabaseMealOptionAdminRepository } from "@/infrastructure/server/supabase-meal-option-admin-repository"
-import type { Database } from "@/infrastructure/supabase/database.types"
+} from "../../src/application/meal-option/execute-meal-option-admin-command.js"
+import type { ContentHasher } from "../../src/application/shared/content-hasher.js"
+import { NodeContentHasher } from "../../src/infrastructure/server/node-content-hasher.js"
+import { createSupabaseMealOptionAdminRepository } from "../../src/infrastructure/server/supabase-meal-option-admin-repository.js"
+import type { Database } from "../../src/infrastructure/supabase/database.types.js"
 import {
   createServerSupabaseAdminAuthVerifier,
   type ServerAdminAuthVerifier
-} from "@/infrastructure/supabase/server-admin-auth"
-import { parseBearerToken } from "@/infrastructure/supabase/server-auth"
+} from "../../src/infrastructure/supabase/server-admin-auth.js"
+import { parseBearerToken } from "../../src/infrastructure/supabase/server-auth.js"
 
 interface MealOptionAdminHandlerDependencies {
   readonly auth: ServerAdminAuthVerifier

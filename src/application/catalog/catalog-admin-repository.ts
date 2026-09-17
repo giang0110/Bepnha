@@ -3,8 +3,8 @@ import type {
   PriceBookDraftInput,
   RecipeDraftIngredient,
   RecipeVersionDraftInput
-} from "@/application/catalog/catalog-admin-command"
-import type { CatalogDimension } from "@/domain/catalog/catalog"
+} from "./catalog-admin-command.js"
+import type { CatalogDimension } from "../../domain/catalog/catalog.js"
 
 export interface FoodFactPublicationAggregate {
   readonly aggregateType: "food_fact_version"

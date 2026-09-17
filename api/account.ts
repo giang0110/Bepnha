@@ -1,9 +1,9 @@
 import { createClient } from "@supabase/supabase-js"
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 
-import { createAccountHttpHandler } from "@/infrastructure/server/account-http"
-import type { Database } from "@/infrastructure/supabase/database.types"
-import { createServerSupabaseAuthVerifier } from "@/infrastructure/supabase/server-auth"
+import { createAccountHttpHandler } from "../src/infrastructure/server/account-http.js"
+import type { Database } from "../src/infrastructure/supabase/database.types.js"
+import { createServerSupabaseAuthVerifier } from "../src/infrastructure/supabase/server-auth.js"
 
 function publicConfig() {
   const url = process.env.SUPABASE_URL

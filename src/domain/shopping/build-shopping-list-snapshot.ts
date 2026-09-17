@@ -1,12 +1,12 @@
-import type { NormalizedPlannerInputV1 } from "@/domain/planner/planner-input"
-import type { ReadyPlan } from "@/domain/planner/search-week"
-import { ExactDecimal, decimalToCanonical, type ExactDecimalValue } from "@/domain/shared/decimal"
+import type { NormalizedPlannerInputV1 } from "../planner/planner-input.js"
+import type { ReadyPlan } from "../planner/search-week.js"
+import { ExactDecimal, decimalToCanonical, type ExactDecimalValue } from "../shared/decimal.js"
 
 import {
   GROCERY_CATEGORY_CONFIG_VERSION,
   resolveGroceryCategory,
   type GroceryCategoryCode
-} from "./grocery-category-config"
+} from "./grocery-category-config.js"
 import type {
   BuildShoppingListSnapshotResult,
   ShoppingFactRefV1,
@@ -14,7 +14,7 @@ import type {
   ShoppingProjectionFatalCode,
   ShoppingSourceV1,
   ShoppingWarning
-} from "./shopping-list"
+} from "./shopping-list.js"
 
 interface Aggregate {
   readonly foodId: string

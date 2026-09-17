@@ -1,14 +1,14 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 
-import { ACCOUNT_DELETE_CONFIRMATION } from "@/application/account/account-deletion"
+import { ACCOUNT_DELETE_CONFIRMATION } from "../../application/account/account-deletion.js"
 
 import {
   correlationId,
   createConsoleOperationalTelemetry,
   type OperationalTelemetry
-} from "@/infrastructure/server/operational-telemetry"
-import { applyApiSecurityHeaders } from "@/infrastructure/server/security-headers"
-import { parseBearerToken, type ServerAuthVerifier } from "@/infrastructure/supabase/server-auth"
+} from "./operational-telemetry.js"
+import { applyApiSecurityHeaders } from "./security-headers.js"
+import { parseBearerToken, type ServerAuthVerifier } from "../supabase/server-auth.js"
 
 /**
  * Deletes the calling account and, through `on delete cascade` from `auth.users`, the profile and

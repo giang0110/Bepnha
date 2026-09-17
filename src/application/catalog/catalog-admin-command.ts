@@ -1,4 +1,4 @@
-import type { CatalogDimension } from "@/domain/catalog/catalog"
+import type { CatalogDimension } from "../../domain/catalog/catalog.js"
 
 export interface RecipeDraftIngredient {
   readonly recipeIngredientId: string

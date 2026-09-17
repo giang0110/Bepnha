@@ -1,13 +1,13 @@
 import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
-} from "@/domain/household/household-rules"
-import type { CanonicalFoodDeduction, PurchaseBasketResult } from "@/domain/pricing/pricing"
-import { ExactDecimal, ROUND_HALF_UP } from "@/domain/shared/decimal"
+} from "../household/household-rules.js"
+import type { CanonicalFoodDeduction, PurchaseBasketResult } from "../pricing/pricing.js"
+import { ExactDecimal, ROUND_HALF_UP } from "../shared/decimal.js"
 
-import type { EligibleMealOption } from "./evaluate-eligibility"
-import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config"
-import { scorePantryReuse } from "./score-pantry-reuse"
+import type { EligibleMealOption } from "./evaluate-eligibility.js"
+import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config.js"
+import { scorePantryReuse } from "./score-pantry-reuse.js"
 
 type PurchaseBasket = Extract<PurchaseBasketResult, { readonly ok: true }>["value"]
 

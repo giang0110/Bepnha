@@ -2,17 +2,17 @@ import {
   REQUIRED_NUTRIENT_CODES,
   SUPPORTED_ALLERGEN_CODES,
   type RecipeIngredientLineage
-} from "@/domain/catalog/catalog"
-import { evaluateHardRules } from "@/domain/catalog/evaluate-hard-rules"
-import { isHardRuleCode } from "@/domain/catalog/hard-rule-mapping"
-import { scaleMealOption } from "@/domain/meal-option/scale-meal-option"
-import { validateMealOptionVersion } from "@/domain/meal-option/validate-meal-option"
-import { calculateRecipeNutrition } from "@/domain/nutrition/calculate-recipe-nutrition"
-import { calculatePurchaseBasket } from "@/domain/pricing/calculate-purchase-basket"
-import type { CanonicalFoodRequirement, PurchaseBasketLine } from "@/domain/pricing/pricing"
+} from "../catalog/catalog.js"
+import { evaluateHardRules } from "../catalog/evaluate-hard-rules.js"
+import { isHardRuleCode } from "../catalog/hard-rule-mapping.js"
+import { scaleMealOption } from "../meal-option/scale-meal-option.js"
+import { validateMealOptionVersion } from "../meal-option/validate-meal-option.js"
+import { calculateRecipeNutrition } from "../nutrition/calculate-recipe-nutrition.js"
+import { calculatePurchaseBasket } from "../pricing/calculate-purchase-basket.js"
+import type { CanonicalFoodRequirement, PurchaseBasketLine } from "../pricing/pricing.js"
 
-import type { NormalizedPlannerInputV1, PlannerCandidateInput } from "./planner-input"
-import type { PlannerFatalCode, PlannerWarning } from "./planner-outcome"
+import type { NormalizedPlannerInputV1, PlannerCandidateInput } from "./planner-input.js"
+import type { PlannerFatalCode, PlannerWarning } from "./planner-outcome.js"
 
 export interface EligibleMealOption {
   readonly mealOptionId: string

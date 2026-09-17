@@ -1,19 +1,19 @@
 import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
-} from "@/domain/household/household-rules"
-import { normalizePantrySnapshotV1 } from "@/domain/pantry/normalize-pantry-snapshot"
-import { calculateAdultEquivalent } from "@/domain/portion/calculate-adult-equivalent"
-import { PORTION_CONFIG_V1 } from "@/domain/portion/portion-config"
-import { PRICE_FRESHNESS_CONFIG_V1 } from "@/domain/pricing/pricing"
+} from "../household/household-rules.js"
+import { normalizePantrySnapshotV1 } from "../pantry/normalize-pantry-snapshot.js"
+import { calculateAdultEquivalent } from "../portion/calculate-adult-equivalent.js"
+import { PORTION_CONFIG_V1 } from "../portion/portion-config.js"
+import { PRICE_FRESHNESS_CONFIG_V1 } from "../pricing/pricing.js"
 
-import { PLANNER_CONFIG_V1 } from "./planner-config"
+import { PLANNER_CONFIG_V1 } from "./planner-config.js"
 import type {
   NormalizedPlannerInputV1,
   PlannerCandidateInput,
   PlannerInputV1
-} from "./planner-input"
-import type { PlannerFatalCode } from "./planner-outcome"
+} from "./planner-input.js"
+import type { PlannerFatalCode } from "./planner-outcome.js"
 
 type NormalizeResult =
   | { readonly ok: true; readonly value: NormalizedPlannerInputV1 }

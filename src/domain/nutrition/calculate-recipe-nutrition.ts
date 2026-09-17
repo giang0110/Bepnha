@@ -1,12 +1,12 @@
-import type { RequiredNutrientCode } from "@/domain/catalog/catalog"
-import { REQUIRED_NUTRIENT_CODES } from "@/domain/catalog/catalog"
+import type { RequiredNutrientCode } from "../catalog/catalog.js"
+import { REQUIRED_NUTRIENT_CODES } from "../catalog/catalog.js"
 import {
   ExactDecimal,
   ROUND_HALF_UP,
   decimalToCanonical,
   parseCanonicalDecimal,
   roundDecimal
-} from "@/domain/shared/decimal"
+} from "../shared/decimal.js"
 
 export interface RecipeNutritionIngredient {
   readonly recipeIngredientId: string

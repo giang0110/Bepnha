@@ -3,8 +3,8 @@ import {
   type MealOptionValidationErrorCode,
   type MealOptionValidationResult,
   type MealOptionVersionInput
-} from "@/domain/meal-option/meal-option"
-import { ExactDecimal, parseCanonicalDecimal } from "@/domain/shared/decimal"
+} from "./meal-option.js"
+import { ExactDecimal, parseCanonicalDecimal } from "../shared/decimal.js"
 
 const SHA_256_PATTERN = /^[a-f0-9]{64}$/u
 

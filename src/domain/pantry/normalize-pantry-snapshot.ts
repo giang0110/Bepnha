@@ -1,9 +1,9 @@
-import { decimalToCanonical, parseCanonicalDecimal } from "../shared/decimal"
+import { decimalToCanonical, parseCanonicalDecimal } from "../shared/decimal.js"
 import type {
   PantryBaseDimension,
   PantryItemSnapshotV1,
   PantrySnapshotNormalizationResult
-} from "./pantry"
+} from "./pantry.js"
 
 export interface PantryItemNormalizationInputV1 {
   readonly pantryItemId: string

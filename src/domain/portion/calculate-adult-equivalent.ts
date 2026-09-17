@@ -1,10 +1,10 @@
-import { ExactDecimal, decimalToCanonical, parseCanonicalDecimal } from "@/domain/shared/decimal"
+import { ExactDecimal, decimalToCanonical, parseCanonicalDecimal } from "../shared/decimal.js"
 import {
   PORTION_CONFIG_V1,
   PORTION_MEMBER_BANDS,
   type PortionConfigV1,
   type PortionMemberBand
-} from "@/domain/portion/portion-config"
+} from "./portion-config.js"
 
 export interface PortionMemberGroupInput {
   readonly memberKind: string

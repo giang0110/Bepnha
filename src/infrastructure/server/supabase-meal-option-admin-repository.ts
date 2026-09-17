@@ -9,8 +9,8 @@ import type {
   MealOptionAdminRepository,
   MealOptionAdminResult,
   MealOptionPublicationAggregate
-} from "@/application/meal-option/execute-meal-option-admin-command"
-import type { Database } from "@/infrastructure/supabase/database.types"
+} from "../../application/meal-option/execute-meal-option-admin-command.js"
+import type { Database } from "../supabase/database.types.js"
 
 type DbError = { code?: string; message?: string }
 type UnknownRecord = Record<string, unknown>

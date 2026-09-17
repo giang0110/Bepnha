@@ -1,9 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { normalizePantrySnapshotV1 } from "@/domain/pantry/normalize-pantry-snapshot"
-import type { PantryBaseDimension, PantrySnapshotV1 } from "@/domain/pantry/pantry"
-import { decimalToCanonical, parseCanonicalDecimal } from "@/domain/shared/decimal"
-import type { Database } from "@/infrastructure/supabase/database.types"
+import { normalizePantrySnapshotV1 } from "../../domain/pantry/normalize-pantry-snapshot.js"
+import type { PantryBaseDimension, PantrySnapshotV1 } from "../../domain/pantry/pantry.js"
+import { decimalToCanonical, parseCanonicalDecimal } from "../../domain/shared/decimal.js"
+import type { Database } from "../supabase/database.types.js"
 
 type UnknownRecord = Record<string, unknown>
 

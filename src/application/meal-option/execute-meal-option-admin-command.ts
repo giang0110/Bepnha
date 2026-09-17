@@ -1,6 +1,6 @@
-import type { ContentHasher } from "@/application/shared/content-hasher"
-import { canonicalUtf8 } from "@/domain/shared/canonical-json"
-import { parseCanonicalDecimal } from "@/domain/shared/decimal"
+import type { ContentHasher } from "../shared/content-hasher.js"
+import { canonicalUtf8 } from "../../domain/shared/canonical-json.js"
+import { parseCanonicalDecimal } from "../../domain/shared/decimal.js"
 
 export type MealOptionAdminFailureReason =
   | "VALIDATION_FAILED"

@@ -1,18 +1,18 @@
-import type { FoodFactUnitConversion } from "@/domain/catalog/catalog"
+import type { FoodFactUnitConversion } from "../catalog/catalog.js"
 import {
   calculateAdultEquivalent,
   type PortionMemberGroupInput
-} from "@/domain/portion/calculate-adult-equivalent"
-import type { PortionConfigV1 } from "@/domain/portion/portion-config"
-import { PORTION_CONFIG_V1 } from "@/domain/portion/portion-config"
-import { normalizeRecipeSteps, type RecipeVersionInput } from "@/domain/recipe/recipe"
+} from "../portion/calculate-adult-equivalent.js"
+import type { PortionConfigV1 } from "../portion/portion-config.js"
+import { PORTION_CONFIG_V1 } from "../portion/portion-config.js"
+import { normalizeRecipeSteps, type RecipeVersionInput } from "./recipe.js"
 import {
   ExactDecimal,
   ROUND_HALF_UP,
   decimalToCanonical,
   parseCanonicalDecimal,
   type ExactDecimalValue
-} from "@/domain/shared/decimal"
+} from "../shared/decimal.js"
 
 export type RecipeScaleErrorCode =
   | "INVALID_PORTION_CONFIG"
