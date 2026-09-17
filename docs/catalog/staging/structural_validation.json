@@ -1,0 +1,139 @@
+{
+  "generatedAt": "2026-09-18",
+  "checks": [
+    {
+      "check": "foods row count = 45",
+      "ok": true,
+      "detail": "45"
+    },
+    {
+      "check": "recipes row count = 37",
+      "ok": true,
+      "detail": "37"
+    },
+    {
+      "check": "recipe_ingredients row count = 182",
+      "ok": true,
+      "detail": "182"
+    },
+    {
+      "check": "prices row count = 45",
+      "ok": true,
+      "detail": "45"
+    },
+    {
+      "check": "allergens row count = 450",
+      "ok": true,
+      "detail": "450"
+    },
+    {
+      "check": "food_conversions row count = 45",
+      "ok": true,
+      "detail": "45"
+    },
+    {
+      "check": "meal_options row count = 24",
+      "ok": true,
+      "detail": "24"
+    },
+    {
+      "check": "foods.csv unique code",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv unique code",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv unique foodCode,foodFactVersionNumber",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "food_nutrients.csv unique foodCode,nutrientCode",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "food_allergens.csv unique foodCode,allergenCode",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv unique recipeCode,ingredientCode",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv unique code",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv unique mealOptionCode,order",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe ingredient food refs valid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe ingredient recipe refs valid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "meal component recipe refs valid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "meal component meal refs valid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "filled ingredient quantities positive numeric",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "check": "all 45 prices positive numeric",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "check": "allergen statuses valid",
+      "ok": true,
+      "detail": "['contains', 'unknown']"
+    },
+    {
+      "check": "no fabricated allergen absent",
+      "ok": true,
+      "detail": "absent=0"
+    },
+    {
+      "check": "prices complete 45/45",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe quantity backlog <= 31",
+      "ok": true,
+      "detail": "31"
+    },
+    {
+      "check": "recipe metadata backlog <= 23",
+      "ok": true,
+      "detail": "21"
+    }
+  ],
+  "allPassed": true,
+  "recipeQuantityMissing": 31,
+  "recipeMetadataMissing": 21,
+  "reviewQueueRows": 128
+}

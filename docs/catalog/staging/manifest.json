@@ -1,0 +1,87 @@
+[
+  {
+    "file": "ENRICHMENT_STATUS.md",
+    "bytes": 334,
+    "sha256": "6f4315ea02e356ee3e187006a7e527739be749340cecd5be34d6773fdc554266"
+  },
+  {
+    "file": "enrichment_summary.json",
+    "bytes": 408,
+    "sha256": "8834485a692f9daaacabbbb7d9da63cf2a9c6a0929e6a9d86a3a21108bdc5af2"
+  },
+  {
+    "file": "food_allergens.csv",
+    "bytes": 53789,
+    "sha256": "5b01a538c34ffb4039e59258d45dc2d24328fda4c33cd29e96d3398b44db62e8"
+  },
+  {
+    "file": "food_conversions.csv",
+    "bytes": 4760,
+    "sha256": "89a1e6ec5e0e0fcf12d410614f07214bde24289fbdd897f77b16e86acd657324"
+  },
+  {
+    "file": "food_nutrients.csv",
+    "bytes": 26224,
+    "sha256": "3e422dad1cae7c49fe7c905d7d0ed4663951647a8573b042ffce75af278dbbf3"
+  },
+  {
+    "file": "foods.csv",
+    "bytes": 6292,
+    "sha256": "92f2e86a49126ca5a59e545e6720315d0871750a260e078d031aa95141c12a10"
+  },
+  {
+    "file": "meal_option_components.csv",
+    "bytes": 4187,
+    "sha256": "5d2eb084e763780acd73515ba20f9780782b94fca05d170b153dcde6ba008daf"
+  },
+  {
+    "file": "meal_options.csv",
+    "bytes": 3835,
+    "sha256": "a986451618e016675df2fdcf43fe39cf4b5720a699e33f0e52218b5c78548400"
+  },
+  {
+    "file": "pack.csv",
+    "bytes": 384,
+    "sha256": "9956704c3085c602fb63d5a7a6a45b2e4f496c6f6073e97f90aca9b378e07766"
+  },
+  {
+    "file": "price_book.csv",
+    "bytes": 82,
+    "sha256": "f382b50fc4948d2ddb6af72070f0e7efa3ecac3dd569c835d78b07ba728403e5"
+  },
+  {
+    "file": "prices.csv",
+    "bytes": 4680,
+    "sha256": "30bad81e45b48f4564f95796812134bb686c783e8a75f2f5289bbff0465416c7"
+  },
+  {
+    "file": "recipe_ingredients.csv",
+    "bytes": 8911,
+    "sha256": "c6286f6049e845776d64af457dfb32f110f31ddc647831b51a54e057a20e1781"
+  },
+  {
+    "file": "recipe_steps.csv",
+    "bytes": 9967,
+    "sha256": "d5823baaf24c255288ba45ea5e86214c62ff598883cc5a684262466e5c047d27"
+  },
+  {
+    "file": "recipes.csv",
+    "bytes": 2107,
+    "sha256": "9e7c86b5bc7d7960f826daf025f70ee23d6e0937fa9060029676dcc494b91a48"
+  },
+  {
+    "file": "research_log.csv",
+    "bytes": 266717,
+    "sha256": "8a932d5bbadf939013fd5f1580377447ce56f436b51209106577e14d49cb28e4"
+  },
+  {
+    "file": "review_queue.csv",
+    "bytes": 38217,
+    "sha256": "9b1f5c7cdf9f5ad4bf295890f14b7e5ce03969d6225919e32e63133b62aadb1f"
+  },
+  {
+    "file": "structural_validation.json",
+    "bytes": 2848,
+    "sha256": "641861e836af68e8864168ed4579874be7ab0dca0b182ff6401f8c60657a1ac1"
+  }
+]

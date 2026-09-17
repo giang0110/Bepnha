@@ -8,6 +8,7 @@
     "catalog:validate": "node scripts/catalog-pack/catalog-pack-cli.ts",
     "catalog:resolve": "node scripts/catalog-pack/catalog-production-resolver-cli.ts",
     "catalog:plan": "node scripts/catalog-pack/catalog-mutation-cli.ts",
+    "catalog:audit": "node scripts/catalog-pack/catalog-audit.ts",
     "catalog:sheet": "node scripts/catalog-pack/catalog-sheet-cli.ts",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",

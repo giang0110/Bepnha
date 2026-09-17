@@ -1,0 +1,183 @@
+﻿recipeCode,ingredientCode,foodCode,foodFactVersionNumber,quantity,unitCode,preparationNoteVi,order
+com_trang,gao_te,gao_te,1,CAN-DIEN: luong theo unitCode,g,,1
+ga_kho_gung,ga_ta,ga_ta,1,500,g,,1
+ga_kho_gung,gung,gung,1,30,g,,2
+ga_kho_gung,hanh_tim,hanh_tim,1,CAN-DIEN: luong theo unitCode,g,,3
+ga_kho_gung,nuoc_mam,nuoc_mam,1,30,ml,,4
+ga_kho_gung,duong_cat,duong_cat,1,4.17,g,,5
+ga_kho_gung,tieu_xay,tieu_xay,1,1.355,g,,6
+ga_kho_gung,dau_an,dau_an,1,15,ml,,7
+ga_chien_nuoc_mam,ga_ta,ga_ta,1,1360.8,g,,1
+ga_chien_nuoc_mam,toi,toi,1,12,g,,2
+ga_chien_nuoc_mam,nuoc_mam,nuoc_mam,1,45,ml,,3
+ga_chien_nuoc_mam,duong_cat,duong_cat,1,50,g,,4
+ga_chien_nuoc_mam,dau_an,dau_an,1,1182.9,ml,,5
+ga_xao_sa_ot,ga_ta,ga_ta,1,450,g,,1
+ga_xao_sa_ot,sa,sa,1,CAN-DIEN: luong theo unitCode,g,,2
+ga_xao_sa_ot,ot_hiem,ot_hiem,1,CAN-DIEN: luong theo unitCode,g,,3
+ga_xao_sa_ot,toi,toi,1,12.6,g,,4
+ga_xao_sa_ot,nuoc_mam,nuoc_mam,1,5,ml,,5
+ga_xao_sa_ot,dau_an,dau_an,1,10,ml,,6
+ga_kho_nam,ga_ta,ga_ta,1,1000,g,,1
+ga_kho_nam,nam_rom,nam_rom,1,150,g,,2
+ga_kho_nam,hanh_tim,hanh_tim,1,CAN-DIEN: luong theo unitCode,g,,3
+ga_kho_nam,nuoc_mam,nuoc_mam,1,30,ml,,4
+ga_kho_nam,tieu_xay,tieu_xay,1,1.355,g,,5
+ga_kho_nam,dau_an,dau_an,1,CAN-DIEN: luong theo unitCode,ml,,6
+thit_kho_trung,thit_ba_chi,thit_ba_chi,1,500,g,,1
+thit_kho_trung,trung_ga,trung_ga,1,5,item,,2
+thit_kho_trung,hanh_tim,hanh_tim,1,10,g,,3
+thit_kho_trung,nuoc_mam,nuoc_mam,1,30,ml,,4
+thit_kho_trung,duong_cat,duong_cat,1,25,g,,5
+thit_kho_trung,tieu_xay,tieu_xay,1,2,g,,6
+suon_ram_man,suon_heo,suon_heo,1,680.4,g,,1
+suon_ram_man,toi,toi,1,6,g,,2
+suon_ram_man,hanh_tim,hanh_tim,1,21.5,g,,3
+suon_ram_man,nuoc_mam,nuoc_mam,1,37.5,ml,,4
+suon_ram_man,duong_cat,duong_cat,1,25,g,,5
+suon_ram_man,dau_an,dau_an,1,5,ml,,6
+thit_xao_dau_cove,thit_nac_vai,thit_nac_vai,1,200,g,,1
+thit_xao_dau_cove,dau_cove,dau_cove,1,400,g,,2
+thit_xao_dau_cove,toi,toi,1,6,g,,3
+thit_xao_dau_cove,nuoc_mam,nuoc_mam,1,30,ml,,4
+thit_xao_dau_cove,dau_an,dau_an,1,15,ml,,5
+thit_xao_hanh_tay,thit_nac_vai,thit_nac_vai,1,400,g,,1
+thit_xao_hanh_tay,hanh_tay,hanh_tay,1,200,g,,2
+thit_xao_hanh_tay,toi,toi,1,CAN-DIEN: luong theo unitCode,g,,3
+thit_xao_hanh_tay,nuoc_mam,nuoc_mam,1,CAN-DIEN: luong theo unitCode,ml,,4
+thit_xao_hanh_tay,tieu_xay,tieu_xay,1,CAN-DIEN: luong theo unitCode,g,,5
+thit_xao_hanh_tay,dau_an,dau_an,1,15,ml,,6
+suon_kho_khoai_tay,suon_heo,suon_heo,1,500,g,,1
+suon_kho_khoai_tay,khoai_tay,khoai_tay,1,500,g,,2
+suon_kho_khoai_tay,hanh_tim,hanh_tim,1,CAN-DIEN: luong theo unitCode,g,,3
+suon_kho_khoai_tay,nuoc_mam,nuoc_mam,1,CAN-DIEN: luong theo unitCode,ml,,4
+suon_kho_khoai_tay,duong_cat,duong_cat,1,CAN-DIEN: luong theo unitCode,g,,5
+bo_xao_gia,thit_bo_bap,thit_bo_bap,1,300,g,,1
+bo_xao_gia,gia_do,gia_do,1,100,g,,2
+bo_xao_gia,toi,toi,1,9,g,,3
+bo_xao_gia,hanh_la,hanh_la,1,30,g,,4
+bo_xao_gia,nuoc_tuong,nuoc_tuong,1,45,ml,,5
+bo_xao_gia,dau_an,dau_an,1,30,ml,,6
+bo_kho_ca_rot,thit_bo_bap,thit_bo_bap,1,500,g,,1
+bo_kho_ca_rot,ca_rot,ca_rot,1,61,g,,2
+bo_kho_ca_rot,sa,sa,1,CAN-DIEN: luong theo unitCode,g,,3
+bo_kho_ca_rot,hanh_tim,hanh_tim,1,CAN-DIEN: luong theo unitCode,g,,4
+bo_kho_ca_rot,nuoc_mam,nuoc_mam,1,45,ml,,5
+bo_kho_ca_rot,dau_an,dau_an,1,30,ml,,6
+bo_xao_hanh_tay,thit_bo_bap,thit_bo_bap,1,500,g,,1
+bo_xao_hanh_tay,hanh_tay,hanh_tay,1,100,g,,2
+bo_xao_hanh_tay,toi,toi,1,2.8,g,,3
+bo_xao_hanh_tay,tieu_xay,tieu_xay,1,2.71,g,,4
+bo_xao_hanh_tay,nuoc_tuong,nuoc_tuong,1,5,ml,,5
+bo_xao_hanh_tay,dau_an,dau_an,1,30,ml,,6
+ca_loc_kho_to,ca_loc,ca_loc,1,500,g,,1
+ca_loc_kho_to,hanh_tim,hanh_tim,1,15,g,,2
+ca_loc_kho_to,ot_hiem,ot_hiem,1,CAN-DIEN: luong theo unitCode,g,,3
+ca_loc_kho_to,nuoc_mam,nuoc_mam,1,22.5,ml,,4
+ca_loc_kho_to,duong_cat,duong_cat,1,18.75,g,,5
+ca_loc_kho_to,tieu_xay,tieu_xay,1,1.355,g,,6
+ca_basa_chien_gion,ca_basa,ca_basa,1,300,g,,1
+ca_basa_chien_gion,muoi,muoi,1,6,g,,2
+ca_basa_chien_gion,tieu_xay,tieu_xay,1,0.903,g,,3
+ca_basa_chien_gion,dau_an,dau_an,1,CAN-DIEN: luong theo unitCode,ml,,4
+ca_nuc_kho_ca_chua,ca_nuc,ca_nuc,1,500,g,,1
+ca_nuc_kho_ca_chua,ca_chua,ca_chua,1,250,g,,2
+ca_nuc_kho_ca_chua,hanh_tim,hanh_tim,1,CAN-DIEN: luong theo unitCode,g,,3
+ca_nuc_kho_ca_chua,nuoc_mam,nuoc_mam,1,60,ml,,4
+ca_nuc_kho_ca_chua,duong_cat,duong_cat,1,4.17,g,,5
+ca_basa_kho_tieu,ca_basa,ca_basa,1,300,g,,1
+ca_basa_kho_tieu,tieu_xay,tieu_xay,1,8.13,g,,2
+ca_basa_kho_tieu,hanh_tim,hanh_tim,1,CAN-DIEN: luong theo unitCode,g,,3
+ca_basa_kho_tieu,nuoc_mam,nuoc_mam,1,15,ml,,4
+ca_basa_kho_tieu,duong_cat,duong_cat,1,4.17,g,,5
+tom_rim_man,tom_the,tom_the,1,1000,g,,1
+tom_rim_man,toi,toi,1,9,g,,2
+tom_rim_man,nuoc_mam,nuoc_mam,1,45,ml,,3
+tom_rim_man,duong_cat,duong_cat,1,37.5,g,,4
+tom_rim_man,tieu_xay,tieu_xay,1,2.71,g,,5
+tom_rim_man,dau_an,dau_an,1,60,ml,,6
+tom_xao_bi_dao,tom_the,tom_the,1,100,g,,1
+tom_xao_bi_dao,bi_dao,bi_dao,1,400,g,,2
+tom_xao_bi_dao,toi,toi,1,3,g,,3
+tom_xao_bi_dao,nuoc_mam,nuoc_mam,1,CAN-DIEN: luong theo unitCode,ml,,4
+tom_xao_bi_dao,dau_an,dau_an,1,30,ml,,5
+muc_xao_ca_chua,muc_ong,muc_ong,1,1000,g,,1
+muc_xao_ca_chua,ca_chua,ca_chua,1,200,g,,2
+muc_xao_ca_chua,hanh_tay,hanh_tay,1,150,g,,3
+muc_xao_ca_chua,toi,toi,1,CAN-DIEN: luong theo unitCode,g,,4
+muc_xao_ca_chua,nuoc_mam,nuoc_mam,1,15,ml,,5
+muc_xao_ca_chua,dau_an,dau_an,1,15,ml,,6
+trung_chien_hanh,trung_ga,trung_ga,1,3,item,,1
+trung_chien_hanh,hanh_la,hanh_la,1,30,g,,2
+trung_chien_hanh,nuoc_mam,nuoc_mam,1,2.5,ml,,3
+trung_chien_hanh,tieu_xay,tieu_xay,1,0.6775,g,,4
+trung_chien_hanh,dau_an,dau_an,1,15,ml,,5
+trung_chien_thit_bam,trung_ga,trung_ga,1,2,item,,1
+trung_chien_thit_bam,thit_bo_xay,thit_bo_xay,1,100,g,,2
+trung_chien_thit_bam,hanh_la,hanh_la,1,CAN-DIEN: luong theo unitCode,g,,3
+trung_chien_thit_bam,nuoc_mam,nuoc_mam,1,10,ml,,4
+trung_chien_thit_bam,dau_an,dau_an,1,30,ml,,5
+dau_hu_sot_ca_chua,dau_hu_trang,dau_hu_trang,1,120,g,,1
+dau_hu_sot_ca_chua,ca_chua,ca_chua,1,300,g,,2
+dau_hu_sot_ca_chua,hanh_la,hanh_la,1,50,g,,3
+dau_hu_sot_ca_chua,toi,toi,1,10,g,,4
+dau_hu_sot_ca_chua,nuoc_tuong,nuoc_tuong,1,10,ml,,5
+dau_hu_sot_ca_chua,dau_an,dau_an,1,10,ml,,6
+dau_hu_chien_sa,dau_hu_trang,dau_hu_trang,1,400,g,,1
+dau_hu_chien_sa,sa,sa,1,CAN-DIEN: luong theo unitCode,g,,2
+dau_hu_chien_sa,ot_hiem,ot_hiem,1,CAN-DIEN: luong theo unitCode,g,,3
+dau_hu_chien_sa,muoi,muoi,1,CAN-DIEN: luong theo unitCode,g,,4
+dau_hu_chien_sa,dau_an,dau_an,1,130,ml,,5
+dau_hu_kho_nam,dau_hu_trang,dau_hu_trang,1,300,g,,1
+dau_hu_kho_nam,nam_rom,nam_rom,1,400,g,,2
+dau_hu_kho_nam,hanh_tim,hanh_tim,1,CAN-DIEN: luong theo unitCode,g,,3
+dau_hu_kho_nam,nuoc_tuong,nuoc_tuong,1,60,ml,,4
+dau_hu_kho_nam,duong_cat,duong_cat,1,25,g,,5
+rau_muong_luoc,rau_muong,rau_muong,1,500,g,,1
+rau_muong_luoc,muoi,muoi,1,5,g,,2
+rau_muong_xao_toi,rau_muong,rau_muong,1,500,g,,1
+rau_muong_xao_toi,toi,toi,1,12,g,,2
+rau_muong_xao_toi,dau_an,dau_an,1,30,ml,,3
+rau_muong_xao_toi,hat_nem,hat_nem,1,5,g,,4
+cai_ngot_luoc,cai_ngot,cai_ngot,1,500,g,,1
+cai_ngot_luoc,muoi,muoi,1,CAN-DIEN: luong theo unitCode,g,,2
+bap_cai_xao,bap_cai,bap_cai,1,500,g,,1
+bap_cai_xao,toi,toi,1,30,g,,2
+bap_cai_xao,dau_an,dau_an,1,CAN-DIEN: luong theo unitCode,ml,,3
+bap_cai_xao,hat_nem,hat_nem,1,7,g,,4
+su_su_xao_ca_rot,su_su,su_su,1,600,g,,1
+su_su_xao_ca_rot,ca_rot,ca_rot,1,100,g,,2
+su_su_xao_ca_rot,toi,toi,1,30,g,,3
+su_su_xao_ca_rot,dau_an,dau_an,1,7.5,ml,,4
+su_su_xao_ca_rot,hat_nem,hat_nem,1,12.5,g,,5
+muop_xao_toi,muop_huong,muop_huong,1,500,g,,1
+muop_xao_toi,toi,toi,1,15,g,,2
+muop_xao_toi,dau_an,dau_an,1,30,ml,,3
+muop_xao_toi,hat_nem,hat_nem,1,7,g,,4
+rau_den_luoc,rau_den,rau_den,1,300,g,,1
+rau_den_luoc,muoi,muoi,1,6,g,,2
+canh_bi_dao_thit_bam,bi_dao,bi_dao,1,300,g,,1
+canh_bi_dao_thit_bam,thit_bo_xay,thit_bo_xay,1,130,g,,2
+canh_bi_dao_thit_bam,hanh_la,hanh_la,1,30,g,,3
+canh_bi_dao_thit_bam,hat_nem,hat_nem,1,5,g,,4
+canh_bi_dao_thit_bam,muoi,muoi,1,3,g,,5
+canh_chua_ca_loc,ca_loc,ca_loc,1,300,g,,1
+canh_chua_ca_loc,me_chua,me_chua,1,20,g,,2
+canh_chua_ca_loc,ca_chua,ca_chua,1,246,g,,3
+canh_chua_ca_loc,gia_do,gia_do,1,200,g,,4
+canh_chua_ca_loc,rau_ngo,rau_ngo,1,CAN-DIEN: luong theo unitCode,g,,5
+canh_chua_ca_loc,nuoc_mam,nuoc_mam,1,5,ml,,6
+canh_chua_ca_loc,duong_cat,duong_cat,1,CAN-DIEN: luong theo unitCode,g,,7
+canh_cai_thao_thit,cai_thao,cai_thao,1,300,g,,1
+canh_cai_thao_thit,thit_nac_vai,thit_nac_vai,1,200,g,,2
+canh_cai_thao_thit,hanh_la,hanh_la,1,45,g,,3
+canh_cai_thao_thit,hat_nem,hat_nem,1,CAN-DIEN: luong theo unitCode,g,,4
+canh_ca_chua_trung,ca_chua,ca_chua,1,123,g,,1
+canh_ca_chua_trung,trung_ga,trung_ga,1,2,item,,2
+canh_ca_chua_trung,hanh_la,hanh_la,1,15,g,,3
+canh_ca_chua_trung,hat_nem,hat_nem,1,15,g,,4
+canh_ca_chua_trung,muoi,muoi,1,6,g,,5
+canh_bi_do_thit_bam,bi_do,bi_do,1,500,g,,1
+canh_bi_do_thit_bam,thit_bo_xay,thit_bo_xay,1,500,g,,2
+canh_bi_do_thit_bam,hanh_la,hanh_la,1,30,g,,3
+canh_bi_do_thit_bam,hat_nem,hat_nem,1,CAN-DIEN: luong theo unitCode,g,,4

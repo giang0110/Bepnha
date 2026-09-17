@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-09-18",
+  "recipeIngredientQuantities": {
+    "filled": 151,
+    "total": 182,
+    "missing": 31
+  },
+  "recipeMetadata": {
+    "yieldFilled": 30,
+    "yieldTotal": 37,
+    "activeFilled": 30,
+    "activeTotal": 37,
+    "elapsedFilled": 30,
+    "elapsedTotal": 37,
+    "missingFields": 21
+  },
+  "researchLogRows": 1228,
+  "reviewQueueRows": 128,
+  "structuralValidation": "passed"
+}
