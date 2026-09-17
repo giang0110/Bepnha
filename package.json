@@ -41,6 +41,7 @@
     "supabase:stop": "supabase stop --no-backup",
     "db:types:generate": "node scripts/generate-database-types.mjs generate",
     "db:types:check": "node scripts/generate-database-types.mjs check",
+    "verify:production:schema": "node scripts/verify-production-schema.mjs",
     "verify:db": "npm run preflight:db && npm run supabase:start && npm run supabase:reset && npm run supabase:lint && npm run supabase:test",
     "security:dependencies": "npm audit --audit-level=moderate",
     "verify:web": "npm run env:check && npm run secrets:check && npm run security:dependencies && npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run bundle:check",
