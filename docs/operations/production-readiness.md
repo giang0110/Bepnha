@@ -433,6 +433,14 @@ Nothing in it signs up, signs in, or writes. Production holds real households, a
 
 The authenticated smoke below remains manual, because it does write.
 
+### Result on 2026-09-17
+
+`npm run smoke:production` against `https://bepnhatoi.vercel.app` passes 11 of 11, and `GET /api/me` without a token returns 401 rather than 500.
+
+That 401 is the load-bearing evidence, not the 11. Until this date every serverless function returned 500 `FUNCTION_INVOCATION_FAILED` from module resolution, so a 401 is the first proof that the whole 77-file import closure loads and the handler itself runs. The first smoke run, on 2026-09-17 before the fix, scored 10 of 11 with `/api/health` failing, and that failure is what exposed it.
+
+Two things this establishes about the suite itself. It catches what CI cannot: the full test suite was green on every commit while the entire API was down, because Vitest, `tsc` and Vite all resolve the `@/` alias that Node does not. And a preview deployment cannot substitute for it while Deployment Protection is on, since an unauthenticated request is answered with a 302 to a login page rather than by the function.
+
 After an explicitly authorized exact-main deployment, issue unauthenticated `GET /api/health`. Expected response is HTTP 200 with exactly:
 
 ```json
