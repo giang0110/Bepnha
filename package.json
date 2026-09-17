@@ -21,6 +21,7 @@
     "test:e2e:assistant": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx playwright test tests/assistant.spec.ts",
     "test:e2e:shopping": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx playwright test tests/shopping-list.spec.ts",
     "test:e2e:pantry": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx playwright test tests/pantry.spec.ts",
+    "smoke:production": "playwright test --config playwright.production.config.ts",
     "test:e2e:accessibility": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx playwright test tests/accessibility-mobile.spec.ts",
     "test:integration": "npm run preflight:db && node scripts/local-supabase-env.mjs -- npx vitest run --config vitest.integration.config.ts tests/integration/supabase-auth.integration.test.ts tests/integration/supabase-household.integration.test.ts tests/integration/supabase-catalog.integration.test.ts",
     "test:integration:catalog-admin": "npm run preflight:db && node scripts/local-supabase-admin-env.mjs -- npx vitest run --config vitest.integration.config.ts tests/integration/catalog-admin-api.integration.test.ts",
