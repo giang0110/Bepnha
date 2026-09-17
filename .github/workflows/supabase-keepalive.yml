@@ -7,6 +7,13 @@ name: Supabase keep-alive
 # `api/health.ts` deliberately does not touch the database, so pinging the deployed health endpoint
 # would NOT reset the timer. This workflow must keep querying the project API directly.
 #
+# The schema grants the `anon` role nothing at all — `phase_0_security_baseline` revokes default
+# privileges and every later migration revokes its own tables, which `phase_0_security.test.sql`
+# pins. So an anonymous read can never return 200 here, and expecting one was wrong: the request
+# that proves the database is awake is the one PostgreSQL answers with SQLSTATE 42501, which it
+# can only do after evaluating privileges on a real table. Granting `anon` access to make this
+# return 200 would puncture that baseline to satisfy a monitoring job.
+#
 # Required repository secrets:
 #   SUPABASE_URL              - e.g. https://<ref>.supabase.co
 #   SUPABASE_PUBLISHABLE_KEY  - the public anon/publishable key, never a secret/service-role key
@@ -42,27 +49,37 @@ jobs:
             exit 1
           fi
 
-          # RLS keeps this anonymous read empty, which is fine: the point is that PostgREST reaches
-          # the database. Only the HTTP status is printed, never the response body or the key.
-          status="$(curl \
+          # The response body is a PostgREST diagnostic and never contains the key, which travels
+          # only in a request header.
+          response="$(curl \
             --silent \
             --show-error \
-            --output /dev/null \
-            --write-out '%{http_code}' \
+            --write-out '\n%{http_code}' \
             --max-time 30 \
             --retry 3 \
             --retry-delay 10 \
             --retry-all-errors \
             --header "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
-            --header "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}" \
             "${SUPABASE_URL}/rest/v1/units?select=id&limit=1")"
+
+          status="${response##*$'\n'}"
+          body="${response%$'\n'*}"
 
           echo "PostgREST responded with HTTP ${status}."
 
           case "${status}" in
             200 | 206) exit 0 ;;
-            *)
-              echo "Keep-alive ping failed; the project may already be paused." >&2
-              exit 1
-              ;;
           esac
+
+          # 42501 is insufficient_privilege. PostgreSQL can only raise it after resolving the table
+          # and evaluating this role's privileges on it, so receiving it is proof the request
+          # reached the database rather than being turned away at the gateway. An invalid key is
+          # also a 401 but carries no SQLSTATE, which is what separates the two.
+          if [ "${status}" = "401" ] && printf '%s' "${body}" | grep -q '"code":"42501"'; then
+            echo "PostgreSQL answered with SQLSTATE 42501; anon holds no table privileges by design."
+            exit 0
+          fi
+
+          echo "Keep-alive ping failed; the project may already be paused." >&2
+          printf 'Body: %.200s\n' "${body}" >&2
+          exit 1

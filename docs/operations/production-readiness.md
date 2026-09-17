@@ -432,6 +432,10 @@ Supabase pauses Free Plan projects after 7 days of inactivity. Pausing does not 
 
 `.github/workflows/supabase-keepalive.yml` issues a real PostgREST query twice a week and fails loudly if the project does not answer. It requires `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` repository secrets and must never be given a secret/service-role key.
 
+A successful ping is HTTP 401 carrying SQLSTATE `42501`, not HTTP 200. The schema grants the `anon` role nothing — the phase 0 baseline revokes default privileges and every later migration revokes its own tables — so an anonymous read is refused at the privilege check. PostgreSQL can only raise `42501` after resolving the table and evaluating this role's privileges on it, which is exactly the database work the inactivity timer counts. An invalid key also returns 401 but carries no SQLSTATE, which is what separates the two.
+
+Do not grant `anon` access to make the ping return 200. That would puncture the security baseline to satisfy a monitoring job; `phase_0_security.test.sql` asserts `anon` holds no privilege on any public table, and that assertion is the invariant, not an obstacle.
+
 `GET /api/health` deliberately performs no database work, so pinging the deployed health endpoint does not reset the inactivity timer. Any replacement keep-alive must query the project API directly.
 
 GitHub disables scheduled workflows after 60 days without repository activity. Re-enable the workflow after a long quiet period, or remove it once the project moves to a paid plan, where projects do not pause.

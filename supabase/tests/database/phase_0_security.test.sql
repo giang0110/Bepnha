@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(4);
+select plan(5);
 
 select has_schema('private');
 
@@ -30,6 +30,17 @@ select is(
   ),
   0,
   'every exposed public table has RLS enabled'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from information_schema.table_privileges
+    where grantee = 'anon'
+      and table_schema = 'public'
+  ),
+  0,
+  'anon holds no privilege on any public table'
 );
 
 select * from finish();
