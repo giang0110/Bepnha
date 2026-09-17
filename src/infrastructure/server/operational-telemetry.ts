@@ -17,7 +17,13 @@ export interface AssistantOperationalEvent extends BaseOperationalEvent {
   readonly operation: "respond"
 }
 
-export type OperationalEvent = PlannerOperationalEvent | AssistantOperationalEvent
+export interface AccountOperationalEvent extends BaseOperationalEvent {
+  readonly event: "account_request"
+  readonly operation: "delete"
+}
+
+export type OperationalEvent =
+  PlannerOperationalEvent | AssistantOperationalEvent | AccountOperationalEvent
 
 export interface OperationalTelemetry {
   emit(event: OperationalEvent): void
