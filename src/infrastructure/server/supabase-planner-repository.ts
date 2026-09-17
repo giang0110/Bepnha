@@ -2,8 +2,8 @@ import type {
   PersistPlannerRevisionCommand,
   PlannerRepository,
   ReplacementAuthoritativeInput
-} from "@/application/planner/planner-use-cases"
-import type { PlannerInputV1 } from "@/domain/planner/planner-input"
+} from "../../application/planner/planner-use-cases.js"
+import type { PlannerInputV1 } from "../../domain/planner/planner-input.js"
 
 type DbError = { readonly code?: string; readonly message?: string }
 type RpcResult = Promise<{ readonly data: unknown; readonly error: DbError | null }>

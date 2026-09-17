@@ -1,19 +1,19 @@
-import type { ContentHasher } from "@/application/shared/content-hasher"
-import { evaluatePlannerEligibility } from "@/domain/planner/evaluate-eligibility"
-import { PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
-import type { PlannerInputV1 } from "@/domain/planner/planner-input"
-import type { PlannerFatalCode } from "@/domain/planner/planner-outcome"
+import type { ContentHasher } from "../shared/content-hasher.js"
+import { evaluatePlannerEligibility } from "../../domain/planner/evaluate-eligibility.js"
+import { PLANNER_ENGINE_VERSION } from "../../domain/planner/planner-engine-version.js"
+import type { PlannerInputV1 } from "../../domain/planner/planner-input.js"
+import type { PlannerFatalCode } from "../../domain/planner/planner-outcome.js"
 import {
   buildPlannerSnapshotPayloads,
   type PlannerCandidateManifestEntry
-} from "@/domain/planner/planner-snapshot"
-import { normalizePlannerInput } from "@/domain/planner/normalize-planner-input"
-import { previewMealReplacement } from "@/domain/planner/replace-meal"
-import { searchWeek, type ReadyPlan } from "@/domain/planner/search-week"
-import type { CanonicalFoodDeduction } from "@/domain/pricing/pricing"
-import { canonicalJson, canonicalUtf8 } from "@/domain/shared/canonical-json"
-import { buildShoppingListSnapshot } from "@/domain/shopping/build-shopping-list-snapshot"
-import type { ShoppingListSnapshotV1 } from "@/domain/shopping/shopping-list"
+} from "../../domain/planner/planner-snapshot.js"
+import { normalizePlannerInput } from "../../domain/planner/normalize-planner-input.js"
+import { previewMealReplacement } from "../../domain/planner/replace-meal.js"
+import { searchWeek, type ReadyPlan } from "../../domain/planner/search-week.js"
+import type { CanonicalFoodDeduction } from "../../domain/pricing/pricing.js"
+import { canonicalJson, canonicalUtf8 } from "../../domain/shared/canonical-json.js"
+import { buildShoppingListSnapshot } from "../../domain/shopping/build-shopping-list-snapshot.js"
+import type { ShoppingListSnapshotV1 } from "../../domain/shopping/shopping-list.js"
 
 type Failure = { readonly ok: false; readonly error: { readonly code: PlannerFatalCode } }
 

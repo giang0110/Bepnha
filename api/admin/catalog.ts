@@ -1,18 +1,18 @@
 import { createClient } from "@supabase/supabase-js"
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 
-import type { CatalogAdminCommand } from "@/application/catalog/catalog-admin-command"
-import type { CatalogAdminRepository } from "@/application/catalog/catalog-admin-repository"
-import { executeCatalogAdminCommand } from "@/application/catalog/execute-catalog-admin-command"
-import type { ContentHasher } from "@/application/shared/content-hasher"
-import { NodeContentHasher } from "@/infrastructure/server/node-content-hasher"
-import { createSupabaseCatalogAdminRepository } from "@/infrastructure/server/supabase-catalog-admin-repository"
-import type { Database } from "@/infrastructure/supabase/database.types"
+import type { CatalogAdminCommand } from "../../src/application/catalog/catalog-admin-command.js"
+import type { CatalogAdminRepository } from "../../src/application/catalog/catalog-admin-repository.js"
+import { executeCatalogAdminCommand } from "../../src/application/catalog/execute-catalog-admin-command.js"
+import type { ContentHasher } from "../../src/application/shared/content-hasher.js"
+import { NodeContentHasher } from "../../src/infrastructure/server/node-content-hasher.js"
+import { createSupabaseCatalogAdminRepository } from "../../src/infrastructure/server/supabase-catalog-admin-repository.js"
+import type { Database } from "../../src/infrastructure/supabase/database.types.js"
 import {
   createServerSupabaseAdminAuthVerifier,
   type ServerAdminAuthVerifier
-} from "@/infrastructure/supabase/server-admin-auth"
-import { parseBearerToken } from "@/infrastructure/supabase/server-auth"
+} from "../../src/infrastructure/supabase/server-admin-auth.js"
+import { parseBearerToken } from "../../src/infrastructure/supabase/server-auth.js"
 
 interface CatalogAdminHandlerDependencies {
   readonly auth: ServerAdminAuthVerifier

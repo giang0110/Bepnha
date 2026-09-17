@@ -1,12 +1,9 @@
 import type {
   AssistantContextRepository,
   AssistantContextLoadResult
-} from "@/application/assistant/assistant-context-repository"
-import type { AssistantPlanEvidence } from "@/application/assistant/meal-assistant"
-import type {
-  PlannerInputLoader,
-  PlannerRpcClient
-} from "@/infrastructure/server/supabase-planner-repository"
+} from "../../application/assistant/assistant-context-repository.js"
+import type { AssistantPlanEvidence } from "../../application/assistant/meal-assistant.js"
+import type { PlannerInputLoader, PlannerRpcClient } from "./supabase-planner-repository.js"
 
 const DAY_LABELS = [
   "Thứ Hai",

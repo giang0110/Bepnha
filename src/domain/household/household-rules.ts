@@ -1,4 +1,4 @@
-import type { HouseholdRuleKind } from "@/domain/household/household"
+import type { HouseholdRuleKind } from "./household.js"
 
 export const HOUSEHOLD_RULE_OPTIONS = [
   {

@@ -3,17 +3,20 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
-} from "@/domain/household/household-rules"
-import type { MealOptionRecipeInput, MealOptionTagInput } from "@/domain/meal-option/meal-option"
-import { PLANNER_CONFIG_V1 } from "@/domain/planner/planner-config"
-import type { PlannerCandidateInput, PlannerInputV1 } from "@/domain/planner/planner-input"
-import type { ReadyPlan } from "@/domain/planner/search-week"
-import type { FoodPriceInput } from "@/domain/pricing/pricing"
-import type { RecipeStepInput } from "@/domain/recipe/recipe"
-import type { Database } from "@/infrastructure/supabase/database.types"
+} from "../../domain/household/household-rules.js"
+import type {
+  MealOptionRecipeInput,
+  MealOptionTagInput
+} from "../../domain/meal-option/meal-option.js"
+import { PLANNER_CONFIG_V1 } from "../../domain/planner/planner-config.js"
+import type { PlannerCandidateInput, PlannerInputV1 } from "../../domain/planner/planner-input.js"
+import type { ReadyPlan } from "../../domain/planner/search-week.js"
+import type { FoodPriceInput } from "../../domain/pricing/pricing.js"
+import type { RecipeStepInput } from "../../domain/recipe/recipe.js"
+import type { Database } from "../supabase/database.types.js"
 
-import { loadPantrySnapshot } from "./load-pantry-snapshot"
-import type { PlannerInputLoader } from "./supabase-planner-repository"
+import { loadPantrySnapshot } from "./load-pantry-snapshot.js"
+import type { PlannerInputLoader } from "./supabase-planner-repository.js"
 
 type UnknownRecord = Record<string, unknown>
 

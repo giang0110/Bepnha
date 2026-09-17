@@ -1,12 +1,12 @@
-import type { MealOptionVersionInput } from "@/domain/meal-option/meal-option"
-import { validateMealOptionVersion } from "@/domain/meal-option/validate-meal-option"
+import type { MealOptionVersionInput } from "./meal-option.js"
+import { validateMealOptionVersion } from "./validate-meal-option.js"
 import {
   calculateAdultEquivalent,
   type PortionMemberGroupInput
-} from "@/domain/portion/calculate-adult-equivalent"
-import { PORTION_CONFIG_V1, type PortionConfigV1 } from "@/domain/portion/portion-config"
-import { scaleRecipe, type RecipeScaleErrorCode } from "@/domain/recipe/scale-recipe"
-import { ExactDecimal, decimalToCanonical } from "@/domain/shared/decimal"
+} from "../portion/calculate-adult-equivalent.js"
+import { PORTION_CONFIG_V1, type PortionConfigV1 } from "../portion/portion-config.js"
+import { scaleRecipe, type RecipeScaleErrorCode } from "../recipe/scale-recipe.js"
+import { ExactDecimal, decimalToCanonical } from "../shared/decimal.js"
 
 export type ScaleMealOptionResult =
   | {

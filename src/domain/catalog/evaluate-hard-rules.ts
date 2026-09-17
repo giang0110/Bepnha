@@ -1,13 +1,9 @@
-import type { RecipeIngredientLineage } from "@/domain/catalog/catalog"
-import {
-  HARD_RULE_MAPPINGS,
-  isHardRuleCode,
-  type HardRuleCode
-} from "@/domain/catalog/hard-rule-mapping"
+import type { RecipeIngredientLineage } from "./catalog.js"
+import { HARD_RULE_MAPPINGS, isHardRuleCode, type HardRuleCode } from "./hard-rule-mapping.js"
 import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
-} from "@/domain/household/household-rules"
+} from "../household/household-rules.js"
 
 export type HardRuleEvaluation =
   | { readonly status: "eligible" }

@@ -1,8 +1,4 @@
-import type {
-  RateLimitDecision,
-  RateLimiter,
-  RateLimitRequest
-} from "@/application/shared/rate-limiter"
+import type { RateLimitDecision, RateLimiter, RateLimitRequest } from "../shared/rate-limiter.js"
 
 export type AssistantRateLimitRequest = RateLimitRequest
 

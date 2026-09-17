@@ -355,6 +355,21 @@ authenticate anyone.
 
 Never deploy BepNha into a project linked to `nuoidaycon` or another repository.
 
+### Module resolution inside a function
+
+Vercel compiles `api/*.ts` in place rather than bundling it, and TypeScript never rewrites import specifiers on emit. Whatever is written in the source reaches Node verbatim, and Node applies ESM rules: a bare specifier is an npm package name, and a relative one needs a file extension.
+
+Both mistakes fail identically, at module load, before a handler runs a single line:
+
+```
+ERR_MODULE_NOT_FOUND: Cannot find package '@/infrastructure'
+imported from /var/task/api/health.js
+```
+
+So no module reachable from `api/**` may use the `@/` alias, and every relative import in that closure must end in `.js`. `api/serverless-module-resolution.test.ts` walks the real closure from the deployed entrypoints and fails on either.
+
+Nothing else catches this. Vitest, `tsc` and Vite all resolve `@/` happily, which is why the entire suite stayed green while every function in production returned 500 from the first deployment onwards. There is no configuration lever either: the builder's bundling path is gated behind the internal `VERCEL_API_FUNCTION_BUNDLING=1`, and it does not read tsconfig `paths`. Browser code under `src/app` and `src/features` is unaffected and still uses the alias.
+
 ### Serverless function budget
 
 Vercel turns **every** file under `api/` into a Serverless Function, `.test.ts` files included, and
@@ -433,6 +448,14 @@ It checks `/api/health`, every security header `vercel.json` declares, that the 
 Nothing in it signs up, signs in, or writes. Production holds real households, and a smoke test that created an account would leave one behind on every run. It lives in `tests/production/` under its own Playwright config, and the default config ignores that directory, so an ordinary `npm run test:e2e` cannot reach a live site.
 
 The authenticated smoke below remains manual, because it does write.
+
+### Result on 2026-09-17
+
+`npm run smoke:production` against `https://bepnhatoi.vercel.app` passes 11 of 11, and `GET /api/me` without a token returns 401 rather than 500.
+
+That 401 is the load-bearing evidence, not the 11. Until this date every serverless function returned 500 `FUNCTION_INVOCATION_FAILED` from module resolution, so a 401 is the first proof that the whole 77-file import closure loads and the handler itself runs. The first smoke run, on 2026-09-17 before the fix, scored 10 of 11 with `/api/health` failing, and that failure is what exposed it.
+
+Two things this establishes about the suite itself. It catches what CI cannot: the full test suite was green on every commit while the entire API was down, because Vitest, `tsc` and Vite all resolve the `@/` alias that Node does not. And a preview deployment cannot substitute for it while Deployment Protection is on, since an unauthenticated request is answered with a 302 to a login page rather than by the function.
 
 After an explicitly authorized exact-main deployment, issue unauthenticated `GET /api/health`. Expected response is HTTP 200 with exactly:
 

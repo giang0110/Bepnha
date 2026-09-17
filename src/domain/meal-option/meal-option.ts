@@ -1,4 +1,4 @@
-import type { RecipeVersionInput } from "@/domain/recipe/recipe"
+import type { RecipeVersionInput } from "../recipe/recipe.js"
 
 export const MEAL_OPTION_ROLES = ["staple", "main", "vegetable", "soup", "side"] as const
 export type MealOptionRole = (typeof MEAL_OPTION_ROLES)[number]

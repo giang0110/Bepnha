@@ -1,4 +1,4 @@
-import type { GroceryCategoryCode } from "./grocery-category-config"
+import type { GroceryCategoryCode } from "./grocery-category-config.js"
 
 export type ShoppingProjectionFatalCode =
   | "INCOMPLETE_SHOPPING_LINEAGE"

@@ -1,12 +1,12 @@
-import type { AllergenAssessment, FoodFactNutrientAmount } from "@/domain/catalog/catalog"
-import type { MealOptionVersionInput } from "@/domain/meal-option/meal-option"
-import type { PantrySnapshotV1 } from "@/domain/pantry/pantry"
-import type { PortionMemberGroupInput } from "@/domain/portion/calculate-adult-equivalent"
-import type { FoodPriceInput } from "@/domain/pricing/pricing"
-import type { PortionConfigV1 } from "@/domain/portion/portion-config"
-import type { PriceFreshnessConfigV1 } from "@/domain/pricing/pricing"
+import type { AllergenAssessment, FoodFactNutrientAmount } from "../catalog/catalog.js"
+import type { MealOptionVersionInput } from "../meal-option/meal-option.js"
+import type { PantrySnapshotV1 } from "../pantry/pantry.js"
+import type { PortionMemberGroupInput } from "../portion/calculate-adult-equivalent.js"
+import type { FoodPriceInput } from "../pricing/pricing.js"
+import type { PortionConfigV1 } from "../portion/portion-config.js"
+import type { PriceFreshnessConfigV1 } from "../pricing/pricing.js"
 
-import type { PlannerConfigV1 } from "./planner-config"
+import type { PlannerConfigV1 } from "./planner-config.js"
 
 export interface PlannerIngredientLineageInput {
   readonly mealOptionRecipeId: string

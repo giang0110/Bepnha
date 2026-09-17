@@ -1,4 +1,4 @@
-import { PRICE_FRESHNESS_CONFIG_V1, type PriceFreshnessConfigV1 } from "@/domain/pricing/pricing"
+import { PRICE_FRESHNESS_CONFIG_V1, type PriceFreshnessConfigV1 } from "./pricing.js"
 
 export interface StalePriceWarning {
   readonly code: "STALE_PRICE"

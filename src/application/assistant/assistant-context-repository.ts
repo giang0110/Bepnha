@@ -1,4 +1,4 @@
-import type { AssistantPlanEvidence } from "./meal-assistant"
+import type { AssistantPlanEvidence } from "./meal-assistant.js"
 
 export type AssistantContextLoadResult =
   | {

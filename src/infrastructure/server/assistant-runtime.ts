@@ -1,24 +1,24 @@
 import { GoogleGenAI } from "@google/genai"
 import { createClient } from "@supabase/supabase-js"
 
-import type { AssistantContextRepository } from "@/application/assistant/assistant-context-repository"
-import type { AssistantRateLimiter } from "@/application/assistant/assistant-rate-limiter"
-import type { MealAssistantPort } from "@/application/assistant/meal-assistant"
-import type { RateLimitConfig } from "@/application/shared/rate-limiter"
-import { createGeminiMealAssistant } from "@/infrastructure/server/gemini-meal-assistant"
-import { createInMemoryAssistantRateLimiter } from "@/infrastructure/server/in-memory-assistant-rate-limiter"
+import type { AssistantContextRepository } from "../../application/assistant/assistant-context-repository.js"
+import type { AssistantRateLimiter } from "../../application/assistant/assistant-rate-limiter.js"
+import type { MealAssistantPort } from "../../application/assistant/meal-assistant.js"
+import type { RateLimitConfig } from "../../application/shared/rate-limiter.js"
+import { createGeminiMealAssistant } from "./gemini-meal-assistant.js"
+import { createInMemoryAssistantRateLimiter } from "./in-memory-assistant-rate-limiter.js"
 import {
   createUpstashRateLimiter,
   readUpstashRestConfig,
   type UpstashEnvironment
-} from "@/infrastructure/server/upstash-rate-limiter"
-import { createSupabaseAssistantContextRepository } from "@/infrastructure/server/supabase-assistant-context-repository"
-import { createSupabasePlannerInputLoader } from "@/infrastructure/server/supabase-planner-input-loader"
-import type { Database } from "@/infrastructure/supabase/database.types"
+} from "./upstash-rate-limiter.js"
+import { createSupabaseAssistantContextRepository } from "./supabase-assistant-context-repository.js"
+import { createSupabasePlannerInputLoader } from "./supabase-planner-input-loader.js"
+import type { Database } from "../supabase/database.types.js"
 import {
   createServerSupabaseAuthVerifier,
   type ServerAuthVerifier
-} from "@/infrastructure/supabase/server-auth"
+} from "../supabase/server-auth.js"
 
 export const ASSISTANT_RATE_LIMIT_NAMESPACE = "bepnha:assistant"
 

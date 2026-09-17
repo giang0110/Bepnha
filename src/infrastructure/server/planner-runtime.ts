@@ -1,15 +1,12 @@
 import { createClient } from "@supabase/supabase-js"
 
-import { NodeContentHasher } from "@/infrastructure/server/node-content-hasher"
-import { createPlannerHttpHandlers } from "@/infrastructure/server/planner-http"
-import { createSupabasePlannerInputLoader } from "@/infrastructure/server/supabase-planner-input-loader"
-import { createSupabasePlannerRepository } from "@/infrastructure/server/supabase-planner-repository"
-import {
-  createUpstashRateLimiter,
-  readUpstashRestConfig
-} from "@/infrastructure/server/upstash-rate-limiter"
-import type { Database } from "@/infrastructure/supabase/database.types"
-import { createServerSupabaseAuthVerifier } from "@/infrastructure/supabase/server-auth"
+import { NodeContentHasher } from "./node-content-hasher.js"
+import { createPlannerHttpHandlers } from "./planner-http.js"
+import { createSupabasePlannerInputLoader } from "./supabase-planner-input-loader.js"
+import { createSupabasePlannerRepository } from "./supabase-planner-repository.js"
+import { createUpstashRateLimiter, readUpstashRestConfig } from "./upstash-rate-limiter.js"
+import type { Database } from "../supabase/database.types.js"
+import { createServerSupabaseAuthVerifier } from "../supabase/server-auth.js"
 
 function publicConfig() {
   const url = process.env.SUPABASE_URL

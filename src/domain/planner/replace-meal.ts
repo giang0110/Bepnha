@@ -1,10 +1,10 @@
-import { PRICE_FRESHNESS_CONFIG_V1, type PriceFreshnessConfigV1 } from "@/domain/pricing/pricing"
-import type { CanonicalFoodDeduction } from "@/domain/pricing/pricing"
+import { PRICE_FRESHNESS_CONFIG_V1, type PriceFreshnessConfigV1 } from "../pricing/pricing.js"
+import type { CanonicalFoodDeduction } from "../pricing/pricing.js"
 
-import type { EligibleMealOption } from "./evaluate-eligibility"
-import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config"
-import type { PlannerWarning } from "./planner-outcome"
-import { calculateCompletedPlanCandidate, selectFinalPlan, type ReadyPlan } from "./search-week"
+import type { EligibleMealOption } from "./evaluate-eligibility.js"
+import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config.js"
+import type { PlannerWarning } from "./planner-outcome.js"
+import { calculateCompletedPlanCandidate, selectFinalPlan, type ReadyPlan } from "./search-week.js"
 
 export type ReplacementPreviewResult =
   | {

@@ -1,4 +1,4 @@
-import type { FoodFactUnitConversion } from "@/domain/catalog/catalog"
+import type { FoodFactUnitConversion } from "../catalog/catalog.js"
 
 export interface RecipeIngredientInput {
   readonly recipeIngredientId: string

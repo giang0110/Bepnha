@@ -9,8 +9,8 @@ import type {
   CatalogAdminRepository,
   CatalogAdminResult,
   CatalogPublicationAggregate
-} from "@/application/catalog/catalog-admin-repository"
-import type { Database } from "@/infrastructure/supabase/database.types"
+} from "../../application/catalog/catalog-admin-repository.js"
+import type { Database } from "../supabase/database.types.js"
 
 type DbError = { code?: string; message?: string }
 type UnknownRecord = Record<string, unknown>

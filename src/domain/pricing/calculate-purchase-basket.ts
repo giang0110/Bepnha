@@ -1,5 +1,5 @@
-import { applyPantryDeduction } from "@/domain/pantry/apply-pantry-deduction"
-import { classifyPriceFreshness } from "@/domain/pricing/classify-price-freshness"
+import { applyPantryDeduction } from "../pantry/apply-pantry-deduction.js"
+import { classifyPriceFreshness } from "./classify-price-freshness.js"
 import {
   PRICE_FRESHNESS_CONFIG_V1,
   type CanonicalFoodDeduction,
@@ -10,13 +10,13 @@ import {
   type PurchaseBasketLine,
   type PurchaseBasketResult,
   type PurchaseBasketWarning
-} from "@/domain/pricing/pricing"
+} from "./pricing.js"
 import {
   ExactDecimal,
   ROUND_CEIL,
   decimalToCanonical,
   parseCanonicalDecimal
-} from "@/domain/shared/decimal"
+} from "../shared/decimal.js"
 
 function failure(code: PurchaseBasketFatalCode, foodId: string): PurchaseBasketResult {
   return { ok: false, error: { code, foodId } }

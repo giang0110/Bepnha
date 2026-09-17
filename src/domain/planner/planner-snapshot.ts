@@ -1,6 +1,6 @@
-import type { PantrySnapshotV1 } from "@/domain/pantry/pantry"
+import type { PantrySnapshotV1 } from "../pantry/pantry.js"
 
-import type { PersistedPlannerEngineVersion } from "./planner-engine-version"
+import type { PersistedPlannerEngineVersion } from "./planner-engine-version.js"
 
 export interface PlannerCandidateManifestEntry {
   readonly mealOptionId: string

@@ -4,7 +4,7 @@ import {
   createServerSupabaseAuthVerifier,
   parseBearerToken,
   type ServerAuthVerifier
-} from "@/infrastructure/supabase/server-auth.js"
+} from "../src/infrastructure/supabase/server-auth.js"
 
 export function createMeHandler(verifier: ServerAuthVerifier) {
   return async function handler(request: VercelRequest, response: VercelResponse): Promise<void> {
