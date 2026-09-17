@@ -6,6 +6,37 @@ phải điền gì và vì sao một số ô cố tình để trống thay vì c
 Đây là công việc biên tập dữ liệu, không phải viết code. Không ai trong chuỗi công cụ đoán hộ được
 một con số dinh dưỡng hay một kết luận dị ứng.
 
+## Soạn bằng bảng tính thay vì gõ JSON
+
+Pack là JSON lồng năm tầng. Điền tay được, nhưng để `ready` bằng `true` cần tối thiểu 21 meal option,
+và mỗi thực phẩm đã chiếm 16 dòng bắt buộc — mười dị nguyên và sáu dưỡng chất. Đó là hàng nghìn ô.
+
+```bash
+npm run catalog:sheet -- export --pack docs/catalog/catalog-pack-template.json --dir catalog-csv
+```
+
+Sinh ra 12 bảng CSV, mỗi bảng một tệp. Tải cả 12 lên Google Sheets, mỗi tệp một tab, rồi điền. Xong
+thì tải xuống lại và ghép ngược:
+
+```bash
+npm run catalog:sheet -- import --dir catalog-csv --out pack.json
+npm run catalog:validate -- --input pack.json
+```
+
+Các bảng nối với nhau bằng `code` của bản ghi cha: `food_nutrients.csv` có cột `foodCode`,
+`recipe_steps.csv` có cột `recipeCode`, v.v. Trường nhiều giá trị như `categoryAncestry` hay
+`ingredientCodes` ngăn nhau bằng dấu `|`, không phải dấu phẩy, vì tên tiếng Việt có dấu phẩy.
+
+Bộ chuyển đổi **chỉ đổi hình dạng, không phán xét giá trị**. `catalog:validate` vẫn là nơi duy nhất
+quyết định dữ liệu có đạt hay không. Cụ thể, một ô để trống không bao giờ trở thành một giá trị: ô số
+trống thành `null` rồi bị validator bắt, chứ không thành `0`; ô `status` trống vẫn trống, không thành
+`absent`.
+
+Cột được khớp theo **tên**, nên đảo thứ tự cột hay thêm cột ghi chú riêng đều không sao. Đổi tên một
+cột bắt buộc thì bộ đọc báo đúng tên cột bị thiếu.
+
+Xuất ra có dấu BOM UTF-8 để Excel mở không vỡ dấu tiếng Việt.
+
 ## Vòng lặp làm việc
 
 ```bash
