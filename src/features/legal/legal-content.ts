@@ -2,14 +2,16 @@
  * Operator identity shown on the legal pages.
  *
  * These are the only facts on those pages that the codebase cannot derive from the schema, and a
- * privacy notice without a reachable controller is not a privacy notice. `docs/operations/
- * production-readiness.md` records replacing the placeholder as a launch blocker. The placeholder
- * deliberately uses the reserved `.invalid` TLD (RFC 2606) so it can never silently ship as an
- * address that quietly delivers somewhere wrong — mail to it is guaranteed to bounce.
+ * privacy notice without a reachable controller is not a privacy notice.
+ *
+ * Until 2026-09-17 this was a placeholder on the reserved `.invalid` TLD (RFC 2606), chosen so it
+ * could never silently ship as an address that delivers somewhere unintended. It now holds a real
+ * mailbox, and `legal-page.test.tsx` enforces the inverse: the address must no longer sit on a
+ * reserved domain, because a notice telling people where to write must reach someone.
  */
 export const LEGAL_OPERATOR = {
   name: "Bếp Nhà",
-  contactEmail: "CHUA-CAU-HINH@bepnha.invalid"
+  contactEmail: "giang1235@gmail.com"
 } as const
 
 /** Bumped whenever the substance of either notice changes, not on wording tweaks. */

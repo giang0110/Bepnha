@@ -485,12 +485,12 @@ non-collection guarantees, the assistant-provider exclusions and the fail-closed
 restate behaviour this repository enforces. A migration that starts storing something new makes
 `src/features/legal/legal-content.ts` wrong until it is updated in the same change.
 
-Two launch blockers remain, neither of which the codebase can supply:
+**Operator contact** was set on 2026-09-17 to a monitored mailbox, and `legal-page.test.tsx` now asserts the inverse of the old tripwire: the address must not sit on a reserved domain (RFC 2606 `.invalid`, `.test`, `.example`, `.localhost`), because a notice telling people where to write must reach someone. The read-only production smoke checks the same thing on the deployed pages.
 
-- **Operator contact.** `LEGAL_OPERATOR.contactEmail` is an unset placeholder on the reserved
-  `.invalid` domain (RFC 2606), chosen so it can never silently ship as an address that delivers
-  somewhere unintended — mail to it is guaranteed to bounce. Replace it with a monitored address
-  before any public launch, and name the data controller alongside it.
+Two points remain open on it. The address is a personal mailbox rather than a role account, so it inherits one person's availability and will attract spam once the pages are indexed; a forwarding alias on the project's own domain would fix both, and that domain is already needed for password-recovery email. And `LEGAL_OPERATOR.name` is the product name, not a named data controller — whether that suffices is part of the review below.
+
+One launch blocker remains, which the codebase cannot supply:
+
 - **Legal review.** These notices were drafted from the system's real behaviour, not by a lawyer.
   They are accurate about what the software does; whether they satisfy the obligations that apply to
   the operator is a separate question that a qualified reviewer must answer before launch.
