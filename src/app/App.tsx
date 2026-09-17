@@ -1,5 +1,6 @@
 import { BrowserRouter } from "react-router"
 
+import type { AccountApi } from "@/application/account/account-deletion"
 import type { AuthSessionPort } from "@/application/auth/auth-session-port"
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
@@ -7,10 +8,12 @@ import type { PantryRepository } from "@/application/pantry/pantry-repository"
 import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
 import { AuthProvider } from "@/app/auth/auth-provider"
 import { AppRouter } from "@/app/router"
+import { createAccountApi } from "@/features/account/account-api"
 import { createAssistantApi, type AssistantApi } from "@/features/assistant/assistant-api"
 import { createPlannerApi, type PlannerApi } from "@/features/plans/planner-api"
 
 export function AppRoutes({
+  accountApi = createAccountApi(),
   assistantApi = createAssistantApi(),
   householdRepository,
   pantryFoodOptionsRepository,
@@ -18,6 +21,7 @@ export function AppRoutes({
   plannerApi = createPlannerApi(),
   shoppingListRepository
 }: Readonly<{
+  accountApi?: AccountApi
   assistantApi?: AssistantApi
   householdRepository: HouseholdRepository
   pantryFoodOptionsRepository: PantryFoodOptionsRepository
@@ -27,6 +31,7 @@ export function AppRoutes({
 }>) {
   return (
     <AppRouter
+      accountApi={accountApi}
       assistantApi={assistantApi}
       householdRepository={householdRepository}
       pantryFoodOptionsRepository={pantryFoodOptionsRepository}

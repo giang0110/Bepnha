@@ -1,0 +1,7 @@
+# Vercel turns every file under `api/` into a Serverless Function, test files included. That both
+# ships test sources to public routes and spends the deployment's function budget — the Hobby plan
+# allows 12 per deployment, and four of the twelve were `.test.ts` files.
+#
+# `api/health.test.ts` and friends are unit tests, not endpoints. Excluding them keeps the function
+# count to the real endpoints and stops test sources being uploaded at all.
+api/**/*.test.ts

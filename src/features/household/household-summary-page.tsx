@@ -152,6 +152,9 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
       >
         Chỉnh sửa thông tin
       </Link>
+      <Link className="text-center text-sm font-medium underline" to="/settings/account">
+        Tài khoản
+      </Link>
     </main>
   )
 }

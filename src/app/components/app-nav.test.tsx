@@ -99,13 +99,19 @@ describe("primary navigation", () => {
     expect(screen.getByRole("link", { name: "Bỏ qua đến nội dung chính" })).toHaveFocus()
   })
 
-  it("points the skip link at a main landmark that exists on the page", async () => {
-    renderAt("/household")
+  // The skip link is global, so every protected route must actually provide its target. Several
+  // screens rendered a bare status paragraph or a `main` without the id and pointed it at nothing.
+  it.each(["/household", "/settings/household", "/settings/account", "/pantry", "/plan"])(
+    "points the skip link at a main landmark that exists on %s",
+    async (route) => {
+      renderAt(route)
 
-    const skipLink = await screen.findByRole("link", { name: "Bỏ qua đến nội dung chính" })
-    expect(skipLink).toHaveAttribute("href", "#main-content")
-    expect(document.querySelector("#main-content")).toBe(screen.getByRole("main"))
-  })
+      const skipLink = await screen.findByRole("link", { name: "Bỏ qua đến nội dung chính" })
+      expect(skipLink).toHaveAttribute("href", "#main-content")
+      expect(await screen.findByRole("main")).toHaveAttribute("id", "main-content")
+      expect(document.querySelector("#main-content")).toBe(screen.getByRole("main"))
+    }
+  )
 
   it("stays out of signed-out routes", async () => {
     renderAt("/sign-in", null)
