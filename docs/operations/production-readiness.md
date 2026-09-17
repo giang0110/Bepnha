@@ -209,12 +209,52 @@ At the initial read-only production preflight, the production project had zero r
 7. `20260901000000_phase_5_pantry.sql`
 8. `20260902000000_phase_5_pantry_shopping_trace.sql`
 
-Therefore the first production schema operation is a bootstrap of the complete reviewed migration chain, not an incremental drift repair. Do not apply any migration until the operator explicitly authorizes mutation of project `vkrqzwlpneocgjwhqbsl`.
+Therefore the first production schema operation is a bootstrap of the complete reviewed migration chain, not an incremental drift repair.
 
-After an authorized migration, verify read-only before any catalog mutation:
+### Migration authorization
+
+On 2026-09-17 the project owner authorized applying exactly these eight migrations to project `vkrqzwlpneocgjwhqbsl`. The authorization covers the schema bootstrap and nothing else: it is not authorization to seed catalog data, create users, run the launch-readiness fixtures, or apply any migration added after that date.
+
+The apply itself is an operator action from a machine holding production credentials. It cannot be performed from an agent session in this repository's CI or review environment, which carries no Supabase credential and whose egress policy denies `supabase.com`, `api.supabase.com`, and `vkrqzwlpneocgjwhqbsl.supabase.co`.
+
+```bash
+supabase link --project-ref vkrqzwlpneocgjwhqbsl
+supabase db push
+supabase migration list
+```
+
+`supabase db push` prints the migrations it intends to apply and waits for confirmation. If that list is not exactly the eight above, stop: the local checkout is not at `main`, or the project is not the one resolved here.
+
+### Post-migration verification
+
+Verify read-only before any catalog mutation. The structural checks are executable:
+
+```bash
+BEPNHA_PRODUCTION_DB_URL='postgres://...' npm run verify:production:schema
+```
+
+The script derives its expectation from `supabase/migrations/` rather than a maintained list, so it cannot drift from the repository. It opens a read-only session, passes no part of the credential on the command line, and prints `PRODUCTION_SCHEMA_MATCHES_REPOSITORY` only when all of the following hold:
 
 - remote migration history exactly matches the eight repository migrations;
-- expected public tables/functions exist;
+- every expected public table and function exists, and no unexpected one does;
+- row level security is enabled on every `public` table.
+
+A table with row level security enabled and no policy is reported as a note, not a failure: no policy denies every non-service-role read and write, which is the safe direction, and several catalog tables are deliberately in it.
+
+Take the connection string from Supabase → Project Settings → Database → Connection string. It is a production credential: keep it out of the repository, out of shell history, and out of `VITE_*`.
+
+Use the **session pooler** string, not the direct one. `db.vkrqzwlpneocgjwhqbsl.supabase.co` resolves to an IPv6 address only, so on a network without IPv6 a direct connection fails with `Address family not supported by protocol` — which reads like a firewall problem but is an address-family one. The pooler host resolves to IPv4.
+
+Without `psql` installed, the same checks come out as one statement to paste into the Supabase SQL editor:
+
+```bash
+npm run verify:production:schema -- --print-sql
+```
+
+It returns a `verdict` row plus one row per finding, with the same codes. The expectation is inlined at the moment it is printed, so regenerate it rather than keeping a copy: a saved paste is a snapshot of one commit.
+
+The remaining checks stay manual:
+
 - generated database types remain compatible;
 - Supabase Security Advisor is reviewed;
 - Supabase Performance Advisor is reviewed;
