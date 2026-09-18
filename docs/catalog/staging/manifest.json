@@ -1,13 +1,18 @@
 [
   {
+    "file": "CHANGES.md",
+    "bytes": 3444,
+    "sha256": "35a7e1e230789e8a24a078a2941b2d7ead37a06e98a6a7bf22842d1fd9d26907"
+  },
+  {
     "file": "ENRICHMENT_STATUS.md",
-    "bytes": 334,
-    "sha256": "6f4315ea02e356ee3e187006a7e527739be749340cecd5be34d6773fdc554266"
+    "bytes": 552,
+    "sha256": "44fed5cced09545a7889d7731bd455da9e433aa34ce614b3d17f8c34a4f665b1"
   },
   {
     "file": "enrichment_summary.json",
-    "bytes": 408,
-    "sha256": "8834485a692f9daaacabbbb7d9da63cf2a9c6a0929e6a9d86a3a21108bdc5af2"
+    "bytes": 364,
+    "sha256": "691f40830a83db35b149356e9ff59d0676a5ab0a83e98be5242ec33978a0e81e"
   },
   {
     "file": "food_allergens.csv",
@@ -21,8 +26,8 @@
   },
   {
     "file": "food_nutrients.csv",
-    "bytes": 26224,
-    "sha256": "3e422dad1cae7c49fe7c905d7d0ed4663951647a8573b042ffce75af278dbbf3"
+    "bytes": 25878,
+    "sha256": "782383d81a6b554780b56177edeabcb00ed3c8813e5664f48516154113c19ed8"
   },
   {
     "file": "foods.csv",
@@ -71,17 +76,17 @@
   },
   {
     "file": "research_log.csv",
-    "bytes": 266717,
-    "sha256": "8a932d5bbadf939013fd5f1580377447ce56f436b51209106577e14d49cb28e4"
+    "bytes": 298375,
+    "sha256": "8b69d2e3d7c2746b7abc1e5a424685d5d55d4e75ae25e57b082287e6aabbb7ea"
   },
   {
     "file": "review_queue.csv",
-    "bytes": 38217,
-    "sha256": "9b1f5c7cdf9f5ad4bf295890f14b7e5ce03969d6225919e32e63133b62aadb1f"
+    "bytes": 67584,
+    "sha256": "08a7b919f4d77183991ccb0fe9b10c22feea863bfcce9a1226be9ce4f7783a7c"
   },
   {
     "file": "structural_validation.json",
-    "bytes": 2848,
-    "sha256": "641861e836af68e8864168ed4579874be7ab0dca0b182ff6401f8c60657a1ac1"
+    "bytes": 2123,
+    "sha256": "0e5c211ad1326a03efeff6a3e4e86904bdc60cfeb449c42b7c57ad599d466207"
   }
 ]

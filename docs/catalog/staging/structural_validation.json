@@ -1,139 +1,83 @@
 {
-  "generatedAt": "2026-09-18",
-  "checks": [
-    {
-      "check": "foods row count = 45",
-      "ok": true,
-      "detail": "45"
-    },
-    {
-      "check": "recipes row count = 37",
-      "ok": true,
-      "detail": "37"
-    },
-    {
-      "check": "recipe_ingredients row count = 182",
-      "ok": true,
-      "detail": "182"
-    },
-    {
-      "check": "prices row count = 45",
-      "ok": true,
-      "detail": "45"
-    },
-    {
-      "check": "allergens row count = 450",
-      "ok": true,
-      "detail": "450"
-    },
-    {
-      "check": "food_conversions row count = 45",
-      "ok": true,
-      "detail": "45"
-    },
-    {
-      "check": "meal_options row count = 24",
-      "ok": true,
-      "detail": "24"
-    },
-    {
-      "check": "foods.csv unique code",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "recipes.csv unique code",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "prices.csv unique foodCode,foodFactVersionNumber",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "food_nutrients.csv unique foodCode,nutrientCode",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "food_allergens.csv unique foodCode,allergenCode",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "recipe_ingredients.csv unique recipeCode,ingredientCode",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "meal_options.csv unique code",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "meal_option_components.csv unique mealOptionCode,order",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "recipe ingredient food refs valid",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "recipe ingredient recipe refs valid",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "meal component recipe refs valid",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "meal component meal refs valid",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "filled ingredient quantities positive numeric",
-      "ok": true,
-      "detail": "[]"
-    },
-    {
-      "check": "all 45 prices positive numeric",
-      "ok": true,
-      "detail": "[]"
-    },
-    {
-      "check": "allergen statuses valid",
-      "ok": true,
-      "detail": "['contains', 'unknown']"
-    },
-    {
-      "check": "no fabricated allergen absent",
-      "ok": true,
-      "detail": "absent=0"
-    },
-    {
-      "check": "prices complete 45/45",
-      "ok": true,
-      "detail": ""
-    },
-    {
-      "check": "recipe quantity backlog <= 31",
-      "ok": true,
-      "detail": "31"
-    },
-    {
-      "check": "recipe metadata backlog <= 23",
-      "ok": true,
-      "detail": "21"
-    }
-  ],
-  "allPassed": true,
-  "recipeQuantityMissing": 31,
-  "recipeMetadataMissing": 21,
-  "reviewQueueRows": 128
+  "status": "PASS",
+  "m2_source_tables_unchanged": {
+    "recipe_ingredients.csv": true,
+    "recipes.csv": true,
+    "meal_options.csv": true,
+    "meal_option_components.csv": true,
+    "recipe_steps.csv": true
+  },
+  "food_allergen_status_unchanged": true,
+  "food_allergen_status_counts": {
+    "unknown": 441,
+    "contains": 9
+  },
+  "csv_utf8_bom": {
+    "food_allergens.csv": true,
+    "food_conversions.csv": true,
+    "food_nutrients.csv": true,
+    "foods.csv": true,
+    "meal_option_components.csv": true,
+    "meal_options.csv": true,
+    "pack.csv": true,
+    "price_book.csv": true,
+    "prices.csv": true,
+    "recipe_ingredients.csv": true,
+    "recipe_steps.csv": true,
+    "recipes.csv": true,
+    "research_log.csv": true,
+    "review_queue.csv": true
+  },
+  "headers_unchanged": {
+    "food_allergens.csv": true,
+    "food_conversions.csv": true,
+    "food_nutrients.csv": true,
+    "foods.csv": true,
+    "meal_option_components.csv": true,
+    "meal_options.csv": true,
+    "pack.csv": true,
+    "price_book.csv": true,
+    "prices.csv": true,
+    "recipe_ingredients.csv": true,
+    "recipe_steps.csv": true,
+    "recipes.csv": true,
+    "research_log.csv": true,
+    "review_queue.csv": true
+  },
+  "row_counts": {
+    "food_allergens.csv": 450,
+    "food_conversions.csv": 45,
+    "food_nutrients.csv": 270,
+    "foods.csv": 45,
+    "meal_option_components.csv": 72,
+    "meal_options.csv": 24,
+    "pack.csv": 1,
+    "price_book.csv": 1,
+    "prices.csv": 45,
+    "recipe_ingredients.csv": 182,
+    "recipe_steps.csv": 111,
+    "recipes.csv": 37,
+    "research_log.csv": 1304,
+    "review_queue.csv": 156
+  },
+  "atwater": {
+    "within_25_percent": 44,
+    "total_foods": 45,
+    "failed": [
+      {
+        "foodCode": "muoi",
+        "energy_kcal": 1.0,
+        "atwater_kcal": 0.0,
+        "relative_diff_pct": 100.0
+      }
+    ],
+    "missing": []
+  },
+  "nutrition_changes": 1,
+  "review_queue_rows_before": 128,
+  "review_queue_rows_after": 156,
+  "review_queue_rows_added": 28,
+  "research_log_rows_before": 1228,
+  "research_log_rows_after": 1304,
+  "research_log_rows_added": 76
 }

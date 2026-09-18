@@ -1,20 +1,15 @@
 {
-  "generatedAt": "2026-09-18",
-  "recipeIngredientQuantities": {
-    "filled": 151,
-    "total": 182,
-    "missing": 31
+  "nutrition_target_foods": 28,
+  "nutrition_direct_changes": 1,
+  "mandatory_blog_removed": "nam_rom sodium_mg",
+  "review_queue_added": 28,
+  "research_log_added": 76,
+  "allergen_status_counts": {
+    "unknown": 441,
+    "contains": 9
   },
-  "recipeMetadata": {
-    "yieldFilled": 30,
-    "yieldTotal": 37,
-    "activeFilled": 30,
-    "activeTotal": 37,
-    "elapsedFilled": 30,
-    "elapsedTotal": 37,
-    "missingFields": 21
-  },
-  "researchLogRows": 1228,
-  "reviewQueueRows": 128,
-  "structuralValidation": "passed"
+  "allergen_status_unchanged": true,
+  "atwater_within_25_percent": 44,
+  "atwater_total": 45,
+  "validator": "PASS"
 }

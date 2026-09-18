@@ -1,7 +1,11 @@
 # Catalog đang biên tập
 
-Dữ liệu trong thư mục này do người vận hành soạn bằng ChatGPT + Tavily (2026-09-18), rồi được kiểm
-định bằng chính công cụ của dự án. Đây là **bản đang làm dở**, chưa phải catalog để xuất bản.
+Dữ liệu trong thư mục này do người vận hành soạn bằng ChatGPT + Tavily, qua hai vòng
+(2026-09-18), rồi được kiểm định bằng chính công cụ của dự án. Đây là **bản đang làm dở**, chưa phải
+catalog để xuất bản.
+
+`CHANGES.md` là báo cáo của vòng rà soát thứ hai. Đối chiếu từng cặp `(thực phẩm, dưỡng chất)` cho
+thấy báo cáo đó đúng: toàn bộ vòng hai chỉ thay đổi **một ô**.
 
 ## Kiểm định đã chạy
 
@@ -70,6 +74,26 @@ thường, vì đó đúng là cách người ta khảo.
 Lưu ý về cách đọc kết quả validator: khi còn ô số để trống, pack không parse được nên các kiểm tra
 sâu **không chạy**, và báo cáo chỉ hiện vài chục lỗi hình dạng. Con số 441 chỉ lộ ra sau khi lấp đầy
 các ô số. Đừng nhầm "ít lỗi" với "gần xong".
+
+## Một lỗi chặn cố ý
+
+`catalog:audit` báo đúng một lỗi chặn:
+
+```
+FAIL PROVENANCE_MISSING: nam_rom sodium_mg
+```
+
+Ô này trước đây mang số `73` trích từ một blog về cây giống. Vòng rà soát thứ hai bỏ hẳn số đó, và
+trang Bảng thành phần thực phẩm Việt Nam cho nấm rơm không công bố natri — nên nó để trống thay vì
+thay bằng số đoán.
+
+Đó là đánh đổi đúng: **bỏ một con số giả để lấy một chỗ trống thật.** Nhưng phải nói rõ hệ quả là
+catalog lùi một ô chứ không tiến. Cách xử lý: tìm bảng thành phần khác có công bố natri cho nấm rơm,
+hoặc bỏ `nam_rom` khỏi catalog ra mắt.
+
+Hai chỗ khác trong vòng hai đáng ghi nhận vì chúng là lựa chọn khó: tìm được trang Việt Nam cho `sa`
+nhưng từ chối dùng vì chính số trên trang không thoả Atwater, và từ chối suy `carbohydrate = 0` cho
+thịt cá khi nguồn không công bố đủ sáu chỉ tiêu.
 
 ## Chất lượng nguồn dinh dưỡng
 
