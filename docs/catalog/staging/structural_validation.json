@@ -1,0 +1,753 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "check": "food_allergens.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_allergens.csv:same_row_count",
+      "passed": true,
+      "detail": "450->450"
+    },
+    {
+      "check": "food_allergens.csv:preserve_foodCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_allergens.csv:preserve_allergenCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_allergens.csv:unchanged_foodCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_allergens.csv:unchanged_allergenCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_allergens.csv:unchanged_status",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_allergens.csv:unchanged_provenance",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_conversions.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_conversions.csv:same_row_count",
+      "passed": true,
+      "detail": "45->45"
+    },
+    {
+      "check": "food_conversions.csv:preserve_foodCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_conversions.csv:unchanged_foodCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_conversions.csv:unchanged_unitCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_conversions.csv:unchanged_baseQuantityPerUnit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_conversions.csv:unchanged_grossGramsPerUnit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_conversions.csv:unchanged_displayStep",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_conversions.csv:unchanged_provenance",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_nutrients.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_nutrients.csv:same_row_count",
+      "passed": true,
+      "detail": "270->270"
+    },
+    {
+      "check": "food_nutrients.csv:preserve_foodCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_nutrients.csv:preserve_nutrientCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_nutrients.csv:unchanged_foodCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_nutrients.csv:unchanged_nutrientCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:same_row_count",
+      "passed": true,
+      "detail": "45->45"
+    },
+    {
+      "check": "foods.csv:preserve_code",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:unchanged_code",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:unchanged_nameVi",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:unchanged_baseDimension",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:unchanged_baseUnitCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:unchanged_factVersionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:unchanged_categoryCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:unchanged_categoryAncestry",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:unchanged_edibleFraction",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:unchanged_provenance",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "foods.csv:unchanged_dietaryTagCodes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:same_row_count",
+      "passed": true,
+      "detail": "72->72"
+    },
+    {
+      "check": "meal_option_components.csv:preserve_mealOptionCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:preserve_recipeCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:preserve_recipeVersionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:preserve_order",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:unchanged_mealOptionCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:unchanged_recipeCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:unchanged_recipeVersionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:unchanged_quantityMultiplier",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:unchanged_mealRole",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:unchanged_order",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:same_row_count",
+      "passed": true,
+      "detail": "24->24"
+    },
+    {
+      "check": "meal_options.csv:preserve_code",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:preserve_versionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:unchanged_code",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:unchanged_nameVi",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:unchanged_versionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:unchanged_proteinHintCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:unchanged_cookingStyleCodes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:unchanged_dishRoleCodes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "pack.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "pack.csv:same_row_count",
+      "passed": true,
+      "detail": "1->1"
+    },
+    {
+      "check": "pack.csv:unchanged_catalogCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "pack.csv:unchanged_preparedAt",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "pack.csv:unchanged_sourceName",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "pack.csv:unchanged_sourceProvenance",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "price_book.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "price_book.csv:same_row_count",
+      "passed": true,
+      "detail": "1->1"
+    },
+    {
+      "check": "price_book.csv:preserve_versionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "price_book.csv:unchanged_regionCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "price_book.csv:unchanged_versionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "price_book.csv:unchanged_effectiveFrom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "price_book.csv:unchanged_effectiveTo",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:same_row_count",
+      "passed": true,
+      "detail": "45->45"
+    },
+    {
+      "check": "prices.csv:preserve_foodCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:preserve_foodFactVersionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:unchanged_foodCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:unchanged_foodFactVersionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:unchanged_packageQuantity",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:unchanged_packageUnitCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:unchanged_packageBaseQuantity",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:unchanged_baseUnitCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:unchanged_packagePriceVnd",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:unchanged_purchaseIncrement",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:unchanged_observedAt",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:unchanged_sourceReference",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:same_row_count",
+      "passed": true,
+      "detail": "182->182"
+    },
+    {
+      "check": "recipe_ingredients.csv:preserve_recipeCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:preserve_ingredientCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:preserve_foodCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:preserve_foodFactVersionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:preserve_order",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:unchanged_recipeCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:unchanged_ingredientCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:unchanged_foodCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:unchanged_foodFactVersionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:unchanged_unitCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:unchanged_preparationNoteVi",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:unchanged_order",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_steps.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_steps.csv:same_row_count",
+      "passed": true,
+      "detail": "111->111"
+    },
+    {
+      "check": "recipe_steps.csv:preserve_recipeCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_steps.csv:preserve_order",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_steps.csv:unchanged_recipeCode",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_steps.csv:unchanged_order",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_steps.csv:unchanged_instructionVi",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_steps.csv:unchanged_timerMinutes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_steps.csv:unchanged_ingredientCodes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv:same_columns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv:same_row_count",
+      "passed": true,
+      "detail": "37->37"
+    },
+    {
+      "check": "recipes.csv:preserve_code",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv:preserve_versionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv:unchanged_code",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv:unchanged_nameVi",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv:unchanged_versionNumber",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv:unchanged_tagCodes",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_allergens_status_unchanged",
+      "passed": true,
+      "detail": "{'unknown': 441, 'contains': 9}"
+    },
+    {
+      "check": "food_allergens_all_cells_unchanged",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_nutrients.csv:amountPer100g:complete",
+      "passed": true,
+      "detail": "missing_or_CAN-DIEN=0"
+    },
+    {
+      "check": "food_nutrients.csv:provenance:complete",
+      "passed": true,
+      "detail": "missing_or_CAN-DIEN=0"
+    },
+    {
+      "check": "recipe_ingredients.csv:quantity:complete",
+      "passed": true,
+      "detail": "missing_or_CAN-DIEN=0"
+    },
+    {
+      "check": "recipes.csv:yieldAdultEquivalent:complete",
+      "passed": true,
+      "detail": "missing_or_CAN-DIEN=0"
+    },
+    {
+      "check": "recipes.csv:activeMinutes:complete",
+      "passed": true,
+      "detail": "missing_or_CAN-DIEN=0"
+    },
+    {
+      "check": "recipes.csv:elapsedMinutes:complete",
+      "passed": true,
+      "detail": "missing_or_CAN-DIEN=0"
+    },
+    {
+      "check": "meal_options.csv:yieldAdultEquivalent:complete",
+      "passed": true,
+      "detail": "missing_or_CAN-DIEN=0"
+    },
+    {
+      "check": "meal_options.csv:activeMinutes:complete",
+      "passed": true,
+      "detail": "missing_or_CAN-DIEN=0"
+    },
+    {
+      "check": "meal_options.csv:elapsedMinutes:complete",
+      "passed": true,
+      "detail": "missing_or_CAN-DIEN=0"
+    },
+    {
+      "check": "recipe_quantity_numeric_format",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv:yield_numeric",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv:time_constraints",
+      "passed": true,
+      "detail": "max_elapsed=115"
+    },
+    {
+      "check": "meal_options.csv:yield_numeric",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:time_constraints",
+      "passed": true,
+      "detail": "max_elapsed=115"
+    },
+    {
+      "check": "atwater_within_25pct",
+      "passed": true,
+      "detail": "44/45; mismatches=[{'foodCode': 'muoi', 'energy': 1.0, 'atwater': 0.0}]"
+    },
+    {
+      "check": "foods.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "pack.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "research_log.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "price_book.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_ingredients.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_options.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipes.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "review_queue.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_allergens.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "meal_option_components.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_conversions.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "recipe_steps.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "food_nutrients.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "prices.csv:utf8_bom",
+      "passed": true,
+      "detail": ""
+    }
+  ],
+  "summary": {
+    "required_missing_cells": 0,
+    "recipe_quantity_filled": 31,
+    "recipe_metadata_filled": 21,
+    "meal_option_metadata_filled": 72,
+    "nutrient_cells_filled": 1,
+    "allergen_status_changed": 0,
+    "atwater_matches": 44,
+    "atwater_total": 45,
+    "optional_semantic_blanks_retained": true,
+    "research_rows_added": 125,
+    "review_rows_marked_resolved": 125
+  }
+}

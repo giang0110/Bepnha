@@ -1,0 +1,25 @@
+﻿code,nameVi,versionNumber,yieldAdultEquivalent,activeMinutes,elapsedMinutes,proteinHintCode,cookingStyleCodes,dishRoleCodes
+com_ga_kho_gung_rau_muong,"Cơm gà kho gừng, rau muống luộc",1,4,25,35,poultry,kho|luoc,staple|main|vegetable
+com_ga_chien_mam_bap_cai,"Cơm gà chiên nước mắm, bắp cải xào",1,3,37,40,poultry,chien|xao,staple|main|vegetable
+com_ga_xao_sa_ot_canh_bi_dao,"Cơm gà xào sả ớt, canh bí đao",1,3,50,50,poultry,xao|canh,staple|main|soup
+com_ga_kho_nam_cai_ngot,"Cơm gà kho nấm, cải ngọt luộc",1,4,40,60,poultry,kho|luoc,staple|main|vegetable
+com_thit_kho_trung_rau_muong,"Cơm thịt kho trứng, rau muống xào tỏi",1,4,60,60,pork,kho|xao,staple|main|vegetable
+com_suon_ram_man_canh_cai_thao,"Cơm sườn ram mặn, canh cải thảo",1,2,35,60,pork,kho|canh,staple|main|soup
+com_thit_xao_dau_cove_canh_bi_do,"Cơm thịt xào đậu cô ve, canh bí đỏ",1,4,30,35,pork,xao|canh,staple|main|soup
+com_thit_xao_hanh_tay_rau_den,"Cơm thịt xào hành tây, rau dền luộc",1,1,30,30,pork,xao|luoc,staple|main|vegetable
+com_suon_kho_khoai_tay_cai_ngot,"Cơm sườn kho khoai tây, cải ngọt luộc",1,4,30,60,pork,kho|luoc,staple|main|vegetable
+com_bo_xao_gia_canh_ca_chua_trung,"Cơm bò xào giá, canh cà chua trứng",1,4,40,40,beef,xao|canh,staple|main|soup
+com_bo_kho_ca_rot_rau_muong,"Cơm bò kho cà rốt, rau muống luộc",1,4,50,115,beef,kho|luoc,staple|main|vegetable
+com_bo_xao_hanh_tay_muop_xao,"Cơm bò xào hành tây, mướp xào tỏi",1,3,25,55,beef,xao,staple|main|vegetable
+com_ca_loc_kho_to_canh_chua,"Cơm cá lóc kho tộ, canh chua cá lóc",1,2,35,40,fish,kho|canh,staple|main|soup
+com_ca_basa_chien_bap_cai,"Cơm cá basa chiên giòn, bắp cải xào",1,3,32,32,fish,chien|xao,staple|main|vegetable
+com_ca_nuc_kho_ca_chua_rau_den,"Cơm cá nục kho cà chua, rau dền luộc",1,1,25,35,fish,kho|luoc,staple|main|vegetable
+com_ca_basa_kho_tieu_su_su,"Cơm cá basa kho tiêu, su su xào cà rốt",1,2,35,40,fish,kho|xao,staple|main|vegetable
+com_tom_rim_man_canh_bi_dao,"Cơm tôm rim mặn, canh bí đao",1,4,65,65,crustacean,kho|canh,staple|main|soup
+com_tom_xao_bi_dao_cai_ngot,"Cơm tôm xào bí đao, cải ngọt luộc",1,2,15,30,crustacean,xao|luoc,staple|main|vegetable
+com_muc_xao_ca_chua_rau_muong,"Cơm mực xào cà chua, rau muống xào tỏi",1,4,27,30,mollusc,xao,staple|main|vegetable
+com_trung_chien_hanh_canh_bi_do,"Cơm trứng chiên hành, canh bí đỏ",1,3,30,35,egg,chien|canh,staple|main|soup
+com_trung_chien_thit_bam_bap_cai,"Cơm trứng chiên thịt băm, bắp cải xào",1,1,27,30,egg,chien|xao,staple|main|vegetable
+com_dau_hu_sot_ca_chua_rau_muong,"Cơm đậu hũ sốt cà chua, rau muống luộc",1,4,25,35,tofu,xao|luoc,staple|main|vegetable
+com_dau_hu_chien_sa_cai_ngot,"Cơm đậu hũ chiên sả, cải ngọt luộc",1,2,20,30,tofu,chien|luoc,staple|main|vegetable
+com_dau_hu_kho_nam_muop_xao,"Cơm đậu hũ kho nấm, mướp xào tỏi",1,3,30,30,tofu,kho|xao,staple|main|vegetable
