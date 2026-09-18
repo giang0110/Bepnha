@@ -4,15 +4,61 @@ Chuỗi này chạy **trên máy của bạn**, không chạy trong phiên Claud
 service-role của production để đọc, và khoá đó phải ở lại chỗ bạn kiểm soát; ngoài ra mạng ra ngoài
 trong phiên agent bị chặn.
 
+## Chỗ đặt tệp trung gian
+
+Chuỗi này sinh bốn tệp: `pack.json`, `manifest.json`, `plan.json`, `journal.json`. Đặt chúng ở một
+thư mục **ngoài repo** — `journal.json` chứa UUID của production nên không nên lỡ commit, và nó phải
+sống sót qua cả lần chạy bị đứt, nên đừng để trong thư mục tạm của hệ điều hành.
+
+```powershell
+# PowerShell — đặt một lần, dùng cho mọi bước bên dưới
+$run = "D:/IT/bepnha-catalog-run"
+New-Item -ItemType Directory -Force -Path $run | Out-Null
+```
+
+```bash
+# bash
+run="$HOME/bepnha-catalog-run" && mkdir -p "$run"
+```
+
+Dùng dấu `/` kể cả trên Windows: Node nhận bình thường, và tránh việc `\` bị diễn giải lại khi đi
+qua npm. Mọi lệnh bên dưới dùng `$run`, nên PowerShell và bash chạy cùng một dòng.
+
 ## Điều kiện trước
 
 1. **Bạn là admin.** Quyền admin không nằm ở bảng nào trong repo — nó đọc từ
-   `auth.users.raw_app_meta_data->>'role' = 'admin'` (xem `private.assert_catalog_admin`). Đặt trên
-   Supabase Dashboard → Authentication → chọn user → sửa **App Metadata** thành `{"role":"admin"}`.
+   `auth.users.raw_app_meta_data ->> 'role' = 'admin'` (xem `private.assert_catalog_admin`). Cấp
+   trong Supabase Dashboard → SQL Editor:
+
+   ```sql
+   update auth.users
+   set raw_app_meta_data =
+         coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('role', 'admin')
+   where email = 'nguoi-van-hanh@example.com';
+
+   select email, raw_app_meta_data ->> 'role' as role
+   from auth.users
+   where email = 'nguoi-van-hanh@example.com';
+   ```
+
+   **Phải dùng `||` để trộn, không được dùng `=` để gán đè.** Cột này đã chứa sẵn `provider` và
+   `providers`; ghi đè sẽ xoá chúng và có thể làm hỏng đăng nhập của chính tài khoản đó.
+
+   Không cần đăng xuất rồi vào lại: `/api/admin/catalog` xác minh bằng `supabase.auth.getUser(token)`,
+   tức hỏi lại Supabase Auth chứ không giải mã JWT cũ tại chỗ.
+
+   **Gỡ quyền sau khi xuất bản xong** — đây là quyền ghi thẳng vào catalog production:
+
+   ```sql
+   update auth.users
+   set raw_app_meta_data = raw_app_meta_data - 'role'
+   where email = 'nguoi-van-hanh@example.com';
+   ```
+
 2. **Catalog `ready`.** Kiểm lại trước khi làm bất cứ gì:
    ```bash
-   npm run catalog:sheet -- import --dir docs/catalog/staging --out /tmp/pack.json
-   npm run catalog:validate -- --input /tmp/pack.json
+   npm run catalog:sheet -- import --dir docs/catalog/staging --out "$run/pack.json"
+   npm run catalog:validate -- --input "$run/pack.json"
    ```
    Phải thấy `"valid": true` và `"ready": true`. Nếu không, **dừng** — các bước sau đều từ chối.
 3. **Sao lưu.** Bước 6 (PITR/backup) nên xong trước, vì chuỗi này ghi thật và không có nút hoàn tác.
@@ -28,14 +74,14 @@ cùng máy. Nhập vào mà không hiện lên màn hình:
 # PowerShell
 $env:SUPABASE_URL = "https://vkrqzwlpneocgjwhqbsl.supabase.co"
 $env:SUPABASE_SECRET_KEY = Read-Host "Service role key"
-npm run catalog:resolve -- --input /tmp/pack.json --output /tmp/manifest.json
+npm run catalog:resolve -- --input "$run/pack.json" --output "$run/manifest.json"
 ```
 
 ```bash
 # bash
 export SUPABASE_URL="https://vkrqzwlpneocgjwhqbsl.supabase.co"
 read -rs -p "Service role key: " key && export SUPABASE_SECRET_KEY="$key" && unset key
-npm run catalog:resolve -- --input /tmp/pack.json --output /tmp/manifest.json
+npm run catalog:resolve -- --input "$run/pack.json" --output "$run/manifest.json"
 ```
 
 Bước này **chỉ SELECT**, không ghi gì. Nó chạy lại kiểm định 9A trước và từ chối truy vấn production
@@ -47,7 +93,7 @@ Sau bước này **đóng cửa sổ terminal đó**, hoặc `Remove-Item Env:SU
 ## Bước 2 — Plan (offline)
 
 ```bash
-npm run catalog:plan -- --input /tmp/pack.json --manifest /tmp/manifest.json --output /tmp/plan.json
+npm run catalog:plan -- --input "$run/pack.json" --manifest "$run/manifest.json" --output "$run/plan.json"
 ```
 
 Hoàn toàn offline, không chạm mạng. Cùng một cặp pack + manifest luôn cho ra cùng một plan.
@@ -55,7 +101,7 @@ Hoàn toàn offline, không chạm mạng. Cùng một cặp pack + manifest lu�
 ## Bước 3 — Xem plan sẽ làm gì
 
 ```bash
-npm run catalog:execute -- --plan /tmp/plan.json --journal /tmp/journal.json --dry-run
+npm run catalog:execute -- --plan "$run/plan.json" --journal "$run/journal.json" --dry-run
 ```
 
 In ra số thao tác theo từng loại, **không gửi gì và không ghi journal**. Đọc kỹ con số này trước khi
@@ -75,14 +121,14 @@ JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.endsWith
 # PowerShell
 $env:BEPNHA_ADMIN_ENDPOINT = "https://bepnhatoi.vercel.app/api/admin/catalog"
 $env:BEPNHA_ADMIN_ACCESS_TOKEN = Read-Host "Access token"
-npm run catalog:execute -- --plan /tmp/plan.json --journal /tmp/journal.json
+npm run catalog:execute -- --plan "$run/plan.json" --journal "$run/journal.json"
 ```
 
 ```bash
 # bash
 export BEPNHA_ADMIN_ENDPOINT="https://bepnhatoi.vercel.app/api/admin/catalog"
 read -rs -p "Access token: " token && export BEPNHA_ADMIN_ACCESS_TOKEN="$token" && unset token
-npm run catalog:execute -- --plan /tmp/plan.json --journal /tmp/journal.json
+npm run catalog:execute -- --plan "$run/plan.json" --journal "$run/journal.json"
 ```
 
 Token Supabase hết hạn khoảng một giờ. Nếu chạy quá lâu và gặp `401 UNAUTHORIZED`, lấy token mới rồi
@@ -94,7 +140,7 @@ chạy lại với `--resume`.
 Ctrl-C đều để lại một tệp tiếp tục được:
 
 ```bash
-npm run catalog:execute -- --plan /tmp/plan.json --journal /tmp/journal.json --resume
+npm run catalog:execute -- --plan "$run/plan.json" --journal "$run/journal.json" --resume
 ```
 
 **Đừng chạy lại từ đầu với một journal mới.** Các thao tác `create_*` không idempotent — chạy lại từ
