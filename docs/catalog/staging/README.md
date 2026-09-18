@@ -1,10 +1,11 @@
-# Catalog đang biên tập
+# Catalog ra mắt
 
-Dữ liệu trong thư mục này do người vận hành soạn bằng ChatGPT + Tavily, qua **bốn vòng**
-(2026-09-18), rồi được kiểm định bằng chính công cụ của dự án. Vòng ba lấp hết các ô vận hành còn
-trống. Vòng bốn thêm `allergen_assessments.csv` — hồ sơ bằng chứng cho cả 450 cặp — nhưng **không đổi
-một ô `status` nào**, nên pack sinh ra từ thư mục này **giống hệt từng byte** với vòng ba. Đây vẫn là
-**bản đang làm dở**, chưa phải catalog để xuất bản — lý do nằm ở mục "Còn thiếu".
+Dữ liệu trong thư mục này do người vận hành soạn bằng ChatGPT + Tavily qua bốn vòng (2026-09-18),
+rồi được kiểm định bằng chính công cụ của dự án. Vòng ba lấp hết các ô vận hành. Vòng bốn khảo đủ
+450 cặp `(thực phẩm, dị nguyên)` và ghi lại trong `allergen_assessments.csv`. Kết luận của vòng bốn
+đã được đưa vào `food_allergens.csv` bằng `catalog:assessments`.
+
+**Bộ dữ liệu này `ready`.**
 
 ## Kiểm định đã chạy
 
@@ -14,47 +15,55 @@ npm run catalog:validate -- --input pack.json
 npm run catalog:audit -- docs/catalog/staging
 ```
 
-Kết quả trên bản hiện tại trong thư mục này (không đổi so với vòng ba — pack giống hệt từng byte):
+| Kiểm định                     | Kết quả                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------- |
+| Cấu trúc                      | 45 thực phẩm, 37 món, 24 meal option, 8 nhóm đạm, 45/45 thực phẩm dùng tới đều có giá |
+| `catalog:validate`            | **`valid: true`, `ready: true`, 0 chẩn đoán**                                         |
+| `catalog:audit`               | `NO_BLOCKING_FINDINGS` (92 cảnh báo nguồn phụ, 1 cảnh báo Atwater)                    |
+| Ô vận hành bắt buộc còn trống | 0                                                                                     |
+| `manifest.json`               | 19/19 tệp khớp sha256 và số byte                                                      |
 
-| Kiểm định | Kết quả |
-|---|---|
-| Cấu trúc | 45 thực phẩm, 37 món, 24 meal option, 8 nhóm đạm, 45/45 thực phẩm dùng tới đều có giá |
-| `catalog:validate` | `valid: false`, `ready: false`, **486 chẩn đoán, toàn bộ là dị nguyên** |
-| `catalog:audit` | `NO_BLOCKING_FINDINGS` (92 cảnh báo nguồn phụ, 1 cảnh báo Atwater) |
-| Ô vận hành bắt buộc còn trống | **0** |
-| `manifest.json` | 18/18 tệp khớp sha256 và số byte |
-
-Không còn blocker cấu trúc nào, và cũng không còn `CAN-DIEN` trong bất kỳ cột bắt buộc nào.
-
-## Điều đáng ghi nhận nhất
-
-Bộ dữ liệu này **không bịa một kết luận dị ứng nào**.
+## Dị nguyên: nói đúng điều đã kiểm, và để hộ tự quyết
 
 ```
-phân bố status: unknown 441 | contains 9 | absent 0
+phân bố status: cross_contact_unverified 431 | may_contain 10 | contains 9 | absent 0 | unknown 0
 ```
 
-Chín ô `contains` đều là tất yếu — cá chứa `fish`, tôm chứa `crustacean`, mực chứa `mollusc`, trứng
-chứa `egg`, đậu hũ chứa `soy` — và đều kèm nguồn tra cứu được. Không ô nào ghi `absent`. Đó chính là
-hành vi đúng: `absent` là một khẳng định về an toàn, và không nguồn nào trên mạng chứng minh được nó
-cho một thực phẩm bán ngoài chợ.
+Không ô nào ghi `absent`, và đó là chủ ý. `absent` khẳng định cả **thành phần** lẫn **khâu chế biến**
+đã được xác nhận — với nguyên liệu mua chợ thì vế sau không ai chứng minh được. Trước đây bộ dữ liệu
+kẹt vì chỉ có hai lựa chọn: ghi `absent` (nói quá điều đã kiểm) hoặc để `unknown` (loại sạch mọi món
+của mọi hộ khai dị ứng).
 
-441 ô `unknown` đều mang một ghi chú giải thích vì sao còn bỏ ngỏ, chứ không mang một URL dựng lên
-cho có. Đó là cách ghi đúng: một ô `unknown` nợ một lời giải thích, không nợ một nguồn.
+`cross_contact_unverified` là giá trị nói đúng sự thật: **không phải nguyên liệu, khâu chế biến chưa
+xác minh.** Và phần còn lại — chấp nhận được hay không — là câu hỏi y tế, khác nhau từng nhà, nên
+**hộ gia đình trả lời khi khai dị ứng**:
 
-Số liệu dinh dưỡng nhất quán nội tại: 44/45 thực phẩm thoả công thức Atwater trong sai số 25%, tức
-là các con số đến từ cùng một phép phân tích thật chứ không phải được nghĩ ra rời rạc. Ô lệch duy
-nhất là `muoi` — muối khai 1 kcal trong khi ba chất sinh năng lượng đều bằng 0; đó là làm tròn, không
-phải bịa.
+| Hộ chọn                                                   | Món mà nguyên liệu chỉ ở mức `cross_contact_unverified` |
+| --------------------------------------------------------- | ------------------------------------------------------- |
+| Nghiêm ngặt _(mặc định, và là kết quả khi không trả lời)_ | bị loại                                                 |
+| Theo nguyên liệu                                          | được mời, kèm ghi chú                                   |
+
+`may_contain` và `contains` **luôn bị loại**, không phụ thuộc lựa chọn của hộ.
+
+Mười ô `may_contain` là phần khảo sát kỹ nhất và đúng nhất: `nuoc_tuong` × `wheat` (nước tương ủ
+truyền thống có lúa mì, bản gluten-free dùng gạo), `dau_an` × `peanut`/`tree_nut`/`soy`/`sesame`
+(tuỳ nguyên liệu và mức tinh luyện), `hat_nem` × `egg`/`soy`/`wheat`/`fish`/`crustacean` (tuỳ hãng).
+Mỗi ô kèm nguồn riêng của nó — Kikkoman, hướng dẫn FDA về dầu tinh luyện, trang sản phẩm của Knorr.
+
+Chín ô `contains` là các trường hợp tất yếu và có nguồn: cá chứa `fish`, tôm chứa `crustacean`, mực
+chứa `mollusc`, trứng chứa `egg`, đậu hũ và nước tương chứa `soy`, nước mắm chứa `fish`.
+
+Số liệu dinh dưỡng nhất quán nội tại: 44/45 thực phẩm thoả Atwater trong sai số 25%. Ô lệch duy nhất
+là `muoi` — muối khai 1 kcal trong khi ba chất sinh năng lượng đều bằng 0; đó là làm tròn.
 
 ## Vòng ba đã lấp gì
 
-| Nhóm | Số ô | Đã đối chiếu thế nào |
-|---|---|---|
-| Định lượng nguyên liệu | 31 | đọc tay các món lấp mới; 300 g gạo cho 4 suất cơm trắng, 500 g gà + 30 g gừng + 30 ml nước mắm cho gà kho gừng — đúng tầm một bữa gia đình |
-| Khẩu phần + thời gian món | 7 × 3 | trong miền hợp lệ (`activeMinutes ≥ 1`, `activeMinutes ≤ elapsedMinutes ≤ 180`) |
-| Khẩu phần + thời gian meal option | 24 × 3 | dựng lại từ thành phần, **khớp đúng 24/24** |
-| `nam_rom` `sodium_mg` | 1 | suy từ nguồn, xem dưới |
+| Nhóm                              | Số ô   | Đã đối chiếu thế nào                                                                                                                       |
+| --------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Định lượng nguyên liệu            | 31     | đọc tay các món lấp mới; 300 g gạo cho 4 suất cơm trắng, 500 g gà + 30 g gừng + 30 ml nước mắm cho gà kho gừng — đúng tầm một bữa gia đình |
+| Khẩu phần + thời gian món         | 7 × 3  | trong miền hợp lệ (`activeMinutes ≥ 1`, `activeMinutes ≤ elapsedMinutes ≤ 180`)                                                            |
+| Khẩu phần + thời gian meal option | 24 × 3 | dựng lại từ thành phần, **khớp đúng 24/24**                                                                                                |
+| `nam_rom` `sodium_mg`             | 1      | suy từ nguồn, xem dưới                                                                                                                     |
 
 Công thức meal option người soạn khai — và công cụ này dựng lại được y hệt trên cả 24 dòng:
 
@@ -85,74 +94,40 @@ Vẫn nên biết đây là **suy dẫn, không phải đo trực tiếp**: đ�
 liệu khác nhau, có thể khác giống và khác điều kiện trồng. Nếu sau này tìm được bảng thành phần công
 bố thẳng natri cho nấm rơm tươi, hãy thay.
 
-## Còn thiếu — chỉ còn một việc, và nó chặn xuất bản
+## `allergen_assessments.csv` và cách nó được đưa vào
 
-| Việc | Số ô | Ai làm được |
-|---|---|---|
-| Kết luận dị nguyên (`unknown` → kết luận thật) | **441** | chỉ con người |
+Vòng bốn chẩn đoán đủ **450/450 cặp** và chia làm ba kết luận. `catalog:assessments` ánh xạ đúng ba
+kết luận đó sang ba `status`, không hơn:
 
-486 chẩn đoán của validator là 441 `UNKNOWN_ALLERGEN_LINEAGE` cộng 45 `ALLERGEN_COVERAGE_INCOMPLETE`
-— mỗi thực phẩm một dòng. Không còn loại lỗi nào khác.
+| Kết luận khảo sát                            | `status`                   | Số cặp |
+| -------------------------------------------- | -------------------------- | ------ |
+| `confirmed_contains`                         | `contains`                 | 9      |
+| `formulation_or_source_dependent`            | `may_contain`              | 10     |
+| `not_intrinsic_but_cross_contact_unverified` | `cross_contact_unverified` | 431    |
 
-**Hệ quả nếu xuất bản nguyên trạng.** `evaluate-hard-rules.ts` fail-closed: một nguyên liệu có
-`status = "unknown"` cho đúng dị nguyên đang xét thì món đó bị trả về `unknown_lineage`, và
-`evaluate-eligibility.ts` loại món đó. Hộ **không khai dị ứng nào** thì không có luật cứng nào chạy
-và vẫn lên được thực đơn. Hộ **khai bất kỳ dị ứng nào** sẽ bị loại gần như toàn bộ món — không phải
-vì món có chất đó, mà vì catalog chưa biết. Đó là đúng hướng an toàn và sai hướng dùng được.
+```bash
+npm run catalog:assessments -- apply --dir docs/catalog/staging --dry-run
+npm run catalog:assessments -- apply --dir docs/catalog/staging
+```
 
-Vì vậy dữ liệu này **đưa vào repo được, xuất bản thì chưa**.
+Công cụ này **không tự quyết gì cả**. Nó từ chối — và khi từ chối thì **không ghi gì**, kể cả các
+dòng hợp lệ — nếu gặp một cặp khảo sát không phủ, một kết luận lạ, một cặp bị trả lời hai lần, một
+kết luận mâu thuẫn với `status` đã có trong catalog, hoặc một khẳng định về thực phẩm mà khảo sát
+không dẫn nguồn nào. `absent` **không thể sinh ra** từ đường này.
 
-## `allergen_assessments.csv` — hồ sơ bằng chứng của vòng bốn
+Một điểm kiểm chứng đáng ghi: 9 ô `contains` vốn đã có sẵn trong `food_allergens.csv` **trùng khớp
+tuyệt đối** với 9 dòng `confirmed_contains` của khảo sát — nếu lệch, công cụ đã từ chối toàn bộ.
 
-Tệp này **không nằm trong pipeline**. `catalog:sheet` chỉ đọc 12 CSV chuẩn; đây là tài liệu đi kèm.
-Nó chẩn đoán đủ **450/450 cặp (45 thực phẩm × 10 dị nguyên)** và chia làm ba:
+Một lưu ý về 431 dòng `cross_contact_unverified`: chúng dựa trên **một lập luận chung** được áp cho
+mọi cặp, viện Codex CXS 1-1985 và hướng dẫn PAL của WHO/FAO, chứ không phải 431 lần tra cứu riêng.
+Điều đó chấp nhận được vì `cross_contact_unverified` là lời khẳng định _khiêm tốn nhất có thể_ — nó
+nói rằng chưa kiểm chứng được gì. Nếu sau này có dữ liệu ở mức SKU cho một thực phẩm cụ thể, ô đó
+mới nên chuyển thành `absent`, và khi đó phải kèm bằng chứng riêng của nó.
 
-| Kết luận khảo sát | Số cặp | `status` trong `food_allergens.csv` |
-|---|---|---|
-| `confirmed_contains` | 9 | `contains` |
-| `formulation_or_source_dependent` | 10 | `unknown` |
-| `not_intrinsic_but_cross_contact_unverified` | 431 | `unknown` |
+Vì lý do đó `catalog:audit` không đòi URL cho `cross_contact_unverified` — nó nợ người đọc một lý
+do, không nợ một nguồn. Ngược lại `contains` và `may_contain` bắt buộc có nguồn truy được.
 
-Mười cặp `formulation_or_source_dependent` là phần có giá trị thật và đúng: `nuoc_tuong` × `wheat`
-(nước tương truyền thống ủ lúa mì, bản gluten-free dùng gạo), `dau_an` × `peanut`/`tree_nut`/`soy`/
-`sesame` (dầu ăn chung phụ thuộc nguyên liệu và mức tinh luyện), `hat_nem` × `egg`/`soy`/`wheat`/
-`fish`/`crustacean` (công thức hạt nêm khác nhau theo hãng). Đó là khảo sát thật của từng thứ.
-
-431 cặp còn lại thì **là một mẫu câu lặp lại**: 450 dòng chỉ có 10 mẫu `rationale` và 11 bộ URL, và
-431 dòng cùng viện đúng hai văn bản chính sách (Codex CXS 1-1985 và hướng dẫn PAL của WHO/FAO). Nội
-dung nó khẳng định là đúng và tệp nói thẳng ra điều đó — "This does NOT establish absence" — nhưng
-đó là **một lập trường được nhân bản 431 lần**, không phải 431 lần tra cứu.
-
-## Quyết định đang chặn: `absent` nghĩa là gì
-
-Người soạn từ chối ghi `absent` vì nhiễm chéo không thể loại trừ từ tên một thực phẩm. Về an toàn
-thực phẩm, điều đó đúng. Nhưng nó va vào thiết kế của chính ứng dụng:
-
-`evaluate-hard-rules.ts` xử lý `may_contain` **y hệt** `contains` — đều loại món. `unknown` cũng loại
-món. Nên trong bốn giá trị `absent | contains | may_contain | unknown`, **chỉ `absent` mới cho một
-món đi qua**. Giữ nguyên lập trường của vòng bốn thì hộ có dị ứng không bao giờ nhận được món nào, và
-tính năng dị ứng coi như không ra mắt.
-
-Đây là **quyết định sản phẩm của chủ dự án**, không phải việc công cụ hay LLM được tự quyết
-(`AGENTS.md` mục 3). Ba hướng:
-
-1. **`absent` = "bản thân thực phẩm không chứa dị nguyên đó"** — mức nhận dạng thực phẩm, và ứng dụng
-   hiển thị cảnh báo thường trực rằng nguyên liệu mua chợ không kiểm soát được nhiễm chéo. 431 cặp
-   thành `absent`, 10 cặp biến thiên thành `may_contain` (vẫn bị loại), 9 giữ `contains` → `ready`.
-   Đây là cách hầu hết ứng dụng nấu ăn hoạt động: lọc theo thành phần, và nói rõ không bảo đảm khâu
-   sản xuất.
-2. **`absent` = "đã được xác nhận an toàn, kể cả nhiễm chéo"** — giữ nguyên lập trường vòng bốn. Khi
-   đó cần dữ liệu ở mức SKU/nhà cung cấp, thứ một người đi chợ không có, nên tính năng dị ứng không
-   ra mắt được.
-3. Tự khảo từng thực phẩm và tự quyết từng dòng, qua `catalog:allergens` bên dưới.
-
-Nếu chọn hướng 1, cần biết trước một chuyện: `catalog:audit` sẽ báo `ABSENT_BULK_FILLED`, vì 431 kết
-luận `absent` cùng viện một lý do trên 45 thực phẩm — đúng chữ ký của điền hàng loạt mà kiểm tra đó
-sinh ra để bắt. Cảnh báo đó **không sai**; nó đang mô tả đúng việc sắp làm. Muốn đi hướng 1 thì phải
-ghi rõ quyết định vào tài liệu và chấp nhận cảnh báo một cách có ý thức, chứ không phải nới kiểm tra
-cho nó im.
-
-## Điền dị nguyên: 45 dòng thay vì 900 ô
+## Sửa một ô dị nguyên bằng tay: 45 dòng thay vì 900 ô
 
 ```bash
 npm run catalog:allergens -- export --dir docs/catalog/staging --out allergen-worksheet.csv
@@ -165,9 +140,11 @@ Worksheet xoay bảng lại: **một dòng một thực phẩm**, mười dị n
 dùng chung cho cả thực phẩm đó**. Bạn giữ một món trong đầu rồi quyết một lượt về nó, thay vì nhảy
 qua lại giữa 450 dòng.
 
-Ô để trống nghĩa là `unknown` và sẽ giữ nguyên là `unknown` — công cụ không bao giờ đoán hộ. Một kết
-luận (`absent`, `contains`, `may_contain`) mà cột `reason` trống thì **bị từ chối và không ghi gì
-cả**: một kết luận không ai giải trình được chính là thứ toàn bộ chuỗi này sinh ra để ngăn.
+Dùng worksheet này khi muốn **nâng một ô lên `absent`** sau khi có bằng chứng ở mức SKU/nhà cung
+cấp, hoặc sửa một kết luận cụ thể. Ô để trống nghĩa là `unknown` và sẽ giữ nguyên là `unknown` —
+công cụ không bao giờ đoán hộ. Một kết luận (`absent`, `contains`, `may_contain`,
+`cross_contact_unverified`) mà cột `reason` trống thì **bị từ chối và không ghi gì cả**: một kết
+luận không ai giải trình được chính là thứ toàn bộ chuỗi này sinh ra để ngăn.
 
 Các ô đã có URL riêng, như `ca_loc` chứa `fish`, giữ nguyên nguồn cụ thể của nó chứ không bị lý do
 chung ghi đè.

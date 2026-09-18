@@ -24,8 +24,8 @@
     },
     {
       "file": "food_allergens.csv",
-      "sha256": "5b01a538c34ffb4039e59258d45dc2d24328fda4c33cd29e96d3398b44db62e8",
-      "bytes": 53789
+      "sha256": "db4b4a7e3901756337f79c41d70a531b8e44dc7e5035d9212ddfed04d666fdaa",
+      "bytes": 109046
     },
     {
       "file": "food_conversions.csv",

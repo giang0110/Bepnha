@@ -9,6 +9,7 @@
     "catalog:resolve": "node scripts/catalog-pack/catalog-production-resolver-cli.ts",
     "catalog:plan": "node scripts/catalog-pack/catalog-mutation-cli.ts",
     "catalog:allergens": "node scripts/catalog-pack/catalog-allergen-worksheet.ts",
+    "catalog:assessments": "node scripts/catalog-pack/catalog-assessment-apply.ts",
     "catalog:audit": "node scripts/catalog-pack/catalog-audit.ts",
     "catalog:sheet": "node scripts/catalog-pack/catalog-sheet-cli.ts",
     "preview": "vite preview",
