@@ -424,3 +424,57 @@ describe("validateCatalogPackValue graph and readiness", () => {
     if (blocker !== undefined) expect(result.blockers).toContain(blocker)
   })
 })
+
+describe("a price whose package unit the food cannot convert", () => {
+  test("is a blocker, because only the database would otherwise catch it", () => {
+    const pack = buildReadyCatalogPack()
+    const price = pack.priceBook.prices[0] as MutableCatalogPackV1["priceBook"]["prices"][number]
+    const food = pack.foods.find(
+      (item) => item.code === price.foodCode
+    ) as MutableCatalogPackV1["foods"][number]
+    // Price it by the kilogram while the fact still only declares its gram base unit — the exact
+    // shape that got 247 operations into production before the write was refused.
+    food.fact.conversions = food.fact.conversions.filter(
+      (conversion) => conversion.unitCode !== "kg"
+    )
+    price.packageUnitCode = "kg"
+
+    const result = validateCatalogPackValue(pack)
+
+    expect(result.blockers).toContain("PRICE_UNIT_NOT_CONVERTIBLE")
+    expect(
+      result.diagnostics.some(
+        (item) =>
+          item.code === "PRICE_UNIT_NOT_CONVERTIBLE" &&
+          item.path === "$.priceBook.prices[0].packageUnitCode"
+      )
+    ).toBe(true)
+  })
+
+  test("stays ready once the food declares that unit", () => {
+    const pack = buildReadyCatalogPack()
+    const price = pack.priceBook.prices[0] as MutableCatalogPackV1["priceBook"]["prices"][number]
+    const food = pack.foods.find(
+      (item) => item.code === price.foodCode
+    ) as MutableCatalogPackV1["foods"][number]
+    food.fact.conversions = [
+      ...food.fact.conversions,
+      {
+        unitCode: "kg",
+        baseQuantityPerUnit: "1000",
+        grossGramsPerUnit: "1000",
+        displayStep: "0.1",
+        provenance: "SI definition: 1 kg = 1000 g."
+      }
+    ]
+    price.packageUnitCode = "kg"
+    price.packageQuantity = "1"
+    price.packageBaseQuantity = "1000"
+
+    const result = validateCatalogPackValue(pack)
+
+    expect(result.diagnostics.filter((item) => item.code === "PRICE_UNIT_NOT_CONVERTIBLE")).toEqual(
+      []
+    )
+  })
+})

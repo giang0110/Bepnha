@@ -29,8 +29,8 @@
     },
     {
       "file": "food_conversions.csv",
-      "sha256": "89a1e6ec5e0e0fcf12d410614f07214bde24289fbdd897f77b16e86acd657324",
-      "bytes": 4760
+      "sha256": "aa7904d83a953fdb56f8d35e4817aa018f4c433222fe8d16640ee44e40454bdc",
+      "bytes": 9931
     },
     {
       "file": "food_nutrients.csv",
@@ -39,13 +39,13 @@
     },
     {
       "file": "foods.csv",
-      "sha256": "92f2e86a49126ca5a59e545e6720315d0871750a260e078d031aa95141c12a10",
-      "bytes": 6292
+      "sha256": "1b30993cf9192bfdf6831c06de8106e1d479e7530aac532aed5e9a960efcb57a",
+      "bytes": 6246
     },
     {
       "file": "meal_option_components.csv",
-      "sha256": "5d2eb084e763780acd73515ba20f9780782b94fca05d170b153dcde6ba008daf",
-      "bytes": 4187
+      "sha256": "5990ac3d5940f84eab590b717d3817976ab3a9fe8c4fcb6ae724cea234b57977",
+      "bytes": 4114
     },
     {
       "file": "meal_options.csv",
@@ -59,17 +59,17 @@
     },
     {
       "file": "price_book.csv",
-      "sha256": "f382b50fc4948d2ddb6af72070f0e7efa3ecac3dd569c835d78b07ba728403e5",
-      "bytes": 82
+      "sha256": "a5e9ca00ef4e3f2d59fe9c079c3a8deaa04a18cc0c9d591d97db7c081dc56be9",
+      "bytes": 80
     },
     {
       "file": "prices.csv",
-      "sha256": "30bad81e45b48f4564f95796812134bb686c783e8a75f2f5289bbff0465416c7",
-      "bytes": 4680
+      "sha256": "8c589d0f25adcdf398f80464f9b31a4a4b3aceebfee82ffee6067bab3a175660",
+      "bytes": 4634
     },
     {
       "file": "recipe_ingredients.csv",
-      "sha256": "75365949696a9acfafbc5be4d532177a9439e5aabe38fbf030cfd60a7f577ab6",
+      "sha256": "691d6dee68d8014f548a569f59a507821aa54c55011b485fd32509a323bf12ab",
       "bytes": 7897
     },
     {
@@ -79,7 +79,7 @@
     },
     {
       "file": "recipes.csv",
-      "sha256": "df7cf79776dc7e3c70003edf4d813a9c8bce917f5d225d23a2669b1d2aea409b",
+      "sha256": "7a0a0ccfbcaac6591c351c7d6ed767e6a26380eba8d3a9b9fd96b21717db1bab",
       "bytes": 1842
     },
     {

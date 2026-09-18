@@ -151,6 +151,42 @@ Một lỗi cần xử lý bằng tay chứ không phải bằng `--resume` ngay
 have been applied"_. Nó nghĩa là yêu cầu đi ra nhưng không có câu trả lời về — lệnh đó có thể đã
 được áp dụng. Vào Supabase kiểm tra thao tác đó trước khi tiếp tục.
 
+## Nếu một lần chạy đã ghi được một phần rồi hỏng
+
+Đây là trường hợp khác với "đứt giữa chừng": journal còn nguyên và `--resume` vẫn chạy tiếp được,
+nhưng nếu bạn đã **sửa dữ liệu trong `docs/catalog/staging/`** để chữa nguyên nhân hỏng thì journal
+cũ không dùng lại được nữa — nó gắn với `inputSha256` của plan cũ, và công cụ từ chối đúng như vậy.
+
+Lúc đó phải làm lại từ Bước 1 với pack mới. Nhưng chạy `catalog:resolve` lần nữa sẽ **thất bại**:
+
+```
+VERSION_ALREADY_EXISTS  identity:food_fact:bap_cai:1
+```
+
+Vì bước 9B phân loại mọi cặp (bản ghi cha, `versionNumber`) đã tồn tại trong production là *collision*
+— nó cố tình không cho ghi đè một phiên bản đã xuất bản. Những gì lần chạy trước đã tạo vẫn còn đó.
+
+Cách xử lý đúng là **nâng số phiên bản**, không phải xoá dữ liệu production. Catalog vốn được thiết
+kế để thay đổi một thứ đã xuất bản bằng cách xuất bản phiên bản kế tiếp; phiên bản cũ ở lại để các
+thực đơn đã sinh trước đó vẫn giải thích được. Tăng `1` → `2` ở các cột phiên bản trong staging:
+
+| Tệp                         | Cột                     |
+| --------------------------- | ----------------------- |
+| `foods.csv`                 | `factVersionNumber`     |
+| `prices.csv`                | `foodFactVersionNumber` |
+| `recipe_ingredients.csv`    | `foodFactVersionNumber` |
+| `recipes.csv`               | `versionNumber`         |
+| `meal_option_components.csv`| `recipeVersionNumber`   |
+| `price_book.csv`            | `versionNumber`         |
+
+Chỉ nâng những loại bản ghi mà lần chạy trước **đã thực sự tạo** trong production. Loại nào chưa có
+bản ghi nào thì giữ nguyên `1` — nâng thừa sẽ tạo ra một phiên bản 2 mà không có phiên bản 1, hợp lệ
+nhưng gây hiểu nhầm khi đọc lịch sử sau này. Đọc journal của lần chạy hỏng để biết loại nào đã chạy
+qua, hoặc đếm trực tiếp trong Supabase.
+
+Sau khi sửa: xoá `manifest.json`, `plan.json`, `journal.json` trong `$run`, sinh lại `pack.json`, rồi
+chạy lại từ **Điều kiện trước, mục 2**.
+
 ## Tại sao đi qua `/api/admin/catalog` chứ không ghi thẳng database
 
 Khoá service-role ở lại trên server. Bạn xác thực bằng token của chính mình, server kiểm tra bạn có

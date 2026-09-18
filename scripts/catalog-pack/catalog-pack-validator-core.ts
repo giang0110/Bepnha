@@ -627,9 +627,30 @@ function validatePriceFields(
     diagnostics
   )
 
+  // `validate_food_price_normalization` refuses a price whose package unit has no conversion on the
+  // food's published fact, and the database says so with a class-23 error that the admin API reports
+  // as a plain validation failure. That is the last possible moment to learn it — after the foods and
+  // recipes of a publishing run are already in production — so the pack is checked for it here.
+  const conversionsByFood = new Map(
+    pack.foods.map((food) => [
+      food.code,
+      new Set(food.fact.conversions.map((conversion) => conversion.unitCode))
+    ])
+  )
+
   pack.priceBook.prices.forEach((price, priceIndex) => {
     const path = `$.priceBook.prices[${priceIndex}]`
     validateCode(price.foodCode, `${path}.foodCode`, diagnostics)
+    const declared = conversionsByFood.get(price.foodCode)
+    if (declared !== undefined && !declared.has(price.packageUnitCode)) {
+      addError(
+        diagnostics,
+        "PRICE_UNIT_NOT_CONVERTIBLE",
+        `${path}.packageUnitCode`,
+        `Food ${price.foodCode} declares no conversion for package unit ${price.packageUnitCode}`
+      )
+      blockers.add("PRICE_UNIT_NOT_CONVERTIBLE")
+    }
     validatePositiveVersion(
       price.foodFactVersionNumber,
       `${path}.foodFactVersionNumber`,
