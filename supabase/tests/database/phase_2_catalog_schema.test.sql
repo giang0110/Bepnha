@@ -34,7 +34,11 @@ from unnest(array[
 select is((select count(*)::integer from public.units), 7, 'seven canonical units are seeded');
 select is((select count(*)::integer from public.allergens), 10, 'ten allergens are seeded');
 select is((select count(*)::integer from public.nutrients), 6, 'six required nutrients are seeded');
-select is((select count(*)::integer from public.recipe_tags), 17, 'seventeen inert recipe tags are seeded');
+select is(
+  (select count(*)::integer from public.recipe_tags),
+  18,
+  'eighteen inert recipe tags are seeded'
+);
 select is(
   (select count(*)::integer from public.household_rule_catalog_targets),
   18,
