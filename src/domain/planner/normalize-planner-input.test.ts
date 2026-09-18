@@ -102,3 +102,50 @@ describe("normalizePlannerInput", () => {
     ).toEqual({ ok: false, error: { code: "INVALID_PLANNER_INPUT" } })
   })
 })
+
+describe("allergen strictness normalisation", () => {
+  const withRules = (
+    hardRuleCodes: readonly string[],
+    allergenStrictness: Record<string, unknown> | undefined
+  ) =>
+    normalizePlannerInput({
+      ...plannerInput(),
+      hardRuleCodes,
+      allergenStrictness: allergenStrictness as never
+    })
+
+  test("keeps a relaxed choice for a rule the household declared", () => {
+    const result = withRules(["allergen_soy"], { allergen_soy: "ingredient_only" })
+
+    expect(result.ok && result.value.allergenStrictness).toEqual({
+      allergen_soy: "ingredient_only"
+    })
+  })
+
+  test("drops a choice for a rule the household did not declare", () => {
+    const result = withRules(["allergen_soy"], { allergen_peanut: "ingredient_only" })
+
+    expect(result.ok && result.value.allergenStrictness).toEqual({})
+  })
+
+  test.each(["lenient", "", "STRICT", 1, null, undefined])(
+    "drops %o rather than carrying it into the planner",
+    (value) => {
+      const result = withRules(["allergen_soy"], { allergen_soy: value })
+
+      expect(result.ok && result.value.allergenStrictness).toEqual({})
+    }
+  )
+
+  test("an explicit strict is dropped because it is already the default", () => {
+    const result = withRules(["allergen_soy"], { allergen_soy: "strict" })
+
+    expect(result.ok && result.value.allergenStrictness).toEqual({})
+  })
+
+  test("an absent map normalises to an empty one rather than to undefined", () => {
+    const result = withRules(["allergen_soy"], undefined)
+
+    expect(result.ok && result.value.allergenStrictness).toEqual({})
+  })
+})

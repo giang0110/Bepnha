@@ -1,6 +1,10 @@
 import type { RecipeIngredientLineage } from "./catalog.js"
 import { HARD_RULE_MAPPINGS, isHardRuleCode, type HardRuleCode } from "./hard-rule-mapping.js"
 import {
+  resolveAllergenStrictness,
+  type AllergenStrictness
+} from "../household/allergen-strictness.js"
+import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
 } from "../household/household-rules.js"
@@ -8,7 +12,7 @@ import {
 export type HardRuleEvaluation =
   | { readonly status: "eligible" }
   | {
-      readonly status: "excluded" | "unknown_lineage"
+      readonly status: "excluded" | "unknown_lineage" | "cross_contact_unverified"
       readonly ruleCode: string
       readonly recipeIngredientId: string
     }
@@ -18,7 +22,8 @@ type NonEligibleEvaluation = Exclude<HardRuleEvaluation, { readonly status: "eli
 
 function evaluateRule(
   ruleCode: HardRuleCode,
-  ingredients: readonly RecipeIngredientLineage[]
+  ingredients: readonly RecipeIngredientLineage[],
+  strictness: AllergenStrictness
 ): NonEligibleEvaluation | null {
   const mapping = HARD_RULE_MAPPINGS[ruleCode]
   if (mapping.kind === "unsupported") {
@@ -43,6 +48,16 @@ function evaluateRule(
       if (assessment.status === "contains" || assessment.status === "may_contain") {
         return {
           status: "excluded",
+          ruleCode,
+          recipeIngredientId: ingredient.recipeIngredientId
+        }
+      }
+      // Not an ingredient, but nobody has cleared the supplier's handling. Only a household that
+      // asked for ingredient-level filtering accepts that; `strict` is both the default and what an
+      // absent or unreadable preference resolves to, so this never opens up by accident.
+      if (assessment.status === "cross_contact_unverified" && strictness === "strict") {
+        return {
+          status: "cross_contact_unverified",
           ruleCode,
           recipeIngredientId: ingredient.recipeIngredientId
         }
@@ -81,15 +96,20 @@ function evaluateRule(
   return null
 }
 
+// Lowest wins. A meal rejected for several reasons reports the one the cook can least act on
+// first, and `excluded` outranks `cross_contact_unverified` because "this dish uses peanut" is a
+// better answer than "we could not clear the peanut handling" when both are true.
 const EVALUATION_PRIORITY: Readonly<Record<NonEligibleEvaluation["status"], number>> = {
   unsupported_hard_rule: 0,
   unknown_lineage: 1,
-  excluded: 2
+  excluded: 2,
+  cross_contact_unverified: 3
 }
 
 export function evaluateHardRules(
   ruleCodes: readonly string[],
-  ingredients: readonly RecipeIngredientLineage[]
+  ingredients: readonly RecipeIngredientLineage[],
+  strictnessByRuleCode?: Readonly<Record<string, AllergenStrictness>>
 ): HardRuleEvaluation {
   const outcomes: NonEligibleEvaluation[] = []
 
@@ -104,7 +124,11 @@ export function evaluateHardRules(
       continue
     }
 
-    const outcome = evaluateRule(ruleCode, ingredients)
+    const outcome = evaluateRule(
+      ruleCode,
+      ingredients,
+      resolveAllergenStrictness(strictnessByRuleCode, ruleCode)
+    )
     if (outcome !== null) {
       outcomes.push(outcome)
     }

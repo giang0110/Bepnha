@@ -1,3 +1,7 @@
+import {
+  DEFAULT_ALLERGEN_STRICTNESS,
+  type AllergenStrictness
+} from "@/domain/household/allergen-strictness"
 import type { HouseholdMemberGroup, HouseholdSetup } from "@/domain/household/household"
 import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
@@ -28,6 +32,7 @@ export const EMPTY_MEMBER_COUNTS: MemberCounts = Object.freeze({
 })
 
 export interface HouseholdFormState {
+  allergenStrictness: Readonly<Record<string, AllergenStrictness>>
   budgetInput: string
   hardRuleCodes: readonly HouseholdRuleCode[]
   maxElapsedMinutes: number
@@ -41,15 +46,27 @@ export type HouseholdFormAction =
   | { type: "set-budget"; value: string }
   | { type: "set-max-elapsed-minutes"; minutes: number }
   | { type: "toggle-rule"; code: HouseholdRuleCode; selected: boolean }
+  | { type: "set-allergen-strictness"; code: HouseholdRuleCode; strictness: AllergenStrictness }
   | { type: "go-to-step"; step: HouseholdFormState["step"] }
 
 export const INITIAL_HOUSEHOLD_FORM_STATE: HouseholdFormState = {
+  allergenStrictness: {},
   budgetInput: "",
   hardRuleCodes: [],
   maxElapsedMinutes: 30,
   memberCounts: EMPTY_MEMBER_COUNTS,
   preferenceCodes: [],
   step: 1
+}
+
+function withoutRule(
+  strictness: Readonly<Record<string, AllergenStrictness>>,
+  code: HouseholdRuleCode
+): Readonly<Record<string, AllergenStrictness>> {
+  if (!Object.hasOwn(strictness, code)) return strictness
+  const next = { ...strictness }
+  delete next[code]
+  return next
 }
 
 function updateCodes(
@@ -89,10 +106,22 @@ export function householdFormReducer(
           preferenceCodes: updateCodes(state.preferenceCodes, action.code, action.selected)
         }
       }
+      // Deselecting an allergy drops the answer with it. Leaving it behind would silently reapply
+      // a relaxed reach if the same allergy were selected again later.
+      const allergenStrictness = action.selected
+        ? state.allergenStrictness
+        : withoutRule(state.allergenStrictness, action.code)
       return {
         ...state,
+        allergenStrictness,
         hardRuleCodes: updateCodes(state.hardRuleCodes, action.code, action.selected)
       }
+    }
+    case "set-allergen-strictness": {
+      const next = { ...state.allergenStrictness }
+      if (action.strictness === DEFAULT_ALLERGEN_STRICTNESS) delete next[action.code]
+      else next[action.code] = action.strictness
+      return { ...state, allergenStrictness: next }
     }
     case "go-to-step":
       return { ...state, step: action.step }
@@ -132,6 +161,7 @@ export function householdFormStateFromSetup(household: HouseholdSetup): Househol
     else if (option !== undefined) hardRuleCodes.push(code)
   }
   return {
+    allergenStrictness: { ...household.allergenStrictness },
     budgetInput: household.weeklyPlanBudgetVnd.toLocaleString("vi-VN"),
     hardRuleCodes,
     maxElapsedMinutes: household.maxElapsedMinutes,

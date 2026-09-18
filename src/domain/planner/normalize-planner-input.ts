@@ -1,4 +1,9 @@
 import {
+  DEFAULT_ALLERGEN_STRICTNESS,
+  isAllergenStrictness,
+  type AllergenStrictness
+} from "../household/allergen-strictness.js"
+import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
 } from "../household/household-rules.js"
@@ -110,6 +115,7 @@ export function normalizePlannerInput(input: PlannerInputV1): NormalizeResult {
       timezone: "Asia/Ho_Chi_Minh",
       memberGroups: memberResult.value.memberGroups,
       hardRuleCodes: [...input.hardRuleCodes].sort(),
+      allergenStrictness: canonicalStrictness(input.hardRuleCodes, input.allergenStrictness),
       softPreferenceCodes: [...input.softPreferenceCodes].sort(),
       pantrySnapshot: pantryResult.value,
       candidates: input.candidates
@@ -124,4 +130,24 @@ export function normalizePlannerInput(input: PlannerInputV1): NormalizeResult {
       plannerConfig: PLANNER_CONFIG_V1
     }
   }
+}
+
+/**
+ * Keeps only the strictness entries that belong to a rule this household actually declared, and
+ * only values the domain recognises. A leftover `ingredient_only` for a rule that was since removed,
+ * or a value mangled in transit, must not survive into the planner as permission.
+ */
+function canonicalStrictness(
+  hardRuleCodes: readonly string[],
+  declared: Readonly<Record<string, AllergenStrictness>> | undefined
+): Readonly<Record<string, AllergenStrictness>> {
+  const canonical: Record<string, AllergenStrictness> = {}
+  for (const ruleCode of [...hardRuleCodes].sort()) {
+    if (declared === undefined || !Object.hasOwn(declared, ruleCode)) continue
+    const value = declared[ruleCode]
+    if (isAllergenStrictness(value) && value !== DEFAULT_ALLERGEN_STRICTNESS) {
+      canonical[ruleCode] = value
+    }
+  }
+  return canonical
 }

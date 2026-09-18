@@ -35,7 +35,8 @@ export function OnboardingPage({ repository }: OnboardingPageProps) {
         memberGroups: memberGroupsFromCounts(state.memberCounts),
         weeklyPlanBudgetVnd: budgetVnd,
         maxElapsedMinutes: state.maxElapsedMinutes,
-        ruleCodes: [...state.hardRuleCodes, ...state.preferenceCodes]
+        ruleCodes: [...state.hardRuleCodes, ...state.preferenceCodes],
+        allergenStrictness: state.allergenStrictness
       },
       null
     )
@@ -84,9 +85,13 @@ export function OnboardingPage({ repository }: OnboardingPageProps) {
       {state.step === 3 ? (
         <HardRulesStep
           selectedCodes={state.hardRuleCodes}
+          allergenStrictness={state.allergenStrictness}
           onBack={() => dispatch({ type: "go-to-step", step: 2 })}
           onContinue={() => dispatch({ type: "go-to-step", step: 4 })}
           onToggle={(code, selected) => dispatch({ type: "toggle-rule", code, selected })}
+          onStrictnessChange={(code, strictness) =>
+            dispatch({ type: "set-allergen-strictness", code, strictness })
+          }
         />
       ) : null}
       {state.step === 4 ? (

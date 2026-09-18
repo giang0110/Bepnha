@@ -1,4 +1,4 @@
-import type { CatalogDimension } from "../../domain/catalog/catalog.js"
+import type { AllergenAssessmentStatus, CatalogDimension } from "../../domain/catalog/catalog.js"
 
 export interface RecipeDraftIngredient {
   readonly recipeIngredientId: string
@@ -27,7 +27,7 @@ export interface FoodFactDraftInput {
   readonly provenance: string
   readonly allergenAssessments: readonly {
     readonly allergenCode: string
-    readonly status: "absent" | "contains" | "may_contain" | "unknown"
+    readonly status: AllergenAssessmentStatus
     readonly provenance: string
   }[]
   readonly nutrients: readonly {

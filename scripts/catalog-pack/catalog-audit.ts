@@ -117,13 +117,19 @@ export function energyFindings(nutrients: readonly Row[]): AuditFinding[] {
 }
 
 /**
- * Only a conclusion needs a source. An `unknown` allergen status is the honest answer when nothing
- * was established, and what it owes the reader is a reason, not a citation — demanding a URL there
- * would push an author towards inventing one, which is the opposite of the point.
+ * Only a claim about the food needs a source.
+ *
+ * `unknown` is the honest answer when nothing was established, and `cross_contact_unverified` says
+ * in as many words that the supplier's handling was *not* verified. Both owe the reader a reason
+ * rather than a citation: demanding a URL for either pushes an author towards inventing one, which
+ * is the opposite of the point. `absent`, `contains` and `may_contain` are assertions about the
+ * food, and those must be traceable.
  */
+const UNCITED_STATUSES = new Set(["unknown", "cross_contact_unverified"])
+
 function needsCitation(row: Row): boolean {
   const status = row["status"]
-  return status === undefined || status !== "unknown"
+  return status === undefined || !UNCITED_STATUSES.has(status)
 }
 
 export function provenanceFindings(

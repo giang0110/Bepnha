@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { isAllergenAssessmentStatus } from "../../domain/catalog/catalog.js"
+import {
+  isAllergenStrictness,
+  type AllergenStrictness
+} from "../../domain/household/allergen-strictness.js"
 import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
@@ -44,6 +49,24 @@ function integer(value: unknown): number {
     throw new Error("INVALID_PLANNER_DATA")
   }
   return value
+}
+
+/**
+ * Reads the household's per-allergy strictness out of the planner projection.
+ *
+ * The projection only carries rules that departed from the default, so an empty object is the
+ * normal case. Anything that is not one of the two recognised values is dropped rather than passed
+ * through: the planner would fall back to `strict` for a missing key anyway, and dropping keeps a
+ * corrupted value from ever reaching the domain.
+ */
+function allergenStrictness(value: unknown): Record<string, AllergenStrictness> {
+  if (value === undefined || value === null) return {}
+  const declared = object(value)
+  const resolved: Record<string, AllergenStrictness> = {}
+  for (const [ruleCode, raw] of Object.entries(declared)) {
+    if (isAllergenStrictness(raw)) resolved[ruleCode] = raw
+  }
+  return resolved
 }
 
 function stringArray(value: unknown): string[] {
@@ -180,12 +203,12 @@ async function loadComponent(
       allergenAssessments: array(fact.allergenAssessments).map((raw) => {
         const assessment = object(raw)
         const status = string(assessment.status)
-        if (!["absent", "contains", "may_contain", "unknown"].includes(status)) {
+        if (!isAllergenAssessmentStatus(status)) {
           throw new Error("INVALID_ALLERGEN_LINEAGE")
         }
         return {
           allergenCode: string(assessment.allergenCode),
-          status: status as "absent" | "contains" | "may_contain" | "unknown"
+          status
         }
       }),
       categoryAncestry: stringArray(fact.categoryAncestry),
@@ -346,6 +369,7 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
     async (id) => await candidate(client, id, string(priceBook.priceBookId), units)
   )
   const rules = stringArray(root.foodRules)
+  const strictness = allergenStrictness(root.foodRuleStrictness)
   return {
     householdId,
     householdSetupVersion: integer(household.version),
@@ -366,6 +390,7 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
       (code) =>
         HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)?.ruleKind !== "soft_preference"
     ),
+    allergenStrictness: strictness,
     softPreferenceCodes: rules.filter(
       (code) =>
         HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)?.ruleKind === "soft_preference"

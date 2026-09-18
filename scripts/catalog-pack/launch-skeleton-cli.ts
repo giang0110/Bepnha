@@ -107,7 +107,7 @@ export function buildLaunchSkeleton(): SheetBundle {
       bundle["food_allergens.csv"].push([
         food.code,
         allergen,
-        FILL("absent | contains | may_contain | unknown"),
+        FILL("absent | contains | may_contain | cross_contact_unverified | unknown"),
         FILL("can cu cho ket luan nay")
       ])
     }

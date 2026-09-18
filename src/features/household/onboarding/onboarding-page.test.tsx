@@ -102,7 +102,8 @@ describe("OnboardingPage member and budget flow", () => {
         memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }],
         weeklyPlanBudgetVnd: 1_500_000,
         maxElapsedMinutes: 45,
-        ruleCodes: ["allergen_peanut", "prefer_soup"]
+        ruleCodes: ["allergen_peanut", "prefer_soup"],
+        allergenStrictness: {}
       },
       null
     )

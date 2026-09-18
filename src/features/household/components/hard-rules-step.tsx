@@ -1,12 +1,20 @@
 import { Button } from "@/app/components/ui/button"
+import {
+  ALLERGEN_STRICTNESS_LABELS_VI,
+  ALLERGEN_STRICTNESS_VALUES,
+  resolveAllergenStrictness,
+  type AllergenStrictness
+} from "@/domain/household/allergen-strictness"
 import { HOUSEHOLD_RULE_OPTIONS, type HouseholdRuleCode } from "@/domain/household/household-rules"
 
 interface HardRulesStepProps {
   heading?: string
   selectedCodes: readonly string[]
+  allergenStrictness: Readonly<Record<string, AllergenStrictness>>
   onBack: () => void
   onContinue: () => void
   onToggle: (code: HouseholdRuleCode, selected: boolean) => void
+  onStrictnessChange: (code: HouseholdRuleCode, strictness: AllergenStrictness) => void
 }
 
 const ALLERGEN_OPTIONS = HOUSEHOLD_RULE_OPTIONS.filter(
@@ -16,31 +24,64 @@ const FOOD_EXCLUSION_OPTIONS = HOUSEHOLD_RULE_OPTIONS.filter(
   (option) => option.ruleKind === "food_exclusion"
 )
 
+type RuleOption = (typeof ALLERGEN_OPTIONS)[number] | (typeof FOOD_EXCLUSION_OPTIONS)[number]
+
 export function HardRulesStep({
   heading = "Dị ứng và loại trừ",
   selectedCodes,
+  allergenStrictness,
   onBack,
   onContinue,
-  onToggle
+  onToggle,
+  onStrictnessChange
 }: HardRulesStepProps) {
   const selected = new Set(selectedCodes)
 
-  const optionList = (options: typeof ALLERGEN_OPTIONS | typeof FOOD_EXCLUSION_OPTIONS) =>
-    options.map((option) => (
-      <label
-        key={option.code}
-        className="flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2"
-      >
-        <input
-          aria-label={option.labelVi}
-          checked={selected.has(option.code)}
-          className="h-5 w-5 shrink-0"
-          type="checkbox"
-          onChange={(event) => onToggle(option.code, event.currentTarget.checked)}
-        />
-        <span>{option.labelVi}</span>
-      </label>
-    ))
+  const checkbox = (option: RuleOption) => (
+    <label className="flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2">
+      <input
+        aria-label={option.labelVi}
+        checked={selected.has(option.code)}
+        className="h-5 w-5 shrink-0"
+        type="checkbox"
+        onChange={(event) => onToggle(option.code, event.currentTarget.checked)}
+      />
+      <span>{option.labelVi}</span>
+    </label>
+  )
+
+  const optionList = (options: readonly RuleOption[]) =>
+    options.map((option) => <div key={option.code}>{checkbox(option)}</div>)
+
+  // The reach question only appears for an allergy the household actually selected, and only for the
+  // ten the catalog can reason about. `allergen_other` has no catalog mapping, so there is nothing
+  // for a choice to change there.
+  const strictnessChoice = (option: (typeof ALLERGEN_OPTIONS)[number]) => {
+    if (!selected.has(option.code) || option.code === "allergen_other") return null
+    const current = resolveAllergenStrictness(allergenStrictness, option.code)
+    return (
+      <fieldset className="ml-8 mt-2 grid gap-2 border-l-2 border-slate-200 pl-3">
+        <legend className="sr-only">{`Mức độ cho ${option.labelVi}`}</legend>
+        <p className="text-sm text-slate-600">
+          Nguyên liệu mua ngoài chợ không kiểm chứng được khâu chế biến của nơi bán. Bạn muốn lọc
+          tới đâu?
+        </p>
+        {ALLERGEN_STRICTNESS_VALUES.map((value) => (
+          <label key={value} className="flex min-h-11 items-start gap-3 text-sm">
+            <input
+              checked={current === value}
+              className="mt-1 h-4 w-4 shrink-0"
+              name={`strictness-${option.code}`}
+              type="radio"
+              value={value}
+              onChange={() => onStrictnessChange(option.code, value)}
+            />
+            <span>{ALLERGEN_STRICTNESS_LABELS_VI[value]}</span>
+          </label>
+        ))}
+      </fieldset>
+    )
+  }
 
   return (
     <section aria-labelledby="hard-rules-step-heading" className="flex flex-col gap-5">
@@ -54,7 +95,12 @@ export function HardRulesStep({
       </div>
       <fieldset className="grid gap-3">
         <legend className="mb-2 font-semibold">Dị ứng</legend>
-        {optionList(ALLERGEN_OPTIONS)}
+        {ALLERGEN_OPTIONS.map((option) => (
+          <div key={option.code}>
+            {checkbox(option)}
+            {strictnessChoice(option)}
+          </div>
+        ))}
       </fieldset>
       {selected.has("allergen_other") ? (
         <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">

@@ -6,6 +6,11 @@ import {
   type HouseholdSetupInput
 } from "@/domain/household/household"
 import {
+  DEFAULT_ALLERGEN_STRICTNESS,
+  isAllergenStrictness,
+  type AllergenStrictness
+} from "@/domain/household/allergen-strictness"
+import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode,
   type HouseholdRuleOption
@@ -41,7 +46,8 @@ const inputShapeSchema = z
     memberGroups: z.array(z.unknown()),
     weeklyPlanBudgetVnd: z.unknown(),
     maxElapsedMinutes: z.unknown(),
-    ruleCodes: z.array(z.unknown())
+    ruleCodes: z.array(z.unknown()),
+    allergenStrictness: z.record(z.string(), z.unknown()).optional()
   })
   .strict()
 
@@ -64,10 +70,17 @@ export type HouseholdSetupValidationErrorCode =
   | "INVALID_MAX_ELAPSED_MINUTES"
   | "UNKNOWN_RULE_CODE"
   | "CONFLICTING_RULE_TARGET"
+  | "INVALID_ALLERGEN_STRICTNESS"
 
 export interface HouseholdSetupValidationError {
   code: HouseholdSetupValidationErrorCode
-  path: "input" | "memberGroups" | "weeklyPlanBudgetVnd" | "maxElapsedMinutes" | "ruleCodes"
+  path:
+    | "input"
+    | "memberGroups"
+    | "weeklyPlanBudgetVnd"
+    | "maxElapsedMinutes"
+    | "ruleCodes"
+    | "allergenStrictness"
 }
 
 type HouseholdSetupValidationFailure = {
@@ -196,13 +209,52 @@ export function validateHouseholdSetup(input: unknown): HouseholdSetupValidation
     return ruleCodes
   }
 
+  const allergenStrictness = normalizeAllergenStrictness(ruleCodes, shape.data.allergenStrictness)
+  if (!allergenStrictness.ok) {
+    return allergenStrictness
+  }
+
   return {
     ok: true,
     value: {
       memberGroups,
       weeklyPlanBudgetVnd: budget as number,
       maxElapsedMinutes: maxElapsedMinutes as number,
-      ruleCodes
+      ruleCodes,
+      allergenStrictness: allergenStrictness.value
     }
   }
+}
+
+/**
+ * Narrows a submitted strictness map to what the household may actually say.
+ *
+ * A reach only exists for an allergy rule the household selected. Anything else — an unrecognised
+ * value, a rule that is not an allergy, a rule that was not selected — is rejected rather than
+ * dropped: it means the caller and the household disagree about what was asked, and quietly keeping
+ * the safer half of a disagreement hides a bug in the screen that produced it.
+ *
+ * Entries equal to the default are dropped, so the stored shape carries only real departures.
+ */
+function normalizeAllergenStrictness(
+  ruleCodes: readonly HouseholdRuleCode[],
+  declared: Record<string, unknown> | undefined
+):
+  | { readonly ok: true; readonly value: Record<string, AllergenStrictness> }
+  | HouseholdSetupValidationFailure {
+  const strictness: Record<string, AllergenStrictness> = {}
+  if (declared === undefined) return { ok: true, value: strictness }
+  const selected = new Set(ruleCodes)
+  for (const [ruleCode, value] of Object.entries(declared)) {
+    if (
+      !isAllergenStrictness(value) ||
+      !selected.has(ruleCode as HouseholdRuleCode) ||
+      HOUSEHOLD_RULE_OPTION_BY_CODE.get(ruleCode as HouseholdRuleCode)?.ruleKind !==
+        "allergen_exclusion"
+    ) {
+      return invalid("INVALID_ALLERGEN_STRICTNESS", "allergenStrictness")
+    }
+    if (value !== DEFAULT_ALLERGEN_STRICTNESS) strictness[ruleCode] = value
+  }
+  return { ok: true, value: strictness }
 }

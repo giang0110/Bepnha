@@ -18,7 +18,13 @@ const foodSchema = z.strictObject({
     allergenAssessments: z.array(
       z.strictObject({
         allergenCode: codeSchema,
-        status: z.enum(["absent", "contains", "may_contain", "unknown"]),
+        status: z.enum([
+          "absent",
+          "contains",
+          "may_contain",
+          "cross_contact_unverified",
+          "unknown"
+        ]),
         provenance: labelSchema
       })
     ),

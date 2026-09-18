@@ -40,7 +40,8 @@ describe("saveHousehold", () => {
           ],
           weeklyPlanBudgetVnd: 1_500_000,
           maxElapsedMinutes: 30,
-          ruleCodes: ["exclude_beef", "prefer_soup"]
+          ruleCodes: ["exclude_beef", "prefer_soup"],
+          allergenStrictness: {}
         },
         version
       )

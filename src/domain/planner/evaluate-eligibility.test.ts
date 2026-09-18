@@ -98,3 +98,67 @@ describe("evaluatePlannerEligibility", () => {
     expect(evaluate(plannerInput([changed]))).toMatchObject({ ok: false, error: { code } })
   })
 })
+
+describe("evaluatePlannerEligibility with cross-contact lineage", () => {
+  /** The single candidate's soy assessment says "not an ingredient, handling unverified". */
+  function inputWithUnverifiedSoy(
+    allergenStrictness?: Record<string, "strict" | "ingredient_only">
+  ) {
+    const base = plannerInput()
+    return {
+      ...base,
+      hardRuleCodes: ["allergen_soy"],
+      ...(allergenStrictness === undefined ? {} : { allergenStrictness }),
+      candidates: base.candidates.map((candidate) => ({
+        ...candidate,
+        ingredientLineage: candidate.ingredientLineage.map((lineage) => ({
+          ...lineage,
+          allergenAssessments: lineage.allergenAssessments.map((assessment) =>
+            assessment.allergenCode === "soy"
+              ? { ...assessment, status: "cross_contact_unverified" as const }
+              : assessment
+          )
+        }))
+      }))
+    }
+  }
+
+  test("offers nothing to a household that did not answer", () => {
+    const result = evaluate(inputWithUnverifiedSoy())
+
+    expect(result).toMatchObject({ ok: false, error: { code: "HARD_FILTER_EXHAUSTED" } })
+  })
+
+  test("offers nothing to a household that chose the strict reading", () => {
+    const result = evaluate(inputWithUnverifiedSoy({ allergen_soy: "strict" }))
+
+    expect(result).toMatchObject({ ok: false, error: { code: "HARD_FILTER_EXHAUSTED" } })
+  })
+
+  test("offers the meal to a household that chose ingredient-level filtering", () => {
+    const result = evaluate(inputWithUnverifiedSoy({ allergen_soy: "ingredient_only" }))
+
+    expect(result.ok).toBe(true)
+    expect(result.ok && result.value.eligible).toHaveLength(1)
+  })
+
+  test("a choice for one allergy does not relax another", () => {
+    const result = evaluate({
+      ...inputWithUnverifiedSoy({ allergen_soy: "ingredient_only" }),
+      hardRuleCodes: ["allergen_soy", "allergen_peanut"],
+      candidates: inputWithUnverifiedSoy().candidates.map((candidate) => ({
+        ...candidate,
+        ingredientLineage: candidate.ingredientLineage.map((lineage) => ({
+          ...lineage,
+          allergenAssessments: lineage.allergenAssessments.map((assessment) =>
+            assessment.allergenCode === "peanut"
+              ? { ...assessment, status: "cross_contact_unverified" as const }
+              : assessment
+          )
+        }))
+      }))
+    })
+
+    expect(result).toMatchObject({ ok: false, error: { code: "HARD_FILTER_EXHAUSTED" } })
+  })
+})

@@ -76,6 +76,29 @@ export interface EligibilityRejection {
   readonly code: string
 }
 
+/**
+ * Which rejection stage each hard-rule outcome belongs to.
+ *
+ * The stage decides the fatal code when nothing survives: stage 2 reports a catalog that is missing
+ * data, stage 3 reports rules that excluded everything. `cross_contact_unverified` is stage 3 with
+ * `excluded`, not stage 2 with `unknown_lineage` — the catalog assessed that allergen and said so;
+ * what removed the meal is the household asking for the stricter reading. Telling such a household
+ * the data is incomplete would be both untrue and unactionable.
+ *
+ * The specific reason is not lost: it travels as the rejection's `code`.
+ */
+const HARD_RULE_REJECTION_RANK: Readonly<
+  Record<
+    Exclude<ReturnType<typeof evaluateHardRules>["status"], "eligible">,
+    EligibilityRejection["stage"]
+  >
+> = {
+  unsupported_hard_rule: 3,
+  unknown_lineage: 2,
+  cross_contact_unverified: 3,
+  excluded: 3
+}
+
 const HASH_PATTERN = /^[0-9a-f]{64}$/u
 
 function reject(
@@ -157,11 +180,13 @@ export function evaluatePlannerEligibility(input: NormalizedPlannerInputV1): Eli
       categoryAncestry: lineage.categoryAncestry,
       dietaryTagCodes: lineage.dietaryTagCodes
     }))
-    const hardRules = evaluateHardRules(input.hardRuleCodes, hardRuleInput)
+    const hardRules = evaluateHardRules(
+      input.hardRuleCodes,
+      hardRuleInput,
+      input.allergenStrictness
+    )
     if (hardRules.status !== "eligible") {
-      rejected.push(
-        reject(candidate, hardRules.status === "unknown_lineage" ? 2 : 3, hardRules.status)
-      )
+      rejected.push(reject(candidate, HARD_RULE_REJECTION_RANK[hardRules.status], hardRules.status))
       continue
     }
     if (candidate.mealOption.elapsedMinutes > input.maxElapsedMinutes) {
