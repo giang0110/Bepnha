@@ -21,24 +21,28 @@ trong phiên agent bị chặn.
 
 Đối chiếu mọi mã trong pack với dữ liệu production thật, và chụp lại một ảnh snapshot có hash.
 
-```bash
+Đừng dán khoá thẳng vào dòng lệnh: nó vào lịch sử shell và hiện trong `ps` cho người dùng khác trên
+cùng máy. Nhập vào mà không hiện lên màn hình:
+
+```powershell
 # PowerShell
 $env:SUPABASE_URL = "https://vkrqzwlpneocgjwhqbsl.supabase.co"
-$env:SUPABASE_SECRET_KEY = "<service-role key>"
+$env:SUPABASE_SECRET_KEY = Read-Host "Service role key"
 npm run catalog:resolve -- --input /tmp/pack.json --output /tmp/manifest.json
 ```
 
 ```bash
 # bash
-SUPABASE_URL="https://vkrqzwlpneocgjwhqbsl.supabase.co" \
-SUPABASE_SECRET_KEY="<service-role key>" \
+export SUPABASE_URL="https://vkrqzwlpneocgjwhqbsl.supabase.co"
+read -rs -p "Service role key: " key && export SUPABASE_SECRET_KEY="$key" && unset key
 npm run catalog:resolve -- --input /tmp/pack.json --output /tmp/manifest.json
 ```
 
 Bước này **chỉ SELECT**, không ghi gì. Nó chạy lại kiểm định 9A trước và từ chối truy vấn production
 nếu pack chưa `valid` và `ready`.
 
-Sau bước này **xoá biến môi trường chứa secret key** — các bước còn lại không cần nó.
+Sau bước này **đóng cửa sổ terminal đó**, hoặc `Remove-Item Env:SUPABASE_SECRET_KEY` /
+`unset SUPABASE_SECRET_KEY`. Các bước còn lại không cần khoá này.
 
 ## Bước 2 — Plan (offline)
 
@@ -67,10 +71,17 @@ JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.endsWith
   .access_token
 ```
 
-```bash
+```powershell
 # PowerShell
 $env:BEPNHA_ADMIN_ENDPOINT = "https://bepnhatoi.vercel.app/api/admin/catalog"
-$env:BEPNHA_ADMIN_ACCESS_TOKEN = "<access token>"
+$env:BEPNHA_ADMIN_ACCESS_TOKEN = Read-Host "Access token"
+npm run catalog:execute -- --plan /tmp/plan.json --journal /tmp/journal.json
+```
+
+```bash
+# bash
+export BEPNHA_ADMIN_ENDPOINT="https://bepnhatoi.vercel.app/api/admin/catalog"
+read -rs -p "Access token: " token && export BEPNHA_ADMIN_ACCESS_TOKEN="$token" && unset token
 npm run catalog:execute -- --plan /tmp/plan.json --journal /tmp/journal.json
 ```
 
