@@ -1,8 +1,10 @@
 # Catalog đang biên tập
 
-Dữ liệu trong thư mục này do người vận hành soạn bằng ChatGPT + Tavily, qua **ba vòng**
+Dữ liệu trong thư mục này do người vận hành soạn bằng ChatGPT + Tavily, qua **bốn vòng**
 (2026-09-18), rồi được kiểm định bằng chính công cụ của dự án. Vòng ba lấp hết các ô vận hành còn
-trống. Đây vẫn là **bản đang làm dở**, chưa phải catalog để xuất bản — lý do nằm ở mục "Còn thiếu".
+trống. Vòng bốn thêm `allergen_assessments.csv` — hồ sơ bằng chứng cho cả 450 cặp — nhưng **không đổi
+một ô `status` nào**, nên pack sinh ra từ thư mục này **giống hệt từng byte** với vòng ba. Đây vẫn là
+**bản đang làm dở**, chưa phải catalog để xuất bản — lý do nằm ở mục "Còn thiếu".
 
 ## Kiểm định đã chạy
 
@@ -12,7 +14,7 @@ npm run catalog:validate -- --input pack.json
 npm run catalog:audit -- docs/catalog/staging
 ```
 
-Kết quả trên bản hiện tại trong thư mục này:
+Kết quả trên bản hiện tại trong thư mục này (không đổi so với vòng ba — pack giống hệt từng byte):
 
 | Kiểm định | Kết quả |
 |---|---|
@@ -100,6 +102,56 @@ vì món có chất đó, mà vì catalog chưa biết. Đó là đúng hướng
 
 Vì vậy dữ liệu này **đưa vào repo được, xuất bản thì chưa**.
 
+## `allergen_assessments.csv` — hồ sơ bằng chứng của vòng bốn
+
+Tệp này **không nằm trong pipeline**. `catalog:sheet` chỉ đọc 12 CSV chuẩn; đây là tài liệu đi kèm.
+Nó chẩn đoán đủ **450/450 cặp (45 thực phẩm × 10 dị nguyên)** và chia làm ba:
+
+| Kết luận khảo sát | Số cặp | `status` trong `food_allergens.csv` |
+|---|---|---|
+| `confirmed_contains` | 9 | `contains` |
+| `formulation_or_source_dependent` | 10 | `unknown` |
+| `not_intrinsic_but_cross_contact_unverified` | 431 | `unknown` |
+
+Mười cặp `formulation_or_source_dependent` là phần có giá trị thật và đúng: `nuoc_tuong` × `wheat`
+(nước tương truyền thống ủ lúa mì, bản gluten-free dùng gạo), `dau_an` × `peanut`/`tree_nut`/`soy`/
+`sesame` (dầu ăn chung phụ thuộc nguyên liệu và mức tinh luyện), `hat_nem` × `egg`/`soy`/`wheat`/
+`fish`/`crustacean` (công thức hạt nêm khác nhau theo hãng). Đó là khảo sát thật của từng thứ.
+
+431 cặp còn lại thì **là một mẫu câu lặp lại**: 450 dòng chỉ có 10 mẫu `rationale` và 11 bộ URL, và
+431 dòng cùng viện đúng hai văn bản chính sách (Codex CXS 1-1985 và hướng dẫn PAL của WHO/FAO). Nội
+dung nó khẳng định là đúng và tệp nói thẳng ra điều đó — "This does NOT establish absence" — nhưng
+đó là **một lập trường được nhân bản 431 lần**, không phải 431 lần tra cứu.
+
+## Quyết định đang chặn: `absent` nghĩa là gì
+
+Người soạn từ chối ghi `absent` vì nhiễm chéo không thể loại trừ từ tên một thực phẩm. Về an toàn
+thực phẩm, điều đó đúng. Nhưng nó va vào thiết kế của chính ứng dụng:
+
+`evaluate-hard-rules.ts` xử lý `may_contain` **y hệt** `contains` — đều loại món. `unknown` cũng loại
+món. Nên trong bốn giá trị `absent | contains | may_contain | unknown`, **chỉ `absent` mới cho một
+món đi qua**. Giữ nguyên lập trường của vòng bốn thì hộ có dị ứng không bao giờ nhận được món nào, và
+tính năng dị ứng coi như không ra mắt.
+
+Đây là **quyết định sản phẩm của chủ dự án**, không phải việc công cụ hay LLM được tự quyết
+(`AGENTS.md` mục 3). Ba hướng:
+
+1. **`absent` = "bản thân thực phẩm không chứa dị nguyên đó"** — mức nhận dạng thực phẩm, và ứng dụng
+   hiển thị cảnh báo thường trực rằng nguyên liệu mua chợ không kiểm soát được nhiễm chéo. 431 cặp
+   thành `absent`, 10 cặp biến thiên thành `may_contain` (vẫn bị loại), 9 giữ `contains` → `ready`.
+   Đây là cách hầu hết ứng dụng nấu ăn hoạt động: lọc theo thành phần, và nói rõ không bảo đảm khâu
+   sản xuất.
+2. **`absent` = "đã được xác nhận an toàn, kể cả nhiễm chéo"** — giữ nguyên lập trường vòng bốn. Khi
+   đó cần dữ liệu ở mức SKU/nhà cung cấp, thứ một người đi chợ không có, nên tính năng dị ứng không
+   ra mắt được.
+3. Tự khảo từng thực phẩm và tự quyết từng dòng, qua `catalog:allergens` bên dưới.
+
+Nếu chọn hướng 1, cần biết trước một chuyện: `catalog:audit` sẽ báo `ABSENT_BULK_FILLED`, vì 431 kết
+luận `absent` cùng viện một lý do trên 45 thực phẩm — đúng chữ ký của điền hàng loạt mà kiểm tra đó
+sinh ra để bắt. Cảnh báo đó **không sai**; nó đang mô tả đúng việc sắp làm. Muốn đi hướng 1 thì phải
+ghi rõ quyết định vào tài liệu và chấp nhận cảnh báo một cách có ý thức, chứ không phải nới kiểm tra
+cho nó im.
+
 ## Điền dị nguyên: 45 dòng thay vì 900 ô
 
 ```bash
@@ -150,5 +202,5 @@ phép kiểm cấu trúc riêng (`structural_validation.json`) — cấu trúc t
 
 ## research_log.csv và review_queue.csv
 
-Nhật ký tra cứu (1429 dòng) và hàng đợi cần xem lại (156 dòng) do công cụ bên ngoài sinh ra, giữ lại
+Nhật ký tra cứu (1879 dòng) và hàng đợi cần xem lại (156 dòng) do công cụ bên ngoài sinh ra, giữ lại
 làm vết tích. Chúng không tham gia vào pipeline; `catalog:sheet` chỉ đọc 12 tệp CSV chuẩn.

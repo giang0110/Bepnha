@@ -4,8 +4,8 @@
   "files": [
     {
       "file": "CHANGES.md",
-      "sha256": "82e9784f84579b06e65d95b868d006d52e6d3993b8359114bbd1522917700b2d",
-      "bytes": 5941
+      "sha256": "b915a765501c33c7b8ffebaa2d5365181659013f2470999f32000f3fc31a66bc",
+      "bytes": 7947
     },
     {
       "file": "ENRICHMENT_STATUS.md",
@@ -13,9 +13,14 @@
       "bytes": 552
     },
     {
+      "file": "allergen_assessments.csv",
+      "sha256": "febb3bf5995add905db134780067781eaef09c80c072dfc56c30870d223a9164",
+      "bytes": 386036
+    },
+    {
       "file": "enrichment_summary.json",
-      "sha256": "d75ef39a83a1f2639f9f776a3be010041ad8b99ad8b639c16b5497dad1eabf34",
-      "bytes": 537
+      "sha256": "e07204036e9fff7712be146cea69ced6375a9066dd8e075aaac01d3fd942a87c",
+      "bytes": 873
     },
     {
       "file": "food_allergens.csv",
@@ -79,8 +84,8 @@
     },
     {
       "file": "research_log.csv",
-      "sha256": "d0697d83897d0df9326450319b42f67c81b23262fd2b21f3074ff37bb142c2a7",
-      "bytes": 337965
+      "sha256": "539ae8e59cd8140d8ade4c99e00e05995dff9ed2b2954b9bdebb9aee33511ddb",
+      "bytes": 676341
     },
     {
       "file": "review_queue.csv",
@@ -89,8 +94,8 @@
     },
     {
       "file": "structural_validation.json",
-      "sha256": "2fb80e42587874c25abe33f04dcc1a59fe69b9060293375e5c0e98a0dd506071",
-      "bytes": 16713
+      "sha256": "652a576132187d90a41a19335753ebec664666968d0b332a241e4c145dc0998a",
+      "bytes": 1489
     }
   ]
 }

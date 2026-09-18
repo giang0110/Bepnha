@@ -71,3 +71,19 @@ Các ô rỗng còn lại ở cột tùy chọn như `preparationNoteVi`, `timer
 
 - Thêm **125** dòng vào `research_log.csv` cho các giá trị vừa điền, mỗi dòng ghi `source_url`, phương pháp match và ghi chú suy luận.
 - Cập nhật **125** mục liên quan trong `review_queue.csv` sang `resolved_in_final` mà không xóa lịch sử review cũ.
+
+## Allergen evidence completion — 2026-09-18
+
+- Audited the actual allergen matrix: **450 rows = 45 foods × 10 allergen groups** (not 486 rows in `food_allergens.csv`).
+- Added `allergen_assessments.csv` with a completed evidence-based diagnostic for **450/450 pairs**.
+- Assessment counts: **9 `confirmed_contains`**, **10 `formulation_or_source_dependent`**, **431 `not_intrinsic_but_cross_contact_unverified`**.
+- Added **450 `evidence_only`** diagnostic rows to `research_log.csv`.
+- `food_allergens.csv` is intentionally unchanged byte-for-byte: **9 `contains`, 441 `unknown`, 0 `absent`**. This is a safety decision, not missing research. WHO/FAO guidance treats unintended allergen presence/cross-contact as a separate risk-assessment problem; absence cannot be inferred from food identity or failure to find a warning online.
+- `unknown` therefore means: *not cleared safe for an allergic user at SKU/supplier level*. The new assessment file explains whether the food is intrinsically unrelated to that allergen or whether formulation/source variability is material.
+- Generic `nuoc_tuong`: soy remains confirmed; wheat is formulation-dependent because standard soy sauce uses wheat while official gluten-free versions use rice instead.
+- Generic `hat_nem`: kept unresolved at app-status level because official Vietnamese product formulations vary and documented examples contain/declare soy, wheat, seafood or trace egg/soy depending product.
+- Generic `dau_an`: kept source-dependent because botanical source and refining level determine allergen relevance; FDA evidence distinguishes highly refined from crude allergen-derived oils.
+
+### Safety rule for BepNha
+For allergy exclusion, treat `contains` as exclude and treat `unknown` as **not cleared** (also exclude or require explicit user acknowledgement). Do **not** interpret `unknown` as `absent`. A future `absent` value should require SKU/supplier-specific composition plus allergen/cross-contact evidence appropriate to the product.
+
