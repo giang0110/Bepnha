@@ -65,6 +65,36 @@ có thật — natri bằng 0 là một sự kiện. Không thể phân biệt "
 `AGENTS.md` mục 3 nói thẳng điều này: không bao giờ âm thầm thay dữ liệu dinh dưỡng, giá, quy đổi hay
 dị nguyên còn thiếu bằng 0 hoặc giá trị mặc định.
 
+## Năm giá trị của `status` dị nguyên
+
+Bốn giá trị đầu là kết luận; `unknown` là chưa có kết luận, và một pack còn `unknown` thì không
+`ready`.
+
+| `status`                   | Nghĩa                                                         | Planner làm gì             |
+| -------------------------- | ------------------------------------------------------------- | -------------------------- |
+| `absent`                   | Không phải nguyên liệu, **và** khâu chế biến đã được xác nhận | cho món đi qua             |
+| `cross_contact_unverified` | Không phải nguyên liệu, khâu chế biến **chưa** xác nhận       | hộ chọn                    |
+| `may_contain`              | Sản phẩm biến thiên, hoặc nhãn có cảnh báo dị nguyên          | loại món                   |
+| `contains`                 | Là nguyên liệu của thực phẩm                                  | loại món                   |
+| `unknown`                  | Chưa ai khảo                                                  | loại món, và chặn xuất bản |
+
+**Mặc định đúng cho một nguyên liệu mua chợ là `cross_contact_unverified`, không phải `absent`.**
+Thịt heo ba chỉ mua ngoài chợ không phải đậu phộng — điều đó tra được. Nhưng không ai chứng minh
+được nơi bán không dùng chung thớt, dao, dầu. Ghi `absent` ở đó là khẳng định một chuyện chưa ai
+kiểm.
+
+`absent` chỉ dành cho khi có bằng chứng ở mức SKU/nhà cung cấp về cả thành phần lẫn nhiễm chéo. Nếu
+không có bằng chứng đó thì `cross_contact_unverified` mới là câu trả lời thật.
+
+Khác biệt giữa hai giá trị này **không nằm ở catalog mà nằm ở hộ gia đình**: khi khai dị ứng, hộ
+chọn giữa _nghiêm ngặt_ (loại cả món `cross_contact_unverified`) và _theo nguyên liệu_ (chấp nhận).
+Không trả lời thì mặc định là nghiêm ngặt. Vì vậy `cross_contact_unverified` không phải một cách
+lách để cho món đi qua — nó chuyển quyết định về đúng người có quyền quyết.
+
+`cross_contact_unverified` nợ người đọc **một lý do**, không nợ một URL — giống `unknown`, và
+`catalog:audit` không đòi nguồn cho nó. Ngược lại `absent`, `contains`, `may_contain` là khẳng định
+về thực phẩm nên bắt buộc có nguồn truy được.
+
 ## Bộ mã cố định
 
 Không được tự đặt mã mới. Validator chỉ chấp nhận đúng các mã sau.
@@ -88,12 +118,12 @@ Không được tự đặt mã mới. Validator chỉ chấp nhận đúng các
 
 ## Ngưỡng để `ready` bằng true
 
-| Điều kiện | Ngưỡng |
-| --- | --- |
-| Số meal option | tối thiểu **21** |
-| Số nhóm đạm chính khác nhau | tối thiểu **3** |
-| Lineage thực phẩm | đầy đủ, không thiếu mắt xích |
-| Giá | mọi thực phẩm được dùng tới đều phải có giá dùng được |
+| Điều kiện                   | Ngưỡng                                                |
+| --------------------------- | ----------------------------------------------------- |
+| Số meal option              | tối thiểu **21**                                      |
+| Số nhóm đạm chính khác nhau | tối thiểu **3**                                       |
+| Lineage thực phẩm           | đầy đủ, không thiếu mắt xích                          |
+| Giá                         | mọi thực phẩm được dùng tới đều phải có giá dùng được |
 
 Nhóm đạm chính lấy từ `proteinHintCode` của meal option. Ba nhóm khác nhau nghĩa là thực đơn không
 thể bảy ngày cùng một loại đạm.

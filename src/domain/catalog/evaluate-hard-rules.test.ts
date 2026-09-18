@@ -174,3 +174,132 @@ describe("evaluateHardRules", () => {
     )
   })
 })
+
+describe("evaluateHardRules with cross-contact lineage", () => {
+  const withSoy = (status: "absent" | "cross_contact_unverified" | "contains") => [
+    {
+      ...vegetarianIngredient,
+      allergenAssessments: absentAssessments.map((assessment) =>
+        assessment.allergenCode === "soy" ? { ...assessment, status } : assessment
+      )
+    }
+  ]
+
+  test("excludes cross_contact_unverified when the household said nothing", () => {
+    expect(evaluateHardRules(["allergen_soy"], withSoy("cross_contact_unverified"))).toEqual({
+      status: "cross_contact_unverified",
+      ruleCode: "allergen_soy",
+      recipeIngredientId: "ingredient-tofu"
+    })
+  })
+
+  test.each(["strict", undefined, "STRICT", "", "absent", null] as const)(
+    "excludes cross_contact_unverified for a strictness of %o",
+    (declared) => {
+      const result = evaluateHardRules(["allergen_soy"], withSoy("cross_contact_unverified"), {
+        allergen_soy: declared as never
+      })
+
+      expect(result.status).toBe("cross_contact_unverified")
+    }
+  )
+
+  test("admits cross_contact_unverified only for a household that asked for ingredient_only", () => {
+    expect(
+      evaluateHardRules(["allergen_soy"], withSoy("cross_contact_unverified"), {
+        allergen_soy: "ingredient_only"
+      })
+    ).toEqual({ status: "eligible" })
+  })
+
+  test("ingredient_only never admits an allergen that is actually an ingredient", () => {
+    expect(
+      evaluateHardRules(["allergen_soy"], withSoy("contains"), {
+        allergen_soy: "ingredient_only"
+      })
+    ).toEqual({
+      status: "excluded",
+      ruleCode: "allergen_soy",
+      recipeIngredientId: "ingredient-tofu"
+    })
+  })
+
+  test("a relaxed rule does not relax a different allergy", () => {
+    const ingredients = [
+      {
+        ...vegetarianIngredient,
+        allergenAssessments: absentAssessments.map((assessment) =>
+          assessment.allergenCode === "soy" || assessment.allergenCode === "peanut"
+            ? { ...assessment, status: "cross_contact_unverified" as const }
+            : assessment
+        )
+      }
+    ]
+
+    expect(
+      evaluateHardRules(["allergen_soy", "allergen_peanut"], ingredients, {
+        allergen_soy: "ingredient_only"
+      })
+    ).toEqual({
+      status: "cross_contact_unverified",
+      ruleCode: "allergen_peanut",
+      recipeIngredientId: "ingredient-tofu"
+    })
+  })
+
+  test("reports the ingredient that contains the allergen over one merely unverified", () => {
+    const ingredients = [
+      {
+        ...vegetarianIngredient,
+        recipeIngredientId: "ingredient-a-unverified",
+        allergenAssessments: absentAssessments.map((assessment) =>
+          assessment.allergenCode === "soy"
+            ? { ...assessment, status: "cross_contact_unverified" as const }
+            : assessment
+        )
+      },
+      {
+        ...vegetarianIngredient,
+        recipeIngredientId: "ingredient-b-contains",
+        allergenAssessments: absentAssessments.map((assessment) =>
+          assessment.allergenCode === "peanut"
+            ? { ...assessment, status: "contains" as const }
+            : assessment
+        )
+      }
+    ]
+
+    expect(evaluateHardRules(["allergen_soy", "allergen_peanut"], ingredients)).toEqual({
+      status: "excluded",
+      ruleCode: "allergen_peanut",
+      recipeIngredientId: "ingredient-b-contains"
+    })
+  })
+
+  test("an unassessed allergen stays unknown_lineage however lenient the household is", () => {
+    const ingredients = [
+      {
+        ...vegetarianIngredient,
+        allergenAssessments: absentAssessments.map((assessment) =>
+          assessment.allergenCode === "soy"
+            ? { ...assessment, status: "unknown" as const }
+            : assessment
+        )
+      }
+    ]
+
+    expect(
+      evaluateHardRules(["allergen_soy"], ingredients, { allergen_soy: "ingredient_only" })
+    ).toEqual({
+      status: "unknown_lineage",
+      ruleCode: "allergen_soy",
+      recipeIngredientId: "ingredient-tofu"
+    })
+  })
+
+  test("absent stays eligible for a strict household", () => {
+    expect(
+      evaluateHardRules(["allergen_soy"], withSoy("absent"), { allergen_soy: "strict" })
+    ).toEqual({ status: "eligible" })
+  })
+})

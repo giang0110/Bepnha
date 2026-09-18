@@ -10,7 +10,8 @@ const normalizedInput: HouseholdSetupInput = {
   memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }],
   weeklyPlanBudgetVnd: 1_500_000,
   maxElapsedMinutes: 30,
-  ruleCodes: ["exclude_beef"]
+  ruleCodes: ["exclude_beef"],
+  allergenStrictness: {}
 }
 
 function clientWithLoad(response: { data: unknown; error: unknown }) {
@@ -113,7 +114,8 @@ describe("Supabase household repository save", () => {
         p_weekly_plan_budget_vnd: 1_500_000,
         p_max_elapsed_minutes: 30,
         p_member_groups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }],
-        p_rule_codes: ["exclude_beef"]
+        p_rule_codes: ["exclude_beef"],
+        p_allergen_strictness: {}
       })
     }
   )

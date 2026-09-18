@@ -130,14 +130,14 @@ select has_function('private', 'assert_household_rule_target_state', array['uuid
 select has_function(
   'public',
   'save_household_setup',
-  array['integer', 'bigint', 'smallint', 'jsonb', 'text[]']
+  array['integer', 'bigint', 'smallint', 'jsonb', 'text[]', 'jsonb']
 );
 
 select is(
   (
     select prosecdef
     from pg_proc
-    where oid = 'public.save_household_setup(integer,bigint,smallint,jsonb,text[])'::regprocedure
+    where oid = 'public.save_household_setup(integer,bigint,smallint,jsonb,text[],jsonb)'::regprocedure
   ),
   false,
   'save_household_setup is security invoker'
@@ -147,7 +147,7 @@ select ok(
   (
     select array_to_string(proconfig, ',') like '%search_path=%'
     from pg_proc
-    where oid = 'public.save_household_setup(integer,bigint,smallint,jsonb,text[])'::regprocedure
+    where oid = 'public.save_household_setup(integer,bigint,smallint,jsonb,text[],jsonb)'::regprocedure
   ),
   'save_household_setup has an empty search path'
 );
@@ -157,7 +157,7 @@ select ok(
     select pg_get_functiondef(oid) like '%public.households_require_valid_members%'
       and pg_get_functiondef(oid) like '%public.household_member_groups_require_valid_household%'
     from pg_proc
-    where oid = 'public.save_household_setup(integer,bigint,smallint,jsonb,text[])'::regprocedure
+    where oid = 'public.save_household_setup(integer,bigint,smallint,jsonb,text[],jsonb)'::regprocedure
   ),
   'save_household_setup resolves deferred constraints with an empty search path'
 );
@@ -165,7 +165,7 @@ select ok(
 select is(
   has_function_privilege(
     'anon',
-    'public.save_household_setup(integer,bigint,smallint,jsonb,text[])',
+    'public.save_household_setup(integer,bigint,smallint,jsonb,text[],jsonb)',
     'EXECUTE'
   ),
   false,
@@ -175,7 +175,7 @@ select is(
 select is(
   has_function_privilege(
     'authenticated',
-    'public.save_household_setup(integer,bigint,smallint,jsonb,text[])',
+    'public.save_household_setup(integer,bigint,smallint,jsonb,text[],jsonb)',
     'EXECUTE'
   ),
   true,

@@ -38,7 +38,8 @@ export interface CatalogPackFood {
     readonly provenance: string
     readonly allergenAssessments: readonly {
       readonly allergenCode: string
-      readonly status: "absent" | "contains" | "may_contain" | "unknown"
+      readonly status:
+        "absent" | "contains" | "may_contain" | "cross_contact_unverified" | "unknown"
       readonly provenance: string
     }[]
     readonly nutrients: readonly {

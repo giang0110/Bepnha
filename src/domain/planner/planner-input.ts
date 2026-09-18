@@ -1,3 +1,4 @@
+import type { AllergenStrictness } from "../household/allergen-strictness.js"
 import type { AllergenAssessment, FoodFactNutrientAmount } from "../catalog/catalog.js"
 import type { MealOptionVersionInput } from "../meal-option/meal-option.js"
 import type { PantrySnapshotV1 } from "../pantry/pantry.js"
@@ -46,6 +47,11 @@ export interface PlannerInputV1 {
   readonly maxElapsedMinutes: number
   readonly memberGroups: readonly PortionMemberGroupInput[]
   readonly hardRuleCodes: readonly string[]
+  /**
+   * Per-allergy reach, keyed by hard rule code. An absent entry means `strict`, so a planner input
+   * built without this field filters exactly as it did before the field existed.
+   */
+  readonly allergenStrictness?: Readonly<Record<string, AllergenStrictness>>
   readonly softPreferenceCodes: readonly string[]
   readonly pantrySnapshot: PantrySnapshotV1
   readonly candidates: readonly PlannerCandidateInput[]

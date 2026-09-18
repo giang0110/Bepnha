@@ -161,6 +161,9 @@ async function snapshots(
       setupVersion: normalized.value.householdSetupVersion,
       memberGroups: normalized.value.memberGroups,
       hardRuleCodes: normalized.value.hardRuleCodes,
+      // Recorded with the plan: without it a replay cannot tell why a meal whose lineage is only
+      // `cross_contact_unverified` was offered.
+      allergenStrictness: normalized.value.allergenStrictness,
       softPreferenceCodes: normalized.value.softPreferenceCodes,
       weeklyPlanBudgetVnd: normalized.value.weeklyPlanBudgetVnd,
       maxElapsedMinutes: normalized.value.maxElapsedMinutes

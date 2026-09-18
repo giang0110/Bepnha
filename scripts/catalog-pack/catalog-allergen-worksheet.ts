@@ -30,7 +30,7 @@ const ALLERGENS = [
   "sesame"
 ] as const
 
-const CONCLUSIONS = new Set(["absent", "contains", "may_contain"])
+const CONCLUSIONS = new Set(["absent", "contains", "may_contain", "cross_contact_unverified"])
 
 export const WORKSHEET_COLUMNS = ["code", "nameVi", "categoryCode", ...ALLERGENS, "reason"] as const
 

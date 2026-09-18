@@ -5,7 +5,7 @@ import type {
   CatalogReadResult,
   PublishedRecipeCalculationRecord
 } from "@/application/catalog/catalog-read-repository"
-import type { AllergenAssessmentStatus } from "@/domain/catalog/catalog"
+import { isAllergenAssessmentStatus } from "@/domain/catalog/catalog"
 
 import type { Database } from "./database.types.js"
 
@@ -88,12 +88,12 @@ function mapCalculation(value: unknown): PublishedRecipeCalculationRecord {
         allergenAssessments: requiredArray(fact, "allergenAssessments").map((assessment) => {
           if (!isRecord(assessment)) throw new Error("INVALID_CATALOG_DATA")
           const status = requiredString(assessment, "status")
-          if (!["absent", "contains", "may_contain", "unknown"].includes(status)) {
+          if (!isAllergenAssessmentStatus(status)) {
             throw new Error("INVALID_CATALOG_DATA")
           }
           return {
             allergenCode: requiredString(assessment, "allergenCode"),
-            status: status as AllergenAssessmentStatus
+            status
           }
         }),
         categoryAncestry: mapStringArray(fact, "categoryAncestry"),

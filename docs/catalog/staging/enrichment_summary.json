@@ -15,5 +15,18 @@
   "research_rows_total": 1429,
   "review_queue_rows_total": 156,
   "method": "source_first_then_explicit_inference_for_remaining_non-allergen fields",
-  "validator_passed": true
+  "validator_passed": true,
+  "allergenEvidenceCompletion": {
+    "diagnosedPairs": 450,
+    "statusCounts": {
+      "unknown": 441,
+      "contains": 9
+    },
+    "assessmentCounts": {
+      "not_intrinsic_but_cross_contact_unverified": 431,
+      "formulation_or_source_dependent": 10,
+      "confirmed_contains": 9
+    },
+    "allergenStatusMutations": 0
+  }
 }

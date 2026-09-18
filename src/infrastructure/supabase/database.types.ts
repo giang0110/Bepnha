@@ -468,16 +468,19 @@ export type Database = {
       }
       household_food_rules: {
         Row: {
+          allergen_strictness: Database["public"]["Enums"]["household_allergen_strictness"]
           created_at: string
           household_id: string
           rule_code: string
         }
         Insert: {
+          allergen_strictness?: Database["public"]["Enums"]["household_allergen_strictness"]
           created_at?: string
           household_id: string
           rule_code: string
         }
         Update: {
+          allergen_strictness?: Database["public"]["Enums"]["household_allergen_strictness"]
           created_at?: string
           household_id?: string
           rule_code?: string
@@ -2081,6 +2084,7 @@ export type Database = {
       }
       save_household_setup: {
         Args: {
+          p_allergen_strictness?: Json
           p_expected_version: number
           p_max_elapsed_minutes: number
           p_member_groups: Json
@@ -2146,6 +2150,7 @@ export type Database = {
         | "absent"
         | "contains"
         | "may_contain"
+        | "cross_contact_unverified"
         | "unknown"
       catalog_actor_kind: "admin_user" | "trusted_operation"
       catalog_dimension: "mass" | "volume" | "count"
@@ -2159,6 +2164,7 @@ export type Database = {
         | "10_12"
         | "13_17"
         | "elderly"
+      household_allergen_strictness: "strict" | "ingredient_only"
       household_member_kind: "adult" | "child" | "elderly"
       household_rule_catalog_mapping_kind:
         | "allergen"
@@ -2306,6 +2312,7 @@ export const Constants = {
         "absent",
         "contains",
         "may_contain",
+        "cross_contact_unverified",
         "unknown",
       ],
       catalog_actor_kind: ["admin_user", "trusted_operation"],
@@ -2321,6 +2328,7 @@ export const Constants = {
         "13_17",
         "elderly",
       ],
+      household_allergen_strictness: ["strict", "ingredient_only"],
       household_member_kind: ["adult", "child", "elderly"],
       household_rule_catalog_mapping_kind: [
         "allergen",

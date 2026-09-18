@@ -11,6 +11,12 @@ import {
   type HouseholdMemberGroup,
   type HouseholdSetup
 } from "@/domain/household/household"
+import {
+  DEFAULT_ALLERGEN_STRICTNESS,
+  isAllergenStrictness,
+  resolveAllergenStrictness,
+  type AllergenStrictness
+} from "@/domain/household/allergen-strictness"
 import { validateHouseholdSetup } from "@/domain/household/validate-household-setup"
 
 import type { Database } from "./database.types.js"
@@ -24,6 +30,7 @@ const HOUSEHOLD_SELECT = `
   household_member_groups(member_kind, age_band, member_count),
   household_food_rules(
     rule_code,
+    allergen_strictness,
     household_rule_options(code, target_key, rule_kind, label_vi, sort_order)
   )
 `
@@ -100,6 +107,7 @@ function mapStoredHousehold(value: unknown): HouseholdSetup {
   const version = parseSafeInteger(value.version)
   const memberGroups = parseMemberGroups(value.household_member_groups)
   const ruleCodes = parseRuleCodes(value.household_food_rules)
+  const allergenStrictness = parseAllergenStrictness(value.household_food_rules)
   if (
     typeof value.id !== "string" ||
     value.id === "" ||
@@ -119,7 +127,8 @@ function mapStoredHousehold(value: unknown): HouseholdSetup {
     memberGroups,
     weeklyPlanBudgetVnd,
     maxElapsedMinutes,
-    ruleCodes
+    ruleCodes,
+    allergenStrictness
   })
   if (!validation.ok) {
     throw new HouseholdRepositoryError("INVALID_STORED_DATA")
@@ -130,6 +139,25 @@ function mapStoredHousehold(value: unknown): HouseholdSetup {
     version,
     onboardingCompletedAt: value.onboarding_completed_at
   }
+}
+
+/**
+ * Reads each rule's stored reach back out of the join rows.
+ *
+ * Only a departure from the default is kept, so the shape that comes back matches the one that goes
+ * out and a row whose value did not survive storage reads as `strict` rather than as permission.
+ */
+function parseAllergenStrictness(value: unknown): Record<string, AllergenStrictness> {
+  const strictness: Record<string, AllergenStrictness> = {}
+  if (!Array.isArray(value)) return strictness
+  for (const raw of value) {
+    if (!isRecord(raw)) continue
+    const ruleCode = raw.rule_code
+    const declared = raw.allergen_strictness
+    if (typeof ruleCode !== "string" || !isAllergenStrictness(declared)) continue
+    if (declared !== DEFAULT_ALLERGEN_STRICTNESS) strictness[ruleCode] = declared
+  }
+  return strictness
 }
 
 function loadFailure(error: { code?: string }): HouseholdRepositoryError {
@@ -172,7 +200,8 @@ export function createSupabaseHouseholdRepository(
           ageBand: group.ageBand,
           memberCount: group.memberCount
         })),
-        p_rule_codes: [...input.ruleCodes]
+        p_rule_codes: [...input.ruleCodes],
+        p_allergen_strictness: { ...input.allergenStrictness }
       })
       if (error !== null) {
         return saveFailure(error)
@@ -192,6 +221,7 @@ export function createSupabaseHouseholdRepository(
           })),
           household_food_rules: input.ruleCodes.map((code) => ({
             rule_code: code,
+            allergen_strictness: resolveAllergenStrictness(input.allergenStrictness, code),
             household_rule_options: { code }
           }))
         })
