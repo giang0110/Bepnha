@@ -1,15 +1,19 @@
 {
-  "nutrition_target_foods": 28,
-  "nutrition_direct_changes": 1,
-  "mandatory_blog_removed": "nam_rom sodium_mg",
-  "review_queue_added": 28,
-  "research_log_added": 76,
+  "final_completion_date": "2026-09-18",
+  "required_missing_cells": 0,
+  "recipe_quantity_missing": 0,
+  "recipe_metadata_missing": 0,
+  "meal_option_metadata_missing": 0,
+  "food_nutrient_missing": 0,
   "allergen_status_counts": {
     "unknown": 441,
     "contains": 9
   },
-  "allergen_status_unchanged": true,
-  "atwater_within_25_percent": 44,
+  "allergen_status_changed": 0,
+  "atwater_matches": 44,
   "atwater_total": 45,
-  "validator": "PASS"
+  "research_rows_total": 1429,
+  "review_queue_rows_total": 156,
+  "method": "source_first_then_explicit_inference_for_remaining_non-allergen fields",
+  "validator_passed": true
 }
