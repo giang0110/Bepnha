@@ -207,6 +207,13 @@ const semanticCases: readonly SemanticCase[] = [
     code: "INVALID_PRICE"
   },
   {
+    name: "rejects fractional purchase increment",
+    mutate: (pack) => {
+      pack.priceBook.prices[0]!.purchaseIncrement = "0.5"
+    },
+    code: "INVALID_PRICE"
+  },
+  {
     name: "rejects placeholder price source reference",
     mutate: (pack) => {
       pack.priceBook.prices[0]!.sourceReference = "TBD"
