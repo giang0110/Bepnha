@@ -2111,6 +2111,41 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      save_meal_option_version_draft_atomic: {
+        Args: {
+          p_active_minutes: number
+          p_actor_user_id: string
+          p_components: Json
+          p_elapsed_minutes: number
+          p_expected_revision: number
+          p_meal_option_id: string
+          p_meal_option_version_id: string
+          p_tag_ids: string[]
+          p_version_number: number
+          p_yield_adult_equivalent: number
+        }
+        Returns: {
+          active_minutes: number
+          content_hash: string | null
+          created_at: string
+          created_by: string
+          elapsed_minutes: number
+          id: string
+          meal_option_id: string
+          publication_status: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at: string | null
+          revision: number
+          updated_at: string
+          version_number: number
+          yield_adult_equivalent: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meal_option_versions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       save_price_book_draft_atomic: {
         Args: {
           p_actor_user_id: string
