@@ -3,6 +3,7 @@ import type { AuthChangeEvent, Session, SupabaseClient } from "@supabase/supabas
 import type {
   AuthOperationResult,
   AuthSession,
+  AuthSessionChange,
   AuthSessionPort,
   PasswordUpdateResult
 } from "@/application/auth/auth-session-port"
@@ -17,6 +18,14 @@ function mapSession(session: Session | null): AuthSession | null {
     accessToken: session.access_token,
     identity: { userId: session.user.id, email: session.user.email ?? null }
   }
+}
+
+function mapAuthChange(event: AuthChangeEvent, session: Session | null): AuthSessionChange {
+  const mappedSession = mapSession(session)
+  if (event === "PASSWORD_RECOVERY" && mappedSession !== null) {
+    return { kind: "PASSWORD_RECOVERY", session: mappedSession }
+  }
+  return { kind: "SESSION", session: mappedSession }
 }
 
 function mapAuthResult(
@@ -72,7 +81,7 @@ export function createSupabaseAuthSession(client: SupabaseClient<Database>): Aut
     },
     onAuthStateChange(listener) {
       const { data } = client.auth.onAuthStateChange(
-        (_event: AuthChangeEvent, session: Session | null) => listener(mapSession(session))
+        (event: AuthChangeEvent, session: Session | null) => listener(mapAuthChange(event, session))
       )
       return () => data.subscription.unsubscribe()
     },
