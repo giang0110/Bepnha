@@ -15,9 +15,8 @@ const failureMessages: Record<Failure, string> = {
 }
 
 /**
- * Reached from the emailed recovery link. The Supabase browser client turns that link into a
- * recovery session on load, so an authenticated status here means the link was valid. A signed-out
- * status means it expired, was already spent, or the page was opened directly.
+ * Reached from the emailed recovery link. Supabase emits PASSWORD_RECOVERY for a valid recovery
+ * redirect; an ordinary authenticated session is not sufficient to expose the reset form.
  */
 export function ResetPasswordPage() {
   const auth = useAuth()
@@ -54,7 +53,7 @@ export function ResetPasswordPage() {
     )
   }
 
-  if (auth.status === "signed-out") {
+  if (auth.status === "signed-out" || !auth.passwordRecoveryReady) {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-5 px-4 py-8">
         <h1 className="text-2xl font-semibold">Liên kết không còn hiệu lực</h1>
