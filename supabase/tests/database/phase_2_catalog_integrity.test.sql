@@ -402,7 +402,7 @@ select is(
 );
 
 select throws_ok(
-  $ update public.food_categories set parent_id = id where code = 'seafood' $,
+  $sql$ update public.food_categories set parent_id = id where code = 'seafood' $sql$,
   null,
   null,
   'category self-cycles are rejected'
