@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(15);
 
 select is(
   (
@@ -130,6 +130,38 @@ select is(
   has_table_privilege('authenticated', 'public.admin_audit_log', 'SELECT,INSERT,UPDATE,DELETE'),
   false,
   'authenticated still has no direct audit-log table privileges'
+);
+
+select is(
+  (select count(*)::integer from pg_indexes
+   where schemaname='public' and tablename='meal_option_recipes'
+     and indexname='meal_option_recipes_recipe_version_fk_idx'),
+  1,
+  'meal-option recipe reverse FK index exists'
+);
+
+select is(
+  (select count(*)::integer from pg_indexes
+   where schemaname='public' and tablename='meal_option_version_tags'
+     and indexname='meal_option_version_tags_recipe_tag_idx'),
+  1,
+  'meal-option tag reverse FK index exists'
+);
+
+select is(
+  (select count(*)::integer from pg_indexes
+   where schemaname='public' and tablename='recipe_ingredients'
+     and indexname='recipe_ingredients_food_fact_fk_idx'),
+  1,
+  'recipe ingredient food-fact reverse FK index exists'
+);
+
+select is(
+  (select count(*)::integer from pg_indexes
+   where schemaname='public' and tablename='food_prices'
+     and indexname='food_prices_food_fact_fk_idx'),
+  1,
+  'food price food-fact reverse FK index exists'
 );
 
 select * from finish();
