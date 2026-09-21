@@ -85,7 +85,7 @@ export function createSupabaseMealOptionAdminRepository(
         p_meal_option_id: input.mealOptionId,
         p_expected_revision: input.expectedRevision,
         p_version_number: input.versionNumber,
-        p_yield_adult_equivalent: input.yieldAdultEquivalent,
+        p_yield_adult_equivalent: postgresNumeric(input.yieldAdultEquivalent),
         p_active_minutes: input.activeMinutes,
         p_elapsed_minutes: input.elapsedMinutes,
         p_components: input.components.map((item) => ({
