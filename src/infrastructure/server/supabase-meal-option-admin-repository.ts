@@ -1,7 +1,5 @@
 /// <reference types="node" />
 
-import { randomUUID } from "node:crypto"
-
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type {
@@ -82,71 +80,25 @@ export function createSupabaseMealOptionAdminRepository(
       return error === null ? result(data, undefined, "draft") : failure(error)
     },
     async saveDraft(input) {
-      const { data: existing, error: loadError } = await client
-        .from("meal_option_versions")
-        .select("id, revision")
-        .eq("id", input.mealOptionVersionId)
-        .maybeSingle()
-      if (loadError !== null) return failure(loadError)
-      const parent =
-        existing === null
-          ? await client
-              .from("meal_option_versions")
-              .insert({
-                id: input.mealOptionVersionId,
-                meal_option_id: input.mealOptionId,
-                version_number: input.versionNumber,
-                yield_adult_equivalent: postgresNumeric(input.yieldAdultEquivalent),
-                active_minutes: input.activeMinutes,
-                elapsed_minutes: input.elapsedMinutes,
-                created_by: actorUserId
-              })
-              .select("id, revision")
-              .single()
-          : await client
-              .from("meal_option_versions")
-              .update({
-                yield_adult_equivalent: postgresNumeric(input.yieldAdultEquivalent),
-                active_minutes: input.activeMinutes,
-                elapsed_minutes: input.elapsedMinutes
-              })
-              .eq("id", input.mealOptionVersionId)
-              .eq("revision", input.expectedRevision)
-              .eq("publication_status", "draft")
-              .select("id, revision")
-              .maybeSingle()
-      if (parent.error !== null) return failure(parent.error)
-      if (parent.data === null) return { ok: false, reason: "STALE_CATALOG_REVISION" }
-
-      for (const table of ["meal_option_recipes", "meal_option_version_tags"] as const) {
-        const { error } = await client
-          .from(table)
-          .delete()
-          .eq("meal_option_version_id", input.mealOptionVersionId)
-        if (error !== null) return failure(error)
-      }
-      const componentWrite = await client.from("meal_option_recipes").insert(
-        input.components.map((item) => ({
-          id: randomUUID(),
-          meal_option_version_id: input.mealOptionVersionId,
+      const { data, error } = await client.rpc("save_meal_option_version_draft_atomic", {
+        p_meal_option_version_id: input.mealOptionVersionId,
+        p_meal_option_id: input.mealOptionId,
+        p_expected_revision: input.expectedRevision,
+        p_version_number: input.versionNumber,
+        p_yield_adult_equivalent: postgresNumeric(input.yieldAdultEquivalent),
+        p_active_minutes: input.activeMinutes,
+        p_elapsed_minutes: input.elapsedMinutes,
+        p_components: input.components.map((item) => ({
           recipe_id: item.recipeId,
           recipe_version_id: item.recipeVersionId,
-          quantity_multiplier: postgresNumeric(item.quantityMultiplier),
+          quantity_multiplier: item.quantityMultiplier,
           meal_role: item.mealRole,
           sort_order: item.order
-        }))
-      )
-      if (componentWrite.error !== null) return failure(componentWrite.error)
-      if (input.tagIds.length > 0) {
-        const tagWrite = await client.from("meal_option_version_tags").insert(
-          input.tagIds.map((recipeTagId) => ({
-            meal_option_version_id: input.mealOptionVersionId,
-            recipe_tag_id: recipeTagId
-          }))
-        )
-        if (tagWrite.error !== null) return failure(tagWrite.error)
-      }
-      return result(parent.data, input.mealOptionVersionId, "draft")
+        })),
+        p_tag_ids: [...input.tagIds],
+        p_actor_user_id: actorUserId
+      })
+      return error === null ? result(data, input.mealOptionVersionId, "draft") : failure(error)
     },
     async loadPublicationAggregate(id) {
       const { data, error } = await client.rpc("get_meal_option_aggregate_for_publication", {
