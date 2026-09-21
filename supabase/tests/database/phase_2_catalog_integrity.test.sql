@@ -317,8 +317,92 @@ select throws_ok(
   'published prices remain immutable'
 );
 
+insert into public.price_books (
+  id, region_id, version_number, effective_from, created_by
+)
+select
+  '58000000-0000-0000-0000-000000000002', id, 2, date '2026-09-17',
+  '51000000-0000-0000-0000-000000000001'
+from public.price_regions where code = 'vn_baseline';
+
 select throws_ok(
-  $$ update public.food_categories set parent_id = id where code = 'seafood' $$,
+  $$
+    select public.save_price_book_draft_atomic(
+      '58000000-0000-0000-0000-000000000002',
+      1,
+      date '2026-09-17',
+      null::date,
+      jsonb_build_array(
+        jsonb_build_object(
+          'food_id', '52000000-0000-0000-0000-000000000001',
+          'food_fact_version_id', '53000000-0000-0000-0000-000000000001',
+          'package_quantity', 1,
+          'package_unit_id', (select id from public.units where code = 'kg'),
+          'package_base_quantity', 999,
+          'base_unit_id', (select id from public.units where code = 'g'),
+          'package_price_vnd', 30000,
+          'purchase_increment', 1,
+          'observed_at', '2026-09-17',
+          'source_reference', 'Atomic rollback test'
+        )
+      ),
+      '51000000-0000-0000-0000-000000000001'
+    )
+  $$,
+  null,
+  null,
+  'invalid atomic price replacement is rejected'
+);
+select is(
+  (select revision from public.price_books where id = '58000000-0000-0000-0000-000000000002'),
+  1,
+  'failed atomic price replacement rolls back the parent revision'
+);
+select is(
+  (select count(*)::integer from public.food_prices where price_book_id = '58000000-0000-0000-0000-000000000002'),
+  0,
+  'failed atomic price replacement leaves no partial rows'
+);
+
+select lives_ok(
+  $$
+    select public.save_price_book_draft_atomic(
+      '58000000-0000-0000-0000-000000000002',
+      1,
+      date '2026-09-17',
+      null::date,
+      jsonb_build_array(
+        jsonb_build_object(
+          'food_id', '52000000-0000-0000-0000-000000000001',
+          'food_fact_version_id', '53000000-0000-0000-0000-000000000001',
+          'package_quantity', 1,
+          'package_unit_id', (select id from public.units where code = 'kg'),
+          'package_base_quantity', 1000,
+          'base_unit_id', (select id from public.units where code = 'g'),
+          'package_price_vnd', 30000,
+          'purchase_increment', 1,
+          'observed_at', '2026-09-17',
+          'source_reference', 'Atomic success test'
+        )
+      ),
+      '51000000-0000-0000-0000-000000000001'
+    )
+  $$,
+  'valid atomic price replacement succeeds'
+);
+select is(
+  (select revision from public.price_books where id = '58000000-0000-0000-0000-000000000002'),
+  2,
+  'successful atomic price replacement advances revision once'
+);
+select is(
+  (select count(*)::integer from public.food_prices where price_book_id = '58000000-0000-0000-0000-000000000002'),
+  1,
+  'successful atomic price replacement commits all rows'
+);
+
+select throws_ok(
+  $sql$ update public.food_categories set parent_id = id where code = 'seafood' $sql$,
   null,
   null,
   'category self-cycles are rejected'
