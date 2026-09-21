@@ -24,10 +24,16 @@ export function RequireAuth() {
     <>
       {/* Order matters: the skip link must precede the navigation so the first Tab reaches it. */}
       <AppSkipLink />
-      <AppNav />
-      <Outlet />
-      <div className="mx-auto w-full max-w-md px-4 pb-6">
-        <SignOutButton />
+      <div className="min-h-screen bg-stone-50 text-slate-950 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+        <AppNav />
+        <div className="min-w-0 pb-24 lg:pb-0">
+          <Outlet />
+          <div className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6 lg:px-8">
+            <div className="border-t border-stone-200 pt-5">
+              <SignOutButton />
+            </div>
+          </div>
+        </div>
       </div>
     </>
   )
