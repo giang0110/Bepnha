@@ -206,7 +206,11 @@ export function PantryPage({
   const availableOptions = useMemo(() => {
     if (state.status !== "ready") return []
     const existingFoodIds = new Set(state.items.map((item) => item.foodId))
-    const query = searchQuery.trim().normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase()
+    const query = searchQuery
+      .trim()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase()
     return state.options.filter((option) => {
       if (existingFoodIds.has(option.foodId)) return false
       if (query === "") return true
