@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { describe, expect, it, vi } from "vitest"
@@ -120,6 +120,35 @@ describe("authenticated app shell", () => {
       expect(await screen.findByRole("heading", { name: "Đăng nhập" })).toBeInTheDocument()
     }
   )
+
+  it("does not let a stale session restore overwrite a newer auth event", async () => {
+    const auth = createAuthPort(null)
+    let resolveRestore: ((value: AuthSession | null) => void) | undefined
+    let listener: Parameters<AuthSessionPort["onAuthStateChange"]>[0] | undefined
+    auth.port.getSession = vi.fn(
+      () =>
+        new Promise<AuthSession | null>((resolve) => {
+          resolveRestore = resolve
+        })
+    )
+    auth.port.onAuthStateChange = vi.fn((nextListener) => {
+      listener = nextListener
+      return auth.unsubscribe
+    })
+
+    renderRoutes(auth.port, "/onboarding")
+
+    await act(async () => {
+      listener?.({ kind: "SESSION", session })
+      resolveRestore?.(null)
+      await Promise.resolve()
+    })
+
+    expect(
+      await screen.findByRole("heading", { name: "Thành viên trong gia đình" })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Đăng nhập" })).not.toBeInTheDocument()
+  })
 
   it("renders the protected onboarding shell for an authenticated session", async () => {
     renderRoutes(createAuthPort(session).port, "/onboarding")
