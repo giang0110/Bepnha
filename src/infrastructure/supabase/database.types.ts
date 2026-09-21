@@ -2150,7 +2150,7 @@ export type Database = {
         Args: {
           p_actor_user_id: string
           p_effective_from: string
-          p_effective_to: string | null
+          p_effective_to: string
           p_expected_revision: number
           p_price_book_id: string
           p_prices: Json
