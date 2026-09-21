@@ -8,6 +8,7 @@ import {
 } from "../../src/application/meal-option/execute-meal-option-admin-command.js"
 import type { ContentHasher } from "../../src/application/shared/content-hasher.js"
 import { NodeContentHasher } from "../../src/infrastructure/server/node-content-hasher.js"
+import { applyApiSecurityHeaders } from "../../src/infrastructure/server/security-headers.js"
 import { createSupabaseMealOptionAdminRepository } from "../../src/infrastructure/server/supabase-meal-option-admin-repository.js"
 import type { Database } from "../../src/infrastructure/supabase/database.types.js"
 import {
@@ -23,6 +24,8 @@ interface MealOptionAdminHandlerDependencies {
 }
 
 type UnknownRecord = Record<string, unknown>
+
+const MAX_BODY_BYTES = 64_000
 
 const inputKeys = {
   create_meal_option: ["code", "nameVi"],
@@ -43,6 +46,14 @@ const inputKeys = {
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function bodyIsTooLarge(body: unknown): boolean {
+  try {
+    return Buffer.byteLength(JSON.stringify(body) ?? "", "utf8") > MAX_BODY_BYTES
+  } catch {
+    return true
+  }
 }
 
 function exactKeys(value: UnknownRecord, keys: readonly string[]): boolean {
@@ -104,6 +115,7 @@ function failureStatus(reason: string): number {
 
 export function createMealOptionAdminHandler(dependencies: MealOptionAdminHandlerDependencies) {
   return async function handler(request: VercelRequest, response: VercelResponse): Promise<void> {
+    applyApiSecurityHeaders(response)
     if (request.method !== "POST") {
       response.setHeader("Allow", "POST")
       response.status(405).json({ error: "METHOD_NOT_ALLOWED" })
@@ -133,7 +145,7 @@ export function createMealOptionAdminHandler(dependencies: MealOptionAdminHandle
       response.status(403).json({ error: "ADMIN_REQUIRED" })
       return
     }
-    if (JSON.stringify(request.body).length > 64_000) {
+    if (bodyIsTooLarge(request.body)) {
       response.status(413).json({ error: "PAYLOAD_TOO_LARGE" })
       return
     }
