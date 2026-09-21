@@ -260,14 +260,14 @@ export function WeeklyPlanPage({
 
   if (state.status === "loading_household") {
     return (
-      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-stone-50 px-4 py-6 text-slate-950">
+      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-slate-950 sm:px-6 lg:px-8 lg:py-8">
         <p role="status">Đang tải thông tin gia đình…</p>
       </AppPageShell>
     )
   }
 
   return (
-    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-stone-50 px-4 py-6 text-slate-950">
+    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-slate-950 sm:px-6 lg:px-8 lg:py-8">
       <header className="grid gap-2">
         <p className="text-sm font-medium text-emerald-700">Bếp Nhà</p>
         <h1 className="text-2xl font-semibold">Kế hoạch tuần</h1>
@@ -332,7 +332,7 @@ export function WeeklyPlanPage({
             </Fragment>
           )}
 
-          <ol className="grid gap-3" aria-label="Bảy bữa chính trong tuần">
+          <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Bảy bữa chính trong tuần">
             {[...state.value.plan.items]
               .sort((left, right) => left.dayIndex - right.dayIndex)
               .map((item) => (
