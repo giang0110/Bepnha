@@ -22,8 +22,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run format
-      - run: git diff -- src/app/components/app-nav.tsx src/features/pantry/pantry-page.tsx src/features/plans/weekly-plan-page.tsx api/admin/meal-options.test.ts
       - run: npm run verify:web
       - run: npm run catalog:sheet -- import --dir docs/catalog/staging --out "$RUNNER_TEMP/catalog-pack.json"
       - run: npm run catalog:validate -- --input "$RUNNER_TEMP/catalog-pack.json"
