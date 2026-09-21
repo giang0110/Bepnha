@@ -101,7 +101,7 @@ insert into public.meal_options (id, code, name_vi)
 values ('74000000-0000-0000-0000-000000000002', 'phase3_atomic_meal', 'Bữa atomic');
 
 select throws_ok(
-  $
+  $$
     select public.save_meal_option_version_draft_atomic(
       '75000000-0000-0000-0000-000000000003',
       '74000000-0000-0000-0000-000000000002',
@@ -125,7 +125,7 @@ select throws_ok(
       ],
       '71000000-0000-0000-0000-000000000001'
     )
-  $,
+  $$,
   null,
   null,
   'invalid atomic meal-option draft is rejected'
@@ -137,7 +137,7 @@ select is(
 );
 
 select lives_ok(
-  $
+  $$
     select public.save_meal_option_version_draft_atomic(
       '75000000-0000-0000-0000-000000000003',
       '74000000-0000-0000-0000-000000000002',
@@ -161,7 +161,7 @@ select lives_ok(
       ],
       '71000000-0000-0000-0000-000000000001'
     )
-  $,
+  $$,
   'valid atomic meal-option draft commits parent and children'
 );
 select is(
