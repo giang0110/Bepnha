@@ -892,6 +892,24 @@ function validateGraph(
         blockers.add("CATALOG_LINEAGE_INCOMPLETE")
         continue
       }
+
+      const mealYield = parseCanonicalDecimal(meal.version.yieldAdultEquivalent)
+      const recipeYield = parseCanonicalDecimal(recipe.version.yieldAdultEquivalent)
+      const multiplier = parseCanonicalDecimal(component.quantityMultiplier)
+      if (
+        mealYield.ok &&
+        recipeYield.ok &&
+        multiplier.ok &&
+        recipeYield.value.mul(multiplier.value).minus(mealYield.value).abs().gt("0.000000001")
+      ) {
+        addError(
+          diagnostics,
+          "MEAL_COMPONENT_YIELD_MISMATCH",
+          `${path}.quantityMultiplier`,
+          "Recipe yield multiplied by quantityMultiplier must match the meal-option yield"
+        )
+        blockers.add("CATALOG_LINEAGE_INCOMPLETE")
+      }
       reachableRecipeCodes.add(recipe.code)
     }
   }

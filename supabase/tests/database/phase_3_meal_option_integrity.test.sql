@@ -143,14 +143,14 @@ select lives_ok(
       '74000000-0000-0000-0000-000000000002',
       1::integer,
       1::integer,
-      4::numeric,
+      3::numeric,
       20::smallint,
       30::smallint,
       jsonb_build_array(
         jsonb_build_object(
           'recipe_id', '72000000-0000-0000-0000-000000000001',
           'recipe_version_id', '73000000-0000-0000-0000-000000000001',
-          'quantity_multiplier', 1,
+          'quantity_multiplier', 0.7500000001,
           'meal_role', 'main',
           'sort_order', 1
         )
@@ -173,6 +173,16 @@ select is(
   (select count(*)::integer from public.meal_option_version_tags where meal_option_version_id = '75000000-0000-0000-0000-000000000003'),
   2,
   'atomic meal-option draft commits all tags'
+);
+
+select lives_ok(
+  $$
+    select public.publish_meal_option_version(
+      '75000000-0000-0000-0000-000000000003', repeat('d', 64),
+      '71000000-0000-0000-0000-000000000001', 1
+    )
+  $$,
+  'publication accepts sub-nanounit error from repeating-decimal yield scaling'
 );
 
 insert into public.meal_option_versions (
