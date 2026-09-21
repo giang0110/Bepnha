@@ -52,6 +52,22 @@ describe("the request it sends", () => {
     })
   })
 
+  test("routes meal-option operations to the dedicated admin endpoint", async () => {
+    const fetchImpl = respondWith(200, { id: "meal-option-1", revision: 1, status: "draft" })
+    await gateway(fetchImpl)(
+      {
+        ...operation,
+        operationId: "create_meal_option:test",
+        kind: "create_meal_option",
+        logicalKey: "meal_option:test"
+      },
+      { code: "test", nameVi: "Test" }
+    )
+
+    const { url } = callArgs(fetchImpl)
+    expect(url).toBe("https://example.test/api/admin/meal-options")
+  })
+
   test("authenticates as the operator rather than with a shared secret", async () => {
     const fetchImpl = respondWith(200, { id: "food-1", revision: 1, status: "draft" })
     await gateway(fetchImpl)(operation, {})
