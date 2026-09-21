@@ -399,42 +399,32 @@ export function createSupabaseCatalogAdminRepository(
       return error === null ? resultFromRow(data, "draft") : failure(error)
     },
     async savePriceBookDraft(input) {
-      const { data, error } = await client
-        .from("price_books")
-        .update({
-          effective_from: input.effectiveFrom,
-          effective_to: input.effectiveTo
-        })
-        .eq("id", input.priceBookId)
-        .eq("revision", input.expectedRevision)
-        .eq("publication_status", "draft")
-        .select("id, revision")
-        .maybeSingle()
-      if (error !== null) return failure(error)
-      if (data === null) return { ok: false, reason: "STALE_CATALOG_REVISION" }
-      const deletion = await client
-        .from("food_prices")
-        .delete()
-        .eq("price_book_id", input.priceBookId)
-      if (deletion.error !== null) return failure(deletion.error)
-      const insertion = await client.from("food_prices").insert(
-        input.prices.map((item) => ({
-          price_book_id: input.priceBookId,
+      const { data, error } = await client.rpc("save_price_book_draft_atomic", {
+        p_price_book_id: input.priceBookId,
+        p_expected_revision: input.expectedRevision,
+        p_effective_from: input.effectiveFrom,
+        p_effective_to: input.effectiveTo,
+        p_prices: input.prices.map((item) => ({
           food_id: item.foodId,
           food_fact_version_id: item.foodFactVersionId,
-          package_quantity: postgresNumeric(item.packageQuantity),
+          package_quantity: item.packageQuantity,
           package_unit_id: item.packageUnitId,
-          package_base_quantity: postgresNumeric(item.packageBaseQuantity),
+          package_base_quantity: item.packageBaseQuantity,
           base_unit_id: item.baseUnitId,
           package_price_vnd: item.packagePriceVnd,
-          purchase_increment: postgresNumeric(item.purchaseIncrement),
+          purchase_increment: item.purchaseIncrement,
           observed_at: item.observedAt,
           source_reference: item.sourceReference
-        }))
-      )
-      return insertion.error === null
-        ? resultFromRow(data, "draft", input.priceBookId)
-        : failure(insertion.error)
+        })),
+        p_actor_user_id: actorUserId
+      })
+      return error === null
+        ? resultFromRow(
+            { ...(isRecord(data) ? data : {}), id: input.priceBookId },
+            "draft",
+            input.priceBookId
+          )
+        : failure(error)
     },
     publishPriceBook: (input) => publish("price", input),
     retirePriceBook: (input) => retire("price_book", input),
