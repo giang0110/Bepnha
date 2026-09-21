@@ -419,7 +419,11 @@ export function createSupabaseCatalogAdminRepository(
         p_actor_user_id: actorUserId
       })
       return error === null
-        ? resultFromRow({ ...(isRecord(data) ? data : {}), id: input.priceBookId }, "draft", input.priceBookId)
+        ? resultFromRow(
+            { ...(isRecord(data) ? data : {}), id: input.priceBookId },
+            "draft",
+            input.priceBookId
+          )
         : failure(error)
     },
     publishPriceBook: (input) => publish("price", input),
