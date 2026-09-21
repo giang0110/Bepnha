@@ -97,6 +97,25 @@ select throws_ok(
   'published curated composition is immutable'
 );
 
+insert into public.recipes (id, code, name_vi)
+values ('72000000-0000-0000-0000-000000000002', 'phase3_recipe_six', 'Món Phase 3 sáu phần');
+insert into public.recipe_versions (
+  id, recipe_id, version_number, yield_adult_equivalent, active_minutes, elapsed_minutes, created_by
+)
+values (
+  '73000000-0000-0000-0000-000000000002',
+  '72000000-0000-0000-0000-000000000002',
+  1, 6, 20, 90, '71000000-0000-0000-0000-000000000001'
+);
+select private.begin_catalog_transition();
+update public.recipe_versions
+set publication_status = 'published', content_hash = repeat('c', 64), published_at = now()
+where id = '73000000-0000-0000-0000-000000000002';
+update public.recipes
+set status = 'published', current_version_id = '73000000-0000-0000-0000-000000000002'
+where id = '72000000-0000-0000-0000-000000000002';
+select private.end_catalog_transition();
+
 insert into public.meal_options (id, code, name_vi)
 values ('74000000-0000-0000-0000-000000000002', 'phase3_atomic_meal', 'Bữa atomic');
 
@@ -143,13 +162,13 @@ select lives_ok(
       '74000000-0000-0000-0000-000000000002',
       1::integer,
       1::integer,
-      1.333333::numeric,
+      2::numeric,
       20::smallint,
       30::smallint,
       jsonb_build_array(
         jsonb_build_object(
-          'recipe_id', '72000000-0000-0000-0000-000000000001',
-          'recipe_version_id', '73000000-0000-0000-0000-000000000001',
+          'recipe_id', '72000000-0000-0000-0000-000000000002',
+          'recipe_version_id', '73000000-0000-0000-0000-000000000002',
           'quantity_multiplier', 0.3333334,
           'meal_role', 'main',
           'sort_order', 1
