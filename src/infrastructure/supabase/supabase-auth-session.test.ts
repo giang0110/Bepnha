@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { AuthChangeEvent, Session, SupabaseClient } from "@supabase/supabase-js"
 import { describe, expect, test, vi } from "vitest"
 
 import { createSupabaseAuthSession } from "./supabase-auth-session"
@@ -10,6 +10,36 @@ function clientWith(auth: Record<string, unknown>) {
 }
 
 describe("Supabase password recovery", () => {
+  test("preserves PASSWORD_RECOVERY instead of flattening it into a normal session", () => {
+    const unsubscribe = vi.fn()
+    let callback: ((event: AuthChangeEvent, session: Session | null) => void) | undefined
+    const onAuthStateChange = vi.fn(
+      (listener: (event: AuthChangeEvent, session: Session | null) => void) => {
+        callback = listener
+        return { data: { subscription: { unsubscribe } } }
+      }
+    )
+    const auth = createSupabaseAuthSession(clientWith({ onAuthStateChange }))
+    const listener = vi.fn()
+    auth.onAuthStateChange(listener)
+
+    callback?.(
+      "PASSWORD_RECOVERY",
+      {
+        access_token: "recovery-token",
+        user: { id: "user-1", email: "nguoi-dung@example.com" }
+      } as Session
+    )
+
+    expect(listener).toHaveBeenCalledWith({
+      kind: "PASSWORD_RECOVERY",
+      session: {
+        accessToken: "recovery-token",
+        identity: { userId: "user-1", email: "nguoi-dung@example.com" }
+      }
+    })
+  })
+
   test("asks Supabase to return the user to the given recovery path", async () => {
     const resetPasswordForEmail = vi.fn(() => Promise.resolve({ error: null }))
     const session = createSupabaseAuthSession(clientWith({ resetPasswordForEmail }))
