@@ -77,10 +77,10 @@ describe("expectedSchemaFromMigrations", () => {
     )
   })
 
-  it("matches the ten migrations committed to this repository", async () => {
+  it("matches the eleven migrations committed to this repository", async () => {
     const repository = expectedSchemaFromMigrations(await readMigrationFiles())
 
-    expect(repository.migrations).toHaveLength(10)
+    expect(repository.migrations).toHaveLength(11)
     expect(repository.migrations[0]).toBe("20260825000000")
     expect(repository.tables).toHaveLength(40)
     expect(repository.functions).toHaveLength(20)
