@@ -81,10 +81,7 @@ describe("POST /api/admin/meal-options", () => {
     expect(unsupported.state.body).toEqual({ error: "UNSUPPORTED_MEDIA_TYPE" })
 
     const oversized = responseDouble()
-    await handler(
-      request("POST", { payload: "ộ".repeat(64_001) }),
-      oversized.response
-    )
+    await handler(request("POST", { payload: "ộ".repeat(64_001) }), oversized.response)
     expect(oversized.state.status).toHaveBeenCalledWith(413)
     expect(oversized.state.body).toEqual({ error: "PAYLOAD_TOO_LARGE" })
     expect(verify).not.toHaveBeenCalled()
