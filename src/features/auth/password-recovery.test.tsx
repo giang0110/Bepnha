@@ -39,11 +39,20 @@ const recoverySession: AuthSession = {
 function renderAt(
   initialEntry: string,
   overrides: Partial<AuthSessionPort> = {},
-  session: AuthSession | null = null
+  session: AuthSession | null = null,
+  emitRecovery = false
 ) {
+  const onAuthStateChange = vi.fn(
+    (listener: Parameters<AuthSessionPort["onAuthStateChange"]>[0]) => {
+      if (emitRecovery) {
+        listener({ kind: "PASSWORD_RECOVERY", session: recoverySession })
+      }
+      return vi.fn()
+    }
+  )
   const port = {
     getSession: vi.fn(() => Promise.resolve(session)),
-    onAuthStateChange: vi.fn(() => vi.fn()),
+    onAuthStateChange,
     signIn: vi.fn(),
     signOut: vi.fn(),
     signUp: vi.fn(),
@@ -133,10 +142,19 @@ describe("reset password", () => {
     )
   })
 
+  it("does not expose the reset form to an ordinary authenticated session", async () => {
+    renderAt("/reset-password", {}, recoverySession)
+
+    expect(
+      await screen.findByRole("heading", { name: "Liên kết không còn hiệu lực" })
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText("Mật khẩu mới")).not.toBeInTheDocument()
+  })
+
   it("refuses mismatched confirmations without calling the port", async () => {
     const user = userEvent.setup()
     const updatePassword = vi.fn(() => Promise.resolve({ ok: true as const }))
-    renderAt("/reset-password", { updatePassword }, recoverySession)
+    renderAt("/reset-password", { updatePassword }, recoverySession, true)
 
     await user.type(await screen.findByLabelText("Mật khẩu mới"), "mat-khau-moi-1")
     await user.type(screen.getByLabelText("Nhập lại mật khẩu mới"), "mat-khau-moi-2")
@@ -149,7 +167,7 @@ describe("reset password", () => {
   it("saves a matching password through the recovery session", async () => {
     const user = userEvent.setup()
     const updatePassword = vi.fn(() => Promise.resolve({ ok: true as const }))
-    renderAt("/reset-password", { updatePassword }, recoverySession)
+    renderAt("/reset-password", { updatePassword }, recoverySession, true)
 
     await user.type(await screen.findByLabelText("Mật khẩu mới"), "mat-khau-moi-1")
     await user.type(screen.getByLabelText("Nhập lại mật khẩu mới"), "mat-khau-moi-1")
@@ -167,7 +185,8 @@ describe("reset password", () => {
     renderAt(
       "/reset-password",
       { updatePassword: vi.fn(() => Promise.resolve({ ok: false as const, reason })) },
-      recoverySession
+      recoverySession,
+      true
     )
 
     await user.type(await screen.findByLabelText("Mật khẩu mới"), "mat-khau-moi-1")

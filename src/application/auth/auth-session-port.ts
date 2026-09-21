@@ -12,6 +12,10 @@ export type AuthOperationResult =
   | { ok: true; session: AuthSession | null; confirmationPending?: true }
   | { ok: false; reason: "INVALID_CREDENTIALS" | "RETRYABLE_FAILURE" }
 
+export type AuthSessionChange =
+  | { kind: "PASSWORD_RECOVERY"; session: AuthSession }
+  | { kind: "SESSION"; session: AuthSession | null }
+
 /**
  * Requesting a reset never reports whether the address has an account. Telling an anonymous caller
  * that an email is registered would turn this endpoint into an account-existence oracle, so the
@@ -25,7 +29,7 @@ export type PasswordUpdateResult =
 
 export interface AuthSessionPort {
   getSession(): Promise<AuthSession | null>
-  onAuthStateChange(listener: (session: AuthSession | null) => void): () => void
+  onAuthStateChange(listener: (change: AuthSessionChange) => void): () => void
   requestPasswordReset(email: string, redirectTo: string): Promise<PasswordResetRequestResult>
   signIn(email: string, password: string): Promise<AuthOperationResult>
   signOut(): Promise<{ ok: true } | { ok: false; reason: "RETRYABLE_FAILURE" }>
