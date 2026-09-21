@@ -21,6 +21,12 @@ function postgresNumeric(value: string): number {
   return value as unknown as number
 }
 
+// Supabase-generated RPC argument types do not model SQL parameter nullability.
+// PostgreSQL accepts NULL for this date parameter, so preserve the runtime value at this boundary.
+function postgresNullableDate(value: string | null): string {
+  return value as unknown as string
+}
+
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -403,7 +409,7 @@ export function createSupabaseCatalogAdminRepository(
         p_price_book_id: input.priceBookId,
         p_expected_revision: input.expectedRevision,
         p_effective_from: input.effectiveFrom,
-        p_effective_to: input.effectiveTo,
+        p_effective_to: postgresNullableDate(input.effectiveTo),
         p_prices: input.prices.map((item) => ({
           food_id: item.foodId,
           food_fact_version_id: item.foodFactVersionId,
