@@ -118,6 +118,7 @@ function setup(
     <MemoryRouter>
       <AuthContext.Provider
         value={{
+          passwordRecoveryReady: false,
           status: "authenticated",
           session: { accessToken: "token", identity: { userId: "user", email: null } },
           signIn: vi.fn(),
