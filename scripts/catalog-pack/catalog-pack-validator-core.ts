@@ -901,8 +901,9 @@ function validateGraph(
         recipeYield.ok &&
         multiplier.ok &&
         recipeYield.value
+          .toDecimalPlaces(3)
           .mul(multiplier.value.toDecimalPlaces(6))
-          .minus(mealYield.value)
+          .minus(mealYield.value.toDecimalPlaces(3))
           .abs()
           .gt("0.00001")
       ) {
