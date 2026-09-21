@@ -67,11 +67,8 @@ const shoppingListRepository: ShoppingListRepository = {
   setChecked: shoppingSetChecked
 }
 
-function createAuthPort(initialSession: AuthSession | null): {
-  port: AuthSessionPort
-  unsubscribe: ReturnType<typeof vi.fn>
-} {
-  const unsubscribe = vi.fn()
+function createAuthPort(initialSession: AuthSession | null) {
+  const unsubscribe = vi.fn<() => void>()
   return {
     unsubscribe,
     port: {
