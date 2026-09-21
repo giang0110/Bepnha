@@ -31,6 +31,17 @@ function requestFor(method: string, authorization?: string, body?: unknown): Ver
   } as VercelRequest
 }
 
+function expectSecurityHeaders(response: ResponseDouble): void {
+  expect(response.setHeader).toHaveBeenCalledWith("X-Content-Type-Options", "nosniff")
+  expect(response.setHeader).toHaveBeenCalledWith("Referrer-Policy", "no-referrer")
+  expect(response.setHeader).toHaveBeenCalledWith("X-Frame-Options", "DENY")
+  expect(response.setHeader).toHaveBeenCalledWith("Cache-Control", "no-store")
+  expect(response.setHeader).toHaveBeenCalledWith(
+    "Content-Security-Policy",
+    "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+  )
+}
+
 describe("GET /api/me", () => {
   it("returns only the verified user id and ignores body identity", async () => {
     const verify = vi.fn(() => Promise.resolve({ userId: "verified-user" }))
@@ -45,6 +56,7 @@ describe("GET /api/me", () => {
     expect(verify).toHaveBeenCalledWith("valid-token")
     expect(response.status).toHaveBeenCalledWith(200)
     expect(response.body).toEqual({ userId: "verified-user" })
+    expectSecurityHeaders(response)
   })
 
   it.each([undefined, "Bearer forged-token"])(
@@ -57,6 +69,7 @@ describe("GET /api/me", () => {
 
       expect(response.status).toHaveBeenCalledWith(401)
       expect(response.body).toEqual({ error: "UNAUTHORIZED" })
+      expectSecurityHeaders(response)
     }
   )
 
@@ -71,6 +84,7 @@ describe("GET /api/me", () => {
     expect(response.status).toHaveBeenCalledWith(405)
     expect(response.body).toEqual({ error: "METHOD_NOT_ALLOWED" })
     expect(verify).not.toHaveBeenCalled()
+    expectSecurityHeaders(response)
   })
 
   it("sanitizes infrastructure failures without leaking credentials or internals", async () => {
@@ -84,5 +98,6 @@ describe("GET /api/me", () => {
     expect(response.status).toHaveBeenCalledWith(503)
     expect(response.body).toEqual({ error: "AUTH_UNAVAILABLE" })
     expect(JSON.stringify(response.body)).not.toMatch(/token|supabase|database|timeout/i)
+    expectSecurityHeaders(response)
   })
 })
