@@ -9,16 +9,16 @@ function clientWith(auth: Record<string, unknown>) {
   return { auth } as unknown as SupabaseClient<Database>
 }
 
+type SupabaseAuthListener = (event: AuthChangeEvent, session: Session | null) => void
+
 describe("Supabase password recovery", () => {
   test("preserves PASSWORD_RECOVERY instead of flattening it into a normal session", () => {
     const unsubscribe = vi.fn()
-    let callback: ((event: AuthChangeEvent, session: Session | null) => void) | undefined
-    const onAuthStateChange = vi.fn(
-      (listener: (event: AuthChangeEvent, session: Session | null) => void) => {
-        callback = listener
-        return { data: { subscription: { unsubscribe } } }
-      }
-    )
+    let callback: SupabaseAuthListener | undefined
+    const onAuthStateChange = vi.fn((listener: SupabaseAuthListener) => {
+      callback = listener
+      return { data: { subscription: { unsubscribe } } }
+    })
     const auth = createSupabaseAuthSession(clientWith({ onAuthStateChange }))
     const listener = vi.fn()
     auth.onAuthStateChange(listener)
