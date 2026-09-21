@@ -6,9 +6,9 @@ import type { OperationOutcome } from "./catalog-mutation-executor.ts"
  *
  * Food, recipe, and price-book actions use `/api/admin/catalog`. Meal-option actions use the
  * sibling `/api/admin/meal-options` endpoint. Going through the endpoints rather than talking to
- * the database keeps the
- * service-role key on the server, where it belongs: the operator authenticates as themselves with an
- * ordinary Supabase access token, the server checks they are an admin, and every write lands in
+ * the database keeps the service-role key on the server, where it belongs: the operator
+ * authenticates as themselves with an ordinary Supabase access token, the server checks they are an
+ * admin, and every write lands in
  * `admin_audit_log` attributed to a person rather than to a shared secret.
  *
  * Nothing here retries. An operation that failed may or may not have been applied, and a blind retry
@@ -44,7 +44,10 @@ function endpointForOperation(
   if (!url.pathname.endsWith("/api/admin/catalog")) {
     throw new Error("BEPNHA_ADMIN_ENDPOINT must end with /api/admin/catalog")
   }
-  url.pathname = url.pathname.replace(/\/api\/admin\/catalog$/u, "/api/admin/meal-options")
+  url.pathname = url.pathname.replace(
+    /\/api\/admin\/catalog$/u,
+    "/api/admin/meal-options"
+  )
   return url.toString()
 }
 
