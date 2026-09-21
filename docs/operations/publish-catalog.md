@@ -191,8 +191,10 @@ chạy lại từ **Điều kiện trước, mục 2**.
 
 Khoá service-role ở lại trên server. Bạn xác thực bằng token của chính mình, server kiểm tra bạn có
 phải admin, và mọi thao tác ghi vào `admin_audit_log` **gắn tên một con người** chứ không phải một
-bí mật dùng chung. Mười hai loại thao tác của plan khớp đúng mười hai action mà endpoint nhận, nên
-mỗi thao tác là đúng một request.
+bí mật dùng chung. Mỗi thao tác của plan là đúng một request. Food/recipe/price-book đi qua
+`/api/admin/catalog`; ba thao tác meal-option được executor tự chuyển sang endpoint sibling
+`/api/admin/meal-options`. Biến `BEPNHA_ADMIN_ENDPOINT` vẫn đặt là URL `/api/admin/catalog` như
+ở Bước 4.
 
 ## Ý nghĩa các mã lỗi hay gặp
 
