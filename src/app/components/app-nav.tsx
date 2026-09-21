@@ -39,7 +39,9 @@ export function AppNav() {
       className="fixed inset-x-0 bottom-0 z-50 border-t border-stone-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-t-0 lg:shadow-none"
     >
       <div className="hidden px-5 pb-5 pt-7 lg:block">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Bếp Nhà</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+          Bếp Nhà
+        </p>
         <p className="mt-2 text-lg font-semibold text-slate-950">Bữa cơm gọn hơn mỗi tuần</p>
         <p className="mt-1 text-xs leading-5 text-slate-500">
           Kế hoạch, tủ bếp và danh sách đi chợ trong cùng một nơi.
