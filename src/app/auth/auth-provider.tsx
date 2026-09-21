@@ -7,28 +7,38 @@ export function AuthProvider({
   children,
   port
 }: Readonly<{ children: ReactNode; port: AuthSessionPort }>) {
+  const [passwordRecoveryReady, setPasswordRecoveryReady] = useState(false)
   const [session, setSession] = useState<AuthSession | null>(null)
   const [status, setStatus] = useState<AuthStatus>("loading")
 
   useEffect(() => {
     let active = true
-    const unsubscribe = port.onAuthStateChange((nextSession) => {
+    let authEventSeen = false
+    const unsubscribe = port.onAuthStateChange((change) => {
+      authEventSeen = true
       if (active) {
-        setSession(nextSession)
-        setStatus(nextSession === null ? "signed-out" : "authenticated")
+        setSession(change.session)
+        setStatus(change.session === null ? "signed-out" : "authenticated")
+        if (change.kind === "PASSWORD_RECOVERY") {
+          setPasswordRecoveryReady(true)
+        } else if (change.session === null) {
+          setPasswordRecoveryReady(false)
+        }
       }
     })
 
     void port
       .getSession()
       .then((restoredSession) => {
-        if (active) {
+        if (active && !authEventSeen) {
+          setPasswordRecoveryReady(false)
           setSession(restoredSession)
           setStatus(restoredSession === null ? "signed-out" : "authenticated")
         }
       })
       .catch(() => {
-        if (active) {
+        if (active && !authEventSeen) {
+          setPasswordRecoveryReady(false)
           setSession(null)
           setStatus("signed-out")
         }
@@ -42,11 +52,13 @@ export function AuthProvider({
 
   const value = useMemo<AuthContextValue>(
     () => ({
+      passwordRecoveryReady,
       session,
       status,
       async signIn(email, password) {
         const result = await port.signIn(email, password)
         if (result.ok && result.session !== null) {
+          setPasswordRecoveryReady(false)
           setSession(result.session)
           setStatus("authenticated")
         }
@@ -55,6 +67,7 @@ export function AuthProvider({
       async signUp(email, password) {
         const result = await port.signUp(email, password)
         if (result.ok && result.session !== null) {
+          setPasswordRecoveryReady(false)
           setSession(result.session)
           setStatus("authenticated")
         }
@@ -63,6 +76,7 @@ export function AuthProvider({
       async signOut() {
         const result = await port.signOut()
         if (result.ok) {
+          setPasswordRecoveryReady(false)
           setSession(null)
           setStatus("signed-out")
         }
@@ -71,11 +85,15 @@ export function AuthProvider({
       requestPasswordReset(email, redirectTo) {
         return port.requestPasswordReset(email, redirectTo)
       },
-      updatePassword(password) {
-        return port.updatePassword(password)
+      async updatePassword(password) {
+        const result = await port.updatePassword(password)
+        if (result.ok) {
+          setPasswordRecoveryReady(false)
+        }
+        return result
       }
     }),
-    [port, session, status]
+    [passwordRecoveryReady, port, session, status]
   )
 
   return <AuthContext value={value}>{children}</AuthContext>
