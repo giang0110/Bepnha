@@ -105,11 +105,11 @@ select throws_ok(
     select public.save_meal_option_version_draft_atomic(
       '75000000-0000-0000-0000-000000000003',
       '74000000-0000-0000-0000-000000000002',
-      1,
-      1,
-      4,
-      20,
-      30,
+      1::integer,
+      1::integer,
+      4::numeric,
+      20::smallint,
+      30::smallint,
       jsonb_build_array(
         jsonb_build_object(
           'recipe_id', '72000000-0000-0000-0000-000000000001',
@@ -141,11 +141,11 @@ select lives_ok(
     select public.save_meal_option_version_draft_atomic(
       '75000000-0000-0000-0000-000000000003',
       '74000000-0000-0000-0000-000000000002',
-      1,
-      1,
-      4,
-      20,
-      30,
+      1::integer,
+      1::integer,
+      4::numeric,
+      20::smallint,
+      30::smallint,
       jsonb_build_array(
         jsonb_build_object(
           'recipe_id', '72000000-0000-0000-0000-000000000001',
