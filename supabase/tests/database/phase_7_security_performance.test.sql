@@ -44,8 +44,8 @@ select is(
     'public.get_meal_option_aggregate_for_publication(uuid)',
     'EXECUTE'
   ),
-  true,
-  'authenticated can execute the RLS-protected meal-option aggregate helper'
+  false,
+  'authenticated cannot execute the draft-capable meal-option aggregate helper'
 );
 
 select is(
