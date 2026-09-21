@@ -137,7 +137,7 @@ select is(
 );
 
 select lives_ok(
-  $
+  $$
     select public.save_meal_option_version_draft_atomic(
       '75000000-0000-0000-0000-000000000003',
       '74000000-0000-0000-0000-000000000002',
@@ -176,12 +176,12 @@ select is(
 );
 
 select lives_ok(
-  $
+  $$
     select public.publish_meal_option_version(
       '75000000-0000-0000-0000-000000000003', repeat('d', 64),
       '71000000-0000-0000-0000-000000000001', 1
     )
-  $,
+  $$,
   'publication accepts sub-nanounit error from repeating-decimal yield scaling'
 );
 
