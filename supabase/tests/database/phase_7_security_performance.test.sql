@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(11);
 
 select is(
   (
@@ -69,6 +69,37 @@ select ok(
     )
   ),
   'narrow authenticated mutation RPCs remain security definer with fixed search paths'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from pg_proc as function
+    join pg_namespace as namespace on namespace.oid = function.pronamespace
+    where namespace.nspname = 'public'
+      and function.prosecdef
+      and has_function_privilege('authenticated', function.oid, 'EXECUTE')
+  ),
+  3,
+  'only three public security-definer functions are callable by authenticated users'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from pg_proc as function
+    join pg_namespace as namespace on namespace.oid = function.pronamespace
+    where namespace.nspname = 'public'
+      and function.prosecdef
+      and has_function_privilege('authenticated', function.oid, 'EXECUTE')
+      and function.oid in (
+        'public.upsert_pantry_item(uuid,uuid,uuid,uuid,numeric,integer)'::regprocedure,
+        'public.delete_pantry_item(uuid,integer)'::regprocedure,
+        'public.set_shopping_item_checked(uuid,boolean)'::regprocedure
+      )
+  ),
+  3,
+  'the authenticated security-definer allowlist contains only the three narrow mutation RPCs'
 );
 
 select is(
