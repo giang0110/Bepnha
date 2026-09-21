@@ -1,5 +1,7 @@
 begin;
 
+-- Regression contract for the production Supabase security-advisor hardening.
+
 create extension if not exists pgtap with schema extensions;
 
 select plan(13);
