@@ -311,7 +311,7 @@ select lives_ok(
   'normalized price book publishes atomically'
 );
 select throws_ok(
-  $ update public.food_prices set package_price_vnd = 1 where price_book_id = '58000000-0000-0000-0000-000000000001' $,
+  $$ update public.food_prices set package_price_vnd = 1 where price_book_id = '58000000-0000-0000-0000-000000000001' $$,
   null,
   null,
   'published prices remain immutable'
@@ -326,7 +326,7 @@ select
 from public.price_regions where code = 'vn_baseline';
 
 select throws_ok(
-  $
+  $$
     select public.save_price_book_draft_atomic(
       '58000000-0000-0000-0000-000000000002',
       1,
@@ -348,7 +348,7 @@ select throws_ok(
       ),
       '51000000-0000-0000-0000-000000000001'
     )
-  $,
+  $$,
   null,
   null,
   'invalid atomic price replacement is rejected'
@@ -365,7 +365,7 @@ select is(
 );
 
 select lives_ok(
-  $
+  $$
     select public.save_price_book_draft_atomic(
       '58000000-0000-0000-0000-000000000002',
       1,
@@ -387,7 +387,7 @@ select lives_ok(
       ),
       '51000000-0000-0000-0000-000000000001'
     )
-  $,
+  $$,
   'valid atomic price replacement succeeds'
 );
 select is(
