@@ -125,6 +125,10 @@ export function createMealOptionAdminHandler(dependencies: MealOptionAdminHandle
       response.status(415).json({ error: "UNSUPPORTED_MEDIA_TYPE" })
       return
     }
+    if (bodyIsTooLarge(request.body)) {
+      response.status(413).json({ error: "PAYLOAD_TOO_LARGE" })
+      return
+    }
     const accessToken = parseBearerToken(request.headers.authorization)
     if (accessToken === null) {
       response.status(401).json({ error: "UNAUTHORIZED" })
@@ -143,10 +147,6 @@ export function createMealOptionAdminHandler(dependencies: MealOptionAdminHandle
     }
     if (!identity.isAdmin) {
       response.status(403).json({ error: "ADMIN_REQUIRED" })
-      return
-    }
-    if (bodyIsTooLarge(request.body)) {
-      response.status(413).json({ error: "PAYLOAD_TOO_LARGE" })
       return
     }
     const parsed = command(request.body)
