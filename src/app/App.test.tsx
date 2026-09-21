@@ -69,18 +69,18 @@ const shoppingListRepository: ShoppingListRepository = {
 
 function createAuthPort(initialSession: AuthSession | null) {
   const unsubscribe = vi.fn<() => void>()
-  return {
-    unsubscribe,
-    port: {
-      getSession: vi.fn(() => Promise.resolve(initialSession)),
-      onAuthStateChange: vi.fn(() => unsubscribe),
-      signIn: vi.fn(),
-      signOut: vi.fn(),
-      signUp: vi.fn(),
-      requestPasswordReset: vi.fn(),
-      updatePassword: vi.fn()
-    }
+  const port: AuthSessionPort = {
+    getSession: vi.fn(() => Promise.resolve(initialSession)),
+    onAuthStateChange: () => () => {
+      unsubscribe()
+    },
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    signUp: vi.fn(),
+    requestPasswordReset: vi.fn(),
+    updatePassword: vi.fn()
   }
+  return { unsubscribe, port }
 }
 
 function renderRoutes(port: AuthSessionPort, initialEntry: string) {
