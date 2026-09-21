@@ -157,14 +157,29 @@ export function validateCatalogPackValue(value: unknown): CatalogPackValidationC
   }
 
   result.pack.priceBook.prices.forEach((price, priceIndex) => {
-    if (!ADDITIONAL_PLACEHOLDER_SOURCE.test(price.sourceReference)) return
+    const purchaseIncrement = parseCanonicalDecimal(price.purchaseIncrement, {
+      maxScale: 18,
+      maxIntegerDigits: 34,
+      allowNegative: false,
+      allowZero: false
+    })
+    if (!purchaseIncrement.ok || !purchaseIncrement.value.isInteger()) {
+      addErrorIfMissing(
+        diagnostics,
+        "INVALID_PRICE",
+        `$.priceBook.prices[${priceIndex}].purchaseIncrement`,
+        "Purchase increment must be a positive whole number of packages"
+      )
+    }
 
-    addErrorIfMissing(
-      diagnostics,
-      "INVALID_SOURCE_REFERENCE",
-      `$.priceBook.prices[${priceIndex}].sourceReference`,
-      "Price source reference must be concrete rather than a placeholder"
-    )
+    if (ADDITIONAL_PLACEHOLDER_SOURCE.test(price.sourceReference)) {
+      addErrorIfMissing(
+        diagnostics,
+        "INVALID_SOURCE_REFERENCE",
+        `$.priceBook.prices[${priceIndex}].sourceReference`,
+        "Price source reference must be concrete rather than a placeholder"
+      )
+    }
   })
 
   return { ...result, diagnostics, blockers: [...blockers] }
