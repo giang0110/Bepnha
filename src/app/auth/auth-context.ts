@@ -10,6 +10,7 @@ import type {
 export type AuthStatus = "authenticated" | "loading" | "signed-out"
 
 export interface AuthContextValue {
+  passwordRecoveryReady: boolean
   requestPasswordReset(email: string, redirectTo: string): Promise<PasswordResetRequestResult>
   session: AuthSession | null
   signIn(email: string, password: string): Promise<AuthOperationResult>
