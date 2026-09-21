@@ -103,7 +103,7 @@ describe("PantryPage", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent(/đang tải tủ bếp/i)
     expect(await screen.findByRole("heading", { name: "Tủ bếp" })).toBeInTheDocument()
-    expect(screen.getByRole("main")).toHaveClass("max-w-md")
+    expect(screen.getByRole("main")).toHaveClass("max-w-6xl")
     expect(screen.getByText(/tủ bếp đang trống/i)).toBeInTheDocument()
     expect(screen.getByRole("combobox", { name: "Thực phẩm" })).toBeInTheDocument()
     expect(screen.getByRole("combobox", { name: "Đơn vị" })).toBeInTheDocument()
