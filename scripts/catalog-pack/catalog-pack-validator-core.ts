@@ -900,7 +900,12 @@ function validateGraph(
         mealYield.ok &&
         recipeYield.ok &&
         multiplier.ok &&
-        recipeYield.value.mul(multiplier.value).minus(mealYield.value).abs().gt("0.000000001")
+        recipeYield.value
+          .toDecimalPlaces(3)
+          .mul(multiplier.value.toDecimalPlaces(6))
+          .minus(mealYield.value.toDecimalPlaces(3))
+          .abs()
+          .gt("0.00001")
       ) {
         addError(
           diagnostics,

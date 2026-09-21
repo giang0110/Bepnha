@@ -373,6 +373,15 @@ const graphCases: readonly GraphCase[] = [
     severity: "error"
   },
   {
+    name: "rejects material meal component yield mismatch",
+    mutate: (pack) => {
+      pack.mealOptions[0]!.version.components[0]!.quantityMultiplier = "0.9"
+    },
+    diagnosticCode: "MEAL_COMPONENT_YIELD_MISMATCH",
+    blocker: "CATALOG_LINEAGE_INCOMPLETE",
+    severity: "error"
+  },
+  {
     name: "rejects missing reachable food price",
     mutate: (pack) => {
       pack.priceBook.prices = pack.priceBook.prices.filter(
@@ -418,6 +427,22 @@ const graphCases: readonly GraphCase[] = [
 ]
 
 describe("validateCatalogPackValue graph and readiness", () => {
+  test("accepts yield drift caused only by NUMERIC(18,6) multiplier storage", () => {
+    const pack = structuredClone(buildReadyCatalogPack())
+    const recipe = pack.recipes[0]!
+    recipe.version.yieldAdultEquivalent = "3"
+    for (const meal of pack.mealOptions) {
+      for (const component of meal.version.components) {
+        if (component.recipeCode === recipe.code) component.quantityMultiplier = "0.3333334"
+      }
+    }
+
+    const result = validateCatalogPackValue(pack)
+    expect(result.diagnostics.map((item) => item.code)).not.toContain(
+      "MEAL_COMPONENT_YIELD_MISMATCH"
+    )
+  })
+
   test.each(graphCases)("$name", ({ mutate, diagnosticCode, blocker, severity }) => {
     const pack = structuredClone(buildReadyCatalogPack())
     mutate(pack)
