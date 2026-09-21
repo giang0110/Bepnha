@@ -40,10 +40,18 @@ function responseDouble() {
   return { result, response }
 }
 
-function request(method: string, authorization?: string, body?: unknown): VercelRequest {
+function request(
+  method: string,
+  authorization?: string,
+  body?: unknown,
+  contentType: string | null = "application/json"
+): VercelRequest {
   return {
     method,
-    headers: authorization === undefined ? {} : { authorization },
+    headers: {
+      ...(authorization === undefined ? {} : { authorization }),
+      ...(contentType === null ? {} : { "content-type": contentType })
+    },
     body
   } as VercelRequest
 }
@@ -73,6 +81,42 @@ describe("POST /api/admin/catalog", () => {
       expect(repositoryFor).not.toHaveBeenCalled()
     }
   )
+
+  test("rejects invalid media types and oversized bodies before authentication", async () => {
+    const verify = vi.fn()
+    const handler = createCatalogAdminHandler({
+      auth: { verify },
+      repositoryFor: vi.fn(),
+      hasher
+    })
+
+    const unsupported = responseDouble()
+    await handler(request("POST", "Bearer signed", {}, "text/plain"), unsupported.response)
+    expect(unsupported.result.status).toHaveBeenCalledWith(415)
+    expect(unsupported.result.body).toEqual({ error: "UNSUPPORTED_MEDIA_TYPE" })
+
+    const oversized = responseDouble()
+    await handler(
+      request("POST", "Bearer signed", { payload: "x".repeat(64_001) }),
+      oversized.response
+    )
+    expect(oversized.result.status).toHaveBeenCalledWith(413)
+    expect(oversized.result.body).toEqual({ error: "PAYLOAD_TOO_LARGE" })
+    expect(verify).not.toHaveBeenCalled()
+  })
+
+  test("applies API security headers to admin responses", async () => {
+    const handler = createCatalogAdminHandler({
+      auth: { verify: vi.fn() },
+      repositoryFor: vi.fn(),
+      hasher
+    })
+    const { result, response } = responseDouble()
+    await handler(request("GET"), response)
+
+    expect(result.setHeader).toHaveBeenCalledWith("Cache-Control", "no-store")
+    expect(result.setHeader).toHaveBeenCalledWith("X-Frame-Options", "DENY")
+  })
 
   test("executes an allowlisted command with the verified actor repository", async () => {
     const adminRepository = repository()
