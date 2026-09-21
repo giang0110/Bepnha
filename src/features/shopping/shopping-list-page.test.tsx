@@ -123,7 +123,7 @@ describe("ShoppingListPage", () => {
     renderPage(repo)
 
     expect(await screen.findByRole("heading", { name: "Đi chợ" })).toBeInTheDocument()
-    expect(screen.getByRole("main")).toHaveClass("max-w-md")
+    expect(screen.getByRole("main")).toHaveClass("max-w-6xl")
     expect(screen.queryByRole("table")).not.toBeInTheDocument()
     const groups = screen.getAllByTestId("shopping-category")
     expect(
