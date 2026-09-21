@@ -31,7 +31,7 @@ language sql
 stable
 security invoker
 set search_path = ''
-as $
+as $fn$
   select jsonb_build_object(
     'mealOption', jsonb_build_object(
       'mealOptionId', identity.id,
@@ -88,7 +88,7 @@ as $
   where version.id = p_meal_option_version_id
     and version.publication_status = 'published'
     and identity.status in ('published', 'retired');
-$;
+$fn$;
 
 revoke all on function public.get_published_meal_option_calculation_input(uuid)
 from public, anon, authenticated;
