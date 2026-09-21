@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 
+import { applyApiSecurityHeaders } from "../src/infrastructure/server/security-headers.js"
 import {
   createServerSupabaseAuthVerifier,
   parseBearerToken,
@@ -8,6 +9,8 @@ import {
 
 export function createMeHandler(verifier: ServerAuthVerifier) {
   return async function handler(request: VercelRequest, response: VercelResponse): Promise<void> {
+    applyApiSecurityHeaders(response)
+
     if (request.method !== "GET") {
       response.setHeader("Allow", "GET")
       response.status(405).json({ error: "METHOD_NOT_ALLOWED" })
