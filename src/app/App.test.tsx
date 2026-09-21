@@ -131,10 +131,11 @@ describe("authenticated app shell", () => {
           resolveRestore = resolve
         })
     )
-    auth.port.onAuthStateChange = vi.fn((nextListener) => {
+    const onAuthStateChange: AuthSessionPort["onAuthStateChange"] = (nextListener) => {
       listener = nextListener
       return auth.unsubscribe
-    })
+    }
+    auth.port.onAuthStateChange = vi.fn(onAuthStateChange)
 
     renderRoutes(auth.port, "/onboarding")
 
