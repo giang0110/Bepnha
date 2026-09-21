@@ -1,5 +1,6 @@
 -- Make price-book draft replacement atomic.
 -- Synced after P10.1 security hardening merged into main.
+-- Canonical CI trigger: clean recovery branch built from current main.
 --
 -- The previous repository implementation updated the price-book parent, deleted old rows, then
 -- inserted replacement prices through separate PostgREST requests. A rejected price row could
