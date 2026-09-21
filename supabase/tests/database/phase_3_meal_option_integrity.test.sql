@@ -143,14 +143,14 @@ select lives_ok(
       '74000000-0000-0000-0000-000000000002',
       1::integer,
       1::integer,
-      3::numeric,
+      1.333333::numeric,
       20::smallint,
       30::smallint,
       jsonb_build_array(
         jsonb_build_object(
           'recipe_id', '72000000-0000-0000-0000-000000000001',
           'recipe_version_id', '73000000-0000-0000-0000-000000000001',
-          'quantity_multiplier', 0.7500000001,
+          'quantity_multiplier', 0.3333334,
           'meal_role', 'main',
           'sort_order', 1
         )
@@ -182,7 +182,7 @@ select lives_ok(
       '71000000-0000-0000-0000-000000000001', 1
     )
   $$,
-  'publication accepts sub-nanounit error from repeating-decimal yield scaling'
+  'publication accepts yield drift caused by six-decimal multiplier storage'
 );
 
 insert into public.meal_option_versions (
