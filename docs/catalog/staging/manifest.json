@@ -64,8 +64,8 @@
     },
     {
       "file": "prices.csv",
-      "sha256": "8c589d0f25adcdf398f80464f9b31a4a4b3aceebfee82ffee6067bab3a175660",
-      "bytes": 4634
+      "sha256": "7cd8fe53f694c144447ad67f78aa2c4ac39a0064b19bb9c72d625cc3d1acfc0a",
+      "bytes": 4585
     },
     {
       "file": "recipe_ingredients.csv",
