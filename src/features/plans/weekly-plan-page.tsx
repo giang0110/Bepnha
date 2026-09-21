@@ -332,7 +332,10 @@ export function WeeklyPlanPage({
             </Fragment>
           )}
 
-          <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Bảy bữa chính trong tuần">
+          <ol
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+            aria-label="Bảy bữa chính trong tuần"
+          >
             {[...state.value.plan.items]
               .sort((left, right) => left.dayIndex - right.dayIndex)
               .map((item) => (
