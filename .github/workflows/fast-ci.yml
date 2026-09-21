@@ -23,3 +23,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify:web
+      - run: npm run catalog:sheet -- import --dir docs/catalog/staging --out "$RUNNER_TEMP/catalog-pack.json"
+      - run: npm run catalog:validate -- --input "$RUNNER_TEMP/catalog-pack.json"
+      - run: npm run catalog:audit -- docs/catalog/staging

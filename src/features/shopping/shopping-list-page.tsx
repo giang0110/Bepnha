@@ -313,9 +313,16 @@ export function ShoppingListPage({ repository }: Props) {
 
   const staleCopy = state.status === "ready" ? staleWarningCopy(state.value) : null
   const alertCopy = mutationError ?? staleCopy
+  const shoppingProgress =
+    state.status === "ready"
+      ? {
+          checked: state.value.items.filter((item) => item.checked).length,
+          total: state.value.items.length
+        }
+      : null
 
   return (
-    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-stone-50 px-4 py-6 text-slate-950">
+    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-slate-950 sm:px-6 lg:px-8 lg:py-8">
       <header className="grid gap-2">
         <p className="text-sm font-medium text-emerald-700">Bếp Nhà</p>
         <h1 className="text-2xl font-semibold">Đi chợ</h1>
@@ -356,6 +363,22 @@ export function ShoppingListPage({ repository }: Props) {
             ) : (
               <p className="mt-1 text-sm text-emerald-800">Trong ngân sách dự kiến.</p>
             )}
+            {shoppingProgress === null ? null : (
+              <div className="mt-4">
+                <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                  <span>Tiến độ mua sắm</span>
+                  <span className="font-medium">
+                    {shoppingProgress.checked}/{shoppingProgress.total} món
+                  </span>
+                </div>
+                <progress
+                  aria-label="Tiến độ mua sắm"
+                  className="h-2 w-full accent-emerald-700"
+                  max={Math.max(1, shoppingProgress.total)}
+                  value={shoppingProgress.checked}
+                />
+              </div>
+            )}
           </section>
 
           {alertCopy === null ? null : (
@@ -367,7 +390,7 @@ export function ShoppingListPage({ repository }: Props) {
             </p>
           )}
 
-          <div className="grid gap-5">
+          <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
             {groups.map(({ category, items }) => (
               <CategorySection
                 category={category}

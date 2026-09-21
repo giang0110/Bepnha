@@ -16,11 +16,19 @@ function responseDouble() {
   return { state, response }
 }
 
-function request(method: string, body: unknown, authorization = "Bearer signed"): VercelRequest {
+function request(
+  method: string,
+  body: unknown,
+  authorization = "Bearer signed",
+  contentType: string | null = "application/json"
+): VercelRequest {
   return {
     method,
     body,
-    headers: { authorization, "content-type": "application/json" }
+    headers: {
+      authorization,
+      ...(contentType === null ? {} : { "content-type": contentType })
+    }
   } as VercelRequest
 }
 
@@ -58,6 +66,39 @@ describe("POST /api/admin/meal-options", () => {
       expect(state.body).toEqual({ error })
     }
   )
+
+  test("rejects invalid media types and oversized UTF-8 bodies before authentication", async () => {
+    const verify = vi.fn()
+    const handler = createMealOptionAdminHandler({
+      auth: { verify },
+      repositoryFor: vi.fn(),
+      hasher: { sha256: vi.fn() }
+    })
+
+    const unsupported = responseDouble()
+    await handler(request("POST", {}, "Bearer signed", "text/plain"), unsupported.response)
+    expect(unsupported.state.status).toHaveBeenCalledWith(415)
+    expect(unsupported.state.body).toEqual({ error: "UNSUPPORTED_MEDIA_TYPE" })
+
+    const oversized = responseDouble()
+    await handler(request("POST", { payload: "ộ".repeat(64_001) }), oversized.response)
+    expect(oversized.state.status).toHaveBeenCalledWith(413)
+    expect(oversized.state.body).toEqual({ error: "PAYLOAD_TOO_LARGE" })
+    expect(verify).not.toHaveBeenCalled()
+  })
+
+  test("applies API security headers to admin responses", async () => {
+    const handler = createMealOptionAdminHandler({
+      auth: { verify: vi.fn() },
+      repositoryFor: vi.fn(),
+      hasher: { sha256: vi.fn() }
+    })
+    const { state, response } = responseDouble()
+    await handler(request("GET", {}), response)
+
+    expect(state.setHeader).toHaveBeenCalledWith("Cache-Control", "no-store")
+    expect(state.setHeader).toHaveBeenCalledWith("X-Frame-Options", "DENY")
+  })
 
   test("accepts only the closed create command and uses the verified actor", async () => {
     const repo = repository()

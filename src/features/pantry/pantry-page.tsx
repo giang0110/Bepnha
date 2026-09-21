@@ -153,6 +153,7 @@ export function PantryPage({
   const [selectedFoodId, setSelectedFoodId] = useState("")
   const [selectedUnitId, setSelectedUnitId] = useState("")
   const [newQuantity, setNewQuantity] = useState("0")
+  const [searchQuery, setSearchQuery] = useState("")
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -205,8 +206,21 @@ export function PantryPage({
   const availableOptions = useMemo(() => {
     if (state.status !== "ready") return []
     const existingFoodIds = new Set(state.items.map((item) => item.foodId))
-    return state.options.filter((option) => !existingFoodIds.has(option.foodId))
-  }, [state])
+    const query = searchQuery
+      .trim()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase()
+    return state.options.filter((option) => {
+      if (existingFoodIds.has(option.foodId)) return false
+      if (query === "") return true
+      const name = option.foodNameVi
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .toLowerCase()
+      return name.includes(query)
+    })
+  }, [searchQuery, state])
 
   async function reloadAfterConflict(householdId: string, options: readonly PantryFoodOption[]) {
     try {
@@ -302,6 +316,7 @@ export function PantryPage({
       setSelectedFoodId("")
       setSelectedUnitId("")
       setNewQuantity("0")
+      setSearchQuery("")
     } catch (error: unknown) {
       if (error instanceof PantryRepositoryError && error.code === "VERSION_CONFLICT") {
         await reloadAfterConflict(state.householdId, state.options)
@@ -315,14 +330,14 @@ export function PantryPage({
 
   if (state.status === "loading") {
     return (
-      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-stone-50 px-4 py-6 text-slate-950">
+      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-slate-950 sm:px-6 lg:px-8 lg:py-8">
         <p role="status">Đang tải tủ bếp…</p>
       </AppPageShell>
     )
   }
 
   return (
-    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-stone-50 px-4 py-6 text-slate-950">
+    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-slate-950 sm:px-6 lg:px-8 lg:py-8">
       <header className="grid gap-2">
         <p className="text-sm font-medium text-emerald-700">Bếp Nhà</p>
         <h1 className="text-2xl font-semibold">Tủ bếp</h1>
@@ -352,6 +367,18 @@ export function PantryPage({
           <section className="rounded-xl bg-white p-4 shadow-sm" aria-label="Thêm thực phẩm">
             <h2 className="font-semibold">Thêm thực phẩm</h2>
             <div className="mt-3 grid gap-3">
+              <label className="grid gap-1 text-sm font-medium">
+                <span>Tìm thực phẩm</span>
+                <input
+                  aria-label="Tìm thực phẩm"
+                  className="min-h-11 rounded-lg border border-stone-300 bg-white px-3"
+                  disabled={pendingKey !== null}
+                  placeholder="Ví dụ: thịt, rau, gạo…"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.currentTarget.value)}
+                />
+              </label>
               <label className="grid gap-1 text-sm font-medium">
                 <span>Thực phẩm</span>
                 <select
@@ -426,7 +453,7 @@ export function PantryPage({
               làm tròn gói mua.
             </p>
           ) : (
-            <ul className="grid gap-3" aria-label="Thực phẩm đang có">
+            <ul className="grid gap-3 md:grid-cols-2" aria-label="Thực phẩm đang có">
               {state.items.map((item) => {
                 const option = state.options.find((candidate) => candidate.foodId === item.foodId)
                 if (option === undefined) return null

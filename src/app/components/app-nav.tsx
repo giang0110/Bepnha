@@ -1,35 +1,71 @@
 import { NavLink } from "react-router"
 
-/**
- * Primary navigation for signed-in routes. Rendered after the skip link so keyboard users can jump
- * past it, and wrapped so four labels still fit the 320 px viewport the accessibility suite checks
- * without introducing horizontal overflow.
- *
- * The shopping list is intentionally absent: it is addressed by plan id, so there is no stable route
- * to link to from here.
- */
 const links = [
-  { to: "/household", label: "Gia đình" },
-  { to: "/plan", label: "Kế hoạch" },
-  { to: "/pantry", label: "Tủ bếp" },
-  { to: "/settings/account", label: "Tài khoản" }
+  { to: "/household", label: "Gia đình", shortLabel: "Nhà" },
+  { to: "/plan", label: "Kế hoạch", shortLabel: "Kế hoạch" },
+  { to: "/pantry", label: "Tủ bếp", shortLabel: "Tủ bếp" },
+  { to: "/settings/account", label: "Tài khoản", shortLabel: "Tài khoản" }
 ] as const
 
+function NavGlyph({ index }: Readonly<{ index: number }>) {
+  const paths = [
+    "M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10.5Z",
+    "M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Zm2 4h10M7 12h4m-4 4h7",
+    "M4 7h16l-1.5 13h-13L4 7Zm3-3h10l1 3H6l1-3Z",
+    "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0"
+  ] as const
+
+  return (
+    <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 24 24">
+      <path
+        d={paths[index] ?? paths[0]}
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  )
+}
+
+/**
+ * Mobile uses a persistent bottom bar; desktop turns the same landmark into a calm left rail.
+ * The route order is stable because accessibility and navigation tests intentionally pin it.
+ */
 export function AppNav() {
   return (
-    <nav aria-label="Điều hướng chính" className="border-b bg-white">
-      <ul className="mx-auto flex w-full max-w-md flex-wrap gap-x-4 gap-y-1 px-4 py-3 text-sm">
-        {links.map((link) => (
+    <nav
+      aria-label="Điều hướng chính"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-stone-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-t-0 lg:shadow-none"
+    >
+      <div className="hidden px-5 pb-5 pt-7 lg:block">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+          Bếp Nhà
+        </p>
+        <p className="mt-2 text-lg font-semibold text-slate-950">Bữa cơm gọn hơn mỗi tuần</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          Kế hoạch, tủ bếp và danh sách đi chợ trong cùng một nơi.
+        </p>
+      </div>
+
+      <ul className="grid grid-cols-4 gap-1 px-2 py-2 lg:grid-cols-1 lg:gap-1 lg:px-3 lg:py-1">
+        {links.map((link, index) => (
           <li key={link.to}>
             <NavLink
               to={link.to}
               className={({ isActive }) =>
-                isActive
-                  ? "font-semibold text-slate-950 underline"
-                  : "text-slate-700 underline-offset-4 hover:underline"
+                [
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 text-[11px] font-medium transition-colors sm:text-xs",
+                  "lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:px-3 lg:text-sm",
+                  isActive
+                    ? "bg-emerald-50 text-emerald-900 ring-1 ring-inset ring-emerald-100"
+                    : "text-slate-600 hover:bg-stone-100 hover:text-slate-950"
+                ].join(" ")
               }
             >
-              {link.label}
+              <NavGlyph index={index} />
+              <span className="lg:hidden">{link.shortLabel}</span>
+              <span className="hidden lg:inline">{link.label}</span>
             </NavLink>
           </li>
         ))}

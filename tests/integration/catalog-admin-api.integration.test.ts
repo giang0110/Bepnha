@@ -77,7 +77,10 @@ async function command(body: unknown) {
   await handler(
     {
       method: "POST",
-      headers: { authorization: `Bearer ${token}` },
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json"
+      },
       body
     } as VercelRequest,
     response

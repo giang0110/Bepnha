@@ -1,11 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  font-family: system-ui, sans-serif;
+  font-family:
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  color: #0f172a;
+  background: #fafaf9;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  background: #fafaf9;
 }
 
 body {
   margin: 0;
+  min-height: 100vh;
+  background: #fafaf9;
 }
 
 html,
@@ -16,6 +31,18 @@ body,
 
 body {
   overflow-wrap: anywhere;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: #d1fae5;
+  color: #064e3b;
 }
 
 :where(a, button, input, select, textarea, summary):focus-visible {

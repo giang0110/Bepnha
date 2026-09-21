@@ -6,6 +6,7 @@ import type { CatalogAdminRepository } from "../../src/application/catalog/catal
 import { executeCatalogAdminCommand } from "../../src/application/catalog/execute-catalog-admin-command.js"
 import type { ContentHasher } from "../../src/application/shared/content-hasher.js"
 import { NodeContentHasher } from "../../src/infrastructure/server/node-content-hasher.js"
+import { applyApiSecurityHeaders } from "../../src/infrastructure/server/security-headers.js"
 import { createSupabaseCatalogAdminRepository } from "../../src/infrastructure/server/supabase-catalog-admin-repository.js"
 import type { Database } from "../../src/infrastructure/supabase/database.types.js"
 import {
@@ -21,6 +22,8 @@ interface CatalogAdminHandlerDependencies {
 }
 
 type UnknownRecord = Record<string, unknown>
+
+const MAX_BODY_BYTES = 64_000
 
 const inputKeys = {
   create_food: ["code", "nameVi", "baseDimension", "baseUnitId"],
@@ -69,6 +72,14 @@ const inputKeys = {
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function bodyIsTooLarge(body: unknown): boolean {
+  try {
+    return Buffer.byteLength(JSON.stringify(body) ?? "", "utf8") > MAX_BODY_BYTES
+  } catch {
+    return true
+  }
 }
 
 function hasExactKeys(value: UnknownRecord, expected: readonly string[]): boolean {
@@ -202,9 +213,18 @@ function statusFor(reason: string): number {
 
 export function createCatalogAdminHandler(dependencies: CatalogAdminHandlerDependencies) {
   return async function handler(request: VercelRequest, response: VercelResponse): Promise<void> {
+    applyApiSecurityHeaders(response)
     if (request.method !== "POST") {
       response.setHeader("Allow", "POST")
       response.status(405).json({ error: "METHOD_NOT_ALLOWED" })
+      return
+    }
+    if (request.headers["content-type"]?.split(";", 1)[0]?.trim() !== "application/json") {
+      response.status(415).json({ error: "UNSUPPORTED_MEDIA_TYPE" })
+      return
+    }
+    if (bodyIsTooLarge(request.body)) {
+      response.status(413).json({ error: "PAYLOAD_TOO_LARGE" })
       return
     }
     const accessToken = parseBearerToken(request.headers.authorization)
