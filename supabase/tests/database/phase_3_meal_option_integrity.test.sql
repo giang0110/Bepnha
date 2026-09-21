@@ -97,6 +97,84 @@ select throws_ok(
   'published curated composition is immutable'
 );
 
+insert into public.meal_options (id, code, name_vi)
+values ('74000000-0000-0000-0000-000000000002', 'phase3_atomic_meal', 'Bữa atomic');
+
+select throws_ok(
+  $
+    select public.save_meal_option_version_draft_atomic(
+      '75000000-0000-0000-0000-000000000003',
+      '74000000-0000-0000-0000-000000000002',
+      1,
+      1,
+      4,
+      20,
+      30,
+      jsonb_build_array(
+        jsonb_build_object(
+          'recipe_id', '72000000-0000-0000-0000-000000000001',
+          'recipe_version_id', '73000000-0000-0000-0000-000000000099',
+          'quantity_multiplier', 1,
+          'meal_role', 'main',
+          'sort_order', 1
+        )
+      ),
+      array[
+        (select id from public.recipe_tags where code = 'protein_poultry'),
+        (select id from public.recipe_tags where code = 'style_braise')
+      ],
+      '71000000-0000-0000-0000-000000000001'
+    )
+  $,
+  null,
+  null,
+  'invalid atomic meal-option draft is rejected'
+);
+select is(
+  (select count(*)::integer from public.meal_option_versions where id = '75000000-0000-0000-0000-000000000003'),
+  0,
+  'failed atomic meal-option draft rolls back the parent version'
+);
+
+select lives_ok(
+  $
+    select public.save_meal_option_version_draft_atomic(
+      '75000000-0000-0000-0000-000000000003',
+      '74000000-0000-0000-0000-000000000002',
+      1,
+      1,
+      4,
+      20,
+      30,
+      jsonb_build_array(
+        jsonb_build_object(
+          'recipe_id', '72000000-0000-0000-0000-000000000001',
+          'recipe_version_id', '73000000-0000-0000-0000-000000000001',
+          'quantity_multiplier', 1,
+          'meal_role', 'main',
+          'sort_order', 1
+        )
+      ),
+      array[
+        (select id from public.recipe_tags where code = 'protein_poultry'),
+        (select id from public.recipe_tags where code = 'style_braise')
+      ],
+      '71000000-0000-0000-0000-000000000001'
+    )
+  $,
+  'valid atomic meal-option draft commits parent and children'
+);
+select is(
+  (select count(*)::integer from public.meal_option_recipes where meal_option_version_id = '75000000-0000-0000-0000-000000000003'),
+  1,
+  'atomic meal-option draft commits its component'
+);
+select is(
+  (select count(*)::integer from public.meal_option_version_tags where meal_option_version_id = '75000000-0000-0000-0000-000000000003'),
+  2,
+  'atomic meal-option draft commits all tags'
+);
+
 insert into public.meal_option_versions (
   id, meal_option_id, version_number, yield_adult_equivalent, active_minutes,
   elapsed_minutes, created_by
