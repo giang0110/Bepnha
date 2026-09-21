@@ -98,9 +98,7 @@ export function createSupabaseMealOptionAdminRepository(
         p_tag_ids: [...input.tagIds],
         p_actor_user_id: actorUserId
       })
-      return error === null
-        ? result(data, input.mealOptionVersionId, "draft")
-        : failure(error)
+      return error === null ? result(data, input.mealOptionVersionId, "draft") : failure(error)
     },
     async loadPublicationAggregate(id) {
       const { data, error } = await client.rpc("get_meal_option_aggregate_for_publication", {
