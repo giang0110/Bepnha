@@ -2111,6 +2111,37 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      save_price_book_draft_atomic: {
+        Args: {
+          p_actor_user_id: string
+          p_effective_from: string
+          p_effective_to: string | null
+          p_expected_revision: number
+          p_price_book_id: string
+          p_prices: Json
+        }
+        Returns: {
+          content_hash: string | null
+          created_at: string
+          created_by: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          publication_status: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at: string | null
+          region_id: string
+          retired_at: string | null
+          revision: number
+          updated_at: string
+          version_number: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "price_books"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_shopping_item_checked: {
         Args: { p_checked: boolean; p_shopping_list_item_id: string }
         Returns: Json
