@@ -34,20 +34,14 @@ const MEAL_OPTION_KINDS = new Set<CatalogMutationPlanOperationV1["kind"]>([
   "publish_meal_option"
 ])
 
-function endpointForOperation(
-  endpoint: string,
-  operation: CatalogMutationPlanOperationV1
-): string {
+function endpointForOperation(endpoint: string, operation: CatalogMutationPlanOperationV1): string {
   if (!MEAL_OPTION_KINDS.has(operation.kind)) return endpoint
 
   const url = new URL(endpoint)
   if (!url.pathname.endsWith("/api/admin/catalog")) {
     throw new Error("BEPNHA_ADMIN_ENDPOINT must end with /api/admin/catalog")
   }
-  url.pathname = url.pathname.replace(
-    /\/api\/admin\/catalog$/u,
-    "/api/admin/meal-options"
-  )
+  url.pathname = url.pathname.replace(/\/api\/admin\/catalog$/u, "/api/admin/meal-options")
   return url.toString()
 }
 
