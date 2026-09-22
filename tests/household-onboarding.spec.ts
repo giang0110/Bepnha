@@ -105,7 +105,7 @@ test("mobile household onboarding and settings persist through local Supabase Au
       logoutResponse.ok() &&
       request.method === "POST" &&
       requestUrl.pathname === "/auth/v1/logout" &&
-      requestUrl.searchParams.get("scope") === "global" &&
+      requestUrl.searchParams.get("scope") === "local" &&
       request.errorText === "net::ERR_ABORTED"
     )
   })
