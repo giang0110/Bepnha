@@ -65,14 +65,17 @@ describe("account API", () => {
     [409, { error: "unexpected-conflict" }],
     [503, { error: "ACCOUNT_DELETE_UNAVAILABLE" }],
     [500, null]
-  ])("collapses provider/server failure %s to a retryable account failure", async (status, payload) => {
-    const api = createAccountApi(vi.fn(() => Promise.resolve(response(status, payload))))
+  ])(
+    "collapses provider/server failure %s to a retryable account failure",
+    async (status, payload) => {
+      const api = createAccountApi(vi.fn(() => Promise.resolve(response(status, payload))))
 
-    await expect(api.deleteOwnAccount("owner-token")).resolves.toEqual({
-      ok: false,
-      reason: "ACCOUNT_DELETE_UNAVAILABLE"
-    })
-  })
+      await expect(api.deleteOwnAccount("owner-token")).resolves.toEqual({
+        ok: false,
+        reason: "ACCOUNT_DELETE_UNAVAILABLE"
+      })
+    }
+  )
 
   test("treats malformed JSON error responses as retryable", async () => {
     const badResponse = {
