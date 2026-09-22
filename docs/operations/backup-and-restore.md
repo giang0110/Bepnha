@@ -95,17 +95,32 @@ hồi.
 npx supabase start
 
 # một database mới, tách khỏi database dev cục bộ để không ghi đè lên nó
-docker exec -i supabase_db_bepnha-local psql -U postgres `
+docker exec supabase_db_bepnha-local psql -U postgres `
   -c "drop database if exists restore_drill" -c "create database restore_drill"
 
-# schema trước
-Get-Content "$bk/schema.sql" -Raw |
-  docker exec -i supabase_db_bepnha-local psql -U postgres -d restore_drill -v ON_ERROR_STOP=1 -q
+# chép hai tệp vào trong container, rồi để psql tự đọc
+docker cp "$bk/schema.sql" supabase_db_bepnha-local:/tmp/schema.sql
+docker cp "$bk/data.sql"   supabase_db_bepnha-local:/tmp/data.sql
 
-# rồi dữ liệu, VỚI dòng tắt trigger ở ngay đầu cùng phiên
-"set session_replication_role = replica;`n" + (Get-Content "$bk/data.sql" -Raw) |
-  docker exec -i supabase_db_bepnha-local psql -U postgres -d restore_drill -v ON_ERROR_STOP=1 -q
+# schema trước
+docker exec supabase_db_bepnha-local psql -U postgres -d restore_drill `
+  -v ON_ERROR_STOP=1 -q -f /tmp/schema.sql
+
+# rồi dữ liệu, với lệnh tắt trigger đứng trước -f trong CÙNG lần gọi psql
+docker exec supabase_db_bepnha-local psql -U postgres -d restore_drill `
+  -v ON_ERROR_STOP=1 -q `
+  -c "set session_replication_role = replica" -f /tmp/data.sql
 ```
+
+**Đừng đổ tệp qua pipeline của PowerShell** (`Get-Content ... | docker exec -i ...`). Windows
+PowerShell 5.1 mặc định `$OutputEncoding` là ASCII, nên mọi ký tự tiếng Việt trong `name_vi`,
+`provenance` và `source_reference` sẽ bị thay bằng `?` trên đường đi. Bước đối chiếu bên dưới đếm số
+hàng nên **vẫn khớp**, và bản phục hồi trông như đạt trong khi chữ đã hỏng. `docker cp` chép nguyên
+byte nên không có chuyện đó.
+
+`psql` xử lý `-c` và `-f` theo đúng thứ tự viết ra, trong **một** phiên duy nhất — nên
+`set session_replication_role` đặt trước `-f` là có hiệu lực cho cả lần nạp. Tách thành hai lần gọi
+`docker exec` thì vô nghĩa, vì phiên thứ nhất đã đóng.
 
 `roles.sql` không nạp ở đây: các vai trò đã có sẵn trong Postgres cục bộ. Nó chỉ dùng khi phục hồi
 thật vào một project hoàn toàn mới.
@@ -113,7 +128,7 @@ thật vào một project hoàn toàn mới.
 ## Bước 3 — Đối chiếu, đừng tin là xong
 
 ```powershell
-docker exec -i supabase_db_bepnha-local psql -U postgres -d restore_drill -c @"
+docker exec supabase_db_bepnha-local psql -U postgres -d restore_drill -c @"
 select 'food_fact'   as bang, count(*) from public.food_fact_versions
 union all select 'recipe_version',  count(*) from public.recipe_versions
 union all select 'meal_option_ver', count(*) from public.meal_option_versions
@@ -127,10 +142,22 @@ union all select 'audit_log',       count(*) from public.admin_audit_log;
 So với cùng truy vấn chạy trên production. **Mọi số phải khớp.** Lệch một hàng nghĩa là bản sao lưu
 không dùng được, và phải tìm ra vì sao trước khi coi bước này là xong.
 
+Đếm số hàng không đủ. Một bản phục hồi hỏng mã ký tự vẫn đúng số hàng, chỉ là chữ biến thành `?`.
+Nhìn tận mắt vài dòng có dấu:
+
+```powershell
+docker exec supabase_db_bepnha-local psql -U postgres -d restore_drill -c @"
+select code, name_vi from public.recipe_tags where tag_kind = 'protein_hint' order by code limit 5;
+"@
+```
+
+Phải đọc được `Bò`, `Trứng`, `Cá`, `Đạm thực vật` — có dấu đầy đủ. Thấy `B?`, `Tr?ng` hay ô vuông
+nghĩa là tệp đã bị mã hoá lại trên đường vào container; xem lại cảnh báo ở Bước 2.
+
 Dọn dẹp:
 
 ```powershell
-docker exec -i supabase_db_bepnha-local psql -U postgres -c "drop database restore_drill"
+docker exec supabase_db_bepnha-local psql -U postgres -c "drop database restore_drill"
 ```
 
 ## Bước 4 — Cất giữ
