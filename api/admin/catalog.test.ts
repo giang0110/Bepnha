@@ -260,4 +260,59 @@ describe("POST /api/admin/catalog", () => {
     expect(result.body).toEqual({ error: "CATALOG_UNAVAILABLE" })
     expect(JSON.stringify(result.body)).not.toMatch(/secret|sql|token|supabase/i)
   })
+
+  test("passes the refusing rule's name to the caller alongside the code", async () => {
+    const adminRepository = repository({
+      createFood: vi.fn().mockResolvedValue({
+        ok: false,
+        reason: "VALIDATION_FAILED",
+        detail: "PRICE_REQUIRES_PUBLISHED_FACT_CONVERSION"
+      })
+    })
+    const handler = createCatalogAdminHandler({
+      auth: { verify: vi.fn().mockResolvedValue({ userId: "admin", isAdmin: true }) },
+      repositoryFor: vi.fn(() => adminRepository),
+      hasher
+    })
+    const { result, response } = responseDouble()
+
+    await handler(
+      request("POST", "Bearer signed", {
+        action: "create_food",
+        input: { code: "gao", nameVi: "Gạo", baseDimension: "mass", baseUnitId: "unit-g" }
+      }),
+      response
+    )
+
+    expect(result.status).toHaveBeenCalledWith(400)
+    expect(result.body).toEqual({
+      error: "VALIDATION_FAILED",
+      detail: "PRICE_REQUIRES_PUBLISHED_FACT_CONVERSION"
+    })
+  })
+
+  test("keeps a detail out of a 503, where nothing schema-shaped is on offer", async () => {
+    const adminRepository = repository({
+      createFood: vi
+        .fn()
+        .mockResolvedValue({ ok: false, reason: "DEPENDENCY_UNAVAILABLE", detail: "whatever" })
+    })
+    const handler = createCatalogAdminHandler({
+      auth: { verify: vi.fn().mockResolvedValue({ userId: "admin", isAdmin: true }) },
+      repositoryFor: vi.fn(() => adminRepository),
+      hasher
+    })
+    const { result, response } = responseDouble()
+
+    await handler(
+      request("POST", "Bearer signed", {
+        action: "create_food",
+        input: { code: "gao", nameVi: "Gạo", baseDimension: "mass", baseUnitId: "unit-g" }
+      }),
+      response
+    )
+
+    expect(result.status).toHaveBeenCalledWith(503)
+    expect(result.body).toEqual({ error: "CATALOG_UNAVAILABLE" })
+  })
 })

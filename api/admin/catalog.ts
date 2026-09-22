@@ -260,8 +260,11 @@ export function createCatalogAdminHandler(dependencies: CatalogAdminHandlerDepen
       )
       if (!result.ok) {
         const status = statusFor(result.reason)
+        // `detail` names the schema rule that refused. It is withheld from 503s: those are transport
+        // or availability failures, where the repository has nothing schema-shaped to report anyway.
         response.status(status).json({
-          error: status === 503 ? "CATALOG_UNAVAILABLE" : result.reason
+          error: status === 503 ? "CATALOG_UNAVAILABLE" : result.reason,
+          ...(status !== 503 && result.detail !== undefined ? { detail: result.detail } : {})
         })
         return
       }
