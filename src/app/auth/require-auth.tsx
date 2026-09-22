@@ -18,7 +18,8 @@ export function RequireAuth() {
     )
   }
   if (auth.status === "signed-out") {
-    return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />
+    const from = `${location.pathname}${location.search}${location.hash}`
+    return <Navigate to="/sign-in" replace state={{ from }} />
   }
   return (
     <>
