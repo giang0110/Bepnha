@@ -31,17 +31,57 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function failure(error: DbError | null): { ok: false; reason: CatalogAdminFailureReason } {
+/** Every rule this schema raises itself is a bare screaming-snake name and nothing else. */
+const SCHEMA_ERROR_NAME = /^[A-Z][A-Z0-9_]{2,62}$/u
+
+/** Postgres names the constraint it enforced, in its own phrasing, as a quoted identifier. */
+const CONSTRAINT_NAME =
+  /violates (?:unique|foreign key|check|exclusion) constraint "([a-z][a-z0-9_]{2,62})"/u
+
+/**
+ * Names the rule that refused, without repeating anything the database said in prose.
+ *
+ * A driver failure carries whatever the connection layer felt like including — a host, a port, a
+ * token in a URL — so passing `error.message` through would turn every transport hiccup into a
+ * disclosure. Both patterns here are shapes the schema controls: a raised name is always a bare
+ * uppercase token, and a constraint identifier is always lowercase and lives in a migration under
+ * version control. Anything else yields nothing, and the caller still gets `reason`.
+ */
+function detailFrom(error: DbError | null): string | undefined {
+  const message = error?.message?.trim()
+  if (message === undefined || message === "") return undefined
+  if (SCHEMA_ERROR_NAME.test(message)) return message
+  return CONSTRAINT_NAME.exec(message)?.[1]
+}
+
+function failure(error: DbError | null): {
+  ok: false
+  reason: CatalogAdminFailureReason
+  detail?: string
+} {
+  const detail = detailFrom(error)
+  const refuse = (reason: CatalogAdminFailureReason) =>
+    detail === undefined
+      ? ({ ok: false, reason } as const)
+      : ({ ok: false, reason, detail } as const)
+
   if (error?.code === "P0001" && error.message?.includes("STALE_CATALOG_REVISION") === true) {
-    return { ok: false, reason: "STALE_CATALOG_REVISION" }
+    return refuse("STALE_CATALOG_REVISION")
   }
   if (error?.code === "P0001" && error.message?.includes("INCOMPLETE") === true) {
-    return { ok: false, reason: "PUBLICATION_INCOMPLETE" }
+    return refuse("PUBLICATION_INCOMPLETE")
   }
-  if (error?.code?.startsWith("23") === true || error?.code === "22P02") {
-    return { ok: false, reason: "VALIDATION_FAILED" }
+  // 22023 is what the atomic draft RPCs raise for an empty price or component array. Left to the
+  // fallback it became `DEPENDENCY_UNAVAILABLE`, which tells an operator to check Supabase and
+  // resume — advice that loops forever on a payload that will never become acceptable.
+  if (
+    error?.code?.startsWith("23") === true ||
+    error?.code === "22P02" ||
+    error?.code === "22023"
+  ) {
+    return refuse("VALIDATION_FAILED")
   }
-  return { ok: false, reason: "DEPENDENCY_UNAVAILABLE" }
+  return refuse("DEPENDENCY_UNAVAILABLE")
 }
 
 function resultFromRow(

@@ -204,5 +204,30 @@ bí mật dùng chung. Mỗi thao tác của plan là đúng một request. Food
 | `403 ADMIN_REQUIRED`         | user chưa có `role: admin`          | xem Điều kiện trước, mục 1             |
 | `409 STALE_CATALOG_REVISION` | production đã đổi kể từ lúc resolve | chạy lại từ **Bước 1** với journal mới |
 | `422 PUBLICATION_INCOMPLETE` | bản ghi chưa đủ dữ liệu để publish  | lỗi dữ liệu, dừng và báo               |
-| `400 VALIDATION_FAILED`      | payload sai hình dạng               | lỗi công cụ, dừng và báo               |
+| `400 VALIDATION_FAILED`      | một ràng buộc của schema từ chối    | đọc tên trong ngoặc, xem bảng dưới     |
 | `503 CATALOG_UNAVAILABLE`    | server hoặc database không sẵn sàng | kiểm tra Supabase rồi `--resume`       |
+
+### Tên ràng buộc đi kèm mã lỗi
+
+Từ nay `400` và `422` kèm theo **tên của chính quy tắc đã từ chối**, trong ngoặc đơn:
+
+```
+FAILED OPERATION_FAILED at save_price_book_draft:vn_baseline:2:
+  400 VALIDATION_FAILED (PRICE_REQUIRES_PUBLISHED_FACT_CONVERSION)
+```
+
+Trước đây dòng này chỉ có `400 VALIDATION_FAILED`, và mọi lần hỏng đều phải truy ngược thủ công
+bằng cách truy vấn production. Vài tên hay gặp nhất khi xuất bản:
+
+| Tên                                        | Nghĩa                                                                  |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| `PRICE_REQUIRES_PUBLISHED_FACT_CONVERSION` | giá niêm yết theo đơn vị mà food fact **đã publish** không khai quy đổi |
+| `PRICE_PACKAGE_NORMALIZATION_MISMATCH`     | `packageBaseQuantity` ≠ `packageQuantity` × hệ số quy đổi               |
+| `PRICE_BASE_UNIT_MISMATCH`                 | `baseUnitCode` của dòng giá khác đơn vị cơ sở của thực phẩm             |
+| `FUTURE_PRICE`                             | `observedAt` nằm sau ngày hiện tại của server                           |
+| `PRICE_ROWS_REQUIRED`                      | price book draft không có dòng giá nào                                  |
+| `price_books_one_draft_per_region_idx`     | vùng giá đã có một price book `draft` khác — xem mục phục hồi ở trên    |
+
+Tên viết hoa là quy tắc do schema tự đặt; tên viết thường là tên ràng buộc Postgres, tra được trong
+`supabase/migrations/`. Chỉ hai dạng này được truyền ra — văn bản thô của driver thì không, vì nó có
+thể chứa hostname hoặc chuỗi kết nối.

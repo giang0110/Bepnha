@@ -112,7 +112,23 @@ export type CatalogAdminResult =
         readonly contentHash?: string
       }
     }
-  | { readonly ok: false; readonly reason: CatalogAdminFailureReason }
+  | {
+      readonly ok: false
+      readonly reason: CatalogAdminFailureReason
+      /**
+       * Which schema rule refused, when the refusal came from a rule this schema names itself.
+       *
+       * `reason` collapses every integrity error onto one code. That is the right shape for a client
+       * deciding what to do, and useless to an operator deciding what to fix: a price quoted in an
+       * unconvertible unit and a duplicate food both arrive as `VALIDATION_FAILED`. This carries the
+       * refusing rule's own name so the failure can be read rather than reconstructed against
+       * production.
+       *
+       * It is never raw database text. Only a schema-shaped error name or a constraint identifier
+       * reaches it, so a driver message carrying a host or connection string cannot travel this way.
+       */
+      readonly detail?: string
+    }
 
 export type CatalogAggregateResult =
   | { readonly ok: true; readonly value: CatalogPublicationAggregate }

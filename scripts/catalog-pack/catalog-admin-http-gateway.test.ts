@@ -114,6 +114,19 @@ describe("how it reads the answer", () => {
     expect(outcome).toEqual({ ok: false, reason: `${status} ${error}` })
   })
 
+  test("prints the refusing rule beside the code, so the operator need not go and find it", async () => {
+    const fetchImpl = respondWith(400, {
+      error: "VALIDATION_FAILED",
+      detail: "PRICE_REQUIRES_PUBLISHED_FACT_CONVERSION"
+    })
+    const outcome = await gateway(fetchImpl)(operation, {})
+
+    expect(outcome).toEqual({
+      ok: false,
+      reason: "400 VALIDATION_FAILED (PRICE_REQUIRES_PUBLISHED_FACT_CONVERSION)"
+    })
+  })
+
   test("reports a status even when the body says nothing", async () => {
     const fetchImpl = respondWith(500, undefined)
     const outcome = await gateway(fetchImpl)(operation, {})

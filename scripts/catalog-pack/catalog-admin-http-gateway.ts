@@ -59,8 +59,17 @@ function outputsFrom(body: unknown): Readonly<Record<string, string | number>> |
 
 function reasonFrom(status: number, body: unknown): string {
   if (typeof body === "object" && body !== null && !Array.isArray(body)) {
-    const error = (body as Record<string, unknown>)["error"]
-    if (typeof error === "string" && error !== "") return `${status} ${error}`
+    const record = body as Record<string, unknown>
+    const error = record["error"]
+    if (typeof error === "string" && error !== "") {
+      // The endpoint sends the refusing rule's name alongside the code when it knows it. Printing it
+      // is the difference between a failure an operator can act on and one they have to reproduce
+      // against production to understand.
+      const detail = record["detail"]
+      return typeof detail === "string" && detail !== ""
+        ? `${status} ${error} (${detail})`
+        : `${status} ${error}`
+    }
   }
   return `${status}`
 }
