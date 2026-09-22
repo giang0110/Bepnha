@@ -40,7 +40,7 @@ interface Props {
 }
 
 type ViewState =
-  | { readonly status: "loading_household" | "idle" | "generating" }
+  | { readonly status: "loading_household" | "loading_plan" | "idle" | "generating" }
   | { readonly status: "ready"; readonly value: PlannerReadyResponse }
   | { readonly status: "error"; readonly code: string; readonly correlationId?: string }
 
@@ -63,7 +63,11 @@ function nextMonday(date: Date): string {
 }
 
 function errorCopy(code: string): string {
-  if (code === "STALE_PLAN_VERSION") return "Kế hoạch đã thay đổi. Vui lòng tải lại rồi thử lại."
+  // Telling the reader to reload was advice this page could not honour: nothing here read an
+  // existing plan, so a reload returned them to the same button and the same refusal.
+  if (code === "STALE_PLAN_VERSION") {
+    return "Kế hoạch tuần này vừa được thay đổi ở nơi khác. Hãy tải lại trang để xem bản mới nhất."
+  }
   if (code === "PLAN_INPUT_CHANGED_REGENERATION_REQUIRED") {
     return "Thông tin gia đình đã thay đổi. Vui lòng tạo lại kế hoạch tuần."
   }
@@ -177,7 +181,7 @@ export function WeeklyPlanPage({
         return
       }
       setHousehold(result.household)
-      setState({ status: "idle" })
+      setState({ status: "loading_plan" })
     })
     return () => {
       active = false
@@ -186,14 +190,55 @@ export function WeeklyPlanPage({
 
   const accessToken = auth.session?.accessToken
 
+  // A plan lives in the database, not in this component. Without this the week's plan was
+  // unreachable after a reload, and the generate button was the only thing on offer — which
+  // persistence then refused, because the week already had one.
+  useEffect(() => {
+    if (household === null || accessToken === undefined || state.status !== "loading_plan") return
+    let active = true
+    void plannerApi
+      .current(accessToken, {
+        householdId: household.householdId,
+        weekStart: nextMonday(today())
+      })
+      .then((result) => {
+        if (!active) return
+        if (!result.ok) {
+          setState({
+            status: "error",
+            code: result.error,
+            ...(result.correlationId === undefined ? {} : { correlationId: result.correlationId })
+          })
+          return
+        }
+        setState(
+          result.value === null ? { status: "idle" } : { status: "ready", value: result.value }
+        )
+      })
+    return () => {
+      active = false
+    }
+  }, [household, accessToken, state.status, plannerApi, today])
+
   async function generate() {
     if (household === null || accessToken === undefined || submitting) return
+    // Replacing a plan the week already has is a different request from making its first one, and
+    // persistence tells them apart by the version being replaced. Sending it from what is on screen
+    // keeps the concurrency check honest: a plan changed in another tab still fails.
+    const replacing =
+      state.status === "ready"
+        ? {
+            expectedPlanVersion: state.value.planVersion,
+            expectedCurrentRevisionId: state.value.revisionId
+          }
+        : {}
     setSubmitting(true)
     setState({ status: "generating" })
     const result = await plannerApi.generate(accessToken, {
       householdId: household.householdId,
       weekStart: nextMonday(today()),
-      idempotencyKey: createId()
+      idempotencyKey: createId(),
+      ...replacing
     })
     setSubmitting(false)
     setState(
@@ -280,10 +325,25 @@ export function WeeklyPlanPage({
         <p role="alert">Hãy hoàn tất thông tin gia đình trước khi tạo kế hoạch.</p>
       ) : null}
 
-      {(state.status === "idle" || state.status === "generating" || state.status === "error") &&
+      {state.status === "loading_plan" ? <p role="status">Đang tải kế hoạch tuần…</p> : null}
+
+      {(state.status === "idle" ||
+        state.status === "generating" ||
+        state.status === "error" ||
+        state.status === "ready") &&
       household !== null ? (
-        <Button disabled={submitting} size="lg" type="button" onClick={() => void generate()}>
-          {state.status === "generating" ? "Đang tạo kế hoạch…" : "Tạo kế hoạch 7 bữa chính"}
+        <Button
+          disabled={submitting}
+          size="lg"
+          type="button"
+          variant={state.status === "ready" ? "outline" : "default"}
+          onClick={() => void generate()}
+        >
+          {state.status === "generating"
+            ? "Đang tạo kế hoạch…"
+            : state.status === "ready"
+              ? "Tạo lại kế hoạch tuần"
+              : "Tạo kế hoạch 7 bữa chính"}
         </Button>
       ) : null}
 

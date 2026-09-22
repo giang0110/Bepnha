@@ -40,6 +40,7 @@ function request(
     contentType?: string
     correlationId?: string
     planId?: string | string[]
+    query?: Record<string, unknown>
   } = {}
 ) {
   return {
@@ -50,7 +51,7 @@ function request(
       "content-type": options.contentType ?? "application/json",
       "x-correlation-id": options.correlationId
     },
-    query: options.planId === undefined ? {} : { planId: options.planId }
+    query: options.query ?? (options.planId === undefined ? {} : { planId: options.planId })
   } as unknown as VercelRequest
 }
 
@@ -98,18 +99,19 @@ function setup() {
       warnings: []
     }
   })
+  const current = vi.fn()
   const emit = vi.fn()
   const handlers = createPlannerHttpHandlers({
     auth: { verify: vi.fn().mockResolvedValue({ userId: "user-1" }) },
     repositoryFor: vi.fn(() => repository),
     hasher: { sha256: vi.fn() },
-    operations: { generate, preview, apply },
+    operations: { generate, preview, apply, current },
     calculationDate: () => "2026-08-26",
     telemetry: { emit },
     createCorrelationId: () => "generated-correlation-id",
     now: () => 100
   })
-  return { handlers, generate, preview, apply, emit }
+  return { handlers, generate, preview, apply, current, emit }
 }
 
 const generationBody = {
@@ -133,6 +135,112 @@ describe("authoritative planner HTTP handlers", () => {
     expect(state.body).not.toHaveProperty("inputSnapshot")
     expect(state.body).not.toHaveProperty("calculationSnapshot")
     expectSecurityHeaders(state.setHeader)
+  })
+
+  test("serves the week's stored plan, and says plainly when the week has none", async () => {
+    const withPlan = setup()
+    withPlan.current.mockResolvedValue({
+      ok: true,
+      value: {
+        planId: "40000000-0000-0000-0000-000000000001",
+        revisionId: "50000000-0000-0000-0000-000000000001",
+        planVersion: 1,
+        status: "ready_within_budget",
+        budgetVnd: 700_000,
+        plan: { items: [], totalEstimatedCostVnd: 650_000 },
+        warnings: []
+      }
+    })
+    const found = responseDouble()
+    await withPlan.handlers.current(
+      request(undefined, {
+        method: "GET",
+        query: { householdId: generationBody.householdId, weekStart: generationBody.weekStart }
+      }),
+      found.response
+    )
+    expect(found.state.status).toHaveBeenCalledWith(200)
+    expect(found.state.body).toMatchObject({ planVersion: 1, status: "ready_within_budget" })
+    expect(withPlan.current).toHaveBeenCalledWith(
+      repository,
+      expect.objectContaining({ actorUserId: "user-1", weekStart: "2026-08-31" })
+    )
+
+    // An unplanned week is the ordinary state before the first generation. Answering 404 would send
+    // the page to its error branch instead of to its generate button.
+    const empty = setup()
+    empty.current.mockResolvedValue({ ok: true, value: null })
+    const none = responseDouble()
+    await empty.handlers.current(
+      request(undefined, {
+        method: "GET",
+        query: { householdId: generationBody.householdId, weekStart: generationBody.weekStart }
+      }),
+      none.response
+    )
+    expect(none.state.status).toHaveBeenCalledWith(200)
+    expect(none.state.body).toEqual({ plan: null })
+    expect(empty.emit).toHaveBeenCalledWith(
+      expect.objectContaining({ httpStatus: 200, outcomeCode: "NO_PLAN" })
+    )
+  })
+
+  test("reading a plan is a GET and refuses an unusable week", async () => {
+    const { handlers, current } = setup()
+
+    const wrongMethod = responseDouble()
+    await handlers.current(
+      request(undefined, { method: "POST", query: { householdId: generationBody.householdId } }),
+      wrongMethod.response
+    )
+    expect(wrongMethod.state.status).toHaveBeenCalledWith(405)
+
+    const badQuery = responseDouble()
+    await handlers.current(
+      request(undefined, {
+        method: "GET",
+        query: { householdId: "not-a-uuid", weekStart: "2026-08-31" }
+      }),
+      badQuery.response
+    )
+    expect(badQuery.state.status).toHaveBeenCalledWith(400)
+    expect(badQuery.state.body).toEqual({ error: "VALIDATION_FAILED" })
+    expect(current).not.toHaveBeenCalled()
+  })
+
+  test("a regeneration must name both the version and the revision it replaces", async () => {
+    const { handlers, generate } = setup()
+
+    const complete = responseDouble()
+    await handlers.generate(
+      request({
+        ...generationBody,
+        expectedPlanVersion: 1,
+        expectedCurrentRevisionId: "50000000-0000-0000-0000-000000000001"
+      }),
+      complete.response
+    )
+    expect(generate).toHaveBeenCalledWith(
+      repository,
+      expect.anything(),
+      expect.objectContaining({
+        regenerate: {
+          expectedPlanVersion: 1,
+          expectedCurrentRevisionId: "50000000-0000-0000-0000-000000000001"
+        }
+      })
+    )
+
+    // A version without its revision would be a weaker check than persistence performs for a
+    // replacement, so it is refused rather than quietly treated as a first generation.
+    generate.mockClear()
+    const halfStated = responseDouble()
+    await handlers.generate(
+      request({ ...generationBody, expectedPlanVersion: 1 }),
+      halfStated.response
+    )
+    expect(halfStated.state.status).toHaveBeenCalledWith(400)
+    expect(generate).not.toHaveBeenCalled()
   })
 
   test("sets a safe correlation id and emits one sanitized completion event", async () => {

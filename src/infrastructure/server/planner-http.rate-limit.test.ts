@@ -62,7 +62,7 @@ function setup(rateLimiter: RateLimiter | undefined, verified: unknown = { userI
     auth: { verify: vi.fn().mockResolvedValue(verified) },
     repositoryFor: vi.fn(() => repository),
     hasher: { sha256: vi.fn() },
-    operations: { generate: operation, preview: operation, apply: operation },
+    operations: { generate: operation, preview: operation, apply: operation, current: operation },
     calculationDate: () => "2026-08-26",
     telemetry: { emit },
     createCorrelationId: () => "generated-correlation-id",

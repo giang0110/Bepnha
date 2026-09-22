@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node"
 import {
   applyMealReplacement,
   generateMealPlan,
+  loadCurrentPlan,
   previewMealReplacementUseCase,
   type PlannerRepository
 } from "../../application/planner/planner-use-cases.js"
@@ -17,12 +18,13 @@ import { applyApiSecurityHeaders } from "./security-headers.js"
 import { parseBearerToken, type ServerAuthVerifier } from "../supabase/server-auth.js"
 
 type UnknownRecord = Record<string, unknown>
-type PlannerOperation = "generate" | "preview" | "apply"
+type PlannerOperation = "generate" | "preview" | "apply" | "current"
 
 interface PlannerOperations {
   readonly generate: typeof generateMealPlan
   readonly preview: typeof previewMealReplacementUseCase
   readonly apply: typeof applyMealReplacement
+  readonly current: typeof loadCurrentPlan
 }
 
 interface PlannerHttpDependencies {
@@ -51,12 +53,6 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function exactKeys(value: UnknownRecord, allowed: readonly string[]): boolean {
-  const actual = Object.keys(value).sort()
-  const expected = [...allowed].sort()
-  return actual.length === expected.length && actual.every((key, index) => key === expected[index])
-}
-
 function optionalExactKeys(
   value: UnknownRecord,
   required: readonly string[],
@@ -70,7 +66,14 @@ function optionalExactKeys(
 }
 
 function generationCommand(body: unknown) {
-  if (!isRecord(body) || !exactKeys(body, ["householdId", "weekStart", "idempotencyKey"]))
+  if (
+    !isRecord(body) ||
+    !optionalExactKeys(
+      body,
+      ["householdId", "weekStart", "idempotencyKey"],
+      ["expectedPlanVersion", "expectedCurrentRevisionId"]
+    )
+  )
     return null
   if (
     typeof body.householdId !== "string" ||
@@ -81,11 +84,49 @@ function generationCommand(body: unknown) {
     !UUID.test(body.idempotencyKey)
   )
     return null
-  return {
+
+  const base = {
     householdId: body.householdId,
     weekStart: body.weekStart,
     idempotencyKey: body.idempotencyKey
   }
+  // Both or neither: a version without the revision it belongs to would let a regeneration through
+  // on a weaker check than the one persistence performs for a replacement.
+  const hasVersion = body.expectedPlanVersion !== undefined
+  const hasRevision = body.expectedCurrentRevisionId !== undefined
+  if (!hasVersion && !hasRevision) return base
+  if (
+    !hasVersion ||
+    !hasRevision ||
+    typeof body.expectedPlanVersion !== "number" ||
+    !Number.isSafeInteger(body.expectedPlanVersion) ||
+    body.expectedPlanVersion < 1 ||
+    typeof body.expectedCurrentRevisionId !== "string" ||
+    !UUID.test(body.expectedCurrentRevisionId)
+  )
+    return null
+  return {
+    ...base,
+    regenerate: {
+      expectedPlanVersion: body.expectedPlanVersion,
+      expectedCurrentRevisionId: body.expectedCurrentRevisionId
+    }
+  }
+}
+
+/** `householdId` and `weekStart` arrive in the query string, because reading is a GET. */
+function currentPlanQuery(query: unknown) {
+  if (!isRecord(query)) return null
+  const householdId = query.householdId
+  const weekStart = query.weekStart
+  if (
+    typeof householdId !== "string" ||
+    !UUID.test(householdId) ||
+    typeof weekStart !== "string" ||
+    !DATE.test(weekStart)
+  )
+    return null
+  return { householdId, weekStart }
 }
 
 function replacementCommand(body: unknown, apply: boolean) {
@@ -352,7 +393,8 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
   const operations = dependencies.operations ?? {
     generate: generateMealPlan,
     preview: previewMealReplacementUseCase,
-    apply: applyMealReplacement
+    apply: applyMealReplacement,
+    current: loadCurrentPlan
   }
   const calculationDate =
     dependencies.calculationDate ??
@@ -386,6 +428,50 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
           { actorUserId: actor.userId, calculationDate: calculationDate(), ...command }
         )
         sendResult(response, result, "generate", operational.finish)
+      } catch {
+        response.status(503).json({ error: "PLANNER_UNAVAILABLE" })
+        operational.finish(503, "PLANNER_UNAVAILABLE")
+      }
+    },
+    /**
+     * Serves the week's existing plan, so a reload is not the same as losing it.
+     *
+     * Read-only and cheap compared with generation — it hands back a stored revision rather than
+     * searching the catalog — so it is a GET and is not rate limited alongside the endpoints that
+     * do the expensive work.
+     */
+    async current(request: VercelRequest, response: VercelResponse) {
+      const operational = operationalContext(request, response, "current", dependencies)
+      if (request.method !== "GET") {
+        response.setHeader("Allow", "GET")
+        response.status(405).json({ error: "METHOD_NOT_ALLOWED" })
+        operational.finish(405, "METHOD_NOT_ALLOWED")
+        return
+      }
+      const actor = await identity(request, response, dependencies.auth, operational.finish)
+      if (actor === null) return
+      const query = currentPlanQuery(request.query)
+      if (query === null) {
+        response.status(400).json({ error: "VALIDATION_FAILED" })
+        operational.finish(400, "VALIDATION_FAILED")
+        return
+      }
+      try {
+        const result = await operations.current(
+          dependencies.repositoryFor(actor.userId, actor.accessToken),
+          { actorUserId: actor.userId, ...query }
+        )
+        if (!result.ok) {
+          const status = failureStatus(result.error.code)
+          response.status(status).json({ error: result.error.code })
+          operational.finish(status, result.error.code)
+          return
+        }
+        // A week with no plan is not an error and must not read as one: the page shows its generate
+        // button on `plan: null`, and a 404 here would send it to the error branch instead.
+        const body = result.value === null ? { plan: null } : safeSuccess(result.value, "current")
+        response.status(200).json(body)
+        operational.finish(200, result.value === null ? "NO_PLAN" : "OK")
       } catch {
         response.status(503).json({ error: "PLANNER_UNAVAILABLE" })
         operational.finish(503, "PLANNER_UNAVAILABLE")

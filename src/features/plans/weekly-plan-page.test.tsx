@@ -81,6 +81,7 @@ function setup(
 ) {
   const api: PlannerApi = {
     generate: vi.fn().mockResolvedValue({ ok: true, value: ready() }),
+    current: vi.fn().mockResolvedValue({ ok: true, value: null }),
     preview: vi.fn().mockResolvedValue({
       ok: true,
       value: {
@@ -147,7 +148,8 @@ describe("WeeklyPlanPage", () => {
     const { api } = setup()
     expect(await screen.findByRole("heading", { name: "Kế hoạch tuần" })).toBeInTheDocument()
     expect(screen.getByText(/ngân sách chỉ áp dụng cho 7 bữa chính/i)).toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    // The button now waits on the week's plan lookup, so finding it is an await.
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
 
     const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
     expect(cards).toHaveLength(7)
@@ -276,6 +278,52 @@ describe("WeeklyPlanPage", () => {
     const user = userEvent.setup()
     setup({ generate: vi.fn().mockResolvedValue({ ok: false, error: "STALE_PLAN_VERSION" }) })
     await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
-    expect(await screen.findByRole("alert")).toHaveTextContent(/đã thay đổi.*tải lại/i)
+    expect(await screen.findByRole("alert")).toHaveTextContent(/thay đổi.*tải lại trang/i)
+  })
+
+  test("shows the week's existing plan on arrival, without being asked to generate one", async () => {
+    // A reload used to lose the plan entirely: nothing read one back, so the page offered the only
+    // thing it could, and persistence refused it because the week already had a plan.
+    const { api } = setup({
+      current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+    })
+
+    const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
+    expect(cards).toHaveLength(7)
+    expect(api.current).toHaveBeenCalledWith("token", {
+      householdId: household.householdId,
+      weekStart: "2026-08-31"
+    })
+    expect(api.generate).not.toHaveBeenCalled()
+  })
+
+  test("regenerating names the version it replaces, so a week can be planned again", async () => {
+    const user = userEvent.setup()
+    const { api } = setup({
+      current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+    })
+
+    await user.click(await screen.findByRole("button", { name: "Tạo lại kế hoạch tuần" }))
+
+    expect(api.generate).toHaveBeenCalledWith("token", {
+      householdId: household.householdId,
+      weekStart: "2026-08-31",
+      idempotencyKey: "30000000-0000-0000-0000-000000000001",
+      expectedPlanVersion: ready().planVersion,
+      expectedCurrentRevisionId: ready().revisionId
+    })
+  })
+
+  test("asks for a first plan, naming no version, when the week has none", async () => {
+    const user = userEvent.setup()
+    const { api } = setup()
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+
+    expect(api.generate).toHaveBeenCalledWith("token", {
+      householdId: household.householdId,
+      weekStart: "2026-08-31",
+      idempotencyKey: "30000000-0000-0000-0000-000000000001"
+    })
   })
 })

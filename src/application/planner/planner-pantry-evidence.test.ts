@@ -50,6 +50,7 @@ function repository(value: PlannerInputV1): PlannerRepository {
   return {
     loadGenerationInput: vi.fn().mockResolvedValue({ ok: true, value }),
     loadReplacementInput: vi.fn(),
+    loadCurrentPlan: vi.fn().mockResolvedValue({ ok: true, value: null }),
     persistRevision: vi.fn().mockResolvedValue({
       ok: true,
       value: {

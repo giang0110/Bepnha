@@ -1,4 +1,5 @@
 import type {
+  CurrentPlanView,
   PersistPlannerRevisionCommand,
   PlannerRepository,
   ReplacementAuthoritativeInput
@@ -38,6 +39,51 @@ function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null
+}
+
+function positiveInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : null
+}
+
+/**
+ * Reads the stored revision rather than recomputing anything.
+ *
+ * Budget status is a decision the planner already made and persistence already checked against its
+ * own invariant; deriving it again here from cost and budget would be a second opinion that can
+ * disagree with the row. The row wins.
+ */
+function currentPlanFrom(
+  raw: unknown,
+  plan: ReplacementAuthoritativeInput
+): CurrentPlanView | null {
+  const payload = record(raw)
+  const revision = payload === null ? null : record(payload.revision)
+  const planRow = payload === null ? null : record(payload.plan)
+  if (revision === null || planRow === null) return null
+
+  const planId = planRow.id
+  const revisionId = revision.id
+  const budgetVnd = positiveInteger(revision.budget_vnd)
+  const budgetStatus = revision.budget_status
+  if (
+    typeof planId !== "string" ||
+    typeof revisionId !== "string" ||
+    budgetVnd === null ||
+    (budgetStatus !== "within" && budgetStatus !== "over") ||
+    !Array.isArray(revision.warnings)
+  ) {
+    return null
+  }
+
+  return {
+    planId,
+    revisionId,
+    planVersion: plan.planVersion,
+    status: budgetStatus === "within" ? "ready_within_budget" : "ready_over_budget",
+    budgetVnd,
+    plan: plan.currentPlan,
+    warnings: revision.warnings as CurrentPlanView["warnings"]
+  }
 }
 
 function persistenceFailure(error: DbError | null) {
@@ -81,6 +127,24 @@ export function createSupabasePlannerRepository(dependencies: Dependencies): Pla
           ok: true,
           value: await dependencies.loader.hydrateReplacement(data, dependencies.userClient)
         }
+      } catch {
+        return unavailable
+      }
+    },
+
+    async loadCurrentPlan(input) {
+      const { data, error } = await dependencies.userClient.rpc("get_current_plan_for_week", {
+        p_household_id: input.householdId,
+        p_week_start: input.weekStart
+      })
+      if (error !== null) return unavailable
+      // No row means the week has no plan yet. That is the ordinary state before the first
+      // generation, so it is an answer, not a refusal — the caller shows the generate button.
+      if (data === null) return { ok: true as const, value: null }
+      try {
+        const hydrated = await dependencies.loader.hydrateReplacement(data, dependencies.userClient)
+        const view = currentPlanFrom(data, hydrated)
+        return view === null ? unavailable : { ok: true as const, value: view }
       } catch {
         return unavailable
       }

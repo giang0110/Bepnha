@@ -9,7 +9,7 @@ interface BaseOperationalEvent {
 
 export interface PlannerOperationalEvent extends BaseOperationalEvent {
   readonly event: "planner_request"
-  readonly operation: "generate" | "preview" | "apply"
+  readonly operation: "generate" | "preview" | "apply" | "current"
 }
 
 export interface AssistantOperationalEvent extends BaseOperationalEvent {
