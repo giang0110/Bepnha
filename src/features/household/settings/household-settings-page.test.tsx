@@ -106,7 +106,8 @@ describe("HouseholdSettingsPage", () => {
       4
     )
     expect(await screen.findByRole("heading", { name: "Gia đình của bạn" })).toBeInTheDocument()
-    expect(screen.getByText("1.250.000 VND cho 7 bữa chính")).toBeInTheDocument()
+    expect(screen.getByText("1.250.000 VND")).toBeInTheDocument()
+    expect(screen.getByText("Cho 7 bữa chính mỗi tuần")).toBeInTheDocument()
     expect(loadOwn).toHaveBeenCalledTimes(2)
   })
 
