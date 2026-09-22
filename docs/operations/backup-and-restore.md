@@ -18,6 +18,31 @@ và toàn bộ `admin_audit_log` chỉ tồn tại trong database.
 `docs/operations/production-readiness.md` yêu cầu việc này xong **trước** khi có dữ liệu hộ gia đình
 thật, không phải sau.
 
+## Công cụ: `pg_dump` trực tiếp, không qua Supabase CLI
+
+`supabase db dump` **bắt buộc cần Docker** — không có daemon thì nó dừng ngay với
+`LegacyDockerRunError` trước khi chạm tới database. Nếu máy bạn không cài Docker Desktop thì lệnh đó
+không dùng được, và đó là lý do tài liệu này đi thẳng bằng `pg_dump`.
+
+Cần **PostgreSQL client tools**, phiên bản major **bằng hoặc cao hơn** server của production. Kiểm
+version của production trong Supabase SQL Editor:
+
+```sql
+select version();
+```
+
+Tải bộ cài PostgreSQL cho Windows tại postgresql.org. Trong trình cài đặt, đủ để chọn:
+
+- **Command Line Tools** — cho `pg_dump` và `psql`;
+- **PostgreSQL Server** — làm đích cho bài diễn tập phục hồi ở Bước 3.
+
+Không cần Stack Builder, không cần pgAdmin.
+
+Chuỗi kết nối lấy ở Supabase Dashboard → Project Settings → Database → Connection string → **URI**.
+Nếu kết nối trực tiếp không đi được (Supabase cấp IPv6 cho kết nối trực tiếp), dùng chuỗi **Session
+pooler** — nó có IPv4 và `pg_dump` chạy bình thường qua đó. Đừng dùng **Transaction pooler**: nó
+không giữ phiên nên `pg_dump` sẽ hỏng.
+
 ## Một cạm bẫy phải biết trước
 
 Bản sao lưu chỉ có dữ liệu (`--data-only`) của schema này **không phục hồi được theo cách thông
@@ -38,98 +63,121 @@ Cách xử lý là tắt trigger **trong cùng phiên** nạp dữ liệu:
 set session_replication_role = replica;
 ```
 
-Phải nằm cùng phiên psql với việc nạp — đặt ở phiên khác thì vô nghĩa, vì nó là thiết lập theo phiên.
+`psql` xử lý `-c` và `-f` theo đúng thứ tự viết ra trong **một** phiên duy nhất, nên đặt `-c` trước
+`-f` là đủ. Tách thành hai lần gọi `psql` thì vô nghĩa — phiên thứ nhất đã đóng trước khi phiên thứ
+hai bắt đầu nạp.
 
-Quy trình dưới đây đã được chạy thử end-to-end trên PostgreSQL 16 với đúng 15 migration của repo:
-không có dòng đó thì hỏng ở `INCOMPLETE_HARD_RULE_CATALOG_MAPPING`, có dòng đó thì phục hồi sạch và
-mọi số đếm khớp tuyệt đối.
+Toàn bộ quy trình dưới đây đã được chạy thử end-to-end trên PostgreSQL 16 với đúng 15 migration của
+repo: không có dòng đó thì hỏng ở `INCOMPLETE_HARD_RULE_CATALOG_MAPPING`; có dòng đó thì phục hồi
+sạch, mọi số đếm khớp tuyệt đối, 41 hàm trong `private` và 48 RLS policy trở lại đầy đủ.
 
-## Bước 1 — Xuất ba tệp
+## Bước 1 — Xuất bốn tệp
 
-Sao lưu đầy đủ là **ba** tệp, không phải một. Thiếu tệp nào cũng khiến bản sao không tự đứng được.
+BepNha sở hữu hai schema: `public` và `private`. `auth`, `extensions` và `supabase_migrations` là của
+Supabase — nhưng `auth.users` giữ tài khoản thật nên vẫn phải sao lưu, và sổ migration cho biết
+production đang ở đâu.
 
 ```powershell
-$bk = "D:/IT/bepnha-backups/$(Get-Date -Format yyyy-MM-dd)"
+$bk   = "D:/IT/bepnha-backups/$(Get-Date -Format yyyy-MM-dd)"
 New-Item -ItemType Directory -Force -Path $bk | Out-Null
 
-npx supabase db dump --linked --role-only -f "$bk/roles.sql"
-npx supabase db dump --linked             -f "$bk/schema.sql"
-npx supabase db dump --linked --data-only --use-copy -f "$bk/data.sql"
+# dán chuỗi kết nối vào khi được hỏi; nó không hiện lên màn hình và không vào lịch sử shell
+$sec  = Read-Host "Connection string cua production" -AsSecureString
+$prod = [System.Net.NetworkCredential]::new("", $sec).Password
+
+pg_dump --schema-only --schema=public --schema=private -f "$bk/schema.sql" $prod
+pg_dump --data-only   --schema=public --schema=private -f "$bk/data.sql"   $prod
+pg_dump --data-only --table=auth.users -f "$bk/auth-users.sql" $prod
+pg_dump --data-only --table=supabase_migrations.schema_migrations -f "$bk/migrations.sql" $prod
+
+Remove-Variable prod, sec
 ```
 
 ```bash
 bk="$HOME/bepnha-backups/$(date +%F)" && mkdir -p "$bk"
+read -rs -p "Connection string cua production: " prod && echo
 
-npx supabase db dump --linked --role-only -f "$bk/roles.sql"
-npx supabase db dump --linked             -f "$bk/schema.sql"
-npx supabase db dump --linked --data-only --use-copy -f "$bk/data.sql"
+pg_dump --schema-only --schema=public --schema=private -f "$bk/schema.sql" "$prod"
+pg_dump --data-only   --schema=public --schema=private -f "$bk/data.sql"   "$prod"
+pg_dump --data-only --table=auth.users -f "$bk/auth-users.sql" "$prod"
+pg_dump --data-only --table=supabase_migrations.schema_migrations -f "$bk/migrations.sql" "$prod"
+
+unset prod
 ```
 
-`--linked` dùng project đã liên kết và **hỏi mật khẩu**, nên mật khẩu không vào lịch sử shell. Đừng
-thay bằng `--db-url` có sẵn mật khẩu trong chuỗi.
+`pg_dump` sẽ in một dòng `hint` nhắc về `--disable-triggers` khi dump `--data-only`. Đó là đúng cảnh
+báo cho cạm bẫy ở trên, và Bước 3 đã xử lý — không phải lỗi.
 
-| Tệp          | Chứa gì                                  | Thiếu thì sao                              |
-| ------------ | ---------------------------------------- | ------------------------------------------ |
-| `roles.sql`  | vai trò cấp cluster                      | phục hồi vào project mới sẽ thiếu vai trò  |
-| `schema.sql` | bảng, hàm, trigger, RLS policy           | không có gì để nạp dữ liệu vào             |
-| `data.sql`   | toàn bộ hàng, kể cả catalog và audit log | phục hồi ra một database rỗng              |
+| Tệp               | Chứa gì                                              | Thiếu thì sao                            |
+| ----------------- | ---------------------------------------------------- | ---------------------------------------- |
+| `schema.sql`      | bảng, hàm `private`, trigger, RLS policy             | không có gì để nạp dữ liệu vào           |
+| `data.sql`        | mọi hàng của `public` và `private`, kể cả audit log  | phục hồi ra một database rỗng            |
+| `auth-users.sql`  | tài khoản đăng nhập                                  | catalog còn, nhưng không ai vào được     |
+| `migrations.sql`  | sổ migration đã áp dụng                              | project mới không biết đang ở migration nào |
 
-Kiểm nhanh ba tệp đều có nội dung thật, đừng chỉ nhìn tên:
+Kiểm bốn tệp có nội dung thật, đừng chỉ nhìn tên:
 
 ```powershell
 Get-ChildItem $bk | Select-Object Name, Length
 Select-String -Path "$bk/data.sql" -Pattern "COPY public.food_prices" | Select-Object -First 1
 ```
 
-Nếu `data.sql` chỉ vài KB thì có gì đó sai — dữ liệu catalog một mình đã lớn hơn thế.
+`data.sql` phải từ vài trăm KB trở lên; riêng dữ liệu catalog đã lớn hơn thế.
 
-## Bước 2 — Phục hồi thử vào một database bỏ đi
+## Bước 2 — Lấy số liệu production để lát nữa đối chiếu
+
+Trong Supabase SQL Editor:
+
+```sql
+select 'food_fact'       as bang, count(*) from public.food_fact_versions
+union all select 'recipe_version',  count(*) from public.recipe_versions
+union all select 'meal_option_ver', count(*) from public.meal_option_versions
+union all select 'food_price',      count(*) from public.food_prices
+union all select 'price_book',      count(*) from public.price_books
+union all select 'household',       count(*) from public.households
+union all select 'audit_log',       count(*) from public.admin_audit_log;
+```
+
+Chép kết quả ra. Bước 4 sẽ so với đúng truy vấn này.
+
+## Bước 3 — Phục hồi thử vào một database bỏ đi
 
 Một bản sao lưu chưa từng được phục hồi thì chưa phải bản sao lưu. Bước này **bắt buộc**, và
 `production-readiness.md` ghi rõ: **không bao giờ** dùng việc reset production làm bài kiểm tra phục
 hồi.
 
-Đích là stack Supabase cục bộ — nó dùng được ngay và vốn để vứt đi.
+Bản dump chỉ chứa `public` và `private`, nhưng nó tham chiếu ra ngoài: khoá ngoại trỏ tới
+`auth.users`, RLS policy gọi `auth.uid()`. Trên Supabase những thứ đó có sẵn; trên PostgreSQL vừa cài
+thì không. `docs/operations/restore-drill-bootstrap.sql` dựng phần tối thiểu đó.
 
 ```powershell
-npx supabase start
+# psql doc bon bien nay, nen khong phai lap lai tham so o moi lenh
+$env:PGHOST = "localhost"; $env:PGPORT = "5432"; $env:PGUSER = "postgres"
+$env:PGPASSWORD = "<mat khau postgres cuc bo, dat luc cai dat>"
 
-# một database mới, tách khỏi database dev cục bộ để không ghi đè lên nó
-docker exec supabase_db_bepnha-local psql -U postgres `
-  -c "drop database if exists restore_drill" -c "create database restore_drill"
+psql -c "drop database if exists restore_drill" -c "create database restore_drill"
 
-# chép hai tệp vào trong container, rồi để psql tự đọc
-docker cp "$bk/schema.sql" supabase_db_bepnha-local:/tmp/schema.sql
-docker cp "$bk/data.sql"   supabase_db_bepnha-local:/tmp/data.sql
+# ban dump tu tao schema public, nen xoa cai rong o dich di
+psql -d restore_drill -c "drop schema public cascade"
 
-# schema trước
-docker exec supabase_db_bepnha-local psql -U postgres -d restore_drill `
-  -v ON_ERROR_STOP=1 -q -f /tmp/schema.sql
-
-# rồi dữ liệu, với lệnh tắt trigger đứng trước -f trong CÙNG lần gọi psql
-docker exec supabase_db_bepnha-local psql -U postgres -d restore_drill `
-  -v ON_ERROR_STOP=1 -q `
-  -c "set session_replication_role = replica" -f /tmp/data.sql
+psql -d restore_drill -v ON_ERROR_STOP=1 -q -f docs/operations/restore-drill-bootstrap.sql
+psql -d restore_drill -v ON_ERROR_STOP=1 -q -f "$bk/schema.sql"
+psql -d restore_drill -v ON_ERROR_STOP=1 -q `
+  -c "set session_replication_role = replica" -f "$bk/data.sql"
 ```
 
-**Đừng đổ tệp qua pipeline của PowerShell** (`Get-Content ... | docker exec -i ...`). Windows
-PowerShell 5.1 mặc định `$OutputEncoding` là ASCII, nên mọi ký tự tiếng Việt trong `name_vi`,
-`provenance` và `source_reference` sẽ bị thay bằng `?` trên đường đi. Bước đối chiếu bên dưới đếm số
-hàng nên **vẫn khớp**, và bản phục hồi trông như đạt trong khi chữ đã hỏng. `docker cp` chép nguyên
-byte nên không có chuyện đó.
+Ba lệnh cuối không in gì ra là thành công. `ON_ERROR_STOP=1` khiến `psql` dừng ngay ở lỗi đầu tiên,
+nên im lặng nghĩa là sạch.
 
-`psql` xử lý `-c` và `-f` theo đúng thứ tự viết ra, trong **một** phiên duy nhất — nên
-`set session_replication_role` đặt trước `-f` là có hiệu lực cho cả lần nạp. Tách thành hai lần gọi
-`docker exec` thì vô nghĩa, vì phiên thứ nhất đã đóng.
+`auth-users.sql` **không** nạp ở đây: nó mang đủ cột của Supabase, còn bảng trong tệp mồi chỉ có
+những cột mà `public` tham chiếu tới. Đích thật của nó là một project Supabase mới. Bước 4 kiểm nó
+bằng cách đếm hàng trong tệp.
 
-`roles.sql` không nạp ở đây: các vai trò đã có sẵn trong Postgres cục bộ. Nó chỉ dùng khi phục hồi
-thật vào một project hoàn toàn mới.
-
-## Bước 3 — Đối chiếu, đừng tin là xong
+## Bước 4 — Đối chiếu, đừng tin là xong
 
 ```powershell
-docker exec supabase_db_bepnha-local psql -U postgres -d restore_drill -c @"
-select 'food_fact'   as bang, count(*) from public.food_fact_versions
+psql -d restore_drill -c @"
+select 'food_fact'       as bang, count(*) from public.food_fact_versions
 union all select 'recipe_version',  count(*) from public.recipe_versions
 union all select 'meal_option_ver', count(*) from public.meal_option_versions
 union all select 'food_price',      count(*) from public.food_prices
@@ -139,50 +187,74 @@ union all select 'audit_log',       count(*) from public.admin_audit_log;
 "@
 ```
 
-So với cùng truy vấn chạy trên production. **Mọi số phải khớp.** Lệch một hàng nghĩa là bản sao lưu
-không dùng được, và phải tìm ra vì sao trước khi coi bước này là xong.
+So với Bước 2. **Mọi số phải khớp.** Lệch một hàng nghĩa là bản sao lưu không dùng được, và phải tìm
+ra vì sao trước khi coi bước này là xong.
 
-Đếm số hàng không đủ. Một bản phục hồi hỏng mã ký tự vẫn đúng số hàng, chỉ là chữ biến thành `?`.
-Nhìn tận mắt vài dòng có dấu:
+Đếm số hàng không đủ. Kiểm thêm ba thứ mà một bản phục hồi hỏng vẫn có thể đếm đúng:
 
 ```powershell
-docker exec supabase_db_bepnha-local psql -U postgres -d restore_drill -c @"
-select code, name_vi from public.recipe_tags where tag_kind = 'protein_hint' order by code limit 5;
+# 1. chu co dau con nguyen ven
+psql -d restore_drill -c "select code, name_vi from public.recipe_tags where tag_kind = 'protein_hint' order by code limit 5"
+
+# 2. ham trong private va RLS policy co tro lai khong
+psql -d restore_drill -c @"
+select (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'private')                              as ham_private,
+       (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relrowsecurity)           as bang_bat_rls,
+       (select count(*) from pg_policy)                            as rls_policy;
 "@
+
+# 3. so tai khoan trong ban dump auth.users
+(Select-String -Path "$bk/auth-users.sql" -Pattern "^[0-9a-f]{8}-" ).Count
 ```
 
-Phải đọc được `Bò`, `Trứng`, `Cá`, `Đạm thực vật` — có dấu đầy đủ. Thấy `B?`, `Tr?ng` hay ô vuông
-nghĩa là tệp đã bị mã hoá lại trên đường vào container; xem lại cảnh báo ở Bước 2.
+Kỳ vọng: đọc được `Bò`, `Trứng`, `Cá`, `Đạm thực vật` đủ dấu; `ham_private` khoảng 41,
+`bang_bat_rls` khoảng 40, `rls_policy` khoảng 48; số tài khoản khớp với `select count(*) from
+auth.users` trên production.
+
+Thấy `B?`, `Tr?ng` hay ô vuông nghĩa là tệp bị mã hoá lại trên đường đi — đừng đổ tệp qua pipeline
+của PowerShell, `psql -f` đọc thẳng từ đĩa nên không có chuyện đó.
 
 Dọn dẹp:
 
 ```powershell
-docker exec supabase_db_bepnha-local psql -U postgres -c "drop database restore_drill"
+psql -c "drop database restore_drill"
+Remove-Item Env:PGPASSWORD, Env:PGHOST, Env:PGPORT, Env:PGUSER
 ```
 
-## Bước 4 — Cất giữ
+## Bước 5 — Cất giữ
 
-| Yêu cầu     | Cụ thể                                                                              |
-| ----------- | ----------------------------------------------------------------------------------- |
-| Nơi cất     | **ngoài** Supabase — máy của bạn cộng một bản ở nơi khác (ổ ngoài hoặc cloud riêng)  |
-| Mã hoá      | ba tệp chứa dữ liệu hộ gia đình thật; nén có mật khẩu hoặc để trên ổ đã mã hoá       |
-| Quyền truy cập | chỉ người vận hành dự án (`giang0110`), trừ khi uỷ quyền rõ ràng cho người khác   |
-| Giữ bao lâu | tối thiểu 4 bản gần nhất; xoá bản cũ hơn để không tích tụ dữ liệu cá nhân vô hạn     |
+| Yêu cầu        | Cụ thể                                                                             |
+| -------------- | ---------------------------------------------------------------------------------- |
+| Nơi cất        | **ngoài** Supabase — máy của bạn cộng một bản ở nơi khác (ổ ngoài hoặc cloud riêng) |
+| Mã hoá         | bốn tệp chứa dữ liệu hộ gia đình thật; nén có mật khẩu hoặc để trên ổ đã mã hoá     |
+| Quyền truy cập | chỉ người vận hành dự án (`giang0110`), trừ khi uỷ quyền rõ ràng cho người khác     |
+| Giữ bao lâu    | tối thiểu 4 bản gần nhất; xoá bản cũ hơn để không tích tụ dữ liệu cá nhân vô hạn    |
 
-`data.sql` chứa `households`, `household_members` và kế hoạch bữa ăn của người thật. Nó là dữ liệu cá
-nhân, không phải tệp build — đừng để lẫn vào thư mục dự án và đừng commit. Thư mục `$bk` ở ví dụ trên
-cố ý nằm ngoài repo.
+`data.sql` chứa `households`, `household_members` và kế hoạch bữa ăn của người thật; `auth-users.sql`
+chứa email của họ. Đây là dữ liệu cá nhân, không phải tệp build — đừng để lẫn vào thư mục dự án và
+đừng commit. Thư mục `$bk` ở ví dụ trên cố ý nằm ngoài repo.
 
 ## Nhịp sao lưu
 
-| Khi nào                              | Vì sao                                                  |
-| ------------------------------------ | ------------------------------------------------------- |
-| **Ngay trước** mỗi lần xuất bản catalog | đó là lúc duy nhất dữ liệu catalog bị ghi hàng loạt   |
-| **Ngay trước** mỗi lần `db push`     | migration không có nút hoàn tác                          |
-| Định kỳ, ít nhất **hàng tuần**       | dữ liệu hộ gia đình tích tụ liên tục, không theo sự kiện |
+| Khi nào                                 | Vì sao                                                   |
+| --------------------------------------- | -------------------------------------------------------- |
+| **Ngay trước** mỗi lần xuất bản catalog | đó là lúc duy nhất dữ liệu catalog bị ghi hàng loạt       |
+| **Ngay trước** mỗi lần `db push`        | migration không có nút hoàn tác                           |
+| Định kỳ, ít nhất **hàng tuần**          | dữ liệu hộ gia đình tích tụ liên tục, không theo sự kiện  |
 
-Diễn tập phục hồi (Bước 2–3) làm lại ít nhất **mỗi quý**, và bắt buộc sau bất kỳ migration nào đổi
+Diễn tập phục hồi (Bước 3–4) làm lại ít nhất **mỗi quý**, và bắt buộc sau bất kỳ migration nào đổi
 cấu trúc bảng.
+
+## Nếu phải phục hồi thật
+
+Đích là một **project Supabase mới**, không phải PostgreSQL trắng — nó cấp sẵn `auth`, `extensions`
+và các vai trò, nên **không** chạy tệp mồi ở đó. Thứ tự: `schema.sql`, rồi `data.sql` với
+`set session_replication_role = replica`, rồi `auth-users.sql`, rồi `migrations.sql`. Sau đó đổi
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` và các biến server trong Vercel sang project mới.
+
+Đọc `production-readiness.md` mục **Rollback, deletion, and key rotation** trước khi bắt đầu.
 
 ## Không bao giờ
 
