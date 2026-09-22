@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { describe, expect, it, vi } from "vitest"
@@ -26,8 +26,9 @@ const pantryRepository: PantryRepository = {
   remove: vi.fn()
 }
 
+const shoppingLoad = vi.fn(() => Promise.resolve(null))
 const shoppingListRepository: ShoppingListRepository = {
-  load: vi.fn(() => Promise.resolve(null)),
+  load: shoppingLoad,
   setChecked: vi.fn((shoppingListItemId: string, checked: boolean) =>
     Promise.resolve({
       shoppingListItemId,
@@ -85,6 +86,30 @@ describe("sign in", () => {
 
     expect(signIn).toHaveBeenCalledWith("user@example.test", "correct horse battery staple")
     expect(await screen.findByRole("heading", { name: "Gia đình của bạn" })).toBeInTheDocument()
+  })
+
+  it("restores a protected deep link including its query after sign-in", async () => {
+    const user = userEvent.setup()
+    const signIn = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        session: {
+          accessToken: "token",
+          identity: { userId: "user-a", email: "user@example.test" }
+        }
+      })
+    )
+    shoppingLoad.mockClear()
+    renderSignIn(signIn, "/shopping/plan-a?revisionId=revision-v1#items")
+
+    await user.type(await screen.findByRole("textbox", { name: "Email" }), "user@example.test")
+    await user.type(screen.getByLabelText("Mật khẩu"), "correct horse battery staple")
+    await user.click(screen.getByRole("button", { name: "Đăng nhập" }))
+
+    expect(await screen.findByRole("heading", { name: "Đi chợ" })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(shoppingLoad).toHaveBeenCalledWith("plan-a", "revision-v1")
+    })
   })
 
   it("shows a generic failure without leaking provider details", async () => {
