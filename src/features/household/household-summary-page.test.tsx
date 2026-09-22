@@ -39,7 +39,8 @@ describe("HouseholdSummaryPage", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent(/đang tải/i)
     expect(await screen.findByRole("heading", { name: "Gia đình của bạn" })).toBeInTheDocument()
-    expect(screen.getByText("1.200.000 VND cho 7 bữa chính")).toBeInTheDocument()
+    expect(screen.getByText("1.200.000 VND")).toBeInTheDocument()
+    expect(screen.getByText("Cho 7 bữa chính mỗi tuần")).toBeInTheDocument()
     expect(screen.getByText("Dị ứng trứng")).toBeInTheDocument()
     expect(screen.getByText("Ưu tiên nhiều rau")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Chỉnh sửa thông tin" })).toHaveAttribute(
