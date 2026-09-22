@@ -81,10 +81,13 @@ function HouseholdSettingsEditor({
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto min-h-screen w-full max-w-md overflow-x-hidden px-4 py-6"
+      className="mx-auto min-h-screen w-full max-w-4xl overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
     >
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <span className="text-sm font-medium">Bước {state.step}/5</span>
+      <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div className="mb-3 sm:mb-0">
+          <p className="text-sm font-medium text-emerald-700">Chỉnh sửa gia đình</p>
+          <p className="mt-1 text-sm text-slate-600">Bước {state.step}/5</p>
+        </div>
         <Button type="button" variant="outline" onClick={onCancel}>
           Hủy chỉnh sửa
         </Button>
@@ -177,7 +180,7 @@ export function HouseholdSettingsPage({ repository }: HouseholdSettingsPageProps
 
   if (state.status === "loading") {
     return (
-      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-4 px-4 py-6">
+      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <p role="status">Đang tải thông tin để chỉnh sửa…</p>
       </AppPageShell>
     )
@@ -187,7 +190,7 @@ export function HouseholdSettingsPage({ repository }: HouseholdSettingsPageProps
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-4 px-4 py-6"
+        className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
       >
         <p role="alert">
           {state.reason === "UNAUTHORIZED"
@@ -205,7 +208,7 @@ export function HouseholdSettingsPage({ repository }: HouseholdSettingsPageProps
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-4 px-4 py-6"
+        className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
       >
         <h1 className="text-2xl font-semibold">Không có thông tin để chỉnh sửa</h1>
         <p>Trang này không tạo thêm gia đình.</p>
