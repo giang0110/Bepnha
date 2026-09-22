@@ -9,6 +9,28 @@ function clientWith(auth: Record<string, unknown>) {
   return { auth } as unknown as SupabaseClient<Database>
 }
 
+describe("Supabase session sign-out", () => {
+  test("signs out only the current browser session", async () => {
+    const signOut = vi.fn(() => Promise.resolve({ error: null }))
+    const session = createSupabaseAuthSession(clientWith({ signOut }))
+
+    await expect(session.signOut()).resolves.toEqual({ ok: true })
+
+    expect(signOut).toHaveBeenCalledWith({ scope: "local" })
+  })
+
+  test("reports provider sign-out failures as retryable", async () => {
+    const session = createSupabaseAuthSession(
+      clientWith({ signOut: vi.fn(() => Promise.resolve({ error: { status: 503 } })) })
+    )
+
+    await expect(session.signOut()).resolves.toEqual({
+      ok: false,
+      reason: "RETRYABLE_FAILURE"
+    })
+  })
+})
+
 describe("Supabase password recovery", () => {
   test("asks Supabase to return the user to the given recovery path", async () => {
     const resetPasswordForEmail = vi.fn(() => Promise.resolve({ error: null }))
