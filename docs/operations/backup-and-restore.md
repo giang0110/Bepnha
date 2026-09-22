@@ -24,12 +24,14 @@ thật, không phải sau.
 `LegacyDockerRunError` trước khi chạm tới database. Nếu máy bạn không cài Docker Desktop thì lệnh đó
 không dùng được, và đó là lý do tài liệu này đi thẳng bằng `pg_dump`.
 
-Cần **PostgreSQL client tools**, phiên bản major **bằng hoặc cao hơn** server của production. Kiểm
-version của production trong Supabase SQL Editor:
+Cần **PostgreSQL client tools**, phiên bản major **bằng hoặc cao hơn** server của production —
+`pg_dump` cũ hơn server sẽ từ chối chạy. Kiểm lại mỗi lần, vì Supabase có nâng cấp:
 
 ```sql
 select version();
 ```
+
+Ngày 2026-09-22 production trả về **PostgreSQL 17.6**, nên bản cài tối thiểu là 17.
 
 Tải bộ cài PostgreSQL cho Windows tại postgresql.org. Trong trình cài đặt, đủ để chọn:
 
@@ -37,6 +39,11 @@ Tải bộ cài PostgreSQL cho Windows tại postgresql.org. Trong trình cài �
 - **PostgreSQL Server** — làm đích cho bài diễn tập phục hồi ở Bước 3.
 
 Không cần Stack Builder, không cần pgAdmin.
+
+Một lần cài cho cả hai, nên `pg_dump` và `psql` tự khớp phiên bản — điều này có ý nghĩa: từ dòng
+17.6 (và 16.10) `pg_dump` chèn hai lệnh `\restrict` / `\unrestrict` vào đầu và cuối tệp, và chỉ
+`psql` cùng đời mới hiểu. Server dùng làm đích diễn tập cũng phải cùng major hoặc mới hơn bản đã
+dump, vì `pg_dump` 17 sinh ra `SET transaction_timeout` mà Postgres 16 không nhận.
 
 Chuỗi kết nối lấy ở Supabase Dashboard → Project Settings → Database → Connection string → **URI**.
 Nếu kết nối trực tiếp không đi được (Supabase cấp IPv6 cho kết nối trực tiếp), dùng chuỗi **Session
