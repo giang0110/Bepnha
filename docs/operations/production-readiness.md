@@ -305,6 +305,17 @@ Minimum ownership requirement:
 - perform and record a restore drill into a disposable/non-production database;
 - never use a production reset as a restore test.
 
+The executable procedure is `docs/operations/backup-and-restore.md`: which three files a complete
+backup is, the drill that restores them into a disposable database, and the count comparison that
+decides whether the backup is usable.
+
+One property of this schema makes a naive restore fail, so it is worth stating here too. A
+`--data-only` dump cannot be loaded straight back: constraint triggers such as the one behind
+`INCOMPLETE_HARD_RULE_CATALOG_MAPPING` fire partway through the load, while only some of the rows
+they span are present. The load must run with `set session_replication_role = replica` in the same
+psql session. Verified end-to-end on PostgreSQL 16 against all 15 repository migrations — without it
+the restore aborts, with it every row count matches the source exactly.
+
 Deleting a Supabase project is irreversible and removes project data/backups. Project deletion is never a routine troubleshooting action.
 
 ## Gemini production rate-limit gate
