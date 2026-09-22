@@ -45,7 +45,8 @@ test("mobile household onboarding and settings persist through local Supabase Au
   await expect(page.getByText("Không dùng thịt bò")).toBeVisible()
   await page.reload()
   await expect(page.getByRole("heading", { name: "Gia đình của bạn" })).toBeVisible()
-  await expect(page.getByText("1.200.000 VND cho 7 bữa chính")).toBeVisible()
+  await expect(page.getByText("1.200.000 VND")).toBeVisible()
+  await expect(page.getByText("Cho 7 bữa chính mỗi tuần")).toBeVisible()
 
   await page.goto("/settings/household")
   await expect(page.getByRole("heading", { name: "Chỉnh sửa thành viên" })).toBeVisible()
@@ -56,7 +57,8 @@ test("mobile household onboarding and settings persist through local Supabase Au
   await page.getByRole("button", { name: "Tiếp tục" }).click()
   await page.getByRole("button", { name: "Tiếp tục" }).click()
   await page.getByRole("button", { name: "Lưu thay đổi" }).click()
-  await expect(page.getByText("1.350.000 VND cho 7 bữa chính")).toBeVisible()
+  await expect(page.getByText("1.350.000 VND")).toBeVisible()
+  await expect(page.getByText("Cho 7 bữa chính mỗi tuần")).toBeVisible()
 
   const logoutResponsePromise = page.waitForResponse(
     (response) =>
@@ -70,7 +72,8 @@ test("mobile household onboarding and settings persist through local Supabase Au
   await page.getByLabel("Mật khẩu").fill(password)
   await page.getByRole("button", { name: "Đăng nhập" }).click()
   await expect(page.getByRole("heading", { name: "Gia đình của bạn" })).toBeVisible()
-  await expect(page.getByText("1.350.000 VND cho 7 bữa chính")).toBeVisible()
+  await expect(page.getByText("1.350.000 VND")).toBeVisible()
+  await expect(page.getByText("Cho 7 bữa chính mỗi tuần")).toBeVisible()
 
   const unnamedControls = await page
     .locator("button, a[href], input, select, textarea")
