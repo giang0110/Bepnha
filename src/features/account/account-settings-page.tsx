@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router"
 import type { AccountApi, DeleteAccountFailure } from "@/application/account/account-deletion"
 import { useAuth } from "@/app/auth/auth-context"
 import { Button } from "@/app/components/ui/button"
+import { AppPageShell } from "@/app/components/app-page-shell"
 
 const failureMessages: Record<DeleteAccountFailure, string> = {
   ACCOUNT_DELETE_UNAVAILABLE: "Chưa xoá được tài khoản. Vui lòng thử lại sau ít phút.",
@@ -49,17 +50,14 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
   }
 
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-4 py-6"
-    >
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Tài khoản</h1>
+    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <header className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-emerald-700">Cài đặt</p>
+        <h1 className="text-3xl font-semibold tracking-tight">Tài khoản</h1>
         {email === null ? null : <p className="text-sm text-slate-600">{email}</p>}
-      </div>
+      </header>
 
-      <section className="flex flex-col gap-3 rounded-lg border border-red-300 p-4">
+      <section className="flex max-w-2xl flex-col gap-3 rounded-2xl border border-red-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-red-800">Xoá tài khoản</h2>
         <p>
           Xoá tài khoản sẽ xoá luôn thông tin gia đình, toàn bộ kế hoạch bữa ăn, tủ bếp và danh sách
@@ -95,9 +93,9 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
         </form>
       </section>
 
-      <Link className="text-sm font-medium underline" to="/household">
+      <Link className="w-fit text-sm font-medium underline" to="/household">
         Quay lại trang gia đình
       </Link>
-    </main>
+    </AppPageShell>
   )
 }
