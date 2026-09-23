@@ -25,6 +25,20 @@ import type {
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
+/**
+ * A meal is several dishes cooked alongside each other, and each keeps its own steps.
+ *
+ * Without a heading per dish the instructions read as one sequence, and the reader has no way to
+ * tell that "chiên vàng đều hai mặt" belongs to the protein rather than to the rice that was being
+ * described a line earlier.
+ */
+const MEAL_ROLE_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  staple: "Cơm",
+  main: "Món mặn",
+  vegetable: "Rau",
+  soup: "Canh"
+})
+
 function formatVnd(value: number): string {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)
 }
@@ -142,15 +156,22 @@ function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: In
         </section>
         <section>
           <h4 className="font-semibold">Cách nấu nhanh</h4>
-          <ol className="list-inside list-decimal">
-            {item.components
-              .toSorted((left, right) => left.sortOrder - right.sortOrder)
-              .flatMap((component) => component.recipe.steps)
-              .toSorted((left, right) => left.order - right.order)
-              .map((step, index) => (
-                <li key={`${step.order}:${index}`}>{step.instructionVi}</li>
-              ))}
-          </ol>
+          {item.components
+            .toSorted((left, right) => left.sortOrder - right.sortOrder)
+            .map((component) => (
+              <div className="mt-2" key={component.recipe.recipeVersionId}>
+                <h5 className="text-sm font-medium text-slate-700">
+                  {MEAL_ROLE_LABELS[component.mealRole] ?? component.mealRole}
+                </h5>
+                <ol className="list-inside list-decimal">
+                  {component.recipe.steps
+                    .toSorted((left, right) => left.order - right.order)
+                    .map((step) => (
+                      <li key={step.order}>{step.instructionVi}</li>
+                    ))}
+                </ol>
+              </div>
+            ))}
         </section>
         <section>
           <h4 className="font-semibold">Dinh dưỡng ước tính cho cả bữa</h4>

@@ -32,14 +32,46 @@ function item(dayIndex: number, name = `Bữa ${dayIndex + 1}`): PlanItemView {
     mealOptionCode: `meal_${dayIndex}`,
     mealOptionNameVi: name,
     elapsedMinutes: 25,
+    // A real meal is several dishes cooked alongside each other, each with its own ordered steps.
+    // The single-step fixture this replaces could not express the order the page has to preserve.
     components: [
       {
-        mealRole: "main",
+        mealRole: "staple",
         sortOrder: 1,
+        recipe: {
+          recipeId: `com-${dayIndex}`,
+          recipeVersionId: `com-version-${dayIndex}`,
+          steps: [
+            { order: 1, instructionVi: "Vo gạo.", timerMinutes: null },
+            { order: 2, instructionVi: "Cho gạo và nước vào nồi.", timerMinutes: null },
+            { order: 3, instructionVi: "Ủ cơm trước khi xới.", timerMinutes: null }
+          ]
+        }
+      },
+      {
+        mealRole: "main",
+        sortOrder: 2,
         recipe: {
           recipeId: `recipe-${dayIndex}`,
           recipeVersionId: `recipe-version-${dayIndex}`,
-          steps: [{ order: 1, instructionVi: `Nấu bữa ${dayIndex + 1}.`, timerMinutes: 10 }]
+          steps: [
+            { order: 1, instructionVi: `Nấu bữa ${dayIndex + 1}.`, timerMinutes: 10 },
+            { order: 2, instructionVi: "Chiên vàng đều hai mặt.", timerMinutes: null },
+            { order: 3, instructionVi: "Vớt ra để ráo dầu.", timerMinutes: null }
+          ]
+        }
+      },
+      {
+        mealRole: "vegetable",
+        sortOrder: 3,
+        recipe: {
+          recipeId: `rau-${dayIndex}`,
+          recipeVersionId: `rau-version-${dayIndex}`,
+          steps: [
+            { order: 1, instructionVi: "Nhặt và rửa sạch rau.", timerMinutes: null },
+            { order: 2, instructionVi: "Luộc rau với chút muối.", timerMinutes: null },
+            { order: 3, instructionVi: "Vớt rau ra ngay.", timerMinutes: null }
+          ]
         }
       }
     ],
@@ -333,6 +365,44 @@ describe("WeeklyPlanPage", () => {
       expectedPlanVersion: ready().planVersion,
       expectedCurrentRevisionId: ready().revisionId
     })
+  })
+
+  test("keeps each dish's steps together, in the order they are cooked", async () => {
+    // The replaced implementation re-sorted the flattened steps by their per-recipe order, so every
+    // dish's first step came first, then every second step. Nine steps from three dishes read as one
+    // impossible sequence: "cho gạo và nước vào nồi" landed between "ướp gia vị" and "chiên vàng".
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
+    await user.click(within(cards[0]!).getByText("Xem cách nấu và dinh dưỡng"))
+
+    const steps = within(cards[0]!)
+      .getAllByRole("listitem")
+      .map((node) => node.textContent)
+      .filter((text): text is string => text !== null)
+
+    const order = (needle: string) => steps.findIndex((text) => text.includes(needle))
+
+    expect(order("Vo gạo.")).toBeLessThan(order("Cho gạo và nước vào nồi."))
+    expect(order("Cho gạo và nước vào nồi.")).toBeLessThan(order("Ủ cơm trước khi xới."))
+    // The whole staple finishes before the main dish starts, which is what grouping means.
+    expect(order("Ủ cơm trước khi xới.")).toBeLessThan(order("Nấu bữa 1."))
+    expect(order("Vớt ra để ráo dầu.")).toBeLessThan(order("Nhặt và rửa sạch rau."))
+  })
+
+  test("labels each dish, so an instruction says what it belongs to", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
+    await user.click(within(cards[0]!).getByText("Xem cách nấu và dinh dưỡng"))
+
+    expect(within(cards[0]!).getByRole("heading", { name: "Cơm" })).toBeInTheDocument()
+    expect(within(cards[0]!).getByRole("heading", { name: "Món mặn" })).toBeInTheDocument()
+    expect(within(cards[0]!).getByRole("heading", { name: "Rau" })).toBeInTheDocument()
   })
 
   test("falls back to the identifier and quantity when a name is not known", async () => {
