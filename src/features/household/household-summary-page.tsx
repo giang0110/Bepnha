@@ -80,7 +80,7 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
         tabIndex={-1}
         className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
       >
-        <h1 className="text-2xl font-semibold">Gia đình của bạn</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Gia đình của bạn</h1>
         <p>Chưa có thông tin gia đình.</p>
         <Link to="/onboarding">Bắt đầu thiết lập</Link>
       </main>
@@ -103,48 +103,48 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
       className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
     >
       <header className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-emerald-700">Tổng quan gia đình</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Gia đình của bạn</h1>
-        <p className="max-w-2xl text-sm leading-6 text-slate-600">
+        <p className="text-sm font-medium text-herb-700">Tổng quan gia đình</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-ink">Gia đình của bạn</h1>
+        <p className="max-w-2xl text-sm leading-6 text-ink-soft">
           Những thông tin này được dùng để lập thực đơn, tính ngân sách và lọc món phù hợp.
         </p>
       </header>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <h2 className="font-semibold">Thành viên</h2>
-          <ul className="mt-3 grid gap-2 text-sm text-slate-700">
+        <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft">
+          <h2 className="font-bold text-ink">Thành viên</h2>
+          <ul className="mt-3 grid gap-2 text-sm text-ink-soft">
             {state.household.memberGroups.map((group) => (
               <li key={`${group.memberKind}:${group.ageBand}`}>{memberGroupLabel(group)}</li>
             ))}
           </ul>
         </section>
 
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <h2 className="font-semibold">Ngân sách</h2>
+        <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft">
+          <h2 className="font-bold text-ink">Ngân sách</h2>
           <p className="mt-3 text-2xl font-semibold tracking-tight">
             {formatVnd(state.household.weeklyPlanBudgetVnd)} VND
           </p>
-          <p className="mt-1 text-sm text-slate-600">Cho 7 bữa chính mỗi tuần</p>
+          <p className="mt-1 text-sm text-ink-soft">Cho 7 bữa chính mỗi tuần</p>
         </section>
 
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <h2 className="font-semibold">Thời gian nấu tối đa</h2>
+        <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft">
+          <h2 className="font-bold text-ink">Thời gian nấu tối đa</h2>
           <p className="mt-3 text-2xl font-semibold tracking-tight">
             {state.household.maxElapsedMinutes} phút
           </p>
-          <p className="mt-1 text-sm text-slate-600">Mỗi bữa trong kế hoạch</p>
+          <p className="mt-1 text-sm text-ink-soft">Mỗi bữa trong kế hoạch</p>
         </section>
 
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm md:col-span-1 xl:col-span-2">
-          <h2 className="font-semibold">Dị ứng và loại trừ</h2>
+        <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft md:col-span-1 xl:col-span-2">
+          <h2 className="font-bold text-ink">Dị ứng và loại trừ</h2>
           {hardCodes.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-600">Không chọn</p>
+            <p className="mt-3 text-sm text-ink-soft">Không chọn</p>
           ) : (
             <ul className="mt-3 flex flex-wrap gap-2">
               {hardCodes.map((code) => (
                 <li
-                  className="rounded-full bg-amber-50 px-3 py-1.5 text-sm text-amber-950 ring-1 ring-inset ring-amber-200"
+                  className="rounded-full bg-broth-50 px-3 py-1.5 text-sm text-broth-900 ring-1 ring-inset ring-broth-200"
                   key={code}
                 >
                   {ruleLabel(code)}
@@ -154,15 +154,15 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
           )}
         </section>
 
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <h2 className="font-semibold">Sở thích</h2>
+        <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft">
+          <h2 className="font-bold text-ink">Sở thích</h2>
           {preferenceCodes.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-600">Không chọn</p>
+            <p className="mt-3 text-sm text-ink-soft">Không chọn</p>
           ) : (
             <ul className="mt-3 flex flex-wrap gap-2">
               {preferenceCodes.map((code) => (
                 <li
-                  className="rounded-full bg-emerald-50 px-3 py-1.5 text-sm text-emerald-950 ring-1 ring-inset ring-emerald-200"
+                  className="rounded-full bg-herb-50 px-3 py-1.5 text-sm text-herb-900 ring-1 ring-inset ring-herb-200"
                   key={code}
                 >
                   {ruleLabel(code)}
@@ -175,13 +175,13 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
 
       <div className="grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
         <Link
-          className="rounded-xl bg-slate-900 px-4 py-3 text-center font-medium text-white transition hover:bg-slate-800"
+          className="rounded-2xl bg-herb-700 px-4 py-3 text-center font-medium text-white transition hover:bg-herb-600"
           to="/plan"
         >
           Lập kế hoạch tuần
         </Link>
         <Link
-          className="rounded-xl border border-stone-300 bg-white px-4 py-3 text-center font-medium text-slate-900 transition hover:bg-stone-100"
+          className="rounded-2xl border border-edge-strong bg-paper-raised px-4 py-3 text-center font-medium text-ink transition hover:bg-paper-sunken"
           to="/settings/household"
         >
           Chỉnh sửa thông tin

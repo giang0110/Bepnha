@@ -24,17 +24,17 @@ export function BudgetStep({
   return (
     <section aria-labelledby="budget-step-heading" className="flex flex-col gap-5">
       <div>
-        <h1 id="budget-step-heading" className="text-2xl font-semibold">
+        <h1 id="budget-step-heading" className="text-2xl font-extrabold tracking-tight text-ink">
           {heading}
         </h1>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-ink-soft">
           Ngân sách này chỉ áp dụng cho 7 bữa chính trong tuần.
         </p>
       </div>
       <label className="flex flex-col gap-2 font-medium">
         Ngân sách tuần (VND)
         <input
-          className="h-11 rounded-lg border px-3 text-base"
+          className="h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 text-base transition-colors focus:border-herb-500"
           inputMode="numeric"
           name="weeklyBudget"
           type="text"
@@ -45,9 +45,9 @@ export function BudgetStep({
           onChange={(event) => onChange(event.currentTarget.value)}
         />
       </label>
-      <p className="text-sm text-slate-600">Nhập số tiền từ 1 đến 100.000.000 VND.</p>
+      <p className="text-sm text-ink-soft">Nhập số tiền từ 1 đến 100.000.000 VND.</p>
       {showError ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-chilli-700">
           Ngân sách phải là số VND hợp lệ trong giới hạn.
         </p>
       ) : null}

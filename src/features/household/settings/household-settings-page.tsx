@@ -83,10 +83,10 @@ function HouseholdSettingsEditor({
       tabIndex={-1}
       className="mx-auto min-h-screen w-full max-w-4xl overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
     >
-      <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-4">
+      <div className="mb-6 rounded-2xl border border-edge bg-paper-raised p-4 shadow-soft sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div className="mb-3 sm:mb-0">
-          <p className="text-sm font-medium text-emerald-700">Chỉnh sửa gia đình</p>
-          <p className="mt-1 text-sm text-slate-600">Bước {state.step}/5</p>
+          <p className="text-sm font-medium text-herb-700">Chỉnh sửa gia đình</p>
+          <p className="mt-1 text-sm text-ink-soft">Bước {state.step}/5</p>
         </div>
         <Button type="button" variant="outline" onClick={onCancel}>
           Hủy chỉnh sửa
@@ -210,7 +210,9 @@ export function HouseholdSettingsPage({ repository }: HouseholdSettingsPageProps
         tabIndex={-1}
         className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
       >
-        <h1 className="text-2xl font-semibold">Không có thông tin để chỉnh sửa</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">
+          Không có thông tin để chỉnh sửa
+        </h1>
         <p>Trang này không tạo thêm gia đình.</p>
         <Link to="/onboarding">Quay lại thiết lập</Link>
       </main>

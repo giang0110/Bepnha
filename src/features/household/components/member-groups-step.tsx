@@ -31,10 +31,10 @@ export function MemberGroupsStep({
   return (
     <section aria-labelledby="member-step-heading" className="flex flex-col gap-5">
       <div>
-        <h1 id="member-step-heading" className="text-2xl font-semibold">
+        <h1 id="member-step-heading" className="text-2xl font-extrabold tracking-tight text-ink">
           {heading}
         </h1>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-ink-soft">
           Chỉ nhập số lượng theo nhóm tuổi, không cần tên hay ngày sinh.
         </p>
       </div>
@@ -42,11 +42,11 @@ export function MemberGroupsStep({
         {MEMBER_FIELDS.map((field) => (
           <label
             key={field.key}
-            className="flex min-h-12 items-center justify-between gap-3 rounded-lg border px-3 py-2 font-medium"
+            className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-edge-strong bg-paper-raised px-3.5 py-2 font-medium"
           >
             <span>{field.label}</span>
             <input
-              className="h-10 w-20 rounded-md border px-2 text-right"
+              className="h-10 w-20 rounded-xl border px-2 text-right"
               aria-label={field.label}
               inputMode="numeric"
               min={0}
@@ -58,10 +58,10 @@ export function MemberGroupsStep({
           </label>
         ))}
       </div>
-      <p className="text-sm text-slate-600">Hiện chưa hỗ trợ trẻ dưới 1 tuổi.</p>
+      <p className="text-sm text-ink-soft">Hiện chưa hỗ trợ trẻ dưới 1 tuổi.</p>
       <p className="font-medium">Tổng cộng: {total} người</p>
       {total > 20 ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-chilli-700">
           Tối đa 20 thành viên.
         </p>
       ) : null}

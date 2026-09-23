@@ -38,7 +38,7 @@ export function HardRulesStep({
   const selected = new Set(selectedCodes)
 
   const checkbox = (option: RuleOption) => (
-    <label className="flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2">
+    <label className="flex min-h-11 items-center gap-3 rounded-xl border border-edge-strong bg-paper-raised px-3.5 py-2">
       <input
         aria-label={option.labelVi}
         checked={selected.has(option.code)}
@@ -60,9 +60,9 @@ export function HardRulesStep({
     if (!selected.has(option.code) || option.code === "allergen_other") return null
     const current = resolveAllergenStrictness(allergenStrictness, option.code)
     return (
-      <fieldset className="ml-8 mt-2 grid gap-2 border-l-2 border-slate-200 pl-3">
+      <fieldset className="ml-8 mt-2 grid gap-2 border-l-2 border-edge pl-3">
         <legend className="sr-only">{`Mức độ cho ${option.labelVi}`}</legend>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-soft">
           Nguyên liệu mua ngoài chợ không kiểm chứng được khâu chế biến của nơi bán. Bạn muốn lọc
           tới đâu?
         </p>
@@ -86,10 +86,13 @@ export function HardRulesStep({
   return (
     <section aria-labelledby="hard-rules-step-heading" className="flex flex-col gap-5">
       <div>
-        <h1 id="hard-rules-step-heading" className="text-2xl font-semibold">
+        <h1
+          id="hard-rules-step-heading"
+          className="text-2xl font-extrabold tracking-tight text-ink"
+        >
           {heading}
         </h1>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-ink-soft">
           Đây là các quy tắc bắt buộc. Kế hoạch sẽ lọc theo các loại trừ đã lưu.
         </p>
       </div>
@@ -103,7 +106,7 @@ export function HardRulesStep({
         ))}
       </fieldset>
       {selected.has("allergen_other") ? (
-        <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+        <p role="alert" className="rounded-2xl border border-broth-200 bg-broth-50 p-3 text-sm">
           Dị ứng này chưa được hỗ trợ bằng quy tắc chi tiết. Không nhập mô tả tự do; ứng dụng sẽ
           không tự diễn giải nội dung dị ứng.
         </p>

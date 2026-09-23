@@ -36,7 +36,7 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
 
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-8">
-        <h1 className="text-2xl font-semibold">Ứng dụng gặp sự cố</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Ứng dụng gặp sự cố</h1>
         <p>
           Đã có lỗi ngoài dự kiến. Kế hoạch, giỏ đi chợ và tủ bếp đã lưu của bạn không bị ảnh hưởng.
         </p>

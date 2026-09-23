@@ -35,8 +35,16 @@ export function SignUpPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-5 px-4 py-8">
       <div>
-        <p className="text-sm font-medium text-slate-600">Bếp Nhà</p>
-        <h1 className="text-2xl font-semibold">Tạo tài khoản</h1>
+        <p className="flex items-center gap-2 text-sm font-extrabold text-herb-700">
+          <span
+            aria-hidden="true"
+            className="grid size-9 place-items-center rounded-2xl bg-herb-100 text-lg"
+          >
+            🍚
+          </span>
+          Bếp Nhà
+        </p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Tạo tài khoản</h1>
       </div>
       {confirmationPending ? (
         <p role="status">Kiểm tra email để xác nhận tài khoản, sau đó quay lại đăng nhập.</p>
@@ -45,7 +53,7 @@ export function SignUpPage() {
           <label className="flex flex-col gap-1 text-sm font-medium">
             Email
             <input
-              className="h-11 rounded-lg border px-3"
+              className="h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
               name="email"
               type="email"
               autoComplete="email"
@@ -55,7 +63,7 @@ export function SignUpPage() {
           <label className="flex flex-col gap-1 text-sm font-medium">
             Mật khẩu
             <input
-              className="h-11 rounded-lg border px-3"
+              className="h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
               name="password"
               type="password"
               autoComplete="new-password"
@@ -64,7 +72,7 @@ export function SignUpPage() {
             />
           </label>
           {failed ? (
-            <p role="alert" className="text-sm text-red-700">
+            <p role="alert" className="text-sm text-chilli-700">
               Không thể tạo tài khoản. Vui lòng thử lại.
             </p>
           ) : null}
@@ -75,15 +83,24 @@ export function SignUpPage() {
       )}
       <p className="text-sm">
         Đã có tài khoản?{" "}
-        <Link className="font-medium underline" to="/sign-in">
+        <Link
+          className="font-bold text-herb-700 underline underline-offset-2 hover:text-herb-900"
+          to="/sign-in"
+        >
           Đăng nhập
         </Link>
       </p>
       <p className="flex flex-wrap gap-4 text-sm">
-        <Link className="underline" to="/privacy">
+        <Link
+          className="text-ink-soft underline underline-offset-2 hover:text-herb-700"
+          to="/privacy"
+        >
           Chính sách riêng tư
         </Link>
-        <Link className="underline" to="/terms">
+        <Link
+          className="text-ink-soft underline underline-offset-2 hover:text-herb-700"
+          to="/terms"
+        >
           Điều khoản sử dụng
         </Link>
       </p>

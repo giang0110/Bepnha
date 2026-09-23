@@ -120,7 +120,7 @@ function errorCopy(code: string): string {
 function SupportReference({ correlationId }: Readonly<{ correlationId: string | undefined }>) {
   const safeId = safePlannerCorrelationId(correlationId)
   return safeId === undefined ? null : (
-    <p className="mt-1 text-xs text-slate-600">
+    <p className="mt-1 text-xs text-ink-soft">
       Mã hỗ trợ: <code>{safeId}</code>
     </p>
   )
@@ -165,37 +165,72 @@ function CookingStepDetail({
   if (conditions.length === 0 && names.length === 0) return null
 
   return (
-    <span className="mt-0.5 block pl-5 text-xs text-slate-600">
-      {conditions.length > 0 && <span>{conditions.join(" · ")}</span>}
-      {conditions.length > 0 && names.length > 0 && <span aria-hidden="true"> — </span>}
-      {names.length > 0 && <span>Nguyên liệu: {names.join(", ")}</span>}
+    <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+      {conditions.map((condition) => (
+        <span
+          className="rounded-full bg-broth-50 px-2 py-0.5 font-bold text-broth-900"
+          key={condition}
+        >
+          {condition}
+        </span>
+      ))}
+      {names.length > 0 && (
+        <span className="font-medium text-ink-soft">Nguyên liệu: {names.join(", ")}</span>
+      )}
     </span>
   )
 }
 
 function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: IngredientLabels }>) {
   return (
-    <details className="mt-3 rounded-lg bg-stone-50 px-3 py-2 text-sm">
-      <summary className="cursor-pointer font-medium">Xem cách nấu và dinh dưỡng</summary>
-      <div className="mt-3 grid gap-3">
+    <details className="group/details mt-4 rounded-2xl bg-paper-sunken px-4 py-3 text-sm">
+      <summary className="flex cursor-pointer items-center justify-between gap-2 font-bold text-herb-700">
+        Xem cách nấu và dinh dưỡng
+        <span
+          aria-hidden="true"
+          className="grid size-6 shrink-0 place-items-center rounded-full bg-herb-100 text-herb-700 transition-transform group-open/details:rotate-180"
+        >
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24">
+            <path
+              d="m6 9 6 6 6-6"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.5"
+            />
+          </svg>
+        </span>
+      </summary>
+      <div className="mt-4 grid gap-4">
         <section>
-          <h4 className="font-semibold">Nguyên liệu đã định lượng</h4>
-          <ul className="list-inside list-disc">
+          <h4 className="flex items-center gap-1.5 font-bold text-ink">
+            <span aria-hidden="true">🥬</span>
+            Nguyên liệu đã định lượng
+          </h4>
+          <ul className="mt-2 grid gap-1">
             {item.scaledIngredients.map((ingredient) => (
-              <li key={ingredient.sourceId}>{describeIngredient(ingredient, labels)}</li>
+              <li
+                className="rounded-2xl bg-paper-raised px-3 py-1.5 text-ink-soft"
+                key={ingredient.sourceId}
+              >
+                {describeIngredient(ingredient, labels)}
+              </li>
             ))}
           </ul>
         </section>
         <section>
-          <h4 className="font-semibold">Cách nấu nhanh</h4>
+          <h4 className="flex items-center gap-1.5 font-bold text-ink">
+            <span aria-hidden="true">🍳</span>
+            Cách nấu nhanh
+          </h4>
           {item.components
             .toSorted((left, right) => left.sortOrder - right.sortOrder)
             .map((component) => (
-              <div className="mt-2" key={component.recipe.recipeVersionId}>
-                <h5 className="text-sm font-medium text-slate-700">
+              <div className="mt-3" key={component.recipe.recipeVersionId}>
+                <h5 className="inline-flex rounded-full bg-clay-50 px-2.5 py-0.5 text-xs font-bold text-clay-900">
                   {MEAL_ROLE_LABELS[component.mealRole] ?? component.mealRole}
                 </h5>
-                <ol className="list-inside list-decimal">
+                <ol className="mt-2 grid list-outside list-decimal gap-2 pl-5 marker:font-extrabold marker:text-herb-700">
                   {component.recipe.steps
                     .toSorted((left, right) => left.order - right.order)
                     .map((step) => (
@@ -213,10 +248,16 @@ function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: In
             ))}
         </section>
         <section>
-          <h4 className="font-semibold">Dinh dưỡng ước tính cho cả bữa</h4>
-          <ul className="flex flex-wrap gap-2">
+          <h4 className="flex items-center gap-1.5 font-bold text-ink">
+            <span aria-hidden="true">🍲</span>
+            Dinh dưỡng ước tính cho cả bữa
+          </h4>
+          <ul className="mt-2 flex flex-wrap gap-2">
             {item.nutrition.nutrients.map((nutrient) => (
-              <li className="rounded-full bg-white px-2 py-1" key={nutrient.nutrientCode}>
+              <li
+                className="rounded-full bg-paper-raised px-3 py-1 font-semibold text-ink-soft shadow-soft"
+                key={nutrient.nutrientCode}
+              >
                 {nutrient.displayAmount} {nutrient.unitCode}
               </li>
             ))}
@@ -392,18 +433,21 @@ export function WeeklyPlanPage({
 
   if (state.status === "loading_household") {
     return (
-      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-slate-950 sm:px-6 lg:px-8 lg:py-8">
+      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
         <p role="status">Đang tải thông tin gia đình…</p>
       </AppPageShell>
     )
   }
 
   return (
-    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-slate-950 sm:px-6 lg:px-8 lg:py-8">
+    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
       <header className="grid gap-2">
-        <p className="text-sm font-medium text-emerald-700">Bếp Nhà</p>
-        <h1 className="text-2xl font-semibold">Kế hoạch tuần</h1>
-        <p className="text-sm text-slate-600">
+        <p className="flex items-center gap-1.5 text-sm font-extrabold text-herb-700">
+          <span aria-hidden="true">🍚</span>
+          Bếp Nhà
+        </p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Kế hoạch tuần</h1>
+        <p className="text-sm text-ink-soft">
           Ngân sách chỉ áp dụng cho 7 bữa chính nấu cho cả gia đình.
         </p>
       </header>
@@ -443,16 +487,25 @@ export function WeeklyPlanPage({
 
       {state.status === "ready" ? (
         <>
-          <section className="rounded-xl bg-white p-4 shadow-sm" aria-label="Tổng quan ngân sách">
-            <p className="text-sm text-slate-600">Ước tính giỏ mua cho 7 bữa chính</p>
-            <p className="text-xl font-semibold">
+          <section
+            className="rounded-3xl border border-herb-100 bg-gradient-to-br from-herb-50 to-paper-raised p-5 shadow-soft"
+            aria-label="Tổng quan ngân sách"
+          >
+            <p className="flex items-center gap-2 text-sm font-semibold text-herb-700">
+              <span aria-hidden="true">🧺</span>
+              Ước tính giỏ mua cho 7 bữa chính
+            </p>
+            <p className="mt-2 text-2xl font-extrabold tracking-tight text-ink">
               {formatVnd(state.value.plan.totalEstimatedCostVnd)} VND /{" "}
               {formatVnd(state.value.budgetVnd)} VND
             </p>
             {state.value.warnings.map((warning, index) => {
               const copy = warningCopy(warning, state.value)
               return copy === null ? null : (
-                <p className="mt-2 text-sm text-amber-800" key={`${warning.code}:${index}`}>
+                <p
+                  className="mt-3 rounded-2xl bg-broth-50 px-3 py-2 text-sm font-medium text-broth-900"
+                  key={`${warning.code}:${index}`}
+                >
                   {copy}
                 </p>
               )
@@ -460,9 +513,10 @@ export function WeeklyPlanPage({
           </section>
 
           <Link
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-clay-700 px-6 text-base font-bold text-white shadow-soft transition-all hover:bg-clay-900 hover:shadow-lift"
             to={`/shopping/${state.value.planId}`}
           >
+            <span aria-hidden="true">🛒</span>
             Đi chợ
           </Link>
 
@@ -488,16 +542,21 @@ export function WeeklyPlanPage({
               .map((item) => (
                 <li
                   aria-label={`Bữa chính ${DAY_LABELS[item.dayIndex]}`}
-                  className="rounded-xl bg-white p-4 shadow-sm"
+                  className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft transition-shadow hover:shadow-lift"
                   key={item.dayIndex}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="font-semibold">{DAY_LABELS[item.dayIndex]}</h2>
-                      <p className="text-lg font-medium" data-testid="meal-name">
+                      <h2 className="inline-flex rounded-full bg-herb-100 px-3 py-0.5 text-xs font-bold tracking-wide text-herb-900 uppercase">
+                        {DAY_LABELS[item.dayIndex]}
+                      </h2>
+                      <p className="mt-2 text-lg font-bold text-ink" data-testid="meal-name">
                         {item.mealOptionNameVi}
                       </p>
-                      <p className="text-sm text-slate-600">Tối đa {item.elapsedMinutes} phút</p>
+                      <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-soft">
+                        <span aria-hidden="true">⏱</span>
+                        Tối đa {item.elapsedMinutes} phút
+                      </p>
                     </div>
                     <Button
                       disabled={submitting}
@@ -524,17 +583,17 @@ export function WeeklyPlanPage({
       ) : null}
       {preview.status === "ready" ? (
         <section
-          className="sticky bottom-3 rounded-xl border border-emerald-200 bg-white p-4 shadow-lg"
+          className="sticky bottom-3 rounded-3xl border border-herb-200 bg-paper-raised p-4 shadow-lift"
           aria-label="Xem trước bữa thay thế"
         >
-          <h2 className="font-semibold">Xem trước thay đổi</h2>
+          <h2 className="font-bold text-ink">Xem trước thay đổi</h2>
           <p>
             {
               preview.value.items.find((item) => item.dayIndex === preview.dayIndex)
                 ?.mealOptionNameVi
             }
           </p>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-soft">
             {preview.value.costDeltaVnd >= 0 ? "Tăng" : "Giảm"}{" "}
             {formatVnd(Math.abs(preview.value.costDeltaVnd))} VND cho cả tuần
           </p>
