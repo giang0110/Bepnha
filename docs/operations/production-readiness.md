@@ -79,6 +79,13 @@ Both are covered in **Password recovery** above and both are launch blockers for
 never a secret key in a repository secret. Without them the scheduled job fails loudly, which is
 intended: a pause-prevention job that fails silently is worse than none.
 
+`BEPNHA_PRODUCTION_DB_URL`, for the **Production database migration** workflow and the schema check
+it runs afterwards. Use the **session pooler** string on port 5432 (Project Settings → Database →
+Connection string → Session pooler), not the transaction pooler on 6543: a migration needs session
+state the transaction pooler does not keep. The direct host resolves to IPv6 only and GitHub runners
+have no IPv6, so it cannot be used from CI. This one carries the database password — it belongs in
+a repository secret and nowhere else.
+
 ### 5. Legal contact
 
 Replace the `.invalid` placeholder in `src/features/legal/legal-content.ts` with a monitored address
@@ -224,6 +231,27 @@ supabase migration list
 ```
 
 `supabase db push` prints the migrations it intends to apply and waits for confirmation. If that list is not exactly the eight above, stop: the local checkout is not at `main`, or the project is not the one resolved here.
+
+### Running a migration from the repository
+
+`.github/workflows/production-migration.yml` does the same work from a reviewed checkout, and is the
+preferred route: it removes the IPv6 problem (it connects through the session pooler), it runs the
+schema check straight afterwards, and it leaves a record of who dispatched it and what was applied.
+
+Actions → **Production database migration** → Run workflow, from `main`, typing the project ref to
+confirm the target. It runs in two stages:
+
+1. `plan` — a dry run that prints the migrations it would apply into the run summary. Read-only.
+2. `apply` — the write, plus `verify:production:schema`.
+
+Stage 2 declares the `production` environment, so GitHub holds it for a reviewer — **but only if
+that environment has required reviewers configured** (Settings → Environments → production). Without
+that configuration the run proceeds unattended and the typed project ref is the only gate left, so
+configure it before relying on this as the approval AGENTS.md §5 asks for.
+
+The workflow refuses to run from any ref other than `main`, and refuses a project ref that does not
+match the one recorded above. Re-running is safe: a push with nothing to apply reports `Remote
+database is up to date` and succeeds.
 
 ### Migration and deploy ordering
 

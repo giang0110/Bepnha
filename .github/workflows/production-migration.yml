@@ -1,0 +1,155 @@
+name: Production database migration
+
+# Applies the repository's migration chain to the production Supabase project.
+#
+# This workflow is manual on purpose. AGENTS.md §5 requires explicit approval for a production
+# migration, and a job that ran on merge would take that decision away. It also could not be trusted
+# to win the race it would be entering: Vercel deploys on merge too, so "migrate on merge" would
+# still leave the ordering to chance. The code is what closes that gap — see **Migration and deploy
+# ordering** in docs/operations/production-readiness.md — and this workflow is the reviewed way to
+# run the migration itself, not a way to stop thinking about when.
+#
+# It runs in two stages so a person sees the list before anything is written:
+#
+#   1. `plan`  - a dry run. Read-only. Prints exactly which migrations would be applied.
+#   2. `apply` - the write, in the `production` environment so GitHub can hold it for a reviewer.
+#
+# IMPORTANT: the hold in stage 2 only exists if the `production` environment has required reviewers
+# configured (Settings → Environments → production → Required reviewers). Without that, GitHub runs
+# the job straight through and the only gate left is the typed project ref. Configure it.
+#
+# Required repository secret:
+#   BEPNHA_PRODUCTION_DB_URL - the **Session pooler** connection string, from
+#                              Project Settings → Database → Connection string → Session pooler.
+#
+# It must be the session pooler on port 5432, not the transaction pooler on 6543: a migration needs
+# session state that the transaction pooler does not keep. The direct host (db.<ref>.supabase.co)
+# resolves to IPv6 only and GitHub runners have no IPv6, so it cannot be used here either.
+#
+# The same secret name is what `npm run verify:production:schema` already reads, so one value serves
+# both the write and the check that follows it.
+#
+# Re-running is safe. A push with nothing to apply reports "Remote database is up to date" and
+# succeeds; it never re-applies a recorded migration.
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_ref:
+        description: "Type the production project ref to confirm the target"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never let two migrations overlap, and never cancel one part-way.
+  group: production-migration
+  cancel-in-progress: false
+
+env:
+  # The one production project this repository migrates, as recorded in
+  # docs/operations/production-readiness.md → Production Supabase target.
+  PROJECT_REF: vkrqzwlpneocgjwhqbsl
+
+jobs:
+  plan:
+    name: Plan (dry run)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse a target that was not typed correctly
+        # The typed value reaches the shell as an environment variable, never interpolated into the
+        # script text: `${{ }}` is substituted before bash sees the line, so an input carrying shell
+        # syntax would run as code rather than be compared as a string.
+        env:
+          TYPED_PROJECT_REF: ${{ inputs.project_ref }}
+        run: |
+          set -euo pipefail
+          if [ "${TYPED_PROJECT_REF}" != "${PROJECT_REF}" ]; then
+            echo "Typed project ref does not match ${PROJECT_REF}; refusing." >&2
+            exit 1
+          fi
+
+      - name: Refuse migrations from outside main
+        # A migration is schema that lands permanently. It comes from reviewed history or not at all.
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "Run this from main. Current ref: ${GITHUB_REF}" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: List the migrations that would be applied
+        env:
+          BEPNHA_PRODUCTION_DB_URL: ${{ secrets.BEPNHA_PRODUCTION_DB_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${BEPNHA_PRODUCTION_DB_URL}" ]; then
+            echo "BEPNHA_PRODUCTION_DB_URL repository secret is required." >&2
+            exit 1
+          fi
+
+          npx supabase db push --db-url "${BEPNHA_PRODUCTION_DB_URL}" --dry-run \
+            | tee "${RUNNER_TEMP}/plan.txt"
+
+          {
+            echo "### Migrations that would be applied"
+            echo
+            echo '```'
+            cat "${RUNNER_TEMP}/plan.txt"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  apply:
+    name: Apply
+    needs: plan
+    runs-on: ubuntu-latest
+    # GitHub holds this job here when the environment has required reviewers. That hold is the
+    # approval AGENTS.md §5 asks for.
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Apply the migration chain
+        env:
+          BEPNHA_PRODUCTION_DB_URL: ${{ secrets.BEPNHA_PRODUCTION_DB_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${BEPNHA_PRODUCTION_DB_URL}" ]; then
+            echo "BEPNHA_PRODUCTION_DB_URL repository secret is required." >&2
+            exit 1
+          fi
+
+          npx supabase db push --db-url "${BEPNHA_PRODUCTION_DB_URL}"
+
+      - name: Verify the schema against this checkout
+        # A push reporting success proves only that the history table lists the same versions. This
+        # is what establishes that the objects actually exist.
+        env:
+          BEPNHA_PRODUCTION_DB_URL: ${{ secrets.BEPNHA_PRODUCTION_DB_URL }}
+        run: |
+          set -euo pipefail
+          npm run verify:production:schema | tee "${RUNNER_TEMP}/verify.txt"
+
+          {
+            echo "### Post-migration verification"
+            echo
+            echo '```'
+            cat "${RUNNER_TEMP}/verify.txt"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
