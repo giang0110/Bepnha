@@ -79,6 +79,60 @@ async function rpc(client: SupabaseClient<Database>, name: string, args: Record<
   return result.data
 }
 
+/** PostgreSQL `undefined_function`, and the PostgREST schema cache's word for the same thing. */
+const MISSING_FUNCTION_CODES: ReadonlySet<string> = new Set(["42883", "PGRST202"])
+
+/**
+ * Whether this process has already found the plan-history function absent.
+ *
+ * Process-scoped like the step-condition flag above and for the same reason: a serverless instance
+ * is short-lived, so applying the migration heals the next instance without a deploy.
+ */
+let planHistoryFunctionMissing = false
+
+/**
+ * What this household cooked in the weeks before this one.
+ *
+ * Tolerant of a database that predates the function, because the deploy order is not ours to
+ * choose: Vercel publishes on merge while a production migration waits for an operator. A read that
+ * names a function PostgreSQL does not have fails the whole statement with 42883, and taking plan
+ * generation down to avoid repeating last week's dinner is a bad trade — so an absent function is
+ * "history not stated", and the planner plans exactly as it did before this existed.
+ *
+ * Distinguish that from an empty array, which is a real answer: this household has cooked nothing
+ * in the window. Both score the same today; only one of them is worth a warning in the log.
+ */
+async function recentMealOptionIds(
+  client: SupabaseClient<Database>,
+  householdId: string,
+  weekStart: string
+): Promise<readonly string[] | undefined> {
+  if (planHistoryFunctionMissing) return undefined
+  const result = await client.rpc("get_recent_meal_option_ids", {
+    p_household_id: householdId,
+    p_week_start: weekStart,
+    p_week_count: PLANNER_CONFIG_V1.recentWeekLookback
+  })
+  if (result.error !== null) {
+    const code = result.error.code
+    if (typeof code === "string" && MISSING_FUNCTION_CODES.has(code)) {
+      planHistoryFunctionMissing = true
+      console.warn(
+        JSON.stringify({
+          event: "planner_schema_degraded",
+          detail: "plan_history_function_missing",
+          action: "apply supabase/migrations/20260923010000_planner_recent_week_history.sql"
+        })
+      )
+      return undefined
+    }
+    throw new Error("PLANNER_DATA_UNAVAILABLE")
+  }
+  return Array.isArray(result.data)
+    ? result.data.filter((id): id is string => typeof id === "string")
+    : []
+}
+
 const STEP_COLUMNS = "id, sort_order, instruction_vi, timer_minutes"
 const STEP_COLUMNS_WITH_CONDITIONS = `${STEP_COLUMNS}, heat_level, temperature_celsius` as const
 
@@ -426,9 +480,11 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
   const household = object(root.household)
   const householdId = string(household.id)
   const priceBook = object(root.priceBook)
-  const [units, pantrySnapshot] = await Promise.all([
+  const weekStart = string(root.weekStart)
+  const [units, pantrySnapshot, recentMeals] = await Promise.all([
     loadUnits(client),
-    loadPantrySnapshot(client, householdId)
+    loadPantrySnapshot(client, householdId),
+    recentMealOptionIds(client, householdId, weekStart)
   ])
   // The RPC returns every published meal option. Hydrating one past the domain candidate limit is
   // enough for `normalizePlannerInput` to raise the same CATALOG_CANDIDATE_LIMIT_EXCEEDED error it
@@ -447,7 +503,7 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
   return {
     householdId,
     householdSetupVersion: integer(household.version),
-    weekStart: string(root.weekStart),
+    weekStart,
     timezone: string(household.timezone),
     calculationDate: string(root.calculationDate),
     weeklyPlanBudgetVnd: integer(household.weekly_plan_budget_vnd),
@@ -469,6 +525,7 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
       (code) =>
         HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)?.ruleKind === "soft_preference"
     ),
+    ...(recentMeals === undefined ? {} : { recentMealOptionIds: recentMeals }),
     pantrySnapshot,
     candidates
   }

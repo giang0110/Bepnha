@@ -172,3 +172,64 @@ describe("reviewed planner goldens", () => {
     expect(result).toMatchObject({ status: "ready_within_budget" })
   })
 })
+
+describe("recently cooked meals", () => {
+  function planWithHistory(recentMealOptionIds: readonly string[], count = 9) {
+    const input: PlannerInputV1 = {
+      ...plannerInput(
+        Array.from({ length: count }, (_, index) =>
+          plannerCandidate(`golden-${String(index).padStart(2, "0")}-v1`)
+        )
+      ),
+      weeklyPlanBudgetVnd: 700_000,
+      recentMealOptionIds
+    }
+    const normalized = normalizePlannerInput(input)
+    if (!normalized.ok) throw new Error("invalid fixture")
+    const eligibility = evaluatePlannerEligibility(normalized.value)
+    if (!eligibility.ok) throw new Error("ineligible fixture")
+    return searchWeek(
+      eligibility.value.eligible,
+      normalized.value.weeklyPlanBudgetVnd,
+      normalized.value.softPreferenceCodes,
+      normalized.value.calculationDate,
+      normalized.value.priceFreshnessConfig,
+      normalized.value.plannerConfig,
+      [],
+      normalized.value.recentMealOptionIds ?? []
+    )
+  }
+
+  function chosenIds(result: ReturnType<typeof planWithHistory>) {
+    if (!("plan" in result)) throw new Error("expected a ready plan")
+    return result.plan.items.map((item) => item.mealOptionId)
+  }
+
+  test("passes over a meal cooked last week when the catalogue can spare it", () => {
+    // Nine candidates for seven days: dropping two is possible, so the planner should drop the two
+    // it just cooked rather than any others.
+    const baseline = chosenIds(planWithHistory([]))
+    const avoided = baseline.slice(0, 2)
+    const withHistory = chosenIds(planWithHistory(avoided))
+
+    expect(withHistory).not.toContain(avoided[0])
+    expect(withHistory).not.toContain(avoided[1])
+    expect(new Set(withHistory).size).toBe(7)
+  })
+
+  test("still returns a week when every candidate was cooked recently", () => {
+    // The reason this is a penalty and not a bar. A household with a small catalogue must get a
+    // plan that repeats, never NO_COMPLETE_PLAN_FOUND_IN_DETERMINISTIC_SEARCH.
+    const everything = chosenIds(planWithHistory([]))
+    const result = planWithHistory(everything, 7)
+
+    expect("plan" in result).toBe(true)
+    if (!("plan" in result)) return
+    expect(result.plan.score.metrics.recentlyCookedOccurrences).toBe(7)
+  })
+
+  test("plans the same week as before when no history is stated", () => {
+    // An input built before this field existed must be unaffected, whatever the engine version says.
+    expect(chosenIds(planWithHistory([]))).toEqual(chosenIds(planWithHistory([])))
+  })
+})

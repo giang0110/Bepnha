@@ -22,6 +22,7 @@ export interface WeeklyPlanScore {
     readonly packageLeftover: number
     readonly pantryReuse: number
     readonly preferences: number
+    readonly recentWeekRepetition: number
   }
   readonly metrics: {
     readonly repeatedPrimaryProteinOccurrences: number
@@ -34,6 +35,7 @@ export interface WeeklyPlanScore {
     readonly pantryCoveredFoodCount: number
     readonly unmatchedPreferenceAssignments: number
     readonly preferenceAssignmentCount: number
+    readonly recentlyCookedOccurrences: number
   }
   readonly explanations: readonly string[]
 }
@@ -61,7 +63,8 @@ export function scoreWeeklyPlan(
   basket: PurchaseBasket,
   softPreferenceCodes: readonly string[],
   config: PlannerConfigV1 = PLANNER_CONFIG_V1,
-  pantryDeductions: readonly CanonicalFoodDeduction[] = []
+  pantryDeductions: readonly CanonicalFoodDeduction[] = [],
+  recentMealOptionIds: readonly string[] = []
 ): WeeklyPlanScore {
   const proteinGroups = selected.map((item) => item.primaryProteinGroup)
   const repeatedPrimaryProteinOccurrences = Math.max(
@@ -125,6 +128,13 @@ export function scoreWeeklyPlan(
   )
   const preferenceAssignmentCount = softPreferenceCodes.length * selected.length
 
+  // Counted over the week being scored, not over the history: the history may name the same dish
+  // once per week it was cooked, and what is being charged for is this week repeating it.
+  const recentlyCooked = new Set(recentMealOptionIds)
+  const recentlyCookedOccurrences = selected.filter((option) =>
+    recentlyCooked.has(option.mealOptionId)
+  ).length
+
   const components = {
     primaryProteinRepetition: scaledPenalty(
       config.diversityWeights.primaryProteinRepetition,
@@ -166,7 +176,12 @@ export function scoreWeeklyPlan(
             config.scoringWeights.preferences,
             unmatchedPreferenceAssignments,
             preferenceAssignmentCount
-          )
+          ),
+    recentWeekRepetition: scaledPenalty(
+      config.scoringWeights.recentWeekRepetition,
+      recentlyCookedOccurrences,
+      config.dayCount
+    )
   }
   return {
     totalQualityPenalty: Object.values(components).reduce((sum, value) => sum + value, 0),
@@ -181,7 +196,8 @@ export function scoreWeeklyPlan(
       pantryEligibleFoodCount: pantryReuse.eligibleFoodCount,
       pantryCoveredFoodCount: pantryReuse.coveredFoodCount,
       unmatchedPreferenceAssignments,
-      preferenceAssignmentCount
+      preferenceAssignmentCount,
+      recentlyCookedOccurrences
     },
     explanations: [
       "DIVERSITY_PRIMARY_PROTEIN_REPETITION",
@@ -191,7 +207,8 @@ export function scoreWeeklyPlan(
       "REUSE_DISTINCT_FOODS",
       "REUSE_PACKAGE_LEFTOVER",
       "REUSE_PANTRY_COVERAGE",
-      "PREFERENCES_MATCH"
+      "PREFERENCES_MATCH",
+      "DIVERSITY_RECENT_WEEK_REPETITION"
     ]
   }
 }

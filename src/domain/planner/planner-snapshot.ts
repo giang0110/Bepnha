@@ -31,6 +31,14 @@ export interface PlannerSnapshotSource {
   readonly priceFreshnessConfig: unknown
   readonly plannerConfig: unknown
   readonly pantrySnapshot?: PantrySnapshotV1
+  /**
+   * What the household had cooked recently when this plan was made.
+   *
+   * Recorded as evidence, so a plan can be read back and explained: without it there is no way to
+   * tell later why the search passed over a dish it was otherwise free to choose. Absent for a plan
+   * made before the field existed, and for one whose history could not be read.
+   */
+  readonly recentMealOptionIds?: readonly string[]
   readonly candidateManifest: readonly PlannerCandidateManifestEntry[]
   readonly calculation: unknown
 }
@@ -82,6 +90,9 @@ export function buildPlannerSnapshotPayloads(source: PlannerSnapshotSource) {
     ...(source.pantrySnapshot === undefined
       ? {}
       : { pantrySnapshot: canonicalPantry(source.pantrySnapshot) }),
+    ...(source.recentMealOptionIds === undefined
+      ? {}
+      : { recentMealOptionIds: [...source.recentMealOptionIds].sort() }),
     candidateManifest
   }
   return {

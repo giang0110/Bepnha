@@ -100,7 +100,13 @@ describe("buildPlannerSnapshotPayloads", () => {
     expect(canonicalJson(v1.inputPayload)).not.toBe(canonicalJson(v2.inputPayload))
     expect(v1.inputPayload.engineVersion).toBe("planner-engine-v1")
     expect(v2.inputPayload.engineVersion).toBe("planner-engine-v2")
-    expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v3")
+    // Every engine a stored plan may carry stays representable: a revision is read back as the
+    // engine that produced it, never reinterpreted by a later one.
+    expect(
+      buildPlannerSnapshotPayloads({ ...base, engineVersion: "planner-engine-v3" }).inputPayload
+        .engineVersion
+    ).toBe("planner-engine-v3")
+    expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v4")
   })
 
   test("includes canonical pantry evidence without changing bytes for pantry item permutations", () => {

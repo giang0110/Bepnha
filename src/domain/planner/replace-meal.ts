@@ -38,6 +38,8 @@ export function previewMealReplacement(input: {
   readonly priceFreshnessConfig?: PriceFreshnessConfigV1
   readonly plannerConfig?: PlannerConfigV1
   readonly pantryDeductions?: readonly CanonicalFoodDeduction[]
+  /** Same history the week was planned against, so a swap cannot reintroduce last week's dinner. */
+  readonly recentMealOptionIds?: readonly string[]
 }): ReplacementPreviewResult {
   const config = input.plannerConfig ?? PLANNER_CONFIG_V1
   const freshness = input.priceFreshnessConfig ?? PRICE_FRESHNESS_CONFIG_V1
@@ -75,7 +77,8 @@ export function previewMealReplacement(input: {
         input.calculationDate,
         freshness,
         config,
-        deductions
+        deductions,
+        input.recentMealOptionIds ?? []
       )
       return completed === null ? [] : [completed]
     })

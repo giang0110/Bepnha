@@ -86,6 +86,13 @@ live at the same instant, and the code has to survive the gap:
   branch merges — say so explicitly in the completion report.
 - `supabase db reset` runs every migration, so no ordinary test sees the two schemas apart. A
   fixture has to model the older one deliberately.
+- A new SQL function behaves like a new column: PostgreSQL answers `42883` (PostgREST `PGRST202`)
+  and fails the whole statement. The same choice applies — tolerate both schemas, or migrate first.
+- Some checks live in the database, not the code. `PLANNER_ENGINE_VERSION` is one: three SQL
+  functions name the versions they accept, so bumping it in code without the migration makes
+  `persist_meal_plan_revision` reject every new revision. There is no correct fallback for that, so
+  such a migration must be applied to production **before** the branch merges, and the completion
+  report must say so.
 
 ## 6. Git branches
 

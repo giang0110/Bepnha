@@ -90,8 +90,99 @@ describe("scoreWeeklyPlan", () => {
       "REUSE_DISTINCT_FOODS",
       "REUSE_PACKAGE_LEFTOVER",
       "REUSE_PANTRY_COVERAGE",
-      "PREFERENCES_MATCH"
+      "PREFERENCES_MATCH",
+      "DIVERSITY_RECENT_WEEK_REPETITION"
     ])
     expect(JSON.stringify(score)).not.toMatch(/budget|healthy|medical|adequacy/i)
+  })
+})
+
+describe("scoreWeeklyPlan and recently cooked meals", () => {
+  const week = [
+    option("recent-0-v1", "protein_poultry"),
+    option("recent-1-v1", "protein_pork"),
+    option("recent-2-v1", "protein_seafood"),
+    option("recent-3-v1", "protein_poultry"),
+    option("recent-4-v1", "protein_pork"),
+    option("recent-5-v1", "protein_seafood"),
+    option("recent-6-v1", "protein_poultry")
+  ]
+
+  test("scores a week the same as before when no history is stated", () => {
+    // An input built before this field existed must plan the week it always did.
+    expect(scoreWeeklyPlan(week, basket(week), []).totalQualityPenalty).toBe(
+      scoreWeeklyPlan(week, basket(week), [], undefined, [], []).totalQualityPenalty
+    )
+  })
+
+  test("charges for each meal the household cooked in the lookback window", () => {
+    const clean = scoreWeeklyPlan(week, basket(week), [], undefined, [], [])
+    const oneRepeat = scoreWeeklyPlan(
+      week,
+      basket(week),
+      [],
+      undefined,
+      [],
+      [week[0]!.mealOptionId]
+    )
+    const twoRepeats = scoreWeeklyPlan(
+      week,
+      basket(week),
+      [],
+      undefined,
+      [],
+      [week[0]!.mealOptionId, week[3]!.mealOptionId]
+    )
+
+    expect(clean.components.recentWeekRepetition).toBe(0)
+    expect(oneRepeat.components.recentWeekRepetition).toBeGreaterThan(0)
+    expect(twoRepeats.components.recentWeekRepetition).toBeGreaterThan(
+      oneRepeat.components.recentWeekRepetition
+    )
+    expect(twoRepeats.metrics.recentlyCookedOccurrences).toBe(2)
+  })
+
+  test("ignores a history entry the week does not contain", () => {
+    const score = scoreWeeklyPlan(week, basket(week), [], undefined, [], ["never-cooked-here"])
+
+    expect(score.metrics.recentlyCookedOccurrences).toBe(0)
+    expect(score.components.recentWeekRepetition).toBe(0)
+  })
+
+  test("counts a meal once however many times the history names it", () => {
+    // History is a list of weeks flattened, so the same dish appears once per week it was cooked.
+    // The week being scored contains it once, and that is what is being charged for.
+    const once = scoreWeeklyPlan(week, basket(week), [], undefined, [], [week[0]!.mealOptionId])
+    const listedTwice = scoreWeeklyPlan(
+      week,
+      basket(week),
+      [],
+      undefined,
+      [],
+      [week[0]!.mealOptionId, week[0]!.mealOptionId]
+    )
+
+    expect(listedTwice.components.recentWeekRepetition).toBe(once.components.recentWeekRepetition)
+    expect(listedTwice.metrics.recentlyCookedOccurrences).toBe(1)
+  })
+
+  test("caps the penalty when every meal is a repeat rather than letting it run away", () => {
+    const allRepeated = scoreWeeklyPlan(
+      week,
+      basket(week),
+      [],
+      undefined,
+      [],
+      week.map((item) => item.mealOptionId)
+    )
+
+    expect(allRepeated.metrics.recentlyCookedOccurrences).toBe(7)
+    expect(allRepeated.components.recentWeekRepetition).toBe(2000)
+  })
+
+  test("names the new penalty in the explanations so a plan can be read back", () => {
+    expect(scoreWeeklyPlan(week, basket(week), []).explanations).toContain(
+      "DIVERSITY_RECENT_WEEK_REPETITION"
+    )
   })
 })
