@@ -34,6 +34,8 @@ export const mealOptionRecipeFixture = {
       order: 1,
       instructionVi: "Nấu chín.",
       timerMinutes: 20,
+      heatLevel: "medium",
+      temperatureCelsius: null,
       ingredientIds: ["ingredient-main"]
     }
   ]

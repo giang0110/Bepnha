@@ -1380,24 +1380,30 @@ export type Database = {
       }
       recipe_steps: {
         Row: {
+          heat_level: Database["public"]["Enums"]["recipe_heat_level"] | null
           id: string
           instruction_vi: string
           recipe_version_id: string
           sort_order: number
+          temperature_celsius: number | null
           timer_minutes: number | null
         }
         Insert: {
+          heat_level?: Database["public"]["Enums"]["recipe_heat_level"] | null
           id?: string
           instruction_vi: string
           recipe_version_id: string
           sort_order: number
+          temperature_celsius?: number | null
           timer_minutes?: number | null
         }
         Update: {
+          heat_level?: Database["public"]["Enums"]["recipe_heat_level"] | null
           id?: string
           instruction_vi?: string
           recipe_version_id?: string
           sort_order?: number
+          temperature_celsius?: number | null
           timer_minutes?: number | null
         }
         Relationships: [
@@ -2250,6 +2256,7 @@ export type Database = {
       meal_plan_revision_kind: "generation" | "regeneration" | "replacement"
       meal_plan_revision_state: "building" | "ready"
       meal_plan_status: "ready" | "archived"
+      recipe_heat_level: "low" | "medium" | "high"
       recipe_tag_kind: "cooking_style" | "protein_hint" | "dish_role"
     }
     CompositeTypes: {
@@ -2416,6 +2423,7 @@ export const Constants = {
       meal_plan_revision_kind: ["generation", "regeneration", "replacement"],
       meal_plan_revision_state: ["building", "ready"],
       meal_plan_status: ["ready", "archived"],
+      recipe_heat_level: ["low", "medium", "high"],
       recipe_tag_kind: ["cooking_style", "protein_hint", "dish_role"],
     },
   },

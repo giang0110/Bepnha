@@ -171,6 +171,8 @@ function recipeAggregateAsDraft(aggregate: RecipePublicationAggregate): RecipeVe
       order: step.order,
       instructionVi: step.instructionVi,
       timerMinutes: step.timerMinutes,
+      heatLevel: step.heatLevel,
+      temperatureCelsius: step.temperatureCelsius,
       ingredientIds: ingredientIdsByStep.get(step.recipeStepId) ?? []
     })),
     tagIds: aggregate.tags.map((tag) => tag.recipeTagId)
@@ -322,7 +324,9 @@ function normalizeAggregateForHash(aggregate: CatalogPublicationAggregate): unkn
           recipeStepId: step.recipeStepId,
           order: step.order,
           instructionVi: step.instructionVi,
-          timerMinutes: step.timerMinutes
+          timerMinutes: step.timerMinutes,
+          heatLevel: step.heatLevel,
+          temperatureCelsius: step.temperatureCelsius
         })),
       stepIngredients: [...aggregate.stepIngredients]
         .sort((left, right) => {

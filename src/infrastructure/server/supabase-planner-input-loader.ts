@@ -86,7 +86,7 @@ async function recipeEditorial(
   const [stepResult, linkResult] = await Promise.all([
     client
       .from("recipe_steps")
-      .select("id, sort_order, instruction_vi, timer_minutes")
+      .select("id, sort_order, instruction_vi, timer_minutes, heat_level, temperature_celsius")
       .eq("recipe_version_id", recipeVersionId)
       .order("sort_order"),
     client
@@ -108,6 +108,8 @@ async function recipeEditorial(
     order: step.sort_order,
     instructionVi: step.instruction_vi,
     timerMinutes: step.timer_minutes,
+    heatLevel: step.heat_level,
+    temperatureCelsius: step.temperature_celsius,
     ingredientIds: links.get(step.id) ?? []
   }))
 }

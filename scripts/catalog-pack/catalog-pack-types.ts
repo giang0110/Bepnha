@@ -79,6 +79,9 @@ export interface CatalogPackRecipe {
       readonly order: number
       readonly instructionVi: string
       readonly timerMinutes: number | null
+      /** `low` | `medium` | `high`, or null when the recipe does not say. */
+      readonly heatLevel: string | null
+      readonly temperatureCelsius: number | null
       readonly ingredientCodes: readonly string[]
     }[]
     readonly tagCodes: readonly string[]

@@ -74,7 +74,15 @@ export const SHEET_HEADERS: Record<SheetFileName, readonly string[]> = {
     "preparationNoteVi",
     "order"
   ],
-  "recipe_steps.csv": ["recipeCode", "order", "instructionVi", "timerMinutes", "ingredientCodes"],
+  "recipe_steps.csv": [
+    "recipeCode",
+    "order",
+    "instructionVi",
+    "timerMinutes",
+    "heatLevel",
+    "temperatureCelsius",
+    "ingredientCodes"
+  ],
   "price_book.csv": ["regionCode", "versionNumber", "effectiveFrom", "effectiveTo"],
   "prices.csv": [
     "foodCode",
@@ -228,6 +236,8 @@ export function packToSheets(pack: CatalogPackV1): SheetBundle {
         number_(step.order),
         step.instructionVi,
         optionalNumber(step.timerMinutes),
+        step.heatLevel ?? "",
+        optionalNumber(step.temperatureCelsius),
         list(step.ingredientCodes)
       ])
     }
@@ -438,6 +448,8 @@ export function sheetsToPack(bundle: SheetBundle): {
             order: readInteger(row.cell("order")),
             instructionVi: row.cell("instructionVi"),
             timerMinutes: readInteger(row.cell("timerMinutes")),
+            heatLevel: readOptionalText(row.cell("heatLevel").trim()),
+            temperatureCelsius: readInteger(row.cell("temperatureCelsius")),
             ingredientCodes: readList(row.cell("ingredientCodes"))
           })),
           tagCodes: readList(recipe.cell("tagCodes"))

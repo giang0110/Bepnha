@@ -399,7 +399,9 @@ export function createSupabaseCatalogAdminRepository(
             recipe_version_id: input.recipeVersionId,
             sort_order: item.order,
             instruction_vi: item.instructionVi,
-            timer_minutes: item.timerMinutes
+            timer_minutes: item.timerMinutes,
+            heat_level: item.heatLevel,
+            temperature_celsius: item.temperatureCelsius
           }))
         )
         .select("id, sort_order")

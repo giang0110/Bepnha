@@ -790,6 +790,8 @@ function buildOperations(
           order: step.order,
           instructionVi: step.instructionVi,
           timerMinutes: step.timerMinutes,
+          heatLevel: step.heatLevel,
+          temperatureCelsius: step.temperatureCelsius,
           ingredientIds: step.ingredientCodes.map((code) => `ingredient:${recipe.code}:${code}`)
         })),
         tagIds: tagHandles.map(bind)

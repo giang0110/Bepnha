@@ -1,4 +1,5 @@
 import { parseCanonicalDecimal } from "../../src/domain/shared/decimal.ts"
+import { isRecipeHeatLevel, RECIPE_HEAT_LEVELS } from "../../src/domain/recipe/recipe.ts"
 import { parseCatalogPackShape } from "./catalog-pack-schema.ts"
 import {
   LAUNCH_ALLERGEN_CODES,
@@ -566,6 +567,29 @@ function validateRecipeFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagn
           "INVALID_DURATION",
           `${stepPath}.timerMinutes`,
           "Timer minutes must be null or a non-negative safe integer"
+        )
+      }
+      // A heat level is one of three words a stove is actually set to. Anything else would reach the
+      // database as an unknown enum value and be refused there, which is a worse place to find out.
+      if (step.heatLevel !== null && !isRecipeHeatLevel(step.heatLevel)) {
+        addError(
+          diagnostics,
+          "INVALID_HEAT_LEVEL",
+          `${stepPath}.heatLevel`,
+          `Heat level must be null or one of ${RECIPE_HEAT_LEVELS.join(", ")}`
+        )
+      }
+      if (
+        step.temperatureCelsius !== null &&
+        (!isNonNegativeSafeInteger(step.temperatureCelsius) ||
+          step.temperatureCelsius < 40 ||
+          step.temperatureCelsius > 300)
+      ) {
+        addError(
+          diagnostics,
+          "INVALID_TEMPERATURE",
+          `${stepPath}.temperatureCelsius`,
+          "Temperature must be null or between 40 and 300 degrees Celsius"
         )
       }
       step.ingredientCodes.forEach((code, ingredientCodeIndex) => {

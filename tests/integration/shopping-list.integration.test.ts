@@ -329,6 +329,8 @@ beforeAll(async () => {
             order: 1,
             instructionVi: `Nấu món đi chợ ${index + 1}.`,
             timerMinutes: 10,
+            heatLevel: "medium",
+            temperatureCelsius: null,
             ingredientIds: [ingredientId]
           }
         ],

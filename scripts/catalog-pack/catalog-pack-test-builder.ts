@@ -94,6 +94,8 @@ function buildRecipe(code: string, nameVi: string, foodCode: string): Mutable<Ca
           order: 1,
           instructionVi: `${SYNTHETIC}: prepare ${foodCode}`,
           timerMinutes: 10,
+          heatLevel: "medium",
+          temperatureCelsius: null,
           ingredientCodes: [ingredientCode]
         }
       ],

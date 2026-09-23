@@ -72,6 +72,8 @@ const recipeSchema = z.strictObject({
         order: z.number(),
         instructionVi: labelSchema,
         timerMinutes: z.number().nullable(),
+        heatLevel: z.string().nullable(),
+        temperatureCelsius: z.number().nullable(),
         ingredientCodes: z.array(codeSchema)
       })
     ),

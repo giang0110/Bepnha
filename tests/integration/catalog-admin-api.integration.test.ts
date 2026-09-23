@@ -198,6 +198,8 @@ describe("trusted catalog administrator flow", () => {
               order: 1,
               instructionVi: "Vo gạo, nấu chín rồi dọn món.",
               timerMinutes: 20,
+              heatLevel: "medium",
+              temperatureCelsius: 100,
               ingredientIds: ["rice-local-reference"]
             }
           ],
@@ -319,6 +321,14 @@ describe("trusted catalog administrator flow", () => {
     expect(storedFact.data?.content_hash).toBe(publishedFact.contentHash)
     expect(storedRecipe.data?.content_hash).toBe(publishedRecipe.contentHash)
     expect(storedBook.data?.content_hash).toBe(publishedBook.contentHash)
+
+    const storedStep = await secretClient
+      .from("recipe_steps")
+      .select("heat_level, temperature_celsius")
+      .eq("recipe_version_id", recipeVersionId)
+      .single()
+    expect(storedStep.error).toBeNull()
+    expect(storedStep.data).toMatchObject({ heat_level: "medium", temperature_celsius: 100 })
 
     const immutable = await secretClient
       .from("recipe_steps")

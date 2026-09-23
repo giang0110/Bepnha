@@ -348,6 +348,8 @@ async function publishMeal(
           order: 1,
           instructionVi: `Sơ chế và ${style.name} ${nameVi.toLowerCase()} đến khi chín.`,
           timerMinutes: 10,
+          heatLevel: "medium",
+          temperatureCelsius: null,
           ingredientIds: ingredients.map((ingredient) => ingredient.recipeIngredientId)
         }
       ],
