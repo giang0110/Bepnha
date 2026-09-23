@@ -287,6 +287,11 @@ describe("WeeklyPlanPage", () => {
       "href",
       `/shopping/${ready().planId}`
     )
+    // Each card opens the cooking screen for its own day, not for the day the week starts on.
+    expect(within(cards[2]!).getByRole("link", { name: /^Bắt đầu nấu Thứ Tư/u })).toHaveAttribute(
+      "href",
+      "/plan/2/cook"
+    )
     expect(api.generate).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
       weekStart: "2026-08-31",

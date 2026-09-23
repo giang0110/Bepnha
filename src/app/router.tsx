@@ -37,6 +37,9 @@ const HouseholdSettingsPage = lazy(async () => ({
 const PantryPage = lazy(async () => ({
   default: (await import("@/features/pantry/pantry-page")).PantryPage
 }))
+const CookingPage = lazy(async () => ({
+  default: (await import("@/features/plans/cooking-page")).CookingPage
+}))
 const WeeklyPlanPage = lazy(async () => ({
   default: (await import("@/features/plans/weekly-plan-page")).WeeklyPlanPage
 }))
@@ -136,6 +139,20 @@ export function AppRouter({
                     onPreviewDay={onPreviewDay}
                   />
                 )}
+              />
+            </Suspense>
+          }
+        />
+        {/* Its own route rather than a mode of the plan page: a cook reaches this with wet hands
+            and a locked phone, so it has to survive a reload and be reachable from a bookmark. */}
+        <Route
+          path="/plan/:dayIndex/cook"
+          element={
+            <Suspense fallback={<ProtectedRouteFallback />}>
+              <CookingPage
+                foodOptionsRepository={pantryFoodOptionsRepository}
+                householdRepository={householdRepository}
+                plannerApi={plannerApi}
               />
             </Suspense>
           }

@@ -6,10 +6,11 @@ import type { HouseholdRepository } from "@/application/household/household-repo
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import { useAuth } from "@/app/auth/auth-context"
 import { AppPageShell } from "@/app/components/app-page-shell"
-import { Button } from "@/app/components/ui/button"
+import { Button, buttonVariants } from "@/app/components/ui/button"
 import { Icon } from "@/app/components/ui/icon"
 import type { HouseholdSetup } from "@/domain/household/household"
 
+import { mealRoleLabel } from "./cooking-sequence"
 import {
   describeIngredient,
   EMPTY_INGREDIENT_LABELS,
@@ -27,22 +28,9 @@ import type {
   PlanStepView
 } from "./planner-api"
 import { stepConditions, stepIngredientNames } from "./step-details"
+import { planWeekStart } from "./week-start"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
-
-/**
- * A meal is several dishes cooked alongside each other, and each keeps its own steps.
- *
- * Without a heading per dish the instructions read as one sequence, and the reader has no way to
- * tell that "chiên vàng đều hai mặt" belongs to the protein rather than to the rice that was being
- * described a line earlier.
- */
-const MEAL_ROLE_LABELS: Readonly<Record<string, string>> = Object.freeze({
-  staple: "Cơm",
-  main: "Món mặn",
-  vegetable: "Rau",
-  soup: "Canh"
-})
 
 function formatVnd(value: number): string {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)
@@ -84,18 +72,6 @@ type PreviewState =
   | { readonly status: "loading"; readonly dayIndex: number }
   | { readonly status: "ready"; readonly dayIndex: number; readonly value: PlannerPreviewResponse }
   | { readonly status: "error"; readonly code: string; readonly correlationId?: string }
-
-function nextMonday(date: Date): string {
-  const value = new Date(date)
-  value.setHours(12, 0, 0, 0)
-  const day = value.getDay()
-  const distance = day === 1 ? 0 : (8 - day) % 7
-  value.setDate(value.getDate() + distance)
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, "0")
-  const dateOfMonth = String(value.getDate()).padStart(2, "0")
-  return `${year}-${month}-${dateOfMonth}`
-}
 
 function errorCopy(code: string): string {
   // Telling the reader to reload was advice this page could not honour: nothing here read an
@@ -265,7 +241,7 @@ function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: In
             .map((component) => (
               <div className="mt-3" key={component.recipe.recipeVersionId}>
                 <h5 className="inline-flex rounded-full bg-clay-50 px-2.5 py-0.5 text-xs font-bold text-clay-900">
-                  {MEAL_ROLE_LABELS[component.mealRole] ?? component.mealRole}
+                  {mealRoleLabel(component.mealRole)}
                 </h5>
                 <ol className="mt-2 grid list-outside list-decimal gap-2 pl-5 marker:font-extrabold marker:text-herb-700">
                   {component.recipe.steps
@@ -366,7 +342,7 @@ export function WeeklyPlanPage({
     void plannerApi
       .current(accessToken, {
         householdId: household.householdId,
-        weekStart: nextMonday(today())
+        weekStart: planWeekStart(today())
       })
       .then((result) => {
         if (!active) return
@@ -403,7 +379,7 @@ export function WeeklyPlanPage({
     setState({ status: "generating" })
     const result = await plannerApi.generate(accessToken, {
       householdId: household.householdId,
-      weekStart: nextMonday(today()),
+      weekStart: planWeekStart(today()),
       idempotencyKey: createId(),
       ...replacing
     })
@@ -610,6 +586,14 @@ export function WeeklyPlanPage({
                       Đổi bữa
                     </Button>
                   </div>
+                  <Link
+                    aria-label={`Bắt đầu nấu ${DAY_LABELS[item.dayIndex]}: ${item.mealOptionNameVi}`}
+                    className={buttonVariants({ className: "mt-4 w-full gap-2" })}
+                    to={`/plan/${item.dayIndex}/cook`}
+                  >
+                    <Icon name="pan" className="size-4" />
+                    Bắt đầu nấu
+                  </Link>
                   <MealDetails item={item} labels={labels} />
                 </li>
               ))}
