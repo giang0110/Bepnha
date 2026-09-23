@@ -496,6 +496,8 @@ describe("planCatalogMutations command templates", () => {
         order: step.order,
         instructionVi: step.instructionVi,
         timerMinutes: step.timerMinutes,
+        heatLevel: step.heatLevel,
+        temperatureCelsius: step.temperatureCelsius,
         ingredientIds: step.ingredientCodes.map((code) => `ingredient:${recipe.code}:${code}`)
       })),
       tagIds: [binding("reference:recipe_tag:dish_role:main")]

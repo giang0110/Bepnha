@@ -27,6 +27,12 @@ Các bảng nối với nhau bằng `code` của bản ghi cha: `food_nutrients.
 `recipe_steps.csv` có cột `recipeCode`, v.v. Trường nhiều giá trị như `categoryAncestry` hay
 `ingredientCodes` ngăn nhau bằng dấu `|`, không phải dấu phẩy, vì tên tiếng Việt có dấu phẩy.
 
+Mỗi bước nấu trong `recipe_steps.csv` có thể ghi thêm `timerMinutes`, `heatLevel` và
+`temperatureCelsius`. `heatLevel` nhận đúng ba giá trị `low`, `medium`, `high` — mức lửa nhìn bằng
+mắt; `temperatureCelsius` là số nguyên trong khoảng 40..300, dành cho lò hoặc chảo dầu. Hai cột này
+độc lập: một bước có thể ghi cả hai, một trong hai, hoặc không ghi gì. **Để trống nghĩa là công thức
+không nói**, không có nghĩa là "lửa vừa" — giao diện sẽ không hiện gì thay vì đoán hộ.
+
 Bộ chuyển đổi **chỉ đổi hình dạng, không phán xét giá trị**. `catalog:validate` vẫn là nơi duy nhất
 quyết định dữ liệu có đạt hay không. Cụ thể, một ô để trống không bao giờ trở thành một giá trị: ô số
 trống thành `null` rồi bị validator bắt, chứ không thành `0`; ô `status` trống vẫn trống, không thành
