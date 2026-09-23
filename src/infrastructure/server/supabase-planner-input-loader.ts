@@ -17,7 +17,7 @@ import { PLANNER_CONFIG_V1 } from "../../domain/planner/planner-config.js"
 import type { PlannerCandidateInput, PlannerInputV1 } from "../../domain/planner/planner-input.js"
 import type { ReadyPlan } from "../../domain/planner/search-week.js"
 import type { FoodPriceInput } from "../../domain/pricing/pricing.js"
-import type { RecipeStepInput } from "../../domain/recipe/recipe.js"
+import type { RecipeHeatLevel, RecipeStepInput } from "../../domain/recipe/recipe.js"
 import type { Database } from "../supabase/database.types.js"
 
 import { loadPantrySnapshot } from "./load-pantry-snapshot.js"
@@ -79,23 +79,95 @@ async function rpc(client: SupabaseClient<Database>, name: string, args: Record<
   return result.data
 }
 
+const STEP_COLUMNS = "id, sort_order, instruction_vi, timer_minutes"
+const STEP_COLUMNS_WITH_CONDITIONS = `${STEP_COLUMNS}, heat_level, temperature_celsius` as const
+
+/** PostgreSQL `undefined_column`, and the PostgREST schema cache's word for the same thing. */
+const MISSING_COLUMN_CODES: ReadonlySet<string> = new Set(["42703", "PGRST204"])
+
+/**
+ * Whether this process has already found the condition columns absent.
+ *
+ * Without it every recipe in the plan would pay a failed round trip before falling back. It is
+ * process-scoped on purpose: a serverless instance is short-lived, so applying the migration heals
+ * the next instance without a deploy.
+ */
+let stepConditionColumnsMissing = false
+
+function isMissingColumn(error: { readonly code?: string | null } | null): boolean {
+  return error !== null && typeof error.code === "string" && MISSING_COLUMN_CODES.has(error.code)
+}
+
+interface RecipeStepRow {
+  readonly id: string
+  readonly sort_order: number
+  readonly instruction_vi: string
+  readonly timer_minutes: number | null
+  readonly heat_level: RecipeHeatLevel | null
+  readonly temperature_celsius: number | null
+}
+
+/**
+ * Reads the ordered steps, tolerating a database that predates their condition columns.
+ *
+ * A deploy can reach production before the migration it needs: Vercel publishes on merge, while a
+ * production migration is an operator action that waits for approval. On 2026-09-23 that window
+ * took plan generation down outright — the select named `heat_level`, PostgreSQL answered
+ * `42703 undefined_column`, and every meal failed to load behind a generic error.
+ *
+ * So a missing column degrades to the shape that predates it. Null is the honest answer here rather
+ * than a default papering over absent data: a column that does not exist cannot hold a heat level,
+ * so the recipe has not stated one, which is exactly what null means everywhere else in this
+ * feature. Any other error still fails the load — a plan built on half-read data would be worse
+ * than no plan.
+ *
+ * The write path must keep doing the opposite. Dropping a heat level on the way in would lose what
+ * an author wrote, so `saveRecipeVersionDraft` still fails loudly when the column is missing.
+ */
+async function recipeStepRows(
+  client: SupabaseClient<Database>,
+  recipeVersionId: string
+): Promise<readonly RecipeStepRow[] | null> {
+  if (!stepConditionColumnsMissing) {
+    const detailed = await client
+      .from("recipe_steps")
+      .select(STEP_COLUMNS_WITH_CONDITIONS)
+      .eq("recipe_version_id", recipeVersionId)
+      .order("sort_order")
+    if (detailed.error === null) return detailed.data
+    if (!isMissingColumn(detailed.error)) return null
+    stepConditionColumnsMissing = true
+    console.warn(
+      JSON.stringify({
+        event: "planner_schema_degraded",
+        detail: "recipe_step_conditions_missing",
+        action: "apply supabase/migrations/20260923000000_recipe_step_heat.sql"
+      })
+    )
+  }
+
+  const plain = await client
+    .from("recipe_steps")
+    .select(STEP_COLUMNS)
+    .eq("recipe_version_id", recipeVersionId)
+    .order("sort_order")
+  if (plain.error !== null) return null
+  return plain.data.map((step) => ({ ...step, heat_level: null, temperature_celsius: null }))
+}
+
 async function recipeEditorial(
   client: SupabaseClient<Database>,
   recipeVersionId: string
 ): Promise<readonly RecipeStepInput[]> {
-  const [stepResult, linkResult] = await Promise.all([
-    client
-      .from("recipe_steps")
-      .select("id, sort_order, instruction_vi, timer_minutes, heat_level, temperature_celsius")
-      .eq("recipe_version_id", recipeVersionId)
-      .order("sort_order"),
+  const [steps, linkResult] = await Promise.all([
+    recipeStepRows(client, recipeVersionId),
     client
       .from("recipe_step_ingredients")
       .select("recipe_step_id, recipe_ingredient_id, reference_order")
       .eq("recipe_version_id", recipeVersionId)
       .order("reference_order")
   ])
-  if (stepResult.error !== null || linkResult.error !== null) {
+  if (steps === null || linkResult.error !== null) {
     throw new Error("PLANNER_DATA_UNAVAILABLE")
   }
   const links = new Map<string, string[]>()
@@ -104,7 +176,7 @@ async function recipeEditorial(
     current.push(link.recipe_ingredient_id)
     links.set(link.recipe_step_id, current)
   }
-  return stepResult.data.map((step) => ({
+  return steps.map((step) => ({
     order: step.sort_order,
     instructionVi: step.instruction_vi,
     timerMinutes: step.timer_minutes,

@@ -225,6 +225,38 @@ supabase migration list
 
 `supabase db push` prints the migrations it intends to apply and waits for confirmation. If that list is not exactly the eight above, stop: the local checkout is not at `main`, or the project is not the one resolved here.
 
+### Migration and deploy ordering
+
+Vercel publishes on merge to `main`. A production migration is an operator action that waits for
+approval. Those two facts put a window between them in which the new code is live and its schema is
+not, and **that window is an outage unless the code is written to survive it**.
+
+It happened on 2026-09-23. `20260923000000_recipe_step_heat.sql` added `recipe_steps.heat_level` and
+`recipe_steps.temperature_celsius`; the planner's loader selected both the moment the merge
+deployed. PostgreSQL answered `42703 undefined_column` — a select naming a column the table does not
+have fails whole, it does not return the other columns — so every meal failed to hydrate and the
+week came back as `PLANNER_DATA_UNAVAILABLE` behind a generic "không thể xử lý kế hoạch". Plan
+generation was down for every household until the migration was applied. The change had passed
+every gate: CI runs migrations before tests, so no suite ever saw the two states apart.
+
+For any change that adds or alters a column, one of these must hold before the branch merges:
+
+- **the migration is applied to production first**, and only then is the code merged; or
+- **the read path tolerates both schemas** — it asks for the new columns and falls back to the
+  previous shape on `42703` / `PGRST204`, treating the absent column as "not stated" rather than as
+  an error.
+
+Prefer the second for anything on a user-facing read path: it removes the ordering constraint
+instead of asking an operator to remember it, and it keeps a rollback safe in the other direction
+too. `recipeStepRows` in `supabase-planner-input-loader.ts` is the worked example.
+
+A **write** path must never degrade this way. Dropping a field on the way in because its column is
+missing would lose what the author wrote; failing loudly is correct there, and
+`saveRecipeVersionDraft` still does.
+
+A test proves the tolerance only if it can see the two states apart. `supabase db reset` runs every
+migration, so an integration test cannot; the fixture has to model the older schema deliberately.
+
 ### Post-migration verification
 
 Verify read-only before any catalog mutation. The structural checks are executable:
