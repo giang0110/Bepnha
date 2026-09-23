@@ -1870,6 +1870,10 @@ export type Database = {
         Args: { p_aggregate_id: string; p_aggregate_type: string }
         Returns: Json
       }
+      get_current_plan_for_week: {
+        Args: { p_household_id: string; p_week_start: string }
+        Returns: Json
+      }
       get_current_price_book: { Args: { p_region_id: string }; Returns: Json }
       get_meal_option_aggregate_for_publication: {
         Args: { p_meal_option_version_id: string }

@@ -75,8 +75,16 @@ export interface PlannerApi {
       readonly householdId: string
       readonly weekStart: string
       readonly idempotencyKey: string
+      /** Both together, and only when replacing a plan the week already has. */
+      readonly expectedPlanVersion?: number
+      readonly expectedCurrentRevisionId?: string
     }
   ) => Promise<PlannerApiResult<PlannerReadyResponse>>
+  /** Resolves to `null` when the week has no plan yet — an answer, not a failure. */
+  readonly current: (
+    accessToken: string,
+    input: { readonly householdId: string; readonly weekStart: string }
+  ) => Promise<PlannerApiResult<PlannerReadyResponse | null>>
   readonly preview: (
     accessToken: string,
     input: {
@@ -144,6 +152,10 @@ function isReady(value: unknown): value is PlannerReadyResponse {
   )
 }
 
+function isCurrent(value: unknown): value is PlannerReadyResponse | null {
+  return isRecord(value) && value.plan === null ? true : isReady(value)
+}
+
 function isPreview(value: unknown): value is PlannerPreviewResponse {
   return (
     isRecord(value) &&
@@ -186,8 +198,41 @@ export function createPlannerApi(fetcher: Fetcher = fetch): PlannerApi {
     }
   }
 
+  async function get<T>(
+    url: string,
+    accessToken: string,
+    validate: (value: unknown) => value is T
+  ): Promise<PlannerApiResult<T>> {
+    try {
+      const response = await fetcher(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      const payload = await response.json()
+      if (!response.ok) {
+        return failure(
+          isRecord(payload) && typeof payload.error === "string"
+            ? payload.error
+            : "PLANNER_UNAVAILABLE",
+          response
+        )
+      }
+      return validate(payload)
+        ? { ok: true, value: payload }
+        : failure("PLANNER_UNAVAILABLE", response)
+    } catch {
+      return failure("PLANNER_UNAVAILABLE")
+    }
+  }
+
   return {
     generate: (token, input) => post("/api/plans/generate", token, input, isReady),
+    current: (token, input) =>
+      get(
+        `/api/plans/current?householdId=${encodeURIComponent(input.householdId)}&weekStart=${encodeURIComponent(input.weekStart)}`,
+        token,
+        isCurrent
+      ),
     preview: (token, input) => post("/api/plans/replacements-preview", token, input, isPreview),
     apply: (token, input) => post("/api/plans/replacements-apply", token, input, isReady)
   }

@@ -64,6 +64,12 @@ select throws_ok(
   null,
   'anon cannot call replacement input loader'
 );
+select throws_ok(
+  $$ select public.get_current_plan_for_week('82000000-0000-0000-0000-000000000001', date '2026-08-31') $$,
+  null,
+  null,
+  'anon cannot read a household week plan'
+);
 
 reset role;
 select set_config('request.jwt.claim.sub', '81000000-0000-0000-0000-000000000001', true);
@@ -71,6 +77,17 @@ select set_config('request.jwt.claims', '{"sub":"81000000-0000-0000-0000-0000000
 set local role authenticated;
 select is((select count(*)::integer from public.meal_plans), 1, 'owner A reads its plan');
 select is((select count(*)::integer from public.meal_plan_revisions), 1, 'owner A reads its revision');
+select is(
+  public.get_current_plan_for_week('82000000-0000-0000-0000-000000000001', date '2026-08-31')
+    is not null,
+  true,
+  'owner A reads back the week it already planned'
+);
+select is(
+  public.get_current_plan_for_week('82000000-0000-0000-0000-000000000001', date '2026-09-07'),
+  null,
+  'a week with no plan answers null rather than failing'
+);
 select throws_ok(
   $$ insert into public.meal_plans (household_id, week_start, timezone) values ('82000000-0000-0000-0000-000000000001', date '2026-09-07', 'Asia/Ho_Chi_Minh') $$,
   null,
@@ -94,6 +111,11 @@ select is(
   public.get_plan_replacement_input('83000000-0000-0000-0000-000000000001'),
   null,
   'cross-user replacement loader reveals no plan'
+);
+select is(
+  public.get_current_plan_for_week('82000000-0000-0000-0000-000000000001', date '2026-08-31'),
+  null,
+  'cross-user week lookup reveals no plan'
 );
 
 select * from finish();

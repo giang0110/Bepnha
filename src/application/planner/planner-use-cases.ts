@@ -24,6 +24,23 @@ type RepositoryLoadResult<T> =
       readonly error: { readonly code: "UNAUTHORIZED" | "TRANSIENT_DEPENDENCY_FAILURE" }
     }
 
+/**
+ * A plan that already exists, in the shape the week view renders.
+ *
+ * Generation used to be the only way a plan reached the browser, so a reload lost it and pressing
+ * generate again was refused — the week's plan became unreachable to the household that owns it.
+ * This is what a returning visitor is served instead.
+ */
+export interface CurrentPlanView {
+  readonly planId: string
+  readonly revisionId: string
+  readonly planVersion: number
+  readonly status: "ready_within_budget" | "ready_over_budget"
+  readonly budgetVnd: number
+  readonly plan: ReadyPlan
+  readonly warnings: readonly { readonly code: string; readonly [key: string]: unknown }[]
+}
+
 export interface ReplacementAuthoritativeInput {
   readonly input: PlannerInputV1
   readonly currentPlan: ReadyPlan
@@ -76,6 +93,12 @@ export interface PlannerRepository {
     readonly actorUserId: string
     readonly planId: string
   }) => Promise<RepositoryLoadResult<ReplacementAuthoritativeInput>>
+  /** `null` means the week has no plan yet, which is an answer rather than a failure. */
+  readonly loadCurrentPlan: (input: {
+    readonly actorUserId: string
+    readonly householdId: string
+    readonly weekStart: string
+  }) => Promise<RepositoryLoadResult<CurrentPlanView | null>>
   readonly persistRevision: (input: PersistPlannerRevisionCommand) => Promise<
     | {
         readonly ok: true
@@ -215,6 +238,17 @@ function fatal(code: PlannerFatalCode): Failure {
   return { ok: false, error: { code } }
 }
 
+export async function loadCurrentPlan(
+  repository: PlannerRepository,
+  command: {
+    readonly actorUserId: string
+    readonly householdId: string
+    readonly weekStart: string
+  }
+) {
+  return repository.loadCurrentPlan(command)
+}
+
 export async function generateMealPlan(
   repository: PlannerRepository,
   hasher: ContentHasher,
@@ -224,6 +258,18 @@ export async function generateMealPlan(
     readonly weekStart: string
     readonly calculationDate: string
     readonly idempotencyKey: string
+    /**
+     * Present when the week already has a plan and the household asked for a fresh one.
+     *
+     * Persistence refuses a `generation` for a week it already holds, which is what makes the first
+     * plan immutable by accident rather than by decision. Naming the version and revision being
+     * replaced turns that refusal into an ordinary concurrency check: a plan changed in another tab
+     * still fails, a deliberate regeneration does not.
+     */
+    readonly regenerate?: {
+      readonly expectedPlanVersion: number
+      readonly expectedCurrentRevisionId: string
+    }
   }
 ) {
   const loaded = await repository.loadGenerationInput({
@@ -255,10 +301,10 @@ export async function generateMealPlan(
     actorUserId: command.actorUserId,
     householdId: normalized.value.householdId,
     weekStart: normalized.value.weekStart,
-    expectedPlanVersion: 0,
-    parentRevisionId: null,
+    expectedPlanVersion: command.regenerate?.expectedPlanVersion ?? 0,
+    parentRevisionId: command.regenerate?.expectedCurrentRevisionId ?? null,
     idempotencyKey: command.idempotencyKey,
-    revisionKind: "generation",
+    revisionKind: command.regenerate === undefined ? "generation" : "regeneration",
     replacementDayIndex: null,
     householdSetupVersion: normalized.value.householdSetupVersion,
     engineVersion: PLANNER_ENGINE_VERSION,

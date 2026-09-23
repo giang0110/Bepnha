@@ -47,6 +47,7 @@ function readyPlan() {
 function repository(overrides: Partial<PlannerRepository> = {}): PlannerRepository {
   return {
     loadGenerationInput: vi.fn().mockResolvedValue({ ok: true, value: generationInput() }),
+    loadCurrentPlan: vi.fn().mockResolvedValue({ ok: true, value: null }),
     loadReplacementInput: vi.fn().mockResolvedValue({
       ok: true,
       value: {
@@ -202,5 +203,48 @@ describe("planner use cases", () => {
       })
     ).resolves.toEqual({ ok: false, error: { code: "STALE_PLAN_VERSION" } })
     expect(conflict.persistRevision).not.toHaveBeenCalled()
+  })
+
+  test("regenerating a planned week replaces its current revision rather than claiming to be first", async () => {
+    // Persistence refuses a `generation` for a week it already holds. Without this the first plan a
+    // household made was the only one it could ever have.
+    const repo = repository()
+    const result = await generateMealPlan(repo, hasher, {
+      actorUserId: "user-1",
+      householdId: "household-1",
+      weekStart: "2026-08-31",
+      calculationDate: "2026-08-26",
+      idempotencyKey: "00000000-0000-0000-0000-000000000003",
+      regenerate: {
+        expectedPlanVersion: 2,
+        expectedCurrentRevisionId: "50000000-0000-0000-0000-000000000009"
+      }
+    })
+
+    expect(result.ok).toBe(true)
+    const persisted = vi.mocked(repo.persistRevision).mock.calls[0]?.[0]
+    expect(persisted?.revisionKind).toBe("regeneration")
+    expect(persisted?.expectedPlanVersion).toBe(2)
+    // The repository sends this as the expected current revision, so it is both the parent of the
+    // new revision and the concurrency check against a plan changed elsewhere.
+    expect(persisted?.parentRevisionId).toBe("50000000-0000-0000-0000-000000000009")
+    // A whole-week plan is not a per-day replacement, and the table's own check says so.
+    expect(persisted?.replacementDayIndex).toBeNull()
+  })
+
+  test("a first generation claims no version, so a week that gained a plan is refused", async () => {
+    const repo = repository()
+    await generateMealPlan(repo, hasher, {
+      actorUserId: "user-1",
+      householdId: "household-1",
+      weekStart: "2026-08-31",
+      calculationDate: "2026-08-26",
+      idempotencyKey: "00000000-0000-0000-0000-000000000004"
+    })
+
+    const persisted = vi.mocked(repo.persistRevision).mock.calls[0]?.[0]
+    expect(persisted?.revisionKind).toBe("generation")
+    expect(persisted?.expectedPlanVersion).toBe(0)
+    expect(persisted?.parentRevisionId).toBeNull()
   })
 })

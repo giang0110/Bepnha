@@ -74,6 +74,7 @@ function renderPage(apiOverrides: Partial<PlannerApi>, createId: () => string) {
   }
   const api: PlannerApi = {
     generate: vi.fn().mockResolvedValue({ ok: true, value: ready }),
+    current: vi.fn().mockResolvedValue({ ok: true, value: null }),
     preview: vi.fn(),
     apply: vi.fn(),
     ...apiOverrides

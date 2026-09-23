@@ -50,6 +50,7 @@ const pantryRepository: PantryRepository = {
 
 const plannerApi: PlannerApi = {
   generate: vi.fn(),
+  current: vi.fn().mockResolvedValue({ ok: true, value: null }),
   preview: vi.fn(),
   apply: vi.fn()
 }
