@@ -45,10 +45,13 @@ export function PreferencesTimeStep({
   return (
     <section aria-labelledby="preferences-step-heading" className="flex flex-col gap-5">
       <div>
-        <h1 id="preferences-step-heading" className="text-2xl font-semibold">
+        <h1
+          id="preferences-step-heading"
+          className="text-2xl font-extrabold tracking-tight text-ink"
+        >
           {heading}
         </h1>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-ink-soft">
           Sở thích là ưu tiên mềm, không thay thế các loại trừ bắt buộc.
         </p>
       </div>
@@ -59,7 +62,7 @@ export function PreferencesTimeStep({
           return (
             <label
               key={option.code}
-              className="flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2"
+              className="flex min-h-11 items-center gap-3 rounded-xl border border-edge-strong bg-paper-raised px-3.5 py-2"
             >
               <input
                 aria-label={option.labelVi}
@@ -75,14 +78,17 @@ export function PreferencesTimeStep({
         })}
       </fieldset>
       {conflicts.map((option) => (
-        <p key={option.code} role="alert" className="text-sm text-red-700">
+        <p key={option.code} role="alert" className="text-sm text-chilli-700">
           {option.labelVi.replace(/^Ưu tiên /u, "")} không thể vừa loại trừ vừa ưu tiên.
         </p>
       ))}
       <fieldset className="grid grid-cols-2 gap-3">
         <legend className="col-span-2 mb-1 font-semibold">Thời gian nấu tối đa</legend>
         {TIME_CHOICES.map((minutes) => (
-          <label key={minutes} className="flex min-h-11 items-center gap-2 rounded-lg border px-3">
+          <label
+            key={minutes}
+            className="flex min-h-11 items-center gap-2 rounded-xl border border-edge-strong bg-paper-raised px-3.5"
+          >
             <input
               aria-label={`${minutes} phút`}
               checked={maxElapsedMinutes === minutes}

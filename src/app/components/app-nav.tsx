@@ -1,4 +1,5 @@
 import { NavLink } from "react-router"
+import { Icon } from "./ui/icon"
 
 const links = [
   { to: "/household", label: "Gia đình", shortLabel: "Nhà" },
@@ -36,14 +37,17 @@ export function AppNav() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-stone-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-t-0 lg:shadow-none"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-edge bg-paper-raised/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_28px_rgb(107_93_84_/_0.1)] backdrop-blur lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-t-0 lg:pb-0 lg:shadow-none"
     >
       <div className="hidden px-5 pb-5 pt-7 lg:block">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+        <p className="flex items-center gap-2 text-sm font-extrabold tracking-tight text-herb-700">
+          <span className="grid size-8 place-items-center rounded-2xl bg-herb-100 text-herb-700">
+            <Icon name="bowl" className="size-[18px]" />
+          </span>
           Bếp Nhà
         </p>
-        <p className="mt-2 text-lg font-semibold text-slate-950">Bữa cơm gọn hơn mỗi tuần</p>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
+        <p className="mt-3 text-lg font-bold text-ink">Bữa cơm gọn hơn mỗi tuần</p>
+        <p className="mt-1 text-xs leading-5 text-ink-soft">
           Kế hoạch, tủ bếp và danh sách đi chợ trong cùng một nơi.
         </p>
       </div>
@@ -55,11 +59,11 @@ export function AppNav() {
               to={link.to}
               className={({ isActive }) =>
                 [
-                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 text-[11px] font-medium transition-colors sm:text-xs",
-                  "lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:px-3 lg:text-sm",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[11px] font-semibold transition-all sm:text-xs",
+                  "lg:min-h-12 lg:flex-row lg:justify-start lg:gap-3 lg:px-3 lg:text-sm",
                   isActive
-                    ? "bg-emerald-50 text-emerald-900 ring-1 ring-inset ring-emerald-100"
-                    : "text-slate-600 hover:bg-stone-100 hover:text-slate-950"
+                    ? "bg-herb-100 text-herb-900 shadow-soft ring-1 ring-inset ring-herb-200"
+                    : "text-ink-soft hover:bg-paper-sunken hover:text-ink"
                 ].join(" ")
               }
             >

@@ -129,9 +129,14 @@ test("mobile planner generates, shows details, and applies a one-day replacement
   await expect(page.getByText("Nấu bữa 1.")).toBeVisible()
   // The conditions the recipe states reach a real browser, not only jsdom. Scoped to the one card
   // that is open: every day carries the same step, so an unscoped match finds all seven.
-  await expect(
-    page.getByRole("listitem", { name: "Bữa chính Thứ Hai" }).getByText("10 phút · Lửa lớn · 170°C")
-  ).toBeVisible()
+  //
+  // Asserted as three facts the card carries, not as one string in one element. That is what a cook
+  // has to be able to read; how they are boxed is presentation, and pinning the joined form here
+  // broke this test the first time the conditions became separate tags.
+  const monday = page.getByRole("listitem", { name: "Bữa chính Thứ Hai" })
+  await expect(monday).toContainText("10 phút")
+  await expect(monday).toContainText("Lửa lớn")
+  await expect(monday).toContainText("170°C")
 
   await page.getByRole("button", { name: "Đổi bữa" }).nth(2).click()
   await expect(page.getByText("Bữa thay thế", { exact: true })).toBeVisible()

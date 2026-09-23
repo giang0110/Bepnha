@@ -13,6 +13,7 @@ import {
   GROCERY_CATEGORIES,
   type GroceryCategoryDefinition
 } from "@/domain/shopping/grocery-category-config"
+import { Icon } from "@/app/components/ui/icon"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 const VI_COLLATOR = new Intl.Collator("vi", { sensitivity: "base" })
@@ -109,7 +110,7 @@ function ShoppingItemRow({
 
   return (
     <li
-      className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm"
+      className="rounded-2xl border border-edge bg-paper-raised p-3 shadow-soft"
       data-testid={`shopping-item-${item.shoppingListItemId}`}
     >
       <div
@@ -120,7 +121,7 @@ function ShoppingItemRow({
         <input
           aria-label={item.foodNameVi}
           checked={item.checked}
-          className="mt-1 size-5 shrink-0 accent-emerald-700"
+          className="mt-1 size-5 shrink-0 accent-herb-600"
           disabled={pending}
           type="checkbox"
           onChange={(event) => onCheckedChange(item, event.currentTarget.checked)}
@@ -133,11 +134,11 @@ function ShoppingItemRow({
               >
                 {item.foodNameVi}
               </h3>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-ink-soft">
                 Cần {formatQuantity(item.requiredBaseQuantity)} {unit}
               </p>
               {hasPantryDeduction ? (
-                <div className="mt-1 grid gap-0.5 text-sm text-emerald-800">
+                <div className="mt-1 grid gap-0.5 text-sm text-herb-700">
                   <p>
                     Tủ bếp đã dùng {formatQuantity(item.pantryDeductedBaseQuantity)} {unit}
                   </p>
@@ -155,12 +156,12 @@ function ShoppingItemRow({
               {formatQuantity(item.packageBaseQuantity)} {unit}
             </p>
           ) : (
-            <p className="mt-2 text-sm font-medium text-emerald-800">Không cần mua thêm.</p>
+            <p className="mt-2 text-sm font-medium text-herb-700">Không cần mua thêm.</p>
           )}
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-soft">
             Dư khoảng {formatQuantity(item.leftoverBaseQuantity)} {unit}
           </p>
-          <details className="mt-2 rounded-lg bg-stone-50 px-3 py-2 text-sm">
+          <details className="mt-2 rounded-2xl bg-paper-sunken px-3 py-2 text-sm">
             <summary className="cursor-pointer font-medium">Dùng cho bữa nào</summary>
             <ul className="mt-2 grid gap-1">
               {item.sources.map((source) => (
@@ -322,14 +323,17 @@ export function ShoppingListPage({ repository }: Props) {
       : null
 
   return (
-    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-slate-950 sm:px-6 lg:px-8 lg:py-8">
+    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
       <header className="grid gap-2">
-        <p className="text-sm font-medium text-emerald-700">Bếp Nhà</p>
-        <h1 className="text-2xl font-semibold">Đi chợ</h1>
-        <p className="text-sm text-slate-600">
+        <p className="flex items-center gap-1.5 text-sm font-extrabold text-herb-700">
+          <Icon name="bowl" className="size-4" />
+          Bếp Nhà
+        </p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Đi chợ</h1>
+        <p className="text-sm text-ink-soft">
           Số lượng và giá là ước tính theo đúng phiên bản kế hoạch đã lưu.
         </p>
-        <Link className="text-sm font-medium text-emerald-800 underline" to="/plan">
+        <Link className="text-sm font-medium text-herb-700 underline" to="/plan">
           Quay lại kế hoạch tuần
         </Link>
       </header>
@@ -340,9 +344,9 @@ export function ShoppingListPage({ repository }: Props) {
       ) : null}
       {state.status === "error" ? <p role="alert">{state.message}</p> : null}
       {state.status === "legacy" ? (
-        <section className="rounded-xl border border-stone-200 bg-white p-4" role="status">
+        <section className="rounded-2xl border border-edge bg-paper-raised p-4" role="status">
           <p className="font-medium">Phiên bản kế hoạch cũ này không có danh sách đi chợ.</p>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-ink-soft">
             Bếp Nhà không tự tạo lại dữ liệu lịch sử để tránh thay đổi bằng chứng của phiên bản cũ.
           </p>
         </section>
@@ -350,18 +354,21 @@ export function ShoppingListPage({ repository }: Props) {
 
       {state.status === "ready" ? (
         <>
-          <section className="rounded-xl bg-white p-4 shadow-sm" aria-label="Tổng quan đi chợ">
-            <p className="text-sm text-slate-600">Tổng ước tính / ngân sách 7 bữa chính</p>
-            <p className="text-xl font-semibold">
+          <section
+            className="rounded-2xl bg-paper-raised p-4 shadow-soft"
+            aria-label="Tổng quan đi chợ"
+          >
+            <p className="text-sm text-ink-soft">Tổng ước tính / ngân sách 7 bữa chính</p>
+            <p className="text-xl font-bold text-ink">
               {formatVnd(state.value.totalEstimatedCostVnd)} VND /{" "}
               {formatVnd(state.value.budgetVnd)} VND
             </p>
             {state.value.budgetStatus === "over" ? (
-              <p className="mt-1 text-sm text-amber-800">
+              <p className="mt-1 text-sm text-broth-700">
                 Vượt ngân sách {formatVnd(state.value.overageVnd)} VND.
               </p>
             ) : (
-              <p className="mt-1 text-sm text-emerald-800">Trong ngân sách dự kiến.</p>
+              <p className="mt-1 text-sm text-herb-700">Trong ngân sách dự kiến.</p>
             )}
             {shoppingProgress === null ? null : (
               <div className="mt-4">
@@ -373,7 +380,7 @@ export function ShoppingListPage({ repository }: Props) {
                 </div>
                 <progress
                   aria-label="Tiến độ mua sắm"
-                  className="h-2 w-full accent-emerald-700"
+                  className="h-2 w-full accent-herb-600"
                   max={Math.max(1, shoppingProgress.total)}
                   value={shoppingProgress.checked}
                 />
@@ -383,7 +390,7 @@ export function ShoppingListPage({ repository }: Props) {
 
           {alertCopy === null ? null : (
             <p
-              className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+              className="rounded-2xl border border-broth-200 bg-broth-50 p-3 text-sm text-broth-900"
               role="alert"
             >
               {alertCopy}

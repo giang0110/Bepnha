@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router"
 
 import { useAuth } from "@/app/auth/auth-context"
 import { Button } from "@/app/components/ui/button"
+import { Icon } from "@/app/components/ui/icon"
 
 type Failure = "MISMATCH" | "RECOVERY_SESSION_REQUIRED" | "RETRYABLE_FAILURE" | "WEAK_PASSWORD"
 
@@ -56,11 +57,16 @@ export function ResetPasswordPage() {
   if (auth.status === "signed-out" || !auth.passwordRecoveryReady) {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-5 px-4 py-8">
-        <h1 className="text-2xl font-semibold">Liên kết không còn hiệu lực</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">
+          Liên kết không còn hiệu lực
+        </h1>
         <p>
           Liên kết đặt lại mật khẩu đã hết hạn hoặc đã được dùng. Vui lòng yêu cầu một liên kết mới.
         </p>
-        <Link className="font-medium underline" to="/forgot-password">
+        <Link
+          className="font-bold text-herb-700 underline underline-offset-2 hover:text-herb-900"
+          to="/forgot-password"
+        >
           Yêu cầu liên kết mới
         </Link>
       </main>
@@ -70,14 +76,19 @@ export function ResetPasswordPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-5 px-4 py-8">
       <div>
-        <p className="text-sm font-medium text-slate-600">Bếp Nhà</p>
-        <h1 className="text-2xl font-semibold">Đặt mật khẩu mới</h1>
+        <p className="flex items-center gap-2 text-sm font-extrabold text-herb-700">
+          <span className="grid size-9 place-items-center rounded-2xl bg-herb-100 text-herb-700">
+            <Icon name="bowl" className="size-5" />
+          </span>
+          Bếp Nhà
+        </p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Đặt mật khẩu mới</h1>
       </div>
       <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
         <label className="flex flex-col gap-1 text-sm font-medium">
           Mật khẩu mới
           <input
-            className="h-11 rounded-lg border px-3"
+            className="h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
             name="password"
             type="password"
             autoComplete="new-password"
@@ -87,7 +98,7 @@ export function ResetPasswordPage() {
         <label className="flex flex-col gap-1 text-sm font-medium">
           Nhập lại mật khẩu mới
           <input
-            className="h-11 rounded-lg border px-3"
+            className="h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
             name="confirmPassword"
             type="password"
             autoComplete="new-password"
@@ -95,7 +106,7 @@ export function ResetPasswordPage() {
           />
         </label>
         {failure === null ? null : (
-          <p role="alert" className="text-sm text-red-700">
+          <p role="alert" className="text-sm text-chilli-700">
             {failureMessages[failure]}
           </p>
         )}

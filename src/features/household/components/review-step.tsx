@@ -20,7 +20,7 @@ interface ReviewStepProps {
 }
 
 function RuleList({ codes, empty }: Readonly<{ codes: readonly string[]; empty: string }>) {
-  if (codes.length === 0) return <p className="text-sm text-slate-600">{empty}</p>
+  if (codes.length === 0) return <p className="text-sm text-ink-soft">{empty}</p>
   return (
     <ul>
       {codes.map((code) => (
@@ -53,11 +53,11 @@ export function ReviewStep({
 
   return (
     <section aria-labelledby="review-step-heading" className="flex flex-col gap-5">
-      <h1 id="review-step-heading" className="text-2xl font-semibold">
+      <h1 id="review-step-heading" className="text-2xl font-extrabold tracking-tight text-ink">
         {heading}
       </h1>
       <div>
-        <h2 className="font-semibold">Thành viên</h2>
+        <h2 className="font-bold text-ink">Thành viên</h2>
         <ul>
           {memberGroups.map((group) => (
             <li key={`${group.memberKind}:${group.ageBand}`}>{memberGroupLabel(group)}</li>
@@ -65,24 +65,24 @@ export function ReviewStep({
         </ul>
       </div>
       <div>
-        <h2 className="font-semibold">Ngân sách</h2>
+        <h2 className="font-bold text-ink">Ngân sách</h2>
         <p>{formatVnd(budgetVnd)} VND cho 7 bữa chính</p>
       </div>
       <div>
-        <h2 className="font-semibold">Dị ứng và loại trừ</h2>
+        <h2 className="font-bold text-ink">Dị ứng và loại trừ</h2>
         <RuleList codes={hardRuleCodes} empty="Không chọn" />
       </div>
       <div>
-        <h2 className="font-semibold">Sở thích</h2>
+        <h2 className="font-bold text-ink">Sở thích</h2>
         <RuleList codes={preferenceCodes} empty="Không chọn" />
       </div>
       <div>
-        <h2 className="font-semibold">Thời gian nấu tối đa</h2>
+        <h2 className="font-bold text-ink">Thời gian nấu tối đa</h2>
         <p>{maxElapsedMinutes} phút</p>
       </div>
-      <p className="text-sm text-slate-600">Kế hoạch sẽ lọc theo các loại trừ đã lưu.</p>
+      <p className="text-sm text-ink-soft">Kế hoạch sẽ lọc theo các loại trừ đã lưu.</p>
       {errorMessage === null ? null : (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-chilli-700">
           {errorMessage}
         </p>
       )}

@@ -7,14 +7,14 @@ import type { LegalSection } from "./legal-content"
 function Section({ section }: Readonly<{ section: LegalSection }>) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-lg font-semibold">{section.heading}</h2>
+      <h2 className="text-lg font-bold text-ink">{section.heading}</h2>
       {section.paragraphs?.map((paragraph) => (
-        <p key={paragraph} className="text-slate-700">
+        <p key={paragraph} className="text-ink-soft">
           {paragraph}
         </p>
       ))}
       {section.items === undefined ? null : (
-        <ul className="flex list-disc flex-col gap-1 pl-5 text-slate-700">
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-ink-soft">
           {section.items.map((item) => (
             <li key={item}>{item}</li>
           ))}
@@ -31,9 +31,9 @@ function LegalDocument({
   return (
     <main className="mx-auto flex min-w-0 max-w-2xl flex-col gap-6 px-4 py-8">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-slate-600">Bếp Nhà</p>
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        <p className="text-sm text-slate-600">Cập nhật lần cuối: {LEGAL_LAST_UPDATED}</p>
+        <p className="text-sm font-medium text-ink-soft">Bếp Nhà</p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">{title}</h1>
+        <p className="text-sm text-ink-soft">Cập nhật lần cuối: {LEGAL_LAST_UPDATED}</p>
       </div>
       {sections.map((section) => (
         <Section key={section.heading} section={section} />

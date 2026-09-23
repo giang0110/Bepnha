@@ -14,6 +14,7 @@ import {
 } from "@/application/pantry/pantry-repository"
 import { AppPageShell } from "@/app/components/app-page-shell"
 import { Button } from "@/app/components/ui/button"
+import { Icon } from "@/app/components/ui/icon"
 
 interface Props {
   readonly householdRepository: HouseholdRepository
@@ -82,11 +83,11 @@ function PantryItemEditor({
 
   return (
     <li
-      className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm"
+      className="rounded-3xl border border-edge bg-paper-raised p-4 shadow-soft"
       data-testid={`pantry-item-${item.pantryItemId}`}
     >
-      <h2 className="font-semibold">{foodName}</h2>
-      <p className="mt-1 text-xs text-slate-500">
+      <h2 className="font-bold text-ink">{foodName}</h2>
+      <p className="mt-1 text-xs text-ink-soft">
         Phiên bản dữ liệu thực phẩm {item.foodFactVersionId}
       </p>
       <div className="mt-3 grid gap-3">
@@ -94,7 +95,7 @@ function PantryItemEditor({
           <span>Số lượng {foodName}</span>
           <input
             aria-label={`Số lượng ${foodName}`}
-            className="min-h-11 rounded-lg border border-stone-300 bg-white px-3"
+            className="min-h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
             disabled={pending}
             inputMode="decimal"
             min="0"
@@ -108,7 +109,7 @@ function PantryItemEditor({
           <span>Đơn vị {foodName}</span>
           <select
             aria-label={`Đơn vị ${foodName}`}
-            className="min-h-11 rounded-lg border border-stone-300 bg-white px-3"
+            className="min-h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
             disabled={pending}
             value={unitId}
             onChange={(event) => setUnitId(event.currentTarget.value)}
@@ -135,7 +136,7 @@ function PantryItemEditor({
             Xóa {foodName}
           </Button>
         </div>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-ink-soft">
           Đang lưu theo {unitName(option, unitId)}. Bếp Nhà không tự trừ tủ bếp khi bạn đánh dấu đã
           mua.
         </p>
@@ -330,22 +331,25 @@ export function PantryPage({
 
   if (state.status === "loading") {
     return (
-      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-slate-950 sm:px-6 lg:px-8 lg:py-8">
+      <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
         <p role="status">Đang tải tủ bếp…</p>
       </AppPageShell>
     )
   }
 
   return (
-    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-slate-950 sm:px-6 lg:px-8 lg:py-8">
+    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
       <header className="grid gap-2">
-        <p className="text-sm font-medium text-emerald-700">Bếp Nhà</p>
-        <h1 className="text-2xl font-semibold">Tủ bếp</h1>
-        <p className="text-sm text-slate-600">
+        <p className="flex items-center gap-1.5 text-sm font-extrabold text-herb-700">
+          <Icon name="bowl" className="size-4" />
+          Bếp Nhà
+        </p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Tủ bếp</h1>
+        <p className="text-sm text-ink-soft">
           Ghi số lượng hiện có. Mỗi lần tạo hoặc đổi kế hoạch, Bếp Nhà lưu riêng ảnh chụp tủ bếp đã
           dùng để tính.
         </p>
-        <Link className="text-sm font-medium text-emerald-800 underline" to="/plan">
+        <Link className="text-sm font-medium text-herb-700 underline" to="/plan">
           Quay lại kế hoạch tuần
         </Link>
       </header>
@@ -357,21 +361,24 @@ export function PantryPage({
         <p role="alert">Không thể tải tủ bếp lúc này. Vui lòng thử lại.</p>
       ) : null}
       {message === null ? null : (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm" role="alert">
+        <p className="rounded-2xl border border-broth-200 bg-broth-50 p-3 text-sm" role="alert">
           {message}
         </p>
       )}
 
       {state.status === "ready" ? (
         <>
-          <section className="rounded-xl bg-white p-4 shadow-sm" aria-label="Thêm thực phẩm">
-            <h2 className="font-semibold">Thêm thực phẩm</h2>
+          <section
+            className="rounded-2xl bg-paper-raised p-4 shadow-soft"
+            aria-label="Thêm thực phẩm"
+          >
+            <h2 className="font-bold text-ink">Thêm thực phẩm</h2>
             <div className="mt-3 grid gap-3">
               <label className="grid gap-1 text-sm font-medium">
                 <span>Tìm thực phẩm</span>
                 <input
                   aria-label="Tìm thực phẩm"
-                  className="min-h-11 rounded-lg border border-stone-300 bg-white px-3"
+                  className="min-h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
                   disabled={pendingKey !== null}
                   placeholder="Ví dụ: thịt, rau, gạo…"
                   type="search"
@@ -383,7 +390,7 @@ export function PantryPage({
                 <span>Thực phẩm</span>
                 <select
                   aria-label="Thực phẩm"
-                  className="min-h-11 rounded-lg border border-stone-300 bg-white px-3"
+                  className="min-h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
                   disabled={pendingKey !== null}
                   value={selectedFoodId}
                   onChange={(event) => {
@@ -405,7 +412,7 @@ export function PantryPage({
                 <span>Đơn vị</span>
                 <select
                   aria-label="Đơn vị"
-                  className="min-h-11 rounded-lg border border-stone-300 bg-white px-3"
+                  className="min-h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
                   disabled={pendingKey !== null || selectedOption === undefined}
                   value={selectedUnitId}
                   onChange={(event) => setSelectedUnitId(event.currentTarget.value)}
@@ -422,7 +429,7 @@ export function PantryPage({
                 <span>Số lượng</span>
                 <input
                   aria-label="Số lượng"
-                  className="min-h-11 rounded-lg border border-stone-300 bg-white px-3"
+                  className="min-h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
                   disabled={pendingKey !== null}
                   inputMode="decimal"
                   min="0"
@@ -448,7 +455,7 @@ export function PantryPage({
           </section>
 
           {state.items.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-stone-300 bg-white p-4 text-sm text-slate-600">
+            <p className="rounded-2xl border border-dashed border-edge-strong bg-paper-raised p-4 text-sm text-ink-soft">
               Tủ bếp đang trống. Thêm lượng thực phẩm đang có để danh sách đi chợ trừ đúng trước khi
               làm tròn gói mua.
             </p>

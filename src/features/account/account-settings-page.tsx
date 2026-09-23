@@ -52,13 +52,13 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
   return (
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <header className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-emerald-700">Cài đặt</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Tài khoản</h1>
-        {email === null ? null : <p className="text-sm text-slate-600">{email}</p>}
+        <p className="text-sm font-medium text-herb-700">Cài đặt</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-ink">Tài khoản</h1>
+        {email === null ? null : <p className="text-sm text-ink-soft">{email}</p>}
       </header>
 
-      <section className="flex max-w-2xl flex-col gap-3 rounded-2xl border border-red-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-red-800">Xoá tài khoản</h2>
+      <section className="flex max-w-2xl flex-col gap-3 rounded-2xl border border-chilli-200 bg-paper-raised p-5 shadow-soft">
+        <h2 className="text-lg font-semibold text-chilli-900">Xoá tài khoản</h2>
         <p>
           Xoá tài khoản sẽ xoá luôn thông tin gia đình, toàn bộ kế hoạch bữa ăn, tủ bếp và danh sách
           đi chợ của bạn.
@@ -69,7 +69,7 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
           <label className="flex flex-col gap-1 text-sm font-medium">
             Nhập lại email của bạn để xác nhận
             <input
-              className="h-11 rounded-lg border px-3"
+              className="h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
               name="confirmEmail"
               type="email"
               autoComplete="off"
@@ -78,7 +78,7 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
             />
           </label>
           {failure === null ? null : (
-            <p role="alert" className="text-sm text-red-700">
+            <p role="alert" className="text-sm text-chilli-700">
               {failureMessages[failure]}
             </p>
           )}

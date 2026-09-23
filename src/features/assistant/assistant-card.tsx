@@ -74,14 +74,14 @@ export function AssistantCard({
 
   return (
     <section
-      className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm"
+      className="rounded-2xl border border-herb-100 bg-paper-raised p-4 shadow-soft"
       aria-labelledby="assistant-title"
     >
       <div className="grid gap-1">
-        <h2 className="font-semibold" id="assistant-title">
+        <h2 className="font-bold text-ink" id="assistant-title">
           Trợ lý Bếp Nhà
         </h2>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-soft">
           Trợ lý chỉ giải thích và gợi ý ngày nên xem thử. Mọi bữa thay thế vẫn do bộ lập kế hoạch
           tất định kiểm tra.
         </p>
@@ -117,7 +117,7 @@ export function AssistantCard({
           Câu hỏi cho Trợ lý Bếp Nhà
         </label>
         <textarea
-          className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          className="min-h-20 w-full rounded-xl border border-edge-strong bg-paper-raised px-3.5 py-2 text-sm transition-colors focus:border-herb-500"
           id="assistant-question"
           maxLength={ASSISTANT_QUESTION_MAX_LENGTH}
           value={question}
@@ -141,7 +141,7 @@ export function AssistantCard({
         <div className="mt-3 text-sm" role="alert">
           <p>{errorCopy(advice.code)}</p>
           {advice.correlationId === undefined ? null : (
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-ink-soft">
               Mã hỗ trợ: <code>{advice.correlationId}</code>
             </p>
           )}
