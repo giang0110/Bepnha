@@ -73,6 +73,20 @@ Do not silently skip required gates.
 - Production migrations require explicit user approval.
 - Production data mutation requires explicit user approval.
 
+Deployment happens on merge; a production migration waits for approval. So code and schema are never
+live at the same instant, and the code has to survive the gap:
+
+- A read path that selects a column added by an unapplied migration fails whole — PostgreSQL answers
+  `42703` for the entire statement, not just that column. Such a read must fall back to the previous
+  shape and treat the absent column as "not stated". This took plan generation down on 2026-09-23;
+  see **Migration and deploy ordering** in `docs/operations/production-readiness.md`.
+- A write path must not degrade that way: dropping a field because its column is missing loses what
+  the author wrote. Fail loudly instead.
+- If the read path is not made tolerant, the migration must be applied to production before the
+  branch merges — say so explicitly in the completion report.
+- `supabase db reset` runs every migration, so no ordinary test sees the two schemas apart. A
+  fixture has to model the older one deliberately.
+
 ## 6. Git branches
 
 Do not perform feature development directly on `main`.

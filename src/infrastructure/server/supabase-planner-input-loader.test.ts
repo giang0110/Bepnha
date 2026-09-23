@@ -33,7 +33,9 @@ const emptyPantry: PantryFixture = {
 
 function fixtureClient(
   baseDimension: "mass" | "volume" = "mass",
-  pantry: PantryFixture = emptyPantry
+  pantry: PantryFixture = emptyPantry,
+  /** false models a database that predates `20260923000000_recipe_step_heat.sql`. */
+  stepConditionColumns = true
 ) {
   const source = plannerCandidate("option-v1")
   const component = source.mealOption.components[0]
@@ -158,16 +160,36 @@ function fixtureClient(
         }))
       }
     }
-    const data =
-      table === "recipe_steps"
-        ? [{ id: "step-1", sort_order: 1, instruction_vi: "Nấu chín.", timer_minutes: 10 }]
-        : [
-            {
-              recipe_step_id: "step-1",
-              recipe_ingredient_id: ingredient.recipeIngredientId,
-              reference_order: 1
-            }
-          ]
+    if (table === "recipe_steps") {
+      return {
+        select: vi.fn((columns: string) => {
+          // PostgreSQL answers `42703 undefined_column` for a select naming a column it does not
+          // have — the whole statement fails, not just that one field.
+          const missing = !stepConditionColumns && columns.includes("heat_level")
+          const step = {
+            id: "step-1",
+            sort_order: 1,
+            instruction_vi: "Nấu chín.",
+            timer_minutes: 10,
+            ...(columns.includes("heat_level")
+              ? { heat_level: "medium", temperature_celsius: 100 }
+              : {})
+          }
+          const answer = missing
+            ? { data: null, error: { code: "42703", message: "column does not exist" } }
+            : { data: [step], error: null }
+          const order = vi.fn(() => Promise.resolve(answer))
+          return { eq: vi.fn(() => ({ order })) }
+        })
+      }
+    }
+    const data = [
+      {
+        recipe_step_id: "step-1",
+        recipe_ingredient_id: ingredient.recipeIngredientId,
+        reference_order: 1
+      }
+    ]
     const order = vi.fn(() => Promise.resolve({ data, error: null }))
     const eq = vi.fn(() => ({ order }))
     return { select: vi.fn(() => ({ eq })) }
@@ -215,6 +237,46 @@ describe("Supabase planner input loader", () => {
         currentPriceBookId: "must-not-be-used"
       })
     ).toBe("historical-book-id")
+  })
+
+  test("reads the cooking conditions a step states", async () => {
+    const { client, source } = fixtureClient()
+
+    const result = await createSupabasePlannerInputLoader(client).hydrateGeneration(
+      generationRaw(source.mealOption.mealOptionVersionId),
+      client as never
+    )
+
+    expect(result.candidates[0]?.mealOption.components[0]?.recipe.steps[0]).toMatchObject({
+      heatLevel: "medium",
+      temperatureCelsius: 100
+    })
+  })
+
+  test("still builds a plan against a database that predates the condition columns", async () => {
+    // This is the 2026-09-23 outage. Vercel deploys on merge; a production migration waits for an
+    // operator, so for a while this code was live and its columns were not. PostgreSQL failed the
+    // whole select with `42703`, every meal failed to load, and the week came back as a generic
+    // "không thể xử lý kế hoạch". A missing column must cost the two fields it holds, not the plan.
+    vi.resetModules()
+    const fresh = await import("./supabase-planner-input-loader")
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const { client, source } = fixtureClient("mass", emptyPantry, false)
+
+    const result = await fresh
+      .createSupabasePlannerInputLoader(client)
+      .hydrateGeneration(generationRaw(source.mealOption.mealOptionVersionId), client as never)
+
+    const step = result.candidates[0]?.mealOption.components[0]?.recipe.steps[0]
+    expect(step).toMatchObject({
+      instructionVi: "Nấu chín.",
+      timerMinutes: 10,
+      heatLevel: null,
+      temperatureCelsius: null
+    })
+    // Degrading quietly would leave a half-applied migration invisible for as long as nobody looked.
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("recipe_step_conditions_missing"))
+    warn.mockRestore()
   })
 
   test("hydrates exact published recipe/fact/price lineage including permanent base dimension", async () => {
