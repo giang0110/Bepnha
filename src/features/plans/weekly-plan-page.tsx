@@ -3,11 +3,18 @@ import { Link } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
 import type { HouseholdRepository } from "@/application/household/household-repository"
+import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import { useAuth } from "@/app/auth/auth-context"
 import { AppPageShell } from "@/app/components/app-page-shell"
 import { Button } from "@/app/components/ui/button"
 import type { HouseholdSetup } from "@/domain/household/household"
 
+import {
+  describeIngredient,
+  EMPTY_INGREDIENT_LABELS,
+  ingredientLabels,
+  type IngredientLabels
+} from "./ingredient-labels"
 import { safePlannerCorrelationId } from "./planner-api"
 import type {
   PlanItemView,
@@ -34,6 +41,15 @@ export type WeeklyPlanAssistantRenderer = (props: WeeklyPlanAssistantSlotProps) 
 interface Props {
   readonly householdRepository: HouseholdRepository
   readonly plannerApi: PlannerApi
+  /**
+   * Supplies the names and unit codes the plan itself does not carry.
+   *
+   * The planner works entirely in identifiers so that a plan is reproducible from its snapshot, and
+   * nothing about a food's Vietnamese name affects which meals it chooses. That is the right shape
+   * for the engine and the wrong one for a person reading the page, so the names are looked up here
+   * instead of being baked into the snapshot.
+   */
+  readonly foodOptionsRepository: PantryFoodOptionsRepository
   readonly renderAssistant?: WeeklyPlanAssistantRenderer
   readonly today?: () => Date
   readonly createId?: () => string
@@ -111,13 +127,7 @@ function warningCopy(
   return null
 }
 
-function ingredientUnit(baseUnitId: string): string {
-  if (baseUnitId.endsWith("unit-g") || baseUnitId === "unit-g") return "g"
-  if (baseUnitId.endsWith("unit-ml") || baseUnitId === "unit-ml") return "ml"
-  return "đơn vị cơ sở"
-}
-
-function MealDetails({ item }: Readonly<{ item: PlanItemView }>) {
+function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: IngredientLabels }>) {
   return (
     <details className="mt-3 rounded-lg bg-stone-50 px-3 py-2 text-sm">
       <summary className="cursor-pointer font-medium">Xem cách nấu và dinh dưỡng</summary>
@@ -126,9 +136,7 @@ function MealDetails({ item }: Readonly<{ item: PlanItemView }>) {
           <h4 className="font-semibold">Nguyên liệu đã định lượng</h4>
           <ul className="list-inside list-disc">
             {item.scaledIngredients.map((ingredient) => (
-              <li key={ingredient.sourceId}>
-                {ingredient.baseQuantity} {ingredientUnit(ingredient.baseUnitId)}
-              </li>
+              <li key={ingredient.sourceId}>{describeIngredient(ingredient, labels)}</li>
             ))}
           </ul>
         </section>
@@ -160,6 +168,7 @@ function MealDetails({ item }: Readonly<{ item: PlanItemView }>) {
 }
 
 export function WeeklyPlanPage({
+  foodOptionsRepository,
   householdRepository,
   plannerApi,
   renderAssistant,
@@ -167,6 +176,7 @@ export function WeeklyPlanPage({
   createId = () => crypto.randomUUID()
 }: Props) {
   const auth = useAuth()
+  const [labels, setLabels] = useState<IngredientLabels>(EMPTY_INGREDIENT_LABELS)
   const [household, setHousehold] = useState<HouseholdSetup | null>(null)
   const [state, setState] = useState<ViewState>({ status: "loading_household" })
   const [preview, setPreview] = useState<PreviewState>({ status: "idle" })
@@ -187,6 +197,23 @@ export function WeeklyPlanPage({
       active = false
     }
   }, [householdRepository])
+
+  // Names are presentation only, so a lookup that fails leaves the plan readable rather than
+  // replacing it with an error: `describeIngredient` falls back to the identifier and the quantity.
+  useEffect(() => {
+    let active = true
+    void foodOptionsRepository
+      .load()
+      .then((options) => {
+        if (active) setLabels(ingredientLabels(options))
+      })
+      .catch(() => {
+        if (active) setLabels(EMPTY_INGREDIENT_LABELS)
+      })
+    return () => {
+      active = false
+    }
+  }, [foodOptionsRepository])
 
   const accessToken = auth.session?.accessToken
 
@@ -421,7 +448,7 @@ export function WeeklyPlanPage({
                       Đổi bữa
                     </Button>
                   </div>
-                  <MealDetails item={item} />
+                  <MealDetails item={item} labels={labels} />
                 </li>
               ))}
           </ol>

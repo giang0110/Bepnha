@@ -124,6 +124,7 @@ export function AppRouter({
           element={
             <Suspense fallback={<ProtectedRouteFallback />}>
               <WeeklyPlanPage
+                foodOptionsRepository={pantryFoodOptionsRepository}
                 householdRepository={householdRepository}
                 plannerApi={plannerApi}
                 renderAssistant={({ accessToken, expectedRevisionId, onPreviewDay, planId }) => (
