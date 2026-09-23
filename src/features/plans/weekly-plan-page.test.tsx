@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router"
 import { describe, expect, test, vi } from "vitest"
 
 import type { HouseholdRepository } from "@/application/household/household-repository"
+import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import { AuthContext } from "@/app/auth/auth-context"
 import type { HouseholdSetup } from "@/domain/household/household"
 
@@ -45,9 +46,9 @@ function item(dayIndex: number, name = `Bữa ${dayIndex + 1}`): PlanItemView {
     scaledIngredients: [
       {
         sourceId: `source-${dayIndex}`,
-        foodId: `food-${dayIndex}`,
+        foodId: "60000000-0000-0000-0000-000000000001",
         foodFactVersionId: `fact-${dayIndex}`,
-        baseUnitId: "unit-g",
+        baseUnitId: "70010000-0000-0000-0000-000000000001",
         baseQuantity: "400",
         grossGrams: "400"
       }
@@ -77,7 +78,8 @@ function ready(overrides: Partial<PlannerReadyResponse> = {}): PlannerReadyRespo
 
 function setup(
   apiOverrides: Partial<PlannerApi> = {},
-  renderAssistant?: WeeklyPlanAssistantRenderer
+  renderAssistant?: WeeklyPlanAssistantRenderer,
+  foodOptionsOverrides: Partial<PantryFoodOptionsRepository> = {}
 ) {
   const api: PlannerApi = {
     generate: vi.fn().mockResolvedValue({ ok: true, value: ready() }),
@@ -115,6 +117,24 @@ function setup(
     loadOwn: vi.fn().mockResolvedValue(household),
     saveOwn: vi.fn()
   }
+  const foodOptionsRepository = {
+    load: vi.fn().mockResolvedValue([
+      {
+        foodId: "60000000-0000-0000-0000-000000000001",
+        foodNameVi: "Gạo tẻ",
+        foodFactVersionId: "fact-0",
+        baseUnitId: "70010000-0000-0000-0000-000000000001",
+        units: [
+          {
+            unitId: "70010000-0000-0000-0000-000000000001",
+            unitCode: "g",
+            unitNameVi: "gam"
+          }
+        ]
+      }
+    ]),
+    ...foodOptionsOverrides
+  }
   render(
     <MemoryRouter>
       <AuthContext.Provider
@@ -130,6 +150,7 @@ function setup(
         }}
       >
         <WeeklyPlanPage
+          foodOptionsRepository={foodOptionsRepository}
           householdRepository={repository}
           plannerApi={api}
           {...(renderAssistant === undefined ? {} : { renderAssistant })}
@@ -167,7 +188,7 @@ describe("WeeklyPlanPage", () => {
     })
 
     await user.click(within(cards[0]!).getByText("Xem cách nấu và dinh dưỡng"))
-    expect(within(cards[0]!).getByText("400 g")).toBeInTheDocument()
+    expect(within(cards[0]!).getByText("Gạo tẻ — 400 g")).toBeInTheDocument()
     expect(within(cards[0]!).getByText("Nấu bữa 1.")).toBeInTheDocument()
     expect(within(cards[0]!).getByText("520 kcal")).toBeInTheDocument()
     expect(screen.queryByText(/danh sách mua sắm/i)).not.toBeInTheDocument()
@@ -312,6 +333,22 @@ describe("WeeklyPlanPage", () => {
       expectedPlanVersion: ready().planVersion,
       expectedCurrentRevisionId: ready().revisionId
     })
+  })
+
+  test("falls back to the identifier and quantity when a name is not known", async () => {
+    // Names are presentation only. A lookup that returns nothing, or fails outright, must leave the
+    // plan readable rather than replacing the quantity with a label that says nothing.
+    const user = userEvent.setup()
+    setup({}, undefined, { load: vi.fn().mockRejectedValue(new Error("offline")) })
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
+    await user.click(within(cards[0]!).getByText("Xem cách nấu và dinh dưỡng"))
+
+    expect(
+      within(cards[0]!).getByText("60000000-0000-0000-0000-000000000001 — 400")
+    ).toBeInTheDocument()
+    expect(within(cards[0]!).queryByText(/đơn vị cơ sở/u)).not.toBeInTheDocument()
   })
 
   test("asks for a first plan, naming no version, when the week has none", async () => {

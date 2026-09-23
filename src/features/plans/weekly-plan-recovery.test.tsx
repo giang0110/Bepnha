@@ -95,6 +95,7 @@ function renderPage(apiOverrides: Partial<PlannerApi>, createId: () => string) {
         }}
       >
         <WeeklyPlanPage
+          foodOptionsRepository={{ load: vi.fn().mockResolvedValue([]) }}
           householdRepository={repository}
           plannerApi={api}
           today={() => new Date("2026-08-27T00:00:00+07:00")}
