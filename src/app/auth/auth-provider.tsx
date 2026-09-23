@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 
 import type { AuthSession, AuthSessionPort } from "@/application/auth/auth-session-port"
+import { purgeCachedHouseholdData } from "@/app/pwa/service-worker-client"
 import { AuthContext, type AuthContextValue, type AuthStatus } from "@/app/auth/auth-context"
 
 export function AuthProvider({
@@ -79,6 +80,9 @@ export function AuthProvider({
           setPasswordRecoveryReady(false)
           setSession(null)
           setStatus("signed-out")
+          // The offline copy of this household's plan goes with the session. A shared phone is the
+          // ordinary case: the next person to open the app must not find last week's meals waiting.
+          void purgeCachedHouseholdData(navigator)
         }
         return result
       },
