@@ -1,4 +1,5 @@
 import { NavLink } from "react-router"
+import { Icon } from "./ui/icon"
 
 const links = [
   { to: "/household", label: "Gia đình", shortLabel: "Nhà" },
@@ -40,11 +41,8 @@ export function AppNav() {
     >
       <div className="hidden px-5 pb-5 pt-7 lg:block">
         <p className="flex items-center gap-2 text-sm font-extrabold tracking-tight text-herb-700">
-          <span
-            aria-hidden="true"
-            className="grid size-8 place-items-center rounded-2xl bg-herb-100 text-base"
-          >
-            🍚
+          <span className="grid size-8 place-items-center rounded-2xl bg-herb-100 text-herb-700">
+            <Icon name="bowl" className="size-[18px]" />
           </span>
           Bếp Nhà
         </p>

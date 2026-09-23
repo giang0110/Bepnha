@@ -14,6 +14,7 @@ import {
 } from "@/application/pantry/pantry-repository"
 import { AppPageShell } from "@/app/components/app-page-shell"
 import { Button } from "@/app/components/ui/button"
+import { Icon } from "@/app/components/ui/icon"
 
 interface Props {
   readonly householdRepository: HouseholdRepository
@@ -340,7 +341,7 @@ export function PantryPage({
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
       <header className="grid gap-2">
         <p className="flex items-center gap-1.5 text-sm font-extrabold text-herb-700">
-          <span aria-hidden="true">🍚</span>
+          <Icon name="bowl" className="size-4" />
           Bếp Nhà
         </p>
         <h1 className="text-2xl font-extrabold tracking-tight text-ink">Tủ bếp</h1>

@@ -13,6 +13,7 @@ import {
   GROCERY_CATEGORIES,
   type GroceryCategoryDefinition
 } from "@/domain/shopping/grocery-category-config"
+import { Icon } from "@/app/components/ui/icon"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 const VI_COLLATOR = new Intl.Collator("vi", { sensitivity: "base" })
@@ -325,7 +326,7 @@ export function ShoppingListPage({ repository }: Props) {
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
       <header className="grid gap-2">
         <p className="flex items-center gap-1.5 text-sm font-extrabold text-herb-700">
-          <span aria-hidden="true">🍚</span>
+          <Icon name="bowl" className="size-4" />
           Bếp Nhà
         </p>
         <h1 className="text-2xl font-extrabold tracking-tight text-ink">Đi chợ</h1>

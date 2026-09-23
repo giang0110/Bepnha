@@ -7,6 +7,7 @@ import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-fo
 import { useAuth } from "@/app/auth/auth-context"
 import { AppPageShell } from "@/app/components/app-page-shell"
 import { Button } from "@/app/components/ui/button"
+import { Icon } from "@/app/components/ui/icon"
 import type { HouseholdSetup } from "@/domain/household/household"
 
 import {
@@ -15,6 +16,7 @@ import {
   ingredientLabels,
   type IngredientLabels
 } from "./ingredient-labels"
+import { nutrientName, orderedNutrients } from "./nutrition-labels"
 import { safePlannerCorrelationId } from "./planner-api"
 import type {
   PlanItemView,
@@ -181,6 +183,41 @@ function CookingStepDetail({
   )
 }
 
+/**
+ * How much of the budget the week uses, as a proportion rather than only a number.
+ *
+ * "650.000 / 700.000" is arithmetic a tired person has to do. The bar answers the actual question —
+ * how close is this to the limit — at a glance, and turns chilli when it is past it. The figure
+ * stays above it: the bar is the summary, not the source, and a proportion alone would be a vaguer
+ * claim than the app can make.
+ *
+ * It is `aria-hidden` on purpose. A screen reader already had the two numbers in the line above, so
+ * announcing a progressbar would repeat them less precisely.
+ */
+function BudgetMeter({ spentVnd, budgetVnd }: Readonly<{ spentVnd: number; budgetVnd: number }>) {
+  if (!Number.isFinite(budgetVnd) || budgetVnd <= 0) return null
+
+  const share = spentVnd / budgetVnd
+  const over = share > 1
+  const width = `${Math.min(Math.max(share, 0), 1) * 100}%`
+
+  return (
+    <div aria-hidden="true" className="mt-3">
+      <div className="h-2 overflow-hidden rounded-full bg-paper-sunken">
+        <div
+          className={`h-full rounded-full ${over ? "bg-chilli-600" : "bg-herb-500"}`}
+          style={{ width }}
+        />
+      </div>
+      <p className={`mt-1.5 text-xs font-semibold ${over ? "text-chilli-700" : "text-ink-soft"}`}>
+        {over
+          ? `Vượt ${formatVnd(spentVnd - budgetVnd)} VND`
+          : `Còn lại ${formatVnd(budgetVnd - spentVnd)} VND`}
+      </p>
+    </div>
+  )
+}
+
 function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: IngredientLabels }>) {
   return (
     <details className="group/details mt-4 rounded-2xl bg-paper-sunken px-4 py-3 text-sm">
@@ -204,7 +241,7 @@ function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: In
       <div className="mt-4 grid gap-4">
         <section>
           <h4 className="flex items-center gap-1.5 font-bold text-ink">
-            <span aria-hidden="true">🥬</span>
+            <Icon name="leaf" className="size-4 text-herb-600" />
             Nguyên liệu đã định lượng
           </h4>
           <ul className="mt-2 grid gap-1">
@@ -220,7 +257,7 @@ function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: In
         </section>
         <section>
           <h4 className="flex items-center gap-1.5 font-bold text-ink">
-            <span aria-hidden="true">🍳</span>
+            <Icon name="pan" className="size-4 text-clay-700" />
             Cách nấu nhanh
           </h4>
           {item.components
@@ -249,19 +286,21 @@ function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: In
         </section>
         <section>
           <h4 className="flex items-center gap-1.5 font-bold text-ink">
-            <span aria-hidden="true">🍲</span>
+            <Icon name="soup" className="size-4 text-broth-700" />
             Dinh dưỡng ước tính cho cả bữa
           </h4>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {item.nutrition.nutrients.map((nutrient) => (
-              <li
-                className="rounded-full bg-paper-raised px-3 py-1 font-semibold text-ink-soft shadow-soft"
-                key={nutrient.nutrientCode}
-              >
-                {nutrient.displayAmount} {nutrient.unitCode}
-              </li>
+          <dl className="mt-2 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-edge bg-edge sm:grid-cols-3">
+            {orderedNutrients(item.nutrition.nutrients).map((nutrient) => (
+              <div className="bg-paper-raised px-3 py-2" key={nutrient.nutrientCode}>
+                <dt className="text-xs font-medium text-ink-soft">
+                  {nutrientName(nutrient.nutrientCode)}
+                </dt>
+                <dd className="mt-0.5 font-bold text-ink tabular-nums">
+                  {nutrient.displayAmount} {nutrient.unitCode}
+                </dd>
+              </div>
             ))}
-          </ul>
+          </dl>
         </section>
       </div>
     </details>
@@ -443,7 +482,7 @@ export function WeeklyPlanPage({
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
       <header className="grid gap-2">
         <p className="flex items-center gap-1.5 text-sm font-extrabold text-herb-700">
-          <span aria-hidden="true">🍚</span>
+          <Icon name="bowl" className="size-4" />
           Bếp Nhà
         </p>
         <h1 className="text-2xl font-extrabold tracking-tight text-ink">Kế hoạch tuần</h1>
@@ -492,13 +531,17 @@ export function WeeklyPlanPage({
             aria-label="Tổng quan ngân sách"
           >
             <p className="flex items-center gap-2 text-sm font-semibold text-herb-700">
-              <span aria-hidden="true">🧺</span>
+              <Icon name="basket" className="size-4" />
               Ước tính giỏ mua cho 7 bữa chính
             </p>
-            <p className="mt-2 text-2xl font-extrabold tracking-tight text-ink">
+            <p className="mt-2 text-2xl font-extrabold tracking-tight text-ink tabular-nums">
               {formatVnd(state.value.plan.totalEstimatedCostVnd)} VND /{" "}
               {formatVnd(state.value.budgetVnd)} VND
             </p>
+            <BudgetMeter
+              budgetVnd={state.value.budgetVnd}
+              spentVnd={state.value.plan.totalEstimatedCostVnd}
+            />
             {state.value.warnings.map((warning, index) => {
               const copy = warningCopy(warning, state.value)
               return copy === null ? null : (
@@ -516,7 +559,7 @@ export function WeeklyPlanPage({
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-clay-700 px-6 text-base font-bold text-white shadow-soft transition-all hover:bg-clay-900 hover:shadow-lift"
             to={`/shopping/${state.value.planId}`}
           >
-            <span aria-hidden="true">🛒</span>
+            <Icon name="cart" className="size-5" />
             Đi chợ
           </Link>
 
@@ -554,7 +597,7 @@ export function WeeklyPlanPage({
                         {item.mealOptionNameVi}
                       </p>
                       <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-soft">
-                        <span aria-hidden="true">⏱</span>
+                        <Icon name="clock" className="size-4" />
                         Tối đa {item.elapsedMinutes} phút
                       </p>
                     </div>

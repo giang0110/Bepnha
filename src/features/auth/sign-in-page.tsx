@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router"
 
 import { Button } from "@/app/components/ui/button"
 import { useAuth } from "@/app/auth/auth-context"
+import { Icon } from "@/app/components/ui/icon"
 
 function redirectFromState(state: unknown): string {
   if (
@@ -48,11 +49,8 @@ export function SignInPage() {
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-5 px-4 py-8">
       <div>
         <p className="flex items-center gap-2 text-sm font-extrabold text-herb-700">
-          <span
-            aria-hidden="true"
-            className="grid size-9 place-items-center rounded-2xl bg-herb-100 text-lg"
-          >
-            🍚
+          <span className="grid size-9 place-items-center rounded-2xl bg-herb-100 text-herb-700">
+            <Icon name="bowl" className="size-5" />
           </span>
           Bếp Nhà
         </p>
