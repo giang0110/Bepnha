@@ -26,7 +26,17 @@ function planItem(dayIndex: number, name = `Bữa ${dayIndex + 1}`) {
         recipe: {
           recipeId: `recipe-${dayIndex}`,
           recipeVersionId: `recipe-version-${dayIndex}`,
-          steps: [{ order: 1, instructionVi: `Nấu bữa ${dayIndex + 1}.`, timerMinutes: 10 }]
+          ingredients: [{ recipeIngredientId: `ri-${dayIndex}`, foodId: `food-${dayIndex}` }],
+          steps: [
+            {
+              order: 1,
+              instructionVi: `Nấu bữa ${dayIndex + 1}.`,
+              timerMinutes: 10,
+              heatLevel: "high",
+              temperatureCelsius: 170,
+              ingredientIds: [`ri-${dayIndex}`]
+            }
+          ]
         }
       }
     ],

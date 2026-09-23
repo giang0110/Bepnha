@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest"
 
 import { EMPTY_INGREDIENT_LABELS, ingredientLabels } from "./ingredient-labels"
-import type { PlanStepView } from "./planner-api"
+import type { PlanRecipeIngredientView, PlanStepView } from "./planner-api"
 import { stepConditions, stepIngredientNames } from "./step-details"
 
 const GAM = "70010000-0000-0000-0000-000000000001"
@@ -46,6 +46,29 @@ describe("stepConditions", () => {
 
   test("keeps a zero timer, which is not the same as no timer", () => {
     expect(stepConditions(step({ timerMinutes: 0 }))).toEqual(["0 phút"])
+  })
+})
+
+describe("a response that predates these fields", () => {
+  // The planner API is a wire contract, not a compiler guarantee. A deployment still answering the
+  // previous step shape used to throw on `undefined.map` and take the whole week's plan down with
+  // it; absent now reads exactly like null — the recipe did not say.
+  const legacyStep = {
+    order: 1,
+    instructionVi: "Nấu bữa 1."
+  } as unknown as PlanStepView
+
+  test("says nothing rather than throwing", () => {
+    expect(stepConditions(legacyStep)).toEqual([])
+    expect(
+      stepIngredientNames(legacyStep, undefined as unknown as PlanRecipeIngredientView[], labels)
+    ).toEqual([])
+  })
+
+  test("still reads the fields a partial response does carry", () => {
+    const partial = { order: 1, instructionVi: "Nấu.", timerMinutes: 10 } as unknown as PlanStepView
+
+    expect(stepConditions(partial)).toEqual(["10 phút"])
   })
 })
 

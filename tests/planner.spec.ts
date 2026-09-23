@@ -20,7 +20,17 @@ function planItem(dayIndex: number, name = `Bữa ${dayIndex + 1}`) {
         recipe: {
           recipeId: `recipe-${dayIndex}`,
           recipeVersionId: `recipe-version-${dayIndex}`,
-          steps: [{ order: 1, instructionVi: `Nấu bữa ${dayIndex + 1}.`, timerMinutes: 10 }]
+          ingredients: [{ recipeIngredientId: `ri-${dayIndex}`, foodId: `food-${dayIndex}` }],
+          steps: [
+            {
+              order: 1,
+              instructionVi: `Nấu bữa ${dayIndex + 1}.`,
+              timerMinutes: 10,
+              heatLevel: "high",
+              temperatureCelsius: 170,
+              ingredientIds: [`ri-${dayIndex}`]
+            }
+          ]
         }
       }
     ],
@@ -117,6 +127,8 @@ test("mobile planner generates, shows details, and applies a one-day replacement
     .getByText("Xem cách nấu và dinh dưỡng")
     .click()
   await expect(page.getByText("Nấu bữa 1.")).toBeVisible()
+  // The conditions the recipe states reach a real browser, not only jsdom.
+  await expect(page.getByText(/10 phút.*Lửa lớn.*170°C/u)).toBeVisible()
 
   await page.getByRole("button", { name: "Đổi bữa" }).nth(2).click()
   await expect(page.getByText("Bữa thay thế", { exact: true })).toBeVisible()

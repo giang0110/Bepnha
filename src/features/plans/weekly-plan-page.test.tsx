@@ -534,6 +534,39 @@ describe("WeeklyPlanPage", () => {
     expect(draining!.textContent).toBe("Vớt ra để ráo dầu.")
   })
 
+  test("renders a plan from a server that predates the step detail fields", async () => {
+    // The Playwright planner spec caught this: a step without `ingredientIds` threw on
+    // `undefined.map`, React unmounted the list, and the whole week went blank. A deployment answering
+    // the older shape has to degrade to the plan as it read before, not to nothing.
+    const legacyItem = {
+      ...item(0),
+      components: [
+        {
+          mealRole: "main",
+          sortOrder: 1,
+          recipe: {
+            recipeId: "recipe-legacy",
+            recipeVersionId: "recipe-legacy-v1",
+            steps: [{ order: 1, instructionVi: "Nấu theo cách cũ.", timerMinutes: 10 }]
+          }
+        }
+      ]
+    } as unknown as PlanItemView
+    const user = userEvent.setup()
+    setup({
+      generate: vi.fn().mockResolvedValue({
+        ok: true,
+        value: ready({ plan: { items: [legacyItem], totalEstimatedCostVnd: 650_000 } })
+      })
+    })
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
+    await user.click(within(cards[0]!).getByText("Xem cách nấu và dinh dưỡng"))
+
+    expect(within(cards[0]!).getByText("Nấu theo cách cũ.")).toBeInTheDocument()
+  })
+
   test("falls back to the identifier and quantity when a name is not known", async () => {
     // Names are presentation only. A lookup that returns nothing, or fails outright, must leave the
     // plan readable rather than replacing the quantity with a label that says nothing.
