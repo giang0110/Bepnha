@@ -74,6 +74,8 @@ export function plannerCandidate(id = "option-v1"): PlannerCandidateInput {
                 order: 1,
                 instructionVi: "Nấu chín.",
                 timerMinutes: 10,
+                heatLevel: "medium",
+                temperatureCelsius: null,
                 ingredientIds: [`${id}-ingredient`]
               }
             ]

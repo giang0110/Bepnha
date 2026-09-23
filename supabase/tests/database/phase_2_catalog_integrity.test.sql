@@ -239,6 +239,98 @@ select throws_ok(
   'optional step traceability cannot reference a cross-version ingredient'
 );
 
+select throws_ok(
+  $$
+    insert into public.recipe_steps (
+      id, recipe_version_id, sort_order, instruction_vi, temperature_celsius
+    ) values (
+      '57000000-0000-0000-0000-000000000003',
+      '55000000-0000-0000-0000-000000000002',
+      2,
+      'Chiên ở nhiệt độ ngoài thang bếp gia đình.',
+      39
+    )
+  $$,
+  null,
+  null,
+  'a cooking temperature below the family-kitchen range is rejected'
+);
+select throws_ok(
+  $$
+    insert into public.recipe_steps (
+      id, recipe_version_id, sort_order, instruction_vi, temperature_celsius
+    ) values (
+      '57000000-0000-0000-0000-000000000004',
+      '55000000-0000-0000-0000-000000000002',
+      2,
+      'Chiên ở nhiệt độ ngoài thang bếp gia đình.',
+      301
+    )
+  $$,
+  null,
+  null,
+  'a cooking temperature above the family-kitchen range is rejected'
+);
+select throws_ok(
+  $$
+    insert into public.recipe_steps (
+      id, recipe_version_id, sort_order, instruction_vi, heat_level
+    ) values (
+      '57000000-0000-0000-0000-000000000005',
+      '55000000-0000-0000-0000-000000000002',
+      2,
+      'Đun ở mức lửa không có trong thang.',
+      'warm'
+    )
+  $$,
+  null,
+  null,
+  'a heat level outside the enum is rejected'
+);
+
+insert into public.recipe_steps (
+  id, recipe_version_id, sort_order, instruction_vi, timer_minutes, heat_level,
+  temperature_celsius
+)
+values (
+  '57000000-0000-0000-0000-000000000006',
+  '55000000-0000-0000-0000-000000000002',
+  2,
+  'Phi thơm hành rồi đảo đều.',
+  2,
+  'high',
+  180
+);
+select is(
+  (
+    select heat_level::text || ' ' || temperature_celsius::text
+    from public.recipe_steps
+    where id = '57000000-0000-0000-0000-000000000006'
+  ),
+  'high 180',
+  'a step keeps the heat level and temperature it was written with'
+);
+select is(
+  (
+    select
+      public.get_catalog_aggregate_for_publication(
+        'recipe_version', '55000000-0000-0000-0000-000000000002'
+      ) #>> '{steps,1,heatLevel}'
+  ),
+  'high',
+  'the publication aggregate carries the heat level into the content hash'
+);
+select is(
+  (
+    select
+      public.get_catalog_aggregate_for_publication(
+        'recipe_version', '55000000-0000-0000-0000-000000000002'
+      ) #>> '{steps,1,temperatureCelsius}'
+  ),
+  '180',
+  'the publication aggregate carries the temperature into the content hash'
+);
+
 insert into public.price_books (
   id, region_id, version_number, effective_from, created_by
 )

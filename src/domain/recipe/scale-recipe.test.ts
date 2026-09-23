@@ -43,6 +43,8 @@ const baseRecipe = {
       order: 1,
       instructionVi: "Vo gạo.",
       timerMinutes: null,
+      heatLevel: null,
+      temperatureCelsius: null,
       ingredientIds: ["ingredient-rice"]
     }
   ]
@@ -218,6 +220,8 @@ describe("scaleRecipe", () => {
           order: 1,
           instructionVi: "Nấu gạo đến khi chín mềm.",
           timerMinutes: 15,
+          heatLevel: "low",
+          temperatureCelsius: null,
           ingredientIds: []
         }
       ]
@@ -236,6 +240,8 @@ describe("normalizeRecipeSteps", () => {
             order: 1,
             instructionVi: "  Phi thơm hành rồi đảo đều.  ",
             timerMinutes: 2,
+            heatLevel: "high",
+            temperatureCelsius: 180,
             ingredientIds: ["oil"]
           }
         ],
@@ -249,6 +255,8 @@ describe("normalizeRecipeSteps", () => {
           order: 1,
           instructionVi: "Phi thơm hành rồi đảo đều.",
           timerMinutes: 2,
+          heatLevel: "high",
+          temperatureCelsius: 180,
           ingredientIds: ["oil"]
         }
       ]
@@ -257,13 +265,106 @@ describe("normalizeRecipeSteps", () => {
 
   test.each(
     [
-      [{ order: 1, instructionVi: " ", timerMinutes: null, ingredientIds: [] }],
-      [{ order: 1, instructionVi: "a".repeat(501), timerMinutes: null, ingredientIds: [] }],
-      [{ order: 2, instructionVi: "Nấu chín.", timerMinutes: null, ingredientIds: [] }],
-      [{ order: 1, instructionVi: "Nấu chín.", timerMinutes: 21, ingredientIds: [] }],
-      [{ order: 1, instructionVi: "Nấu chín.", timerMinutes: null, ingredientIds: ["missing"] }]
+      [
+        {
+          order: 1,
+          instructionVi: " ",
+          timerMinutes: null,
+          heatLevel: null,
+          temperatureCelsius: null,
+          ingredientIds: []
+        }
+      ],
+      [
+        {
+          order: 1,
+          instructionVi: "a".repeat(501),
+          timerMinutes: null,
+          heatLevel: null,
+          temperatureCelsius: null,
+          ingredientIds: []
+        }
+      ],
+      [
+        {
+          order: 2,
+          instructionVi: "Nấu chín.",
+          timerMinutes: null,
+          heatLevel: null,
+          temperatureCelsius: null,
+          ingredientIds: []
+        }
+      ],
+      [
+        {
+          order: 1,
+          instructionVi: "Nấu chín.",
+          timerMinutes: 21,
+          heatLevel: null,
+          temperatureCelsius: null,
+          ingredientIds: []
+        }
+      ],
+      [
+        {
+          order: 1,
+          instructionVi: "Nấu chín.",
+          timerMinutes: null,
+          heatLevel: null,
+          temperatureCelsius: null,
+          ingredientIds: ["missing"]
+        }
+      ],
+      [
+        {
+          order: 1,
+          instructionVi: "Nấu chín.",
+          timerMinutes: null,
+          heatLevel: null,
+          temperatureCelsius: 39,
+          ingredientIds: []
+        }
+      ],
+      [
+        {
+          order: 1,
+          instructionVi: "Nấu chín.",
+          timerMinutes: null,
+          heatLevel: null,
+          temperatureCelsius: 301,
+          ingredientIds: []
+        }
+      ],
+      [
+        {
+          order: 1,
+          instructionVi: "Nấu chín.",
+          timerMinutes: null,
+          heatLevel: null,
+          temperatureCelsius: 180.5,
+          ingredientIds: []
+        }
+      ]
     ].map((steps) => [steps] as const)
   )("rejects invalid ordered editorial steps", (steps) => {
+    expect(normalizeRecipeSteps(steps, ["oil"], 20)).toEqual({
+      ok: false,
+      error: { code: "INVALID_RECIPE_STEPS" }
+    })
+  })
+
+  test("rejects a heat level outside the enum", () => {
+    const steps = [
+      {
+        order: 1,
+        instructionVi: "Nấu chín.",
+        timerMinutes: null,
+        heatLevel: "warm",
+        temperatureCelsius: null,
+        ingredientIds: []
+      }
+    ] as unknown as Parameters<typeof normalizeRecipeSteps>[0]
+
     expect(normalizeRecipeSteps(steps, ["oil"], 20)).toEqual({
       ok: false,
       error: { code: "INVALID_RECIPE_STEPS" }

@@ -122,7 +122,14 @@ function nestedDraftShapeIsValid(action: string, input: UnknownRecord): boolean 
       input.steps.every(
         (item) =>
           isRecord(item) &&
-          hasExactKeys(item, ["order", "instructionVi", "timerMinutes", "ingredientIds"])
+          hasExactKeys(item, [
+            "order",
+            "instructionVi",
+            "timerMinutes",
+            "heatLevel",
+            "temperatureCelsius",
+            "ingredientIds"
+          ])
       ) &&
       Array.isArray(input.tagIds)
     )

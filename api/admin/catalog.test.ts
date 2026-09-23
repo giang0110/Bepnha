@@ -183,7 +183,16 @@ describe("POST /api/admin/catalog", () => {
             activeMinutes: 10,
             elapsedMinutes: 20,
             ingredients: [ingredient],
-            steps: [{ order: 1, instructionVi, timerMinutes: 5, ingredientIds: ["local-rice"] }],
+            steps: [
+              {
+                order: 1,
+                instructionVi,
+                timerMinutes: 5,
+                heatLevel: "medium",
+                temperatureCelsius: null,
+                ingredientIds: ["local-rice"]
+              }
+            ],
             tagIds: []
           }
         }),

@@ -302,6 +302,8 @@ beforeAll(async () => {
             order: 1,
             instructionVi: `Nấu món planner ${index + 1}.`,
             timerMinutes: 10,
+            heatLevel: "medium",
+            temperatureCelsius: null,
             ingredientIds: [ingredientReference]
           }
         ],

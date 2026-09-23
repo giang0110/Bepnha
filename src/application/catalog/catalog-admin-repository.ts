@@ -1,3 +1,5 @@
+import type { RecipeHeatLevel } from "../../domain/recipe/recipe.js"
+
 import type {
   FoodFactDraftInput,
   PriceBookDraftInput,
@@ -61,6 +63,8 @@ export interface RecipePublicationAggregate {
     readonly order: number
     readonly instructionVi: string
     readonly timerMinutes: number | null
+    readonly heatLevel: RecipeHeatLevel | null
+    readonly temperatureCelsius: number | null
   }[]
   readonly stepIngredients: readonly {
     readonly recipeStepId: string

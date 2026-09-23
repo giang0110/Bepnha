@@ -584,6 +584,8 @@
             "order": 1,
             "instructionVi": "CAN-DIEN: buoc nau bang tieng Viet",
             "timerMinutes": null,
+            "heatLevel": null,
+            "temperatureCelsius": null,
             "ingredientCodes": [
               "ga"
             ]

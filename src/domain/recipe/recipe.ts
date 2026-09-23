@@ -9,10 +9,33 @@ export interface RecipeIngredientInput {
   readonly conversion: FoodFactUnitConversion | null
 }
 
+/**
+ * How hot a step is cooked, when the recipe says.
+ *
+ * A home kitchen's stovetop is set by eye, not by degrees, so a heat level is the honest unit for
+ * most steps. An oven or a pan of frying oil is the opposite: only a number means anything there.
+ * Neither derives from the other, so a step carries whichever its own instruction needs.
+ */
+export type RecipeHeatLevel = "low" | "medium" | "high"
+
+export const RECIPE_HEAT_LEVELS: readonly RecipeHeatLevel[] = Object.freeze([
+  "low",
+  "medium",
+  "high"
+])
+
+export function isRecipeHeatLevel(value: unknown): value is RecipeHeatLevel {
+  return RECIPE_HEAT_LEVELS.includes(value as RecipeHeatLevel)
+}
+
 export interface RecipeStepInput {
   readonly order: number
   readonly instructionVi: string
   readonly timerMinutes: number | null
+  /** `null` means the recipe has not said, which is not the same as medium. */
+  readonly heatLevel: RecipeHeatLevel | null
+  /** Below 40 is not cooking; above 300 is beyond a domestic oven or a pan of oil. */
+  readonly temperatureCelsius: number | null
   readonly ingredientIds: readonly string[]
 }
 
@@ -56,6 +79,8 @@ export function normalizeRecipeSteps(
       order: step.order,
       instructionVi: step.instructionVi.trim(),
       timerMinutes: step.timerMinutes,
+      heatLevel: step.heatLevel,
+      temperatureCelsius: step.temperatureCelsius,
       ingredientIds: [...step.ingredientIds].sort()
     }))
 
@@ -75,7 +100,12 @@ export function normalizeRecipeSteps(
       (step.timerMinutes !== null &&
         (!Number.isSafeInteger(step.timerMinutes) ||
           step.timerMinutes < 0 ||
-          step.timerMinutes > elapsedMinutes))
+          step.timerMinutes > elapsedMinutes)) ||
+      (step.heatLevel !== null && !isRecipeHeatLevel(step.heatLevel)) ||
+      (step.temperatureCelsius !== null &&
+        (!Number.isSafeInteger(step.temperatureCelsius) ||
+          step.temperatureCelsius < 40 ||
+          step.temperatureCelsius > 300))
     ) {
       return invalidSteps()
     }

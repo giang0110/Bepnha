@@ -1,3 +1,5 @@
+import type { RecipeHeatLevel } from "../../domain/recipe/recipe.js"
+
 import type { AllergenAssessmentStatus, CatalogDimension } from "../../domain/catalog/catalog.js"
 
 export interface RecipeDraftIngredient {
@@ -14,6 +16,8 @@ export interface RecipeDraftStep {
   readonly order: number
   readonly instructionVi: string
   readonly timerMinutes: number | null
+  readonly heatLevel: RecipeHeatLevel | null
+  readonly temperatureCelsius: number | null
   readonly ingredientIds: readonly string[]
 }
 

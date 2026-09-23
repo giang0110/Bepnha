@@ -81,7 +81,9 @@ const recipeAggregate: RecipePublicationAggregate = {
       recipeStepId: "step-1",
       order: 1,
       instructionVi: "Vo gạo rồi nấu chín.",
-      timerMinutes: 20
+      timerMinutes: 20,
+      heatLevel: "medium",
+      temperatureCelsius: 100
     }
   ],
   stepIngredients: [],
@@ -294,7 +296,7 @@ describe("executeCatalogAdminCommand", () => {
         expectedRevision: 1,
         contentHash:
           type === "recipe_version"
-            ? "2708cfeade6c0c4c2a2ca7d16e66835bf9e5a41148124764f0749deab32ebd3e"
+            ? "95c169b68ca0f90f14aee867d7546fb8fa6abcf939d8347f51d8cdef1fb33a4a"
             : "9731a96f126c8d7a6698a6bce37501110706f1db7097cf67e35c6882cc66ddaa"
       })
     }
@@ -356,7 +358,16 @@ describe("executeCatalogAdminCommand", () => {
           activeMinutes: 10,
           elapsedMinutes: 20,
           ingredients: recipeDraftIngredients,
-          steps: [{ order: 1, instructionVi, timerMinutes: null, ingredientIds: [] }],
+          steps: [
+            {
+              order: 1,
+              instructionVi,
+              timerMinutes: null,
+              heatLevel: null,
+              temperatureCelsius: null,
+              ingredientIds: []
+            }
+          ],
           tagIds: []
         }
       })
@@ -382,6 +393,8 @@ describe("executeCatalogAdminCommand", () => {
           order: 1,
           instructionVi: "Đảo đều rồi dọn món.",
           timerMinutes: null,
+          heatLevel: "high",
+          temperatureCelsius: null,
           ingredientIds: []
         }
       ],
