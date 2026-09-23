@@ -9,11 +9,16 @@ import type {
 } from "@/application/shopping/shopping-list-repository"
 import { ShoppingListRepositoryError } from "@/application/shopping/shopping-list-repository"
 import { AppPageShell } from "@/app/components/app-page-shell"
+import { Button } from "@/app/components/ui/button"
 import {
   GROCERY_CATEGORIES,
   type GroceryCategoryDefinition
 } from "@/domain/shopping/grocery-category-config"
 import { Icon } from "@/app/components/ui/icon"
+
+import { shareText } from "./share-text"
+import { shoppingListText } from "./shopping-list-text"
+import { shoppingProgress } from "./shopping-progress"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 const VI_COLLATOR = new Intl.Collator("vi", { sensitivity: "base" })
@@ -122,9 +127,15 @@ function ShoppingItemRow({
           aria-label={item.foodNameVi}
           checked={item.checked}
           className="mt-1 size-5 shrink-0 accent-herb-600"
+          data-print="hide"
           disabled={pending}
           type="checkbox"
           onChange={(event) => onCheckedChange(item, event.currentTarget.checked)}
+        />
+        <span
+          aria-hidden="true"
+          className="mt-1 size-4 shrink-0 border border-black"
+          data-print="only"
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
@@ -161,7 +172,7 @@ function ShoppingItemRow({
           <p className="text-sm text-ink-soft">
             Dư khoảng {formatQuantity(item.leftoverBaseQuantity)} {unit}
           </p>
-          <details className="mt-2 rounded-2xl bg-paper-sunken px-3 py-2 text-sm">
+          <details className="mt-2 rounded-2xl bg-paper-sunken px-3 py-2 text-sm" data-print="hide">
             <summary className="cursor-pointer font-medium">Dùng cho bữa nào</summary>
             <ul className="mt-2 grid gap-1">
               {item.sources.map((source) => (
@@ -214,6 +225,7 @@ export function ShoppingListPage({ repository }: Props) {
   const [state, setState] = useState<ViewState>({ status: "loading" })
   const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(new Set())
   const [mutationError, setMutationError] = useState<string | null>(null)
+  const [shareNotice, setShareNotice] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -314,13 +326,23 @@ export function ShoppingListPage({ repository }: Props) {
 
   const staleCopy = state.status === "ready" ? staleWarningCopy(state.value) : null
   const alertCopy = mutationError ?? staleCopy
-  const shoppingProgress =
-    state.status === "ready"
-      ? {
-          checked: state.value.items.filter((item) => item.checked).length,
-          total: state.value.items.length
-        }
-      : null
+  const progress = state.status === "ready" ? shoppingProgress(state.value.items) : null
+
+  async function shareList() {
+    if (state.status !== "ready") return
+    const outcome = await shareText(
+      shoppingListText(state.value, unitLabel),
+      "Đi chợ — Bếp Nhà",
+      navigator
+    )
+    setShareNotice(
+      outcome === "copied"
+        ? "Đã chép danh sách vào bộ nhớ tạm. Dán vào tin nhắn để gửi đi."
+        : outcome === "unavailable"
+          ? "Trình duyệt này không cho chia sẻ hoặc chép. Bạn có thể dùng nút In."
+          : null
+    )
+  }
 
   return (
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
@@ -333,7 +355,7 @@ export function ShoppingListPage({ repository }: Props) {
         <p className="text-sm text-ink-soft">
           Số lượng và giá là ước tính theo đúng phiên bản kế hoạch đã lưu.
         </p>
-        <Link className="text-sm font-medium text-herb-700 underline" to="/plan">
+        <Link className="text-sm font-medium text-herb-700 underline" data-print="hide" to="/plan">
           Quay lại kế hoạch tuần
         </Link>
       </header>
@@ -370,23 +392,51 @@ export function ShoppingListPage({ repository }: Props) {
             ) : (
               <p className="mt-1 text-sm text-herb-700">Trong ngân sách dự kiến.</p>
             )}
-            {shoppingProgress === null ? null : (
+            {progress === null ? null : (
               <div className="mt-4">
                 <div className="mb-1 flex items-center justify-between gap-3 text-sm">
                   <span>Tiến độ mua sắm</span>
                   <span className="font-medium">
-                    {shoppingProgress.checked}/{shoppingProgress.total} món
+                    {progress.checkedCount}/{progress.totalCount} món
                   </span>
                 </div>
                 <progress
                   aria-label="Tiến độ mua sắm"
                   className="h-2 w-full accent-herb-600"
-                  max={Math.max(1, shoppingProgress.total)}
-                  value={shoppingProgress.checked}
+                  max={Math.max(1, progress.totalCount)}
+                  value={progress.checkedCount}
                 />
+                {/* The figure a shopper wants halfway down an aisle. Derived from the ticked lines,
+                    which is why it sits under the stored total rather than beside it. */}
+                <p className="mt-3 text-sm text-ink-soft">
+                  {progress.remainingCostVnd === 0 && progress.totalCount > 0
+                    ? "Đã lấy đủ mọi thứ trong danh sách."
+                    : `Còn phải mua khoảng ${formatVnd(progress.remainingCostVnd)} VND`}
+                </p>
+                {progress.pickedUpCostVnd === 0 ? null : (
+                  <p className="text-sm text-herb-700">
+                    Đã lấy {formatVnd(progress.pickedUpCostVnd)} VND
+                  </p>
+                )}
               </div>
             )}
           </section>
+
+          <div className="flex flex-wrap gap-2" data-print="hide">
+            <Button type="button" variant="outline" onClick={() => void shareList()}>
+              <Icon name="basket" className="size-4" />
+              Gửi cho người đi chợ
+            </Button>
+            <Button type="button" variant="outline" onClick={() => window.print()}>
+              In danh sách
+            </Button>
+          </div>
+
+          {shareNotice === null ? null : (
+            <p className="text-sm text-ink-soft" role="status">
+              {shareNotice}
+            </p>
+          )}
 
           {alertCopy === null ? null : (
             <p

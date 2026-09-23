@@ -35,7 +35,12 @@ function fixtureClient(
   baseDimension: "mass" | "volume" = "mass",
   pantry: PantryFixture = emptyPantry,
   /** false models a database that predates `20260923000000_recipe_step_heat.sql`. */
-  stepConditionColumns = true
+  stepConditionColumns = true,
+  /**
+   * What the plan-history read answers. An array is a real history; "missing" models a database
+   * that predates `20260923010000_planner_recent_week_history.sql`.
+   */
+  planHistory: readonly string[] | "missing" = []
 ) {
   const source = plannerCandidate("option-v1")
   const component = source.mealOption.components[0]
@@ -53,6 +58,16 @@ function fixtureClient(
   const rpc = vi.fn((name: string) => {
     if (name === "get_pantry") {
       return Promise.resolve({ data: pantry.rows, error: null })
+    }
+    if (name === "get_recent_meal_option_ids") {
+      // PostgreSQL answers `42883 undefined_function` for a call to a function it does not have,
+      // and fails the whole statement exactly as a missing column does.
+      return planHistory === "missing"
+        ? Promise.resolve({
+            data: null,
+            error: { code: "42883", message: "function does not exist" }
+          })
+        : Promise.resolve({ data: planHistory, error: null })
     }
     if (name === "get_published_meal_option_calculation_input") {
       return Promise.resolve({
@@ -276,6 +291,48 @@ describe("Supabase planner input loader", () => {
     })
     // Degrading quietly would leave a half-applied migration invisible for as long as nobody looked.
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("recipe_step_conditions_missing"))
+    warn.mockRestore()
+  })
+
+  test("carries the household's recent meals into the planner input", async () => {
+    const { client, source } = fixtureClient("mass", emptyPantry, true, ["option-a", "option-b"])
+
+    const result = await createSupabasePlannerInputLoader(client).hydrateGeneration(
+      generationRaw(source.mealOption.mealOptionVersionId),
+      client as never
+    )
+
+    expect(result.recentMealOptionIds).toEqual(["option-a", "option-b"])
+  })
+
+  test("distinguishes a household that cooked nothing from a database that cannot say", async () => {
+    const { client, source } = fixtureClient("mass", emptyPantry, true, [])
+
+    const result = await createSupabasePlannerInputLoader(client).hydrateGeneration(
+      generationRaw(source.mealOption.mealOptionVersionId),
+      client as never
+    )
+
+    // An empty array is an answer: nothing was cooked in the window. It is not the same as absent.
+    expect(result.recentMealOptionIds).toEqual([])
+  })
+
+  test("still builds a plan against a database that predates the plan-history function", async () => {
+    // The same deploy window as the 42703 outage above, one release later. A read that names a
+    // function PostgreSQL does not have fails whole with 42883, and taking plan generation down to
+    // avoid repeating last week's dinner would be a far worse trade than repeating it.
+    vi.resetModules()
+    const fresh = await import("./supabase-planner-input-loader")
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const { client, source } = fixtureClient("mass", emptyPantry, true, "missing")
+
+    const result = await fresh
+      .createSupabasePlannerInputLoader(client)
+      .hydrateGeneration(generationRaw(source.mealOption.mealOptionVersionId), client as never)
+
+    expect(result.candidates).toHaveLength(1)
+    expect(result.recentMealOptionIds).toBeUndefined()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("plan_history_function_missing"))
     warn.mockRestore()
   })
 

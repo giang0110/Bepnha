@@ -117,6 +117,11 @@ export function normalizePlannerInput(input: PlannerInputV1): NormalizeResult {
       hardRuleCodes: [...input.hardRuleCodes].sort(),
       allergenStrictness: canonicalStrictness(input.hardRuleCodes, input.allergenStrictness),
       softPreferenceCodes: [...input.softPreferenceCodes].sort(),
+      // Deduplicated and sorted so the same history always hashes and scores the same way, whatever
+      // order the rows came back in. Absent stays absent: it is "not stated", not "nothing cooked".
+      ...(input.recentMealOptionIds === undefined
+        ? {}
+        : { recentMealOptionIds: [...new Set(input.recentMealOptionIds)].sort() }),
       pantrySnapshot: pantryResult.value,
       candidates: input.candidates
         .map(canonicalCandidate)

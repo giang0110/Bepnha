@@ -1,0 +1,27 @@
+{
+  "name": "Bếp Nhà",
+  "short_name": "Bếp Nhà",
+  "description": "Kế hoạch bữa cơm gia đình theo tuần, kèm danh sách đi chợ.",
+  "lang": "vi",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fdf8f1",
+  "theme_color": "#fdf8f1",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Kế hoạch tuần", "url": "/plan" },
+    { "name": "Tủ bếp", "url": "/pantry" }
+  ]
+}

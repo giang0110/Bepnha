@@ -285,6 +285,29 @@ missing would lose what the author wrote; failing loudly is correct there, and
 A test proves the tolerance only if it can see the two states apart. `supabase db reset` runs every
 migration, so an integration test cannot; the fixture has to model the older schema deliberately.
 
+#### A function is a column, for this purpose
+
+The same rule covers a **new SQL function**, with a different error code. A call to a function
+PostgreSQL does not have fails the whole statement with `42883 undefined_function`, and PostgREST's
+schema cache says `PGRST202` for it. `recentMealOptionIds` in `supabase-planner-input-loader.ts` is
+the worked example: an absent function means "history not stated", the planner plans exactly as it
+did before the feature existed, and the process logs
+`planner_schema_degraded / plan_history_function_missing` once so a half-applied migration cannot
+stay invisible.
+
+#### Engine versions are a write path, and do not tolerate delay
+
+`PLANNER_ENGINE_VERSION` is checked in the database, not only in the code. Three functions name the
+versions they accept — `persist_meal_plan_revision`, `private.assert_revision_shopping_row` and
+`private.assert_plan_summary_row` — so a code bump that reaches production before the migration
+widening them means `persist_meal_plan_revision` rejects **every** new revision. That is not a
+degraded plan; it is no plan at all, for every household, and no fallback is correct because
+silently writing a revision under an older version label would put a lie in the evidence.
+
+**A migration that widens the accepted engine versions must be applied to production before the
+branch merges.** `20260923010000_planner_recent_week_history.sql` is one such migration:
+`planner-engine-v4` does not persist without it.
+
 ### Post-migration verification
 
 Verify read-only before any catalog mutation. The structural checks are executable:

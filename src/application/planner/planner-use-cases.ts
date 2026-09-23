@@ -198,6 +198,9 @@ async function snapshots(
     priceFreshnessConfig: normalized.value.priceFreshnessConfig,
     plannerConfig: normalized.value.plannerConfig,
     pantrySnapshot: normalized.value.pantrySnapshot,
+    ...(normalized.value.recentMealOptionIds === undefined
+      ? {}
+      : { recentMealOptionIds: normalized.value.recentMealOptionIds }),
     candidateManifest: manifestFromInput(normalized.value),
     calculation: {
       items: plan.items,
@@ -290,7 +293,8 @@ export async function generateMealPlan(
     normalized.value.calculationDate,
     normalized.value.priceFreshnessConfig,
     normalized.value.plannerConfig,
-    pantryDeductions(normalized.value)
+    pantryDeductions(normalized.value),
+    normalized.value.recentMealOptionIds ?? []
   )
   if (!("plan" in planned)) return planned
   const evidenceResult = await snapshots(hasher, normalized.value, planned.plan, planned.warnings)
@@ -384,7 +388,8 @@ async function replacementPreview(
     calculationDate: normalized.value.calculationDate,
     priceFreshnessConfig: normalized.value.priceFreshnessConfig,
     plannerConfig: normalized.value.plannerConfig,
-    pantryDeductions: pantryDeductions(normalized.value)
+    pantryDeductions: pantryDeductions(normalized.value),
+    recentMealOptionIds: normalized.value.recentMealOptionIds ?? []
   })
   if (!preview.ok) return preview
   const plan: ReadyPlan = {

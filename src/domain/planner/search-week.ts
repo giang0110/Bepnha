@@ -128,7 +128,8 @@ export function calculateCompletedPlanCandidate(
   calculationDate: string,
   freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1,
   config: PlannerConfigV1 = PLANNER_CONFIG_V1,
-  deductionsInput: readonly CanonicalFoodDeduction[] = []
+  deductionsInput: readonly CanonicalFoodDeduction[] = [],
+  recentMealOptionIds: readonly string[] = []
 ): CompletedPlanCandidate | null {
   if (selected.length !== config.dayCount || violatesWeeklyHardRules(selected)) return null
   const basket = basketFor(selected, calculationDate, freshnessConfig, deductionsInput)
@@ -136,7 +137,14 @@ export function calculateCompletedPlanCandidate(
   return {
     selected,
     basket,
-    score: scoreWeeklyPlan(selected, basket, softPreferenceCodes, config),
+    score: scoreWeeklyPlan(
+      selected,
+      basket,
+      softPreferenceCodes,
+      config,
+      deductionsInput,
+      recentMealOptionIds
+    ),
     stableIdSequence: stableSequence(selected)
   }
 }
@@ -144,7 +152,8 @@ export function calculateCompletedPlanCandidate(
 export function qualityLowerBound(
   selected: readonly EligibleMealOption[],
   softPreferenceCodes: readonly string[],
-  config: PlannerConfigV1
+  config: PlannerConfigV1,
+  recentMealOptionIds: readonly string[] = []
 ): number {
   const proteins = selected.map((option) => option.primaryProteinGroup)
   const repetitions = selected.length - new Set(proteins).size
@@ -165,7 +174,14 @@ export function qualityLowerBound(
       return sum + selected.filter((item) => !item.roles.includes("vegetable")).length
     return sum
   }, 0)
+  // A partial week can only gain recently-cooked meals as it fills, never lose them, so counting
+  // them here stays a lower bound while steering the frontier off repeats before depth 7.
+  const recentlyCooked = new Set(recentMealOptionIds)
+  const repeatedRecently = selected.filter((option) =>
+    recentlyCooked.has(option.mealOptionId)
+  ).length
   return (
+    scaledPenalty(config.scoringWeights.recentWeekRepetition, repeatedRecently, config.dayCount) +
     scaledPenalty(config.diversityWeights.primaryProteinRepetition, repetitions, 6) +
     scaledPenalty(config.diversityWeights.adjacentPrimaryProteinReuse, adjacent, 6) +
     scaledPenalty(config.scoringWeights.nutritionComposition, missingRoles, 21) +
@@ -247,7 +263,8 @@ export function searchWeek(
   calculationDate: string,
   freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1,
   config: PlannerConfigV1 = PLANNER_CONFIG_V1,
-  deductionsInput: readonly CanonicalFoodDeduction[] = []
+  deductionsInput: readonly CanonicalFoodDeduction[] = [],
+  recentMealOptionIds: readonly string[] = []
 ): PlannerSearchResult {
   const eligible = [...eligibleInput].sort((left, right) =>
     compareText(left.mealOptionVersionId, right.mealOptionVersionId)
@@ -274,7 +291,12 @@ export function searchWeek(
         expanded.push({
           selected,
           basket,
-          qualityLowerBound: qualityLowerBound(selected, softPreferenceCodes, config),
+          qualityLowerBound: qualityLowerBound(
+            selected,
+            softPreferenceCodes,
+            config,
+            recentMealOptionIds
+          ),
           stableIdSequence: stableSequence(selected)
         })
       }
@@ -304,7 +326,8 @@ export function searchWeek(
         calculationDate,
         freshnessConfig,
         config,
-        deductionsInput
+        deductionsInput,
+        recentMealOptionIds
       )
     )
     .filter((candidate): candidate is CompletedPlanCandidate => candidate !== null)

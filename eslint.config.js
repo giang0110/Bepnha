@@ -122,6 +122,14 @@ export default tseslint.config(
     }
   },
   {
+    // The service worker runs in its own global scope: no window, no document, but `self`, `caches`
+    // and the fetch/install/activate events.
+    files: ["public/sw.js"],
+    languageOptions: {
+      globals: globals.serviceworker
+    }
+  },
+  {
     files: ["src/**/*.test.{ts,tsx}", "src/test/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
     languageOptions: {
       globals: {

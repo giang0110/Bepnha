@@ -53,6 +53,15 @@ export interface PlannerInputV1 {
    */
   readonly allergenStrictness?: Readonly<Record<string, AllergenStrictness>>
   readonly softPreferenceCodes: readonly string[]
+  /**
+   * Meal option identities this household cooked in the weeks immediately before this one.
+   *
+   * Absent means "not stated", which scores exactly as an empty history: an input built before this
+   * field existed plans the same week it always did. It is identities rather than versions on
+   * purpose — a household that ate cơm gà last week ate it again this week whether or not the
+   * recipe was revised in between.
+   */
+  readonly recentMealOptionIds?: readonly string[]
   readonly pantrySnapshot: PantrySnapshotV1
   readonly candidates: readonly PlannerCandidateInput[]
 }

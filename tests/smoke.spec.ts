@@ -79,3 +79,50 @@ test("the app shell loads without page errors or failed first-party requests", a
   expect(pageHealth.failedAssetResponses).toEqual([])
   expect(pageHealth.failedTransportRequests).toEqual([])
 })
+
+test("the app installs a service worker and opens again with no network", async ({
+  page,
+  context
+}) => {
+  await page.goto("/")
+  await page.evaluate(() => navigator.serviceWorker.ready)
+
+  const manifest = await page.request.get("/manifest.webmanifest")
+  expect(manifest.status()).toBe(200)
+  const manifestBody = (await manifest.json()) as { start_url?: string; display?: string }
+  expect(manifestBody.start_url).toBe("/")
+  expect(manifestBody.display).toBe("standalone")
+
+  // The shell has to be cached by the worker, not merely requested once, or the second visit is a
+  // browser error page rather than the app.
+  await page.reload()
+  await page.evaluate(() => navigator.serviceWorker.ready)
+
+  await context.setOffline(true)
+  try {
+    await page.goto("/plan")
+    await expect(page.getByRole("heading", { level: 1, name: "Đăng nhập" })).toBeVisible()
+  } finally {
+    await context.setOffline(false)
+  }
+})
+
+test("signing out is what clears the cached household data", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => navigator.serviceWorker.ready)
+
+  await page.evaluate(async () => {
+    const cache = await caches.open("bepnha-data-v1")
+    await cache.put("/api/plans/current?probe=1", new Response("{}"))
+  })
+  expect(await page.evaluate(() => caches.has("bepnha-data-v1"))).toBe(true)
+
+  await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready
+    registration.active?.postMessage({ type: "bepnha:purge-data" })
+  })
+
+  await expect.poll(() => page.evaluate(() => caches.has("bepnha-data-v1"))).toBe(false)
+  // The app's own files are not the household's, so they survive.
+  expect(await page.evaluate(() => caches.has("bepnha-shell-v1"))).toBe(true)
+})
