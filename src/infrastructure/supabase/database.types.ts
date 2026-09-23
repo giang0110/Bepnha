@@ -1925,7 +1925,11 @@ export type Database = {
         Returns: Json
       }
       get_recent_meal_option_ids: {
-        Args: { p_household_id: string; p_week_count: number; p_week_start: string }
+        Args: {
+          p_household_id: string
+          p_week_count: number
+          p_week_start: string
+        }
         Returns: Json
       }
       get_shopping_list: {
