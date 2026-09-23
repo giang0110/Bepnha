@@ -37,7 +37,17 @@ const meal: PlanItemView = {
       recipe: {
         recipeId: "recipe-original",
         recipeVersionId: "recipe-original-v1",
-        steps: [{ order: 1, instructionVi: "Nấu bữa gốc.", timerMinutes: 10 }]
+        ingredients: [],
+        steps: [
+          {
+            order: 1,
+            instructionVi: "Nấu bữa gốc.",
+            timerMinutes: 10,
+            heatLevel: null,
+            temperatureCelsius: null,
+            ingredientIds: []
+          }
+        ]
       }
     }
   ],

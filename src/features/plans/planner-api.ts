@@ -1,3 +1,5 @@
+import type { RecipeHeatLevel } from "@/domain/recipe/recipe"
+
 export interface PlanIngredientView {
   readonly sourceId: string
   readonly foodId: string
@@ -5,6 +7,20 @@ export interface PlanIngredientView {
   readonly baseUnitId: string
   readonly baseQuantity: string
   readonly grossGrams: string
+}
+
+export interface PlanRecipeIngredientView {
+  readonly recipeIngredientId: string
+  readonly foodId: string
+}
+
+export interface PlanStepView {
+  readonly order: number
+  readonly instructionVi: string
+  readonly timerMinutes: number | null
+  readonly heatLevel: RecipeHeatLevel | null
+  readonly temperatureCelsius: number | null
+  readonly ingredientIds: readonly string[]
 }
 
 export interface PlanItemView {
@@ -23,11 +39,8 @@ export interface PlanItemView {
     readonly recipe: {
       readonly recipeId: string
       readonly recipeVersionId: string
-      readonly steps: readonly {
-        readonly order: number
-        readonly instructionVi: string
-        readonly timerMinutes: number | null
-      }[]
+      readonly ingredients: readonly PlanRecipeIngredientView[]
+      readonly steps: readonly PlanStepView[]
     }
   }[]
   readonly scaledIngredients: readonly PlanIngredientView[]

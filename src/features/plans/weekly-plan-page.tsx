@@ -20,8 +20,11 @@ import type {
   PlanItemView,
   PlannerApi,
   PlannerPreviewResponse,
-  PlannerReadyResponse
+  PlannerReadyResponse,
+  PlanRecipeIngredientView,
+  PlanStepView
 } from "./planner-api"
+import { stepConditions, stepIngredientNames } from "./step-details"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -141,6 +144,35 @@ function warningCopy(
   return null
 }
 
+/**
+ * What a step needs beyond its sentence: how long, how hot, and which ingredients it reaches for.
+ *
+ * Rendered under the instruction rather than inside it, so a step that says none of these reads
+ * exactly as it did before. Nothing here is inferred — an absent timer or heat level simply does
+ * not appear.
+ */
+function CookingStepDetail({
+  step,
+  ingredients,
+  labels
+}: Readonly<{
+  step: PlanStepView
+  ingredients: readonly PlanRecipeIngredientView[]
+  labels: IngredientLabels
+}>) {
+  const conditions = stepConditions(step)
+  const names = stepIngredientNames(step, ingredients, labels)
+  if (conditions.length === 0 && names.length === 0) return null
+
+  return (
+    <span className="mt-0.5 block pl-5 text-xs text-slate-600">
+      {conditions.length > 0 && <span>{conditions.join(" · ")}</span>}
+      {conditions.length > 0 && names.length > 0 && <span aria-hidden="true"> — </span>}
+      {names.length > 0 && <span>Nguyên liệu: {names.join(", ")}</span>}
+    </span>
+  )
+}
+
 function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: IngredientLabels }>) {
   return (
     <details className="mt-3 rounded-lg bg-stone-50 px-3 py-2 text-sm">
@@ -167,7 +199,14 @@ function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: In
                   {component.recipe.steps
                     .toSorted((left, right) => left.order - right.order)
                     .map((step) => (
-                      <li key={step.order}>{step.instructionVi}</li>
+                      <li key={step.order}>
+                        {step.instructionVi}
+                        <CookingStepDetail
+                          ingredients={component.recipe.ingredients}
+                          labels={labels}
+                          step={step}
+                        />
+                      </li>
                     ))}
                 </ol>
               </div>

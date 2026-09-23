@@ -41,10 +41,40 @@ function item(dayIndex: number, name = `Bữa ${dayIndex + 1}`): PlanItemView {
         recipe: {
           recipeId: `com-${dayIndex}`,
           recipeVersionId: `com-version-${dayIndex}`,
+          // The rice dish is the one written out in full: a known ingredient, an unknown one, and
+          // the three conditions a step can carry.
+          ingredients: [
+            {
+              recipeIngredientId: `com-gao-${dayIndex}`,
+              foodId: "60000000-0000-0000-0000-000000000001"
+            },
+            { recipeIngredientId: `com-nuoc-${dayIndex}`, foodId: "food-unnamed" }
+          ],
           steps: [
-            { order: 1, instructionVi: "Vo gạo.", timerMinutes: null },
-            { order: 2, instructionVi: "Cho gạo và nước vào nồi.", timerMinutes: null },
-            { order: 3, instructionVi: "Ủ cơm trước khi xới.", timerMinutes: null }
+            {
+              order: 1,
+              instructionVi: "Vo gạo.",
+              timerMinutes: null,
+              heatLevel: null,
+              temperatureCelsius: null,
+              ingredientIds: [`com-gao-${dayIndex}`]
+            },
+            {
+              order: 2,
+              instructionVi: "Cho gạo và nước vào nồi.",
+              timerMinutes: null,
+              heatLevel: null,
+              temperatureCelsius: null,
+              ingredientIds: [`com-gao-${dayIndex}`, `com-nuoc-${dayIndex}`]
+            },
+            {
+              order: 3,
+              instructionVi: "Ủ cơm trước khi xới.",
+              timerMinutes: 10,
+              heatLevel: "low",
+              temperatureCelsius: null,
+              ingredientIds: []
+            }
           ]
         }
       },
@@ -54,10 +84,32 @@ function item(dayIndex: number, name = `Bữa ${dayIndex + 1}`): PlanItemView {
         recipe: {
           recipeId: `recipe-${dayIndex}`,
           recipeVersionId: `recipe-version-${dayIndex}`,
+          ingredients: [],
           steps: [
-            { order: 1, instructionVi: `Nấu bữa ${dayIndex + 1}.`, timerMinutes: 10 },
-            { order: 2, instructionVi: "Chiên vàng đều hai mặt.", timerMinutes: null },
-            { order: 3, instructionVi: "Vớt ra để ráo dầu.", timerMinutes: null }
+            {
+              order: 1,
+              instructionVi: `Nấu bữa ${dayIndex + 1}.`,
+              timerMinutes: 10,
+              heatLevel: null,
+              temperatureCelsius: null,
+              ingredientIds: []
+            },
+            {
+              order: 2,
+              instructionVi: "Chiên vàng đều hai mặt.",
+              timerMinutes: 6,
+              heatLevel: "high",
+              temperatureCelsius: 170,
+              ingredientIds: []
+            },
+            {
+              order: 3,
+              instructionVi: "Vớt ra để ráo dầu.",
+              timerMinutes: null,
+              heatLevel: null,
+              temperatureCelsius: null,
+              ingredientIds: []
+            }
           ]
         }
       },
@@ -67,10 +119,32 @@ function item(dayIndex: number, name = `Bữa ${dayIndex + 1}`): PlanItemView {
         recipe: {
           recipeId: `rau-${dayIndex}`,
           recipeVersionId: `rau-version-${dayIndex}`,
+          ingredients: [],
           steps: [
-            { order: 1, instructionVi: "Nhặt và rửa sạch rau.", timerMinutes: null },
-            { order: 2, instructionVi: "Luộc rau với chút muối.", timerMinutes: null },
-            { order: 3, instructionVi: "Vớt rau ra ngay.", timerMinutes: null }
+            {
+              order: 1,
+              instructionVi: "Nhặt và rửa sạch rau.",
+              timerMinutes: null,
+              heatLevel: null,
+              temperatureCelsius: null,
+              ingredientIds: []
+            },
+            {
+              order: 2,
+              instructionVi: "Luộc rau với chút muối.",
+              timerMinutes: null,
+              heatLevel: null,
+              temperatureCelsius: null,
+              ingredientIds: []
+            },
+            {
+              order: 3,
+              instructionVi: "Vớt rau ra ngay.",
+              timerMinutes: null,
+              heatLevel: null,
+              temperatureCelsius: null,
+              ingredientIds: []
+            }
           ]
         }
       }
@@ -403,6 +477,61 @@ describe("WeeklyPlanPage", () => {
     expect(within(cards[0]!).getByRole("heading", { name: "Cơm" })).toBeInTheDocument()
     expect(within(cards[0]!).getByRole("heading", { name: "Món mặn" })).toBeInTheDocument()
     expect(within(cards[0]!).getByRole("heading", { name: "Rau" })).toBeInTheDocument()
+  })
+
+  test("says how long, how hot, and with what, for the steps that say so", async () => {
+    // Reading "chiên vàng đều hai mặt" alone, a cook has to guess the heat and the minute to turn
+    // it. The recipe knows both; the page used to drop them on the floor.
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
+    await user.click(within(cards[0]!).getByText("Xem cách nấu và dinh dưỡng"))
+
+    const frying = within(cards[0]!)
+      .getAllByRole("listitem")
+      .find((node) => node.textContent?.includes("Chiên vàng đều hai mặt."))
+
+    expect(frying).toBeDefined()
+    expect(frying!.textContent).toContain("6 phút")
+    expect(frying!.textContent).toContain("Lửa lớn")
+    expect(frying!.textContent).toContain("170°C")
+  })
+
+  test("names the ingredients a step reaches for, and says the id when it cannot", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
+    await user.click(within(cards[0]!).getByText("Xem cách nấu và dinh dưỡng"))
+
+    const pouring = within(cards[0]!)
+      .getAllByRole("listitem")
+      .find((node) => node.textContent?.includes("Cho gạo và nước vào nồi."))
+
+    expect(pouring).toBeDefined()
+    // A step link the food lookup cannot name is still shown: dropping it would say the step needs
+    // one ingredient when it needs two.
+    expect(pouring!.textContent).toContain("Nguyên liệu: Gạo tẻ, food-unnamed")
+  })
+
+  test("adds nothing to a step that states no time, heat, or ingredient", async () => {
+    // Silence is the recipe's answer, not an invitation to fill in "lửa vừa".
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
+    await user.click(within(cards[0]!).getByText("Xem cách nấu và dinh dưỡng"))
+
+    const draining = within(cards[0]!)
+      .getAllByRole("listitem")
+      .find((node) => node.textContent?.includes("Vớt ra để ráo dầu."))
+
+    expect(draining).toBeDefined()
+    expect(draining!.textContent).toBe("Vớt ra để ráo dầu.")
   })
 
   test("falls back to the identifier and quantity when a name is not known", async () => {
