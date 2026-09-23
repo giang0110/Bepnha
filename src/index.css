@@ -159,3 +159,74 @@ summary {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Printing is for the shopping list, and the thing worth printing is the items.
+ *
+ * A screen list is a pile of controls: checkboxes to tick, panels to open, links back to the plan.
+ * On paper a checkbox prints as an empty square that cannot be ticked from a pen any better than a
+ * drawn one, and a collapsed panel prints as a heading with its contents missing. So controls go,
+ * disclosures open, colour flattens to ink, and an item is not allowed to break across two pages —
+ * half a line on the back of a sheet is worse than a shorter page.
+ */
+/* Drawn for paper only; the print stylesheet reveals it. */
+[data-print="only"] {
+  display: none;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  [data-print="hide"] {
+    display: none !important;
+  }
+
+  /*
+   * Paper gets a box you can tick with a pen. The screen checkbox is hidden because it prints as a
+   * control that looks interactive and is not; this one is drawn for the purpose.
+   */
+  [data-print="only"] {
+    display: inline-block !important;
+  }
+
+  progress {
+    display: none !important;
+  }
+
+  [data-print="open"] > *,
+  details[data-print="open"] > * {
+    display: revert !important;
+  }
+
+  details {
+    open: revert;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  li,
+  section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  [data-testid^="shopping-item-"] {
+    border: 0 !important;
+    box-shadow: none !important;
+    padding-left: 0 !important;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+}

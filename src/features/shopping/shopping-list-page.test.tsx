@@ -248,6 +248,78 @@ describe("ShoppingListPage", () => {
     expect(riceCheckbox).not.toBeDisabled()
   })
 
+  test("counts down the money still owed as items are ticked", async () => {
+    const user = userEvent.setup()
+    const { repo } = repository()
+    renderPage(repo)
+
+    expect(await screen.findByText("Còn phải mua khoảng 250.000 VND")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("checkbox", { name: "Gạo" }))
+
+    expect(await screen.findByText("Còn phải mua khoảng 200.000 VND")).toBeInTheDocument()
+    expect(screen.getByText("Đã lấy 50.000 VND")).toBeInTheDocument()
+    // The stored total stays on screen unchanged: the remaining figure is a split of it, not a
+    // second opinion about what the trip costs.
+    expect(screen.getByText("250.000 VND / 200.000 VND")).toBeInTheDocument()
+  })
+
+  /**
+   * jsdom ships no `share` and no `clipboard`, so these are defined rather than spied on, and
+   * deleted again afterwards. A leaked `navigator.share` would make every later test believe it is
+   * running on a phone.
+   */
+  function withNavigator(overrides: Record<string, unknown>) {
+    const added = Object.keys(overrides)
+    for (const key of added) {
+      Object.defineProperty(navigator, key, {
+        configurable: true,
+        value: overrides[key]
+      })
+    }
+    return () => {
+      for (const key of added) {
+        Reflect.deleteProperty(navigator, key)
+      }
+    }
+  }
+
+  test("hands the list to the device share sheet", async () => {
+    const user = userEvent.setup()
+    const share = vi.fn().mockResolvedValue(undefined)
+    const restore = withNavigator({ share })
+    try {
+      const { repo } = repository()
+      renderPage(repo)
+
+      await user.click(await screen.findByRole("button", { name: "Gửi cho người đi chợ" }))
+
+      expect(share).toHaveBeenCalledTimes(1)
+      const text = (share.mock.calls[0]![0] as { text: string }).text
+      expect(text).toContain("Đi chợ — tuần từ 31/08/2026")
+      expect(text).toContain("[ ] Rau muống — 1 gói × 1.000 g (~50.000 VND)")
+    } finally {
+      restore()
+    }
+  })
+
+  test("says where the list went when it could only be copied", async () => {
+    const user = userEvent.setup()
+    const restore = withNavigator({
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) }
+    })
+    try {
+      const { repo } = repository()
+      renderPage(repo)
+
+      await user.click(await screen.findByRole("button", { name: "Gửi cho người đi chợ" }))
+
+      expect(await screen.findByText(/Đã chép danh sách/u)).toBeInTheDocument()
+    } finally {
+      restore()
+    }
+  })
+
   test("renders a repository loading failure without fabricating shopping data", async () => {
     const { repo, load } = repository()
     load.mockRejectedValueOnce(new Error("offline"))
