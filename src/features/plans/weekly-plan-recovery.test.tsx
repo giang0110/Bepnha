@@ -238,3 +238,41 @@ describe("WeeklyPlanPage recovery UX", () => {
     })
   })
 })
+
+describe("WeeklyPlanPage and a failed read of the week", () => {
+  test("offers a retry that re-reads, not the one button persistence would refuse", async () => {
+    const user = userEvent.setup()
+    const current = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, error: "PLANNER_UNAVAILABLE" })
+      .mockResolvedValue({ ok: true, value: ready })
+    const generate = vi.fn()
+    renderPage({ current, generate }, () => "id-1")
+
+    await screen.findByRole("alert")
+    // The old behaviour left "Tạo kế hoạch tuần" as the only thing on offer after a failed read,
+    // and persistence refuses a second plan for a week that already has one. The button could not
+    // do what the message asked for, so a transient read error stranded the household.
+    expect(screen.queryByRole("button", { name: /Tạo kế hoạch/u })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Thử lại" }))
+
+    // The fixture's plan is empty, so the proof that the read succeeded is the shopping link, which
+    // only the ready state renders.
+    expect(await screen.findByRole("link", { name: "Đi chợ" })).toBeInTheDocument()
+    expect(current).toHaveBeenCalledTimes(2)
+    expect(generate).not.toHaveBeenCalled()
+  })
+
+  test("still offers generation when it was generation that failed", async () => {
+    const user = userEvent.setup()
+    const generate = vi.fn().mockResolvedValue({ ok: false, error: "HARD_FILTER_EXHAUSTED" })
+    renderPage({ generate }, () => "id-1")
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+
+    await screen.findByRole("alert")
+    expect(screen.getByRole("button", { name: /Tạo kế hoạch/u })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Thử lại" })).not.toBeInTheDocument()
+  })
+})

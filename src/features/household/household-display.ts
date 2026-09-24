@@ -12,10 +12,19 @@ const CHILD_LABELS = {
   "13_17": "trẻ 13–17 tuổi"
 } as const
 
+/**
+ * How a member group reads to a person.
+ *
+ * The child band falls back to "trẻ em" rather than indexing straight into the map. TypeScript
+ * cannot help here: these values arrive from the database, so a band added by a migration that
+ * lands before this client deploys would otherwise print the word "undefined" on the screen — the
+ * same deploy-ordering gap that has bitten the read paths twice.
+ */
 export function memberGroupLabel(group: HouseholdMemberGroup): string {
   if (group.memberKind === "adult") return `${group.memberCount} người lớn`
   if (group.memberKind === "elderly") return `${group.memberCount} người cao tuổi`
-  return `${group.memberCount} ${CHILD_LABELS[group.ageBand]}`
+  const band: string | undefined = CHILD_LABELS[group.ageBand]
+  return `${group.memberCount} ${band ?? "trẻ em"}`
 }
 
 export function ruleLabel(code: string): string {

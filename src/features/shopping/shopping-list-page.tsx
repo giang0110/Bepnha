@@ -226,6 +226,7 @@ export function ShoppingListPage({ repository }: Props) {
   const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(new Set())
   const [mutationError, setMutationError] = useState<string | null>(null)
   const [shareNotice, setShareNotice] = useState<string | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -260,7 +261,7 @@ export function ShoppingListPage({ repository }: Props) {
     return () => {
       active = false
     }
-  }, [planId, repository, revisionId])
+  }, [planId, repository, revisionId, reloadToken])
 
   const groups = useMemo(
     () => (state.status === "ready" ? categoryGroups(state.value.items) : []),
@@ -364,7 +365,20 @@ export function ShoppingListPage({ repository }: Props) {
       {state.status === "missing" ? (
         <p role="status">Không tìm thấy danh sách đi chợ cho kế hoạch này.</p>
       ) : null}
-      {state.status === "error" ? <p role="alert">{state.message}</p> : null}
+      {state.status === "error" ? (
+        <div className="grid justify-items-start gap-3" role="alert">
+          <p>{state.message}</p>
+          <Button
+            type="button"
+            onClick={() => {
+              setState({ status: "loading" })
+              setReloadToken((token) => token + 1)
+            }}
+          >
+            Thử lại
+          </Button>
+        </div>
+      ) : null}
       {state.status === "legacy" ? (
         <section className="rounded-2xl border border-edge bg-paper-raised p-4" role="status">
           <p className="font-medium">Phiên bản kế hoạch cũ này không có danh sách đi chợ.</p>
@@ -400,12 +414,24 @@ export function ShoppingListPage({ repository }: Props) {
                     {progress.checkedCount}/{progress.totalCount} món
                   </span>
                 </div>
-                <progress
+                {/* Drawn rather than a native <progress>: the browser's own track is a flat grey
+                    that belongs to no palette, and it was the one cold object on a warm page. The
+                    role and values are the same, so assistive technology reads it identically. */}
+                <div
                   aria-label="Tiến độ mua sắm"
-                  className="h-2 w-full accent-herb-600"
-                  max={Math.max(1, progress.totalCount)}
-                  value={progress.checkedCount}
-                />
+                  aria-valuemax={progress.totalCount}
+                  aria-valuemin={0}
+                  aria-valuenow={progress.checkedCount}
+                  className="h-2 w-full overflow-hidden rounded-full bg-paper-sunken"
+                  role="progressbar"
+                >
+                  <div
+                    className="h-full rounded-full bg-herb-600 transition-[width] duration-300"
+                    style={{
+                      width: `${progress.totalCount === 0 ? 0 : (progress.checkedCount / progress.totalCount) * 100}%`
+                    }}
+                  />
+                </div>
                 {/* The figure a shopper wants halfway down an aisle. Derived from the ticked lines,
                     which is why it sits under the stored total rather than beside it. */}
                 <p className="mt-3 text-sm text-ink-soft">

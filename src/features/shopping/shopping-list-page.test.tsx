@@ -320,6 +320,20 @@ describe("ShoppingListPage", () => {
     }
   })
 
+  test("offers a retry that actually re-reads, rather than only saying to try again", async () => {
+    const user = userEvent.setup()
+    const load = vi.fn().mockRejectedValueOnce(new Error("network")).mockResolvedValue(ready())
+    const repo: ShoppingListRepository = { load, setChecked: vi.fn() }
+    renderPage(repo)
+
+    await user.click(await screen.findByRole("button", { name: "Thử lại" }))
+
+    // Without this the only route out was a browser reload, which is not an instruction so much as
+    // an apology.
+    expect(await screen.findByText("250.000 VND / 200.000 VND")).toBeInTheDocument()
+    expect(load).toHaveBeenCalledTimes(2)
+  })
+
   test("renders a repository loading failure without fabricating shopping data", async () => {
     const { repo, load } = repository()
     load.mockRejectedValueOnce(new Error("offline"))

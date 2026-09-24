@@ -193,4 +193,19 @@ describe("PantryPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/không thể tải tủ bếp/i)
     expect(screen.queryByTestId(/^pantry-item-/u)).not.toBeInTheDocument()
   })
+
+  test("offers a retry that actually re-reads, rather than only saying to try again", async () => {
+    const user = userEvent.setup()
+    const { load } = setup()
+    load.mockReset()
+    load.mockRejectedValueOnce(new Error("offline")).mockResolvedValue([pantryItem()])
+    await screen.findByRole("alert")
+
+    await user.click(screen.getByRole("button", { name: "Thử lại" }))
+
+    // Without this the only route out was a browser reload, which is not an instruction so much as
+    // an apology.
+    expect(await screen.findByTestId(/^pantry-item-/u)).toBeInTheDocument()
+    expect(load).toHaveBeenCalledTimes(2)
+  })
 })

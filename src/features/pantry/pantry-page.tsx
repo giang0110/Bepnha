@@ -157,6 +157,7 @@ export function PantryPage({
   const [searchQuery, setSearchQuery] = useState("")
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -194,7 +195,7 @@ export function PantryPage({
     return () => {
       active = false
     }
-  }, [foodOptionsRepository, householdRepository, pantryRepository])
+  }, [foodOptionsRepository, householdRepository, pantryRepository, reloadToken])
 
   const selectedOption = useMemo(
     () =>
@@ -358,7 +359,20 @@ export function PantryPage({
         <p role="alert">Hãy hoàn tất thông tin gia đình trước khi quản lý tủ bếp.</p>
       ) : null}
       {state.status === "error" ? (
-        <p role="alert">Không thể tải tủ bếp lúc này. Vui lòng thử lại.</p>
+        <div className="grid justify-items-start gap-3" role="alert">
+          <p>Không thể tải tủ bếp lúc này.</p>
+          {/* Saying "try again" without offering a way to do it leaves a browser reload as the
+              only route, which is not an instruction so much as an apology. */}
+          <Button
+            type="button"
+            onClick={() => {
+              setState({ status: "loading" })
+              setReloadToken((token) => token + 1)
+            }}
+          >
+            Thử lại
+          </Button>
+        </div>
       ) : null}
       {message === null ? null : (
         <p className="rounded-2xl border border-broth-200 bg-broth-50 p-3 text-sm" role="alert">

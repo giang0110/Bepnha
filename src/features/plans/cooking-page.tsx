@@ -174,6 +174,7 @@ export function CookingPage({
   const [state, setState] = useState<LoadState>({ status: "loading" })
   const [labels, setLabels] = useState<IngredientLabels>(EMPTY_INGREDIENT_LABELS)
   const [index, setIndex] = useState(0)
+  const [reloadToken, setReloadToken] = useState(0)
 
   const now = today ?? (() => new Date())
 
@@ -231,7 +232,7 @@ export function CookingPage({
     // `now` is a clock, not state: re-reading the week whenever it changes identity would refetch
     // on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken, dayIndex, householdRepository, plannerApi])
+  }, [accessToken, dayIndex, householdRepository, plannerApi, reloadToken])
 
   useWakeLock(state.status === "ready")
 
@@ -266,7 +267,19 @@ export function CookingPage({
 
       {state.status === "loading" ? <p role="status">Đang mở kế hoạch…</p> : null}
       {state.status === "error" ? (
-        <p role="alert">Không mở được kế hoạch lúc này. Vui lòng thử lại.</p>
+        <div className="grid justify-items-start gap-3" role="alert">
+          <p>Không mở được kế hoạch lúc này.</p>
+          {/* A cook loses their place on a reload, so this screen needs the retry most of all. */}
+          <Button
+            type="button"
+            onClick={() => {
+              setState({ status: "loading" })
+              setReloadToken((token) => token + 1)
+            }}
+          >
+            Thử lại
+          </Button>
+        </div>
       ) : null}
       {state.status === "missing" ? (
         <p role="alert">

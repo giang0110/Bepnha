@@ -65,7 +65,19 @@ interface Props {
 type ViewState =
   | { readonly status: "loading_household" | "loading_plan" | "idle" | "generating" }
   | { readonly status: "ready"; readonly value: PlannerReadyResponse }
-  | { readonly status: "error"; readonly code: string; readonly correlationId?: string }
+  | {
+      readonly status: "error"
+      readonly code: string
+      readonly correlationId?: string
+      /**
+       * Whether the failure was reading the week or doing something to it.
+       *
+       * They need different offers. A failed read left only "Tạo kế hoạch tuần" on screen, and
+       * persistence refuses that for a week that already has a plan — so a transient read error
+       * stranded the person behind a button that could not work.
+       */
+      readonly origin: "load" | "action"
+    }
 
 type PreviewState =
   | { readonly status: "idle" }
@@ -303,7 +315,7 @@ export function WeeklyPlanPage({
     void loadHousehold(householdRepository).then((result) => {
       if (!active) return
       if (!result.ok) {
-        setState({ status: "error", code: result.reason })
+        setState({ status: "error", code: result.reason, origin: "load" })
         return
       }
       setHousehold(result.household)
@@ -350,6 +362,7 @@ export function WeeklyPlanPage({
           setState({
             status: "error",
             code: result.error,
+            origin: "load",
             ...(result.correlationId === undefined ? {} : { correlationId: result.correlationId })
           })
           return
@@ -390,6 +403,7 @@ export function WeeklyPlanPage({
         : {
             status: "error",
             code: result.error,
+            origin: "action",
             ...(result.correlationId === undefined ? {} : { correlationId: result.correlationId })
           }
     )
@@ -475,7 +489,7 @@ export function WeeklyPlanPage({
 
       {(state.status === "idle" ||
         state.status === "generating" ||
-        state.status === "error" ||
+        (state.status === "error" && state.origin === "action") ||
         state.status === "ready") &&
       household !== null ? (
         <Button
@@ -494,9 +508,17 @@ export function WeeklyPlanPage({
       ) : null}
 
       {state.status === "error" ? (
-        <div role="alert">
+        <div className="grid justify-items-start gap-3" role="alert">
           <p>{errorCopy(state.code)}</p>
           <SupportReference correlationId={state.correlationId} />
+          {/* Reading the week again is the right offer for a read that failed. Generating is not:
+              persistence refuses a second plan for a week that already has one, so the button that
+              used to be here could not do what the message asked for. */}
+          {state.origin === "load" ? (
+            <Button type="button" onClick={() => setState({ status: "loading_plan" })}>
+              Thử lại
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
