@@ -10,6 +10,16 @@ const REVISION_V2 = "50000000-0000-0000-0000-000000000011"
 const UNIT_G = "70010000-0000-0000-0000-000000000001"
 const UNIT_EACH = "70010000-0000-0000-0000-000000000007"
 
+/*
+ * The plan read is one of the paths the service worker owns, so it caches `/api/plans/current` for
+ * offline use. Playwright cannot intercept a fetch the worker makes on the page's behalf, which
+ * left every mock of that route silently unused: the request went to `vite preview`, came back as
+ * the SPA's own HTML with a 200, and the page reported the week unreadable. Blocking the worker
+ * puts the request back on the page, where the mocks are. The worker's own behaviour is covered by
+ * the smoke suite, which is the only place it is the subject.
+ */
+test.use({ serviceWorkers: "block" })
+
 function planItem(dayIndex: number, name = `Bữa ${dayIndex + 1}`) {
   return {
     dayIndex,
