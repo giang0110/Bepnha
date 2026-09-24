@@ -137,13 +137,17 @@ describe("ShoppingListPage", () => {
     expect(screen.getByText("250.000 VND / 200.000 VND")).toBeInTheDocument()
     expect(screen.getByText(/vượt ngân sách 50.000 VND/i)).toBeInTheDocument()
     const rice = screen.getByTestId("shopping-item-rice")
-    expect(within(rice).getByText(/cần 700 g/i)).toBeInTheDocument()
+    // The row itself carries what a person in an aisle needs: what it is, how much, what it costs.
     expect(within(rice).getByText(/mua 1 gói × 1.000 g/i)).toBeInTheDocument()
-    expect(within(rice).getByText(/dư khoảng 300 g/i)).toBeInTheDocument()
     expect(screen.getByRole("alert")).toHaveTextContent(/giá ước tính.*15\/07\/2026/i)
 
-    const details = within(rice).getByText("Dùng cho bữa nào")
+    // The evidence is still there, in the panel it belongs to, still closed on arrival.
+    const details = within(rice).getByText("Chi tiết và dùng cho bữa nào")
     expect(details.closest("details")).not.toHaveAttribute("open")
+    const panel = details.closest("details")!
+    expect(within(panel).getByText("Cần")).toBeInTheDocument()
+    expect(within(panel).getByText("700 g")).toBeInTheDocument()
+    expect(within(panel).getByText("300 g")).toBeInTheDocument()
     expect(load).toHaveBeenCalledWith("plan-a", null)
   })
 
@@ -151,7 +155,8 @@ describe("ShoppingListPage", () => {
     const rice = item("rice", "Gạo", "staples", {
       pantryDeductedBaseQuantity: "200",
       purchaseRequiredBaseQuantity: "500",
-      leftoverBaseQuantity: "500"
+      // Distinct from the purchase requirement so an assertion cannot pass on the wrong row.
+      leftoverBaseQuantity: "800"
     })
     const { repo } = repository(
       ready({
@@ -166,8 +171,10 @@ describe("ShoppingListPage", () => {
     renderPage(repo)
 
     const row = await screen.findByTestId("shopping-item-rice")
-    expect(within(row).getByText(/tủ bếp đã dùng 200 g/i)).toBeInTheDocument()
-    expect(within(row).getByText(/còn cần mua 500 g/i)).toBeInTheDocument()
+    expect(within(row).getByText("Tủ bếp đã có")).toBeInTheDocument()
+    expect(within(row).getByText("200 g")).toBeInTheDocument()
+    expect(within(row).getByText("Còn phải mua")).toBeInTheDocument()
+    expect(within(row).getByText("500 g")).toBeInTheDocument()
   })
 
   test("reads an explicit historical revision and renders legacy evidence without regenerating", async () => {
@@ -318,6 +325,32 @@ describe("ShoppingListPage", () => {
     } finally {
       restore()
     }
+  })
+
+  test("sinks a ticked item to the end of its aisle instead of leaving it in the way", async () => {
+    const user = userEvent.setup()
+    const { repo } = repository(
+      ready({
+        items: [
+          item("a", "Cà chua", "fresh_produce"),
+          item("b", "Rau muống", "fresh_produce"),
+          item("c", "Xà lách", "fresh_produce")
+        ]
+      })
+    )
+    renderPage(repo)
+
+    const names = async () =>
+      (await screen.findAllByTestId("shopping-item")).map(
+        (row) => within(row).getByRole("heading", { level: 3 }).textContent
+      )
+    expect(await names()).toEqual(["Cà chua", "Rau muống", "Xà lách"])
+
+    await user.click(screen.getByRole("checkbox", { name: "Cà chua" }))
+
+    // Otherwise the thing a shopper is still looking for sits further down the list every time
+    // they succeed at finding one.
+    expect(await names()).toEqual(["Rau muống", "Xà lách", "Cà chua"])
   })
 
   test("offers a retry that actually re-reads, rather than only saying to try again", async () => {
