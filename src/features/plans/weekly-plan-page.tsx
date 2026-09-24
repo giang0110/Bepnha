@@ -543,9 +543,10 @@ export function WeeklyPlanPage({
             }}
           >
             <span className="block font-bold">{label}</span>
-            <span className="block text-xs font-medium opacity-70 tabular-nums">
-              {formatWeekRange(value)}
-            </span>
+            {/* No opacity here. Fading `text-ink-soft` to 70% left the dates at 2.98:1 on the
+                unselected half of the switcher, under the 4.5:1 this size of text needs. The size
+                and the weight already say these are secondary to the label. */}
+            <span className="block text-xs font-medium tabular-nums">{formatWeekRange(value)}</span>
           </button>
         ))}
       </div>
