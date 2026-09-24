@@ -294,7 +294,10 @@ describe("WeeklyPlanPage", () => {
     )
     expect(api.generate).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
-      weekStart: "2026-08-31",
+      // The fixture clock is Thursday 27 August, so the week being lived in starts Monday the
+      // 24th. Asking for the 31st was the defect: it is the week ahead, which on any day but
+      // Monday hides the plan the household is actually cooking from.
+      weekStart: "2026-08-24",
       idempotencyKey: "30000000-0000-0000-0000-000000000001"
     })
 
@@ -424,7 +427,7 @@ describe("WeeklyPlanPage", () => {
     expect(cards).toHaveLength(7)
     expect(api.current).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
-      weekStart: "2026-08-31"
+      weekStart: "2026-08-24"
     })
     expect(api.generate).not.toHaveBeenCalled()
   })
@@ -439,7 +442,7 @@ describe("WeeklyPlanPage", () => {
 
     expect(api.generate).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
-      weekStart: "2026-08-31",
+      weekStart: "2026-08-24",
       idempotencyKey: "30000000-0000-0000-0000-000000000001",
       expectedPlanVersion: ready().planVersion,
       expectedCurrentRevisionId: ready().revisionId
@@ -596,7 +599,7 @@ describe("WeeklyPlanPage", () => {
 
     expect(api.generate).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
-      weekStart: "2026-08-31",
+      weekStart: "2026-08-24",
       idempotencyKey: "30000000-0000-0000-0000-000000000001"
     })
   })

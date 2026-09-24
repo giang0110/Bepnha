@@ -18,7 +18,7 @@ import {
 } from "./ingredient-labels"
 import type { PlanItemView, PlannerApi } from "./planner-api"
 import { useWakeLock } from "./use-wake-lock"
-import { planWeekStart } from "./week-start"
+import { currentWeekStart } from "./week-start"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -204,7 +204,7 @@ export function CookingPage({
       }
       const result = await plannerApi.current(accessToken, {
         householdId: household.household.householdId,
-        weekStart: planWeekStart(now())
+        weekStart: currentWeekStart(now())
       })
       if (cancelled) return
       if (!result.ok) {

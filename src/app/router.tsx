@@ -44,6 +44,9 @@ const CookingPage = lazy(async () => ({
 const WeeklyPlanPage = lazy(async () => ({
   default: (await import("@/features/plans/weekly-plan-page")).WeeklyPlanPage
 }))
+const ShoppingEntryPage = lazy(async () => ({
+  default: (await import("@/features/plans/shopping-entry-page")).ShoppingEntryPage
+}))
 const ShoppingListPage = lazy(async () => ({
   default: (await import("@/features/shopping/shopping-list-page")).ShoppingListPage
 }))
@@ -168,6 +171,17 @@ export function AppRouter({
                 foodOptionsRepository={pantryFoodOptionsRepository}
                 householdRepository={householdRepository}
                 pantryRepository={pantryRepository}
+              />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/shopping"
+          element={
+            <Suspense fallback={<ProtectedRouteFallback />}>
+              <ShoppingEntryPage
+                householdRepository={householdRepository}
+                plannerApi={plannerApi}
               />
             </Suspense>
           }

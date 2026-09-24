@@ -28,9 +28,30 @@ import type {
   PlanStepView
 } from "./planner-api"
 import { stepConditions, stepIngredientNames } from "./step-details"
-import { planWeekStart } from "./week-start"
+import { currentWeekStart, nextWeekStart } from "./week-start"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+
+function formatWeekRange(weekStart: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(weekStart)
+  if (match === null) return weekStart
+  const monday = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12)
+  const sunday = new Date(monday)
+  sunday.setDate(sunday.getDate() + 6)
+  const day = (value: Date) => String(value.getDate()).padStart(2, "0")
+  const month = (value: Date) => String(value.getMonth() + 1).padStart(2, "0")
+  return `${day(monday)}/${month(monday)} – ${day(sunday)}/${month(sunday)}`
+}
+
+/**
+ * Which of the seven days is today, or null when the week on screen is not the one being lived in.
+ *
+ * Returning null rather than clamping matters: highlighting Monday while the household is looking
+ * at next week would be a confident lie about a day that has not happened.
+ */
+function todayIndexIn(weekStart: string, now: Date): number | null {
+  return weekStart === currentWeekStart(now) ? (now.getDay() + 6) % 7 : null
+}
 
 function formatVnd(value: number): string {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)
@@ -309,6 +330,14 @@ export function WeeklyPlanPage({
   const [state, setState] = useState<ViewState>({ status: "loading_household" })
   const [preview, setPreview] = useState<PreviewState>({ status: "idle" })
   const [submitting, setSubmitting] = useState(false)
+  /**
+   * Which week the page is about.
+   *
+   * Defaults to the one the household is living in, because that is the plan they are cooking from
+   * today. Planning ahead is a deliberate move to a different week rather than something the page
+   * does to them silently from Tuesday onward.
+   */
+  const [weekStart, setWeekStart] = useState(() => currentWeekStart(today()))
 
   useEffect(() => {
     let active = true
@@ -354,7 +383,7 @@ export function WeeklyPlanPage({
     void plannerApi
       .current(accessToken, {
         householdId: household.householdId,
-        weekStart: planWeekStart(today())
+        weekStart
       })
       .then((result) => {
         if (!active) return
@@ -374,7 +403,7 @@ export function WeeklyPlanPage({
     return () => {
       active = false
     }
-  }, [household, accessToken, state.status, plannerApi, today])
+  }, [household, accessToken, state.status, plannerApi, weekStart])
 
   async function generate() {
     if (household === null || accessToken === undefined || submitting) return
@@ -392,7 +421,7 @@ export function WeeklyPlanPage({
     setState({ status: "generating" })
     const result = await plannerApi.generate(accessToken, {
       householdId: household.householdId,
-      weekStart: planWeekStart(today()),
+      weekStart,
       idempotencyKey: createId(),
       ...replacing
     })
@@ -480,6 +509,46 @@ export function WeeklyPlanPage({
           Ngân sách chỉ áp dụng cho 7 bữa chính nấu cho cả gia đình.
         </p>
       </header>
+
+      {/* Which week, said out loud. The page used to answer for the Monday ahead without ever
+          naming it, so a household mid-week was looking at a different week from the one they
+          thought they were looking at. */}
+      <div
+        aria-label="Tuần đang xem"
+        className="flex items-center gap-1 rounded-full bg-paper-sunken p-1 text-sm"
+        role="group"
+      >
+        {(
+          [
+            ["Tuần này", currentWeekStart(today())],
+            ["Tuần sau", nextWeekStart(today())]
+          ] as const
+        ).map(([label, value]) => (
+          <button
+            aria-pressed={weekStart === value}
+            /* Stacked on purpose. Label and dates on one line wrapped at 320px, and only for the
+               longer option, so the two choices came out different heights. */
+            className={`min-h-11 flex-1 rounded-full px-3 py-1.5 leading-tight transition-colors ${
+              weekStart === value
+                ? "bg-paper-raised text-ink shadow-soft"
+                : "text-ink-soft hover:text-ink"
+            }`}
+            key={value}
+            type="button"
+            onClick={() => {
+              if (weekStart === value) return
+              setWeekStart(value)
+              setPreview({ status: "idle" })
+              setState({ status: "loading_plan" })
+            }}
+          >
+            <span className="block font-bold">{label}</span>
+            <span className="block text-xs font-medium opacity-70 tabular-nums">
+              {formatWeekRange(value)}
+            </span>
+          </button>
+        ))}
+      </div>
 
       {household === null && state.status !== "error" ? (
         <p role="alert">Hãy hoàn tất thông tin gia đình trước khi tạo kế hoạch.</p>
@@ -573,6 +642,48 @@ export function WeeklyPlanPage({
               })}
             </Fragment>
           )}
+
+          {(() => {
+            const index = todayIndexIn(weekStart, today())
+            const meal =
+              index === null
+                ? undefined
+                : state.value.plan.items.find((candidate) => candidate.dayIndex === index)
+            if (meal === undefined) return null
+            return (
+              /* The app is opened daily and organised weekly. Without this, answering "what am I
+                 cooking tonight" meant counting down seven identical cards to find the right one. */
+              <section
+                aria-label={`Bữa hôm nay, ${DAY_LABELS[meal.dayIndex]}`}
+                className="rounded-3xl border border-herb-200 bg-herb-50 p-5 shadow-soft"
+              >
+                <p className="text-xs font-bold tracking-wide text-herb-900 uppercase">
+                  Hôm nay · {DAY_LABELS[meal.dayIndex]}
+                </p>
+                <p className="mt-2 text-xl font-extrabold text-balance text-ink">
+                  {meal.mealOptionNameVi}
+                </p>
+                <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-soft">
+                  <Icon name="clock" className="size-4" />
+                  Tối đa {meal.elapsedMinutes} phút
+                </p>
+                <p className="mt-2 text-sm text-ink-soft">
+                  {[...meal.components]
+                    .toSorted((left, right) => left.sortOrder - right.sortOrder)
+                    .map((component) => mealRoleLabel(component.mealRole))
+                    .join(" · ")}
+                </p>
+                <Link
+                  aria-label={`Bắt đầu nấu bữa hôm nay: ${meal.mealOptionNameVi}`}
+                  className={buttonVariants({ size: "lg", className: "mt-4 w-full gap-2" })}
+                  to={`/plan/${meal.dayIndex}/cook`}
+                >
+                  <Icon name="pan" className="size-5" />
+                  Bắt đầu nấu
+                </Link>
+              </section>
+            )
+          })()}
 
           <ol
             className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"

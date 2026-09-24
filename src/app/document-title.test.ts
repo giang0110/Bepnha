@@ -10,7 +10,8 @@ describe("documentTitle", () => {
 
   test("fills in a route parameter without matching a different depth", () => {
     expect(documentTitle("/shopping/40000000-0000-0000-0000-000000000001")).toBe("Đi chợ · Bếp Nhà")
-    expect(documentTitle("/shopping")).toBe("Bếp Nhà")
+    // /shopping is its own page now — the door from the navigation that resolves the week's plan.
+    expect(documentTitle("/shopping")).toBe("Đi chợ · Bếp Nhà")
   })
 
   test("prefers the more specific route when one path is a prefix of another", () => {

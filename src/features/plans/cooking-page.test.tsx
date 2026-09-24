@@ -167,7 +167,7 @@ describe("CookingPage", () => {
     expect(screen.getByText("Thứ Ba")).toBeInTheDocument()
     expect(api.current).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
-      weekStart: "2026-08-31"
+      weekStart: "2026-08-24"
     })
   })
 
