@@ -81,7 +81,15 @@ function errorCopy(error: unknown): string {
   return "Không thể tải danh sách đi chợ lúc này. Vui lòng thử lại."
 }
 
+/**
+ * What is still to be picked up first, then what is already in the basket.
+ *
+ * A ticked line keeps its place in the aisle order otherwise, which means the thing a shopper is
+ * looking for sits further down the list every time they succeed at finding one. Sinking the done
+ * ones keeps the top of each section pointed at work that remains.
+ */
 function sortItems(left: ShoppingListItem, right: ShoppingListItem): number {
+  if (left.checked !== right.checked) return left.checked ? 1 : -1
   const byName = VI_COLLATOR.compare(left.foodNameVi, right.foodNameVi)
   return byName !== 0 ? byName : left.foodId.localeCompare(right.foodId)
 }
@@ -138,43 +146,54 @@ function ShoppingItemRow({
           data-print="only"
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3
-                className={item.checked ? "font-semibold line-through opacity-60" : "font-semibold"}
-              >
-                {item.foodNameVi}
-              </h3>
-              <p className="text-sm text-ink-soft">
-                Cần {formatQuantity(item.requiredBaseQuantity)} {unit}
-              </p>
-              {hasPantryDeduction ? (
-                <div className="mt-1 grid gap-0.5 text-sm text-herb-700">
-                  <p>
-                    Tủ bếp đã dùng {formatQuantity(item.pantryDeductedBaseQuantity)} {unit}
-                  </p>
-                  <p>
-                    Còn cần mua {formatQuantity(item.purchaseRequiredBaseQuantity)} {unit}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-            <p className="shrink-0 text-sm font-semibold">{formatVnd(item.lineCostVnd)} VND</p>
-          </div>
-          {needsPurchase ? (
-            <p className="mt-2 text-sm">
-              Mua {formatQuantity(item.purchasePackageCount)} gói ×{" "}
-              {formatQuantity(item.packageBaseQuantity)} {unit}
+          {/* What a person standing in an aisle needs, on one line: what it is, how much of it,
+              what it costs. Everything else is evidence for the planning desk, and it moves into
+              the panel below rather than onto the shelf in front of them. */}
+          <div className="flex items-baseline justify-between gap-3">
+            <h3
+              className={
+                item.checked
+                  ? "min-w-0 font-semibold line-through opacity-60"
+                  : "min-w-0 font-semibold"
+              }
+            >
+              {item.foodNameVi}
+            </h3>
+            <p className="shrink-0 text-sm font-semibold tabular-nums">
+              {formatVnd(item.lineCostVnd)} VND
             </p>
-          ) : (
-            <p className="mt-2 text-sm font-medium text-herb-700">Không cần mua thêm.</p>
-          )}
+          </div>
           <p className="text-sm text-ink-soft">
-            Dư khoảng {formatQuantity(item.leftoverBaseQuantity)} {unit}
+            {needsPurchase
+              ? `Mua ${formatQuantity(item.purchasePackageCount)} gói × ${formatQuantity(item.packageBaseQuantity)} ${unit}`
+              : "Không cần mua thêm"}
           </p>
           <details className="mt-2 rounded-2xl bg-paper-sunken px-3 py-2 text-sm" data-print="hide">
-            <summary className="cursor-pointer font-medium">Dùng cho bữa nào</summary>
-            <ul className="mt-2 grid gap-1">
+            <summary className="cursor-pointer font-medium">Chi tiết và dùng cho bữa nào</summary>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-ink-soft">
+              <dt>Cần</dt>
+              <dd className="tabular-nums">
+                {formatQuantity(item.requiredBaseQuantity)} {unit}
+              </dd>
+              {hasPantryDeduction ? (
+                <>
+                  <dt className="text-herb-700">Tủ bếp đã có</dt>
+                  <dd className="text-herb-700 tabular-nums">
+                    {formatQuantity(item.pantryDeductedBaseQuantity)} {unit}
+                  </dd>
+                  <dt className="text-herb-700">Còn phải mua</dt>
+                  <dd className="text-herb-700 tabular-nums">
+                    {formatQuantity(item.purchaseRequiredBaseQuantity)} {unit}
+                  </dd>
+                </>
+              ) : null}
+              <dt>Dư khoảng</dt>
+              <dd className="tabular-nums">
+                {formatQuantity(item.leftoverBaseQuantity)} {unit}
+              </dd>
+            </dl>
+            <p className="mt-2 font-medium text-ink">Dùng cho bữa</p>
+            <ul className="mt-1 grid gap-1">
               {item.sources.map((source) => (
                 <li key={`${source.mealPlanItemId}:${source.recipeIngredientId}`}>
                   {DAY_LABELS[source.dayIndex] ?? `Ngày ${source.dayIndex + 1}`}:{" "}
@@ -226,6 +245,7 @@ export function ShoppingListPage({ repository }: Props) {
   const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(new Set())
   const [mutationError, setMutationError] = useState<string | null>(null)
   const [shareNotice, setShareNotice] = useState<string | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -260,7 +280,7 @@ export function ShoppingListPage({ repository }: Props) {
     return () => {
       active = false
     }
-  }, [planId, repository, revisionId])
+  }, [planId, repository, revisionId, reloadToken])
 
   const groups = useMemo(
     () => (state.status === "ready" ? categoryGroups(state.value.items) : []),
@@ -364,7 +384,20 @@ export function ShoppingListPage({ repository }: Props) {
       {state.status === "missing" ? (
         <p role="status">Không tìm thấy danh sách đi chợ cho kế hoạch này.</p>
       ) : null}
-      {state.status === "error" ? <p role="alert">{state.message}</p> : null}
+      {state.status === "error" ? (
+        <div className="grid justify-items-start gap-3" role="alert">
+          <p>{state.message}</p>
+          <Button
+            type="button"
+            onClick={() => {
+              setState({ status: "loading" })
+              setReloadToken((token) => token + 1)
+            }}
+          >
+            Thử lại
+          </Button>
+        </div>
+      ) : null}
       {state.status === "legacy" ? (
         <section className="rounded-2xl border border-edge bg-paper-raised p-4" role="status">
           <p className="font-medium">Phiên bản kế hoạch cũ này không có danh sách đi chợ.</p>
@@ -376,51 +409,72 @@ export function ShoppingListPage({ repository }: Props) {
 
       {state.status === "ready" ? (
         <>
-          <section
-            className="rounded-2xl bg-paper-raised p-4 shadow-soft"
-            aria-label="Tổng quan đi chợ"
+          {/* Sticky because the number a shopper checks most is the one they have to scroll back up
+              to see, and a market is not a place for scrolling back up. The opaque strip is not
+              decoration: a translucent card alone let the list show through the rounded corners
+              beside it, so text slid past in the gap. */}
+          <div
+            className="sticky top-0 z-10 -mx-4 bg-paper-sunken px-4 pt-1 pb-2 sm:-mx-6 sm:px-6"
+            data-print="static"
           >
-            <p className="text-sm text-ink-soft">Tổng ước tính / ngân sách 7 bữa chính</p>
-            <p className="text-xl font-bold text-ink">
-              {formatVnd(state.value.totalEstimatedCostVnd)} VND /{" "}
-              {formatVnd(state.value.budgetVnd)} VND
-            </p>
-            {state.value.budgetStatus === "over" ? (
-              <p className="mt-1 text-sm text-broth-700">
-                Vượt ngân sách {formatVnd(state.value.overageVnd)} VND.
+            <section
+              className="rounded-2xl bg-paper-raised p-4 shadow-soft"
+              aria-label="Tổng quan đi chợ"
+            >
+              <p className="text-sm text-ink-soft">Tổng ước tính / ngân sách 7 bữa chính</p>
+              <p className="text-xl font-bold text-ink">
+                {formatVnd(state.value.totalEstimatedCostVnd)} VND /{" "}
+                {formatVnd(state.value.budgetVnd)} VND
               </p>
-            ) : (
-              <p className="mt-1 text-sm text-herb-700">Trong ngân sách dự kiến.</p>
-            )}
-            {progress === null ? null : (
-              <div className="mt-4">
-                <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                  <span>Tiến độ mua sắm</span>
-                  <span className="font-medium">
-                    {progress.checkedCount}/{progress.totalCount} món
-                  </span>
-                </div>
-                <progress
-                  aria-label="Tiến độ mua sắm"
-                  className="h-2 w-full accent-herb-600"
-                  max={Math.max(1, progress.totalCount)}
-                  value={progress.checkedCount}
-                />
-                {/* The figure a shopper wants halfway down an aisle. Derived from the ticked lines,
-                    which is why it sits under the stored total rather than beside it. */}
-                <p className="mt-3 text-sm text-ink-soft">
-                  {progress.remainingCostVnd === 0 && progress.totalCount > 0
-                    ? "Đã lấy đủ mọi thứ trong danh sách."
-                    : `Còn phải mua khoảng ${formatVnd(progress.remainingCostVnd)} VND`}
+              {state.value.budgetStatus === "over" ? (
+                <p className="mt-1 text-sm text-broth-700">
+                  Vượt ngân sách {formatVnd(state.value.overageVnd)} VND.
                 </p>
-                {progress.pickedUpCostVnd === 0 ? null : (
-                  <p className="text-sm text-herb-700">
-                    Đã lấy {formatVnd(progress.pickedUpCostVnd)} VND
+              ) : (
+                <p className="mt-1 text-sm text-herb-700">Trong ngân sách dự kiến.</p>
+              )}
+              {progress === null ? null : (
+                <div className="mt-4">
+                  <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                    <span>Tiến độ mua sắm</span>
+                    <span className="font-medium">
+                      {progress.checkedCount}/{progress.totalCount} món
+                    </span>
+                  </div>
+                  {/* Drawn rather than a native <progress>: the browser's own track is a flat grey
+                    that belongs to no palette, and it was the one cold object on a warm page. The
+                    role and values are the same, so assistive technology reads it identically. */}
+                  <div
+                    aria-label="Tiến độ mua sắm"
+                    aria-valuemax={progress.totalCount}
+                    aria-valuemin={0}
+                    aria-valuenow={progress.checkedCount}
+                    className="h-2 w-full overflow-hidden rounded-full bg-paper-sunken"
+                    role="progressbar"
+                  >
+                    <div
+                      className="h-full rounded-full bg-herb-600 transition-[width] duration-300"
+                      style={{
+                        width: `${progress.totalCount === 0 ? 0 : (progress.checkedCount / progress.totalCount) * 100}%`
+                      }}
+                    />
+                  </div>
+                  {/* The figure a shopper wants halfway down an aisle. Derived from the ticked lines,
+                    which is why it sits under the stored total rather than beside it. */}
+                  <p className="mt-3 text-sm text-ink-soft">
+                    {progress.remainingCostVnd === 0 && progress.totalCount > 0
+                      ? "Đã lấy đủ mọi thứ trong danh sách."
+                      : `Còn phải mua khoảng ${formatVnd(progress.remainingCostVnd)} VND`}
                   </p>
-                )}
-              </div>
-            )}
-          </section>
+                  {progress.pickedUpCostVnd === 0 ? null : (
+                    <p className="text-sm text-herb-700">
+                      Đã lấy {formatVnd(progress.pickedUpCostVnd)} VND
+                    </p>
+                  )}
+                </div>
+              )}
+            </section>
+          </div>
 
           <div className="flex flex-wrap gap-2" data-print="hide">
             <Button type="button" variant="outline" onClick={() => void shareList()}>

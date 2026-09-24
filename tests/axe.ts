@@ -10,9 +10,31 @@ import { expect, type Page } from "@playwright/test"
  */
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] as const
 
-function describe(violations: readonly { id: string; help: string; nodes: readonly unknown[] }[]) {
+interface ViolationNode {
+  readonly target: readonly unknown[]
+  readonly html: string
+  readonly failureSummary?: string | undefined
+}
+
+function describeNode(node: ViolationNode) {
+  const where = node.target.map((part) => String(part)).join(" ")
+  const why = node.failureSummary === undefined ? "" : `\n    ${node.failureSummary.trim()}`
+  return `  ${where}\n    ${node.html}${why}`
+}
+
+function describe(
+  violations: readonly { id: string; help: string; nodes: readonly ViolationNode[] }[]
+) {
   return violations
-    .map((violation) => `${violation.id} (${violation.nodes.length}): ${violation.help}`)
+    .map((violation) =>
+      [
+        `${violation.id} (${violation.nodes.length}): ${violation.help}`,
+        // The element and the measurement, not just the rule. Without them the message names a
+        // rule and a page, and finding which of a screen's elements broke it means running the
+        // suite again locally — which is not possible for everyone who reads this failure.
+        ...violation.nodes.map(describeNode)
+      ].join("\n")
+    )
     .join("\n")
 }
 

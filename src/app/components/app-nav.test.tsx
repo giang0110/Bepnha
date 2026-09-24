@@ -73,7 +73,9 @@ describe("primary navigation", () => {
 
     const nav = await screen.findByRole("navigation", { name: "Điều hướng chính" })
     const hrefs = [...nav.querySelectorAll("a")].map((anchor) => anchor.getAttribute("href"))
-    expect(hrefs).toEqual(["/household", "/plan", "/pantry", "/settings/account"])
+    // Đi chợ sits between the plan and the pantry: it is one of the two things this app is for
+    // every week, and it used to be reachable only through a button on the plan page.
+    expect(hrefs).toEqual(["/household", "/plan", "/shopping", "/pantry", "/settings/account"])
   })
 
   it("marks the current destination for assistive technology", async () => {

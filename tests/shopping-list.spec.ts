@@ -2,11 +2,23 @@
 
 import { expect, test, type Page } from "@playwright/test"
 
+import { mockEmptyCurrentPlan } from "./plan-routes"
+
 const PLAN_ID = "40000000-0000-0000-0000-000000000010"
 const REVISION_V1 = "50000000-0000-0000-0000-000000000010"
 const REVISION_V2 = "50000000-0000-0000-0000-000000000011"
 const UNIT_G = "70010000-0000-0000-0000-000000000001"
 const UNIT_EACH = "70010000-0000-0000-0000-000000000007"
+
+/*
+ * The plan read is one of the paths the service worker owns, so it caches `/api/plans/current` for
+ * offline use. Playwright cannot intercept a fetch the worker makes on the page's behalf, which
+ * left every mock of that route silently unused: the request went to `vite preview`, came back as
+ * the SPA's own HTML with a 200, and the page reported the week unreadable. Blocking the worker
+ * puts the request back on the page, where the mocks are. The worker's own behaviour is covered by
+ * the smoke suite, which is the only place it is the subject.
+ */
+test.use({ serviceWorkers: "block" })
 
 function planItem(dayIndex: number, name = `Bữa ${dayIndex + 1}`) {
   return {
@@ -364,9 +376,10 @@ test("shopping list stays revision-bound across check state, refresh, and one-me
   })
 
   await onboard(page)
+  await mockEmptyCurrentPlan(page)
   await page.getByRole("link", { name: "Lập kế hoạch tuần" }).click()
   await page.getByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }).click()
-  await page.getByRole("link", { name: "Đi chợ" }).click()
+  await page.getByRole("link", { name: "Đi chợ cho kế hoạch này" }).click()
 
   await expect(page.getByRole("heading", { name: "Đi chợ" })).toBeVisible()
   await expect(page.getByText("90.000 VND / 120.000 VND")).toBeVisible()
@@ -394,7 +407,7 @@ test("shopping list stays revision-bound across check state, refresh, and one-me
   await page.getByRole("button", { name: "Đổi bữa" }).nth(1).click()
   await expect(page.getByText("Bữa thay thế", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Áp dụng bữa thay thế" }).click()
-  await page.getByRole("link", { name: "Đi chợ" }).click()
+  await page.getByRole("link", { name: "Đi chợ cho kế hoạch này" }).click()
 
   await expect(page.getByText("115.000 VND / 120.000 VND")).toBeVisible()
   await expect(page.getByRole("checkbox", { name: "Cá thu" })).toBeVisible()

@@ -8,7 +8,12 @@ import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-fo
 import { AuthContext } from "@/app/auth/auth-context"
 import type { HouseholdSetup } from "@/domain/household/household"
 
-import type { PlanItemView, PlannerApi, PlannerReadyResponse } from "./planner-api"
+import {
+  createPlannerApi,
+  type PlanItemView,
+  type PlannerApi,
+  type PlannerReadyResponse
+} from "./planner-api"
 import { WeeklyPlanPage, type WeeklyPlanAssistantRenderer } from "./weekly-plan-page"
 
 const household: HouseholdSetup = {
@@ -270,6 +275,24 @@ function setup(
 }
 
 describe("WeeklyPlanPage", () => {
+  test("offers generation for a week with no plan, reading the real route's own body", async () => {
+    // Every other test here hands the page a stubbed `PlannerApi`, so the adapter between the
+    // route and the page went untested and its empty-week answer drifted from the route's. The
+    // route sends `{ plan: null }`; the page branches on an absent plan. Driving the real adapter
+    // over the real body is the only arrangement that holds those two ends together — with them
+    // apart, this screen showed nothing at all to a household whose week is still empty.
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => null },
+      json: () => Promise.resolve({ plan: null })
+    })
+    setup({ current: createPlannerApi(fetcher).current })
+    expect(
+      await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" })
+    ).toBeInTheDocument()
+    expect(fetcher).toHaveBeenCalledOnce()
+  })
+
   test("generates and renders seven ordered primary meals with immutable details", async () => {
     const user = userEvent.setup()
     const { api } = setup()
@@ -283,7 +306,7 @@ describe("WeeklyPlanPage", () => {
     expect(within(cards[0]!).getByRole("heading", { name: "Thứ Hai" })).toBeInTheDocument()
     expect(within(cards[6]!).getByRole("heading", { name: "Chủ Nhật" })).toBeInTheDocument()
     expect(screen.getByText("650.000 VND / 700.000 VND")).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Đi chợ" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Đi chợ cho kế hoạch này" })).toHaveAttribute(
       "href",
       `/shopping/${ready().planId}`
     )
@@ -294,7 +317,10 @@ describe("WeeklyPlanPage", () => {
     )
     expect(api.generate).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
-      weekStart: "2026-08-31",
+      // The fixture clock is Thursday 27 August, so the week being lived in starts Monday the
+      // 24th. Asking for the 31st was the defect: it is the week ahead, which on any day but
+      // Monday hides the plan the household is actually cooking from.
+      weekStart: "2026-08-24",
       idempotencyKey: "30000000-0000-0000-0000-000000000001"
     })
 
@@ -424,7 +450,7 @@ describe("WeeklyPlanPage", () => {
     expect(cards).toHaveLength(7)
     expect(api.current).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
-      weekStart: "2026-08-31"
+      weekStart: "2026-08-24"
     })
     expect(api.generate).not.toHaveBeenCalled()
   })
@@ -439,7 +465,7 @@ describe("WeeklyPlanPage", () => {
 
     expect(api.generate).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
-      weekStart: "2026-08-31",
+      weekStart: "2026-08-24",
       idempotencyKey: "30000000-0000-0000-0000-000000000001",
       expectedPlanVersion: ready().planVersion,
       expectedCurrentRevisionId: ready().revisionId
@@ -596,7 +622,7 @@ describe("WeeklyPlanPage", () => {
 
     expect(api.generate).toHaveBeenCalledWith("token", {
       householdId: household.householdId,
-      weekStart: "2026-08-31",
+      weekStart: "2026-08-24",
       idempotencyKey: "30000000-0000-0000-0000-000000000001"
     })
   })

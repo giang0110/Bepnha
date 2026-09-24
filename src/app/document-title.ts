@@ -19,6 +19,7 @@ const TITLES: readonly (readonly [string, string])[] = Object.freeze([
   ["/plan", "Kế hoạch tuần"],
   ["/pantry", "Tủ bếp"],
   ["/shopping/:planId", "Đi chợ"],
+  ["/shopping", "Đi chợ"],
   ["/privacy", "Chính sách riêng tư"],
   ["/terms", "Điều khoản sử dụng"]
 ])

@@ -2,6 +2,18 @@
 
 import { expect, test, type Page } from "@playwright/test"
 
+import { mockEmptyCurrentPlan } from "./plan-routes"
+
+/*
+ * The plan read is one of the paths the service worker owns, so it caches `/api/plans/current` for
+ * offline use. Playwright cannot intercept a fetch the worker makes on the page's behalf, which
+ * left every mock of that route silently unused: the request went to `vite preview`, came back as
+ * the SPA's own HTML with a 200, and the page reported the week unreadable. Blocking the worker
+ * puts the request back on the page, where the mocks are. The worker's own behaviour is covered by
+ * the smoke suite, which is the only place it is the subject.
+ */
+test.use({ serviceWorkers: "block" })
+
 function planItem(dayIndex: number, name = `Bữa ${dayIndex + 1}`) {
   return {
     dayIndex,
@@ -118,6 +130,7 @@ test("mobile planner generates, shows details, and applies a one-day replacement
   )
 
   await onboard(page)
+  await mockEmptyCurrentPlan(page)
   await page.getByRole("link", { name: "Lập kế hoạch tuần" }).click()
   await page.getByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }).click()
   await expect(page.getByRole("listitem", { name: "Bữa chính Thứ Hai" })).toBeVisible()
@@ -167,6 +180,7 @@ test("planner shows exact over-budget and stale-price warnings without treating 
     })
   )
   await onboard(page)
+  await mockEmptyCurrentPlan(page)
   await page.goto("/plan")
   await page.getByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }).click()
   await expect(page.getByText(/vượt ngân sách 25.000 VND/i)).toBeVisible()

@@ -200,6 +200,12 @@ summary {
     display: none !important;
   }
 
+  /* Sticky is a scrolling behaviour; on paper it just pins a block to the top of every page. */
+  [data-print="static"] {
+    position: static !important;
+    backdrop-filter: none !important;
+  }
+
   [data-print="open"] > *,
   details[data-print="open"] > * {
     display: revert !important;
