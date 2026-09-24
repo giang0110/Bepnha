@@ -29,7 +29,8 @@ const pantryRepository: PantryRepository = {
 
 const shoppingListRepository: ShoppingListRepository = {
   load: vi.fn(() => Promise.resolve(null)),
-  setChecked: vi.fn()
+  setChecked: vi.fn(),
+  applyToPantry: vi.fn()
 }
 
 const OWNER_EMAIL = "chu-nha@example.com"

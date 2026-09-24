@@ -77,13 +77,16 @@ describe("expectedSchemaFromMigrations", () => {
     )
   })
 
-  it("matches the eighteen migrations committed to this repository", async () => {
+  it("matches the nineteen migrations committed to this repository", async () => {
     const repository = expectedSchemaFromMigrations(await readMigrationFiles())
 
-    expect(repository.migrations).toHaveLength(18)
+    // These counts are meant to be edited by hand. They are what makes a migration that nobody
+    // meant to add show up as a failing test rather than as a surprise in production.
+    expect(repository.migrations).toHaveLength(19)
     expect(repository.migrations[0]).toBe("20260825000000")
-    expect(repository.tables).toHaveLength(40)
-    expect(repository.functions).toHaveLength(24)
+    // Two more tables and one more function: the shopping trip that stocks the pantry.
+    expect(repository.tables).toHaveLength(42)
+    expect(repository.functions).toHaveLength(25)
   })
 })
 

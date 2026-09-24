@@ -1836,6 +1836,97 @@ export type Database = {
           },
         ]
       }
+      shopping_pantry_transfer_lines: {
+        Row: {
+          base_unit_id: string
+          food_id: string
+          pantry_item_id: string
+          shopping_list_item_id: string
+          transfer_id: string
+          transferred_base_quantity: string
+        }
+        Insert: {
+          base_unit_id: string
+          food_id: string
+          pantry_item_id: string
+          shopping_list_item_id: string
+          transfer_id: string
+          transferred_base_quantity: string
+        }
+        Update: {
+          base_unit_id?: string
+          food_id?: string
+          pantry_item_id?: string
+          shopping_list_item_id?: string
+          transfer_id?: string
+          transferred_base_quantity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_pantry_transfer_lines_pantry_item_id_fkey"
+            columns: ["pantry_item_id"]
+            isOneToOne: false
+            referencedRelation: "pantry_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_pantry_transfer_lines_shopping_list_item_id_fkey"
+            columns: ["shopping_list_item_id"]
+            isOneToOne: true
+            referencedRelation: "shopping_list_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_pantry_transfer_lines_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_pantry_transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_pantry_transfers: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          meal_plan_revision_id: string
+          shopping_list_id: string
+          transferred_line_count: number
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          meal_plan_revision_id: string
+          shopping_list_id: string
+          transferred_line_count: number
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          meal_plan_revision_id?: string
+          shopping_list_id?: string
+          transferred_line_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_pantry_transfers_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_pantry_transfers_list_fkey"
+            columns: ["shopping_list_id", "meal_plan_revision_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id", "meal_plan_revision_id"]
+          },
+        ]
+      }
       units: {
         Row: {
           code: string
@@ -1868,6 +1959,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_shopping_to_pantry: {
+        Args: { p_meal_plan_revision_id: string }
+        Returns: Json
+      }
       delete_pantry_item: {
         Args: { p_expected_version: number; p_pantry_item_id: string }
         Returns: string

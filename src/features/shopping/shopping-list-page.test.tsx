@@ -103,8 +103,15 @@ function repository(initial: ShoppingListReadResult | null = ready()) {
       checkedAt: checked ? "2026-09-01T00:00:00Z" : null
     })
   )
-  const repo: ShoppingListRepository = { load, setChecked }
-  return { repo, load, setChecked }
+  const applyToPantry = vi.fn(() =>
+    Promise.resolve({
+      transferId: "transfer-1",
+      transferredLineCount: 1,
+      totalTransferredLineCount: 1
+    })
+  )
+  const repo: ShoppingListRepository = { load, setChecked, applyToPantry }
+  return { repo, load, setChecked, applyToPantry }
 }
 
 function renderPage(repo: ShoppingListRepository, entry = "/shopping/plan-a") {
@@ -356,7 +363,7 @@ describe("ShoppingListPage", () => {
   test("offers a retry that actually re-reads, rather than only saying to try again", async () => {
     const user = userEvent.setup()
     const load = vi.fn().mockRejectedValueOnce(new Error("network")).mockResolvedValue(ready())
-    const repo: ShoppingListRepository = { load, setChecked: vi.fn() }
+    const repo: ShoppingListRepository = { load, setChecked: vi.fn(), applyToPantry: vi.fn() }
     renderPage(repo)
 
     await user.click(await screen.findByRole("button", { name: "Thử lại" }))
@@ -375,5 +382,62 @@ describe("ShoppingListPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/đang tải danh sách đi chợ/i)
     expect(await screen.findByRole("alert")).toHaveTextContent(/không thể tải danh sách đi chợ/i)
     expect(screen.queryByTestId("shopping-category")).not.toBeInTheDocument()
+  })
+
+  test("offers to stock the pantry only with the lines that were actually bought", async () => {
+    const user = userEvent.setup()
+    const list = ready()
+    const { repo, applyToPantry } = repository({
+      ...list,
+      items: list.items.map((entry, index) =>
+        // Two bought, the rest still on the shelf. The button must count the two.
+        index < 2 ? { ...entry, checked: true, checkedAt: "2026-09-01T00:00:00Z" } : entry
+      )
+    })
+    renderPage(repo)
+
+    const finish = await screen.findByRole("button", { name: /Đi chợ xong, cất 2 món dư/u })
+    await user.click(finish)
+
+    // The revision, not the plan: a shopping list belongs to one revision, and stocking the pantry
+    // from a superseded one would credit food nobody bought.
+    expect(applyToPantry).toHaveBeenCalledWith("revision-a")
+    expect(await screen.findByText(/Đã cất phần dư của 1 món vào tủ bếp\./u)).toBeInTheDocument()
+  })
+
+  test("says nothing moved when the trip was already stocked", async () => {
+    const user = userEvent.setup()
+    const list = ready()
+    const { repo, applyToPantry } = repository({
+      ...list,
+      items: list.items.map((entry) => ({
+        ...entry,
+        checked: true,
+        checkedAt: "2026-09-01T00:00:00Z"
+      }))
+    })
+    applyToPantry.mockResolvedValueOnce({
+      transferId: "transfer-1",
+      transferredLineCount: 0,
+      totalTransferredLineCount: 5
+    })
+    renderPage(repo)
+
+    await user.click(await screen.findByRole("button", { name: /Đi chợ xong/u }))
+
+    // Pressing twice is ordinary. Saying "đã cất 0 món" would read as a failure; it is not one.
+    expect(
+      await screen.findByText(/Phần dư của chuyến này đã nằm trong tủ bếp từ trước\./u)
+    ).toBeInTheDocument()
+  })
+
+  test("hides the pantry offer while nothing has been ticked", async () => {
+    const { repo } = repository()
+    renderPage(repo)
+
+    expect(await screen.findByText("250.000 VND / 200.000 VND")).toBeInTheDocument()
+    // Nothing was bought, so there is nothing to stock. A button that moves nothing would read as
+    // though the trip had been filed away.
+    expect(screen.queryByRole("button", { name: /Đi chợ xong/u })).not.toBeInTheDocument()
   })
 })
