@@ -379,7 +379,7 @@ test("shopping list stays revision-bound across check state, refresh, and one-me
   await mockEmptyCurrentPlan(page)
   await page.getByRole("link", { name: "Lập kế hoạch tuần" }).click()
   await page.getByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }).click()
-  await page.getByRole("link", { name: "Đi chợ" }).click()
+  await page.getByRole("link", { name: "Đi chợ cho kế hoạch này" }).click()
 
   await expect(page.getByRole("heading", { name: "Đi chợ" })).toBeVisible()
   await expect(page.getByText("90.000 VND / 120.000 VND")).toBeVisible()
@@ -407,7 +407,7 @@ test("shopping list stays revision-bound across check state, refresh, and one-me
   await page.getByRole("button", { name: "Đổi bữa" }).nth(1).click()
   await expect(page.getByText("Bữa thay thế", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Áp dụng bữa thay thế" }).click()
-  await page.getByRole("link", { name: "Đi chợ" }).click()
+  await page.getByRole("link", { name: "Đi chợ cho kế hoạch này" }).click()
 
   await expect(page.getByText("115.000 VND / 120.000 VND")).toBeVisible()
   await expect(page.getByRole("checkbox", { name: "Cá thu" })).toBeVisible()

@@ -306,7 +306,7 @@ describe("WeeklyPlanPage", () => {
     expect(within(cards[0]!).getByRole("heading", { name: "Thứ Hai" })).toBeInTheDocument()
     expect(within(cards[6]!).getByRole("heading", { name: "Chủ Nhật" })).toBeInTheDocument()
     expect(screen.getByText("650.000 VND / 700.000 VND")).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Đi chợ" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Đi chợ cho kế hoạch này" })).toHaveAttribute(
       "href",
       `/shopping/${ready().planId}`
     )

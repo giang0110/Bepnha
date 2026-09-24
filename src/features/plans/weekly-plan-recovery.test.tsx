@@ -259,7 +259,7 @@ describe("WeeklyPlanPage and a failed read of the week", () => {
 
     // The fixture's plan is empty, so the proof that the read succeeded is the shopping link, which
     // only the ready state renders.
-    expect(await screen.findByRole("link", { name: "Đi chợ" })).toBeInTheDocument()
+    expect(await screen.findByRole("link", { name: "Đi chợ cho kế hoạch này" })).toBeInTheDocument()
     expect(current).toHaveBeenCalledTimes(2)
     expect(generate).not.toHaveBeenCalled()
   })

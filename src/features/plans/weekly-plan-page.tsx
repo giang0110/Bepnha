@@ -622,12 +622,15 @@ export function WeeklyPlanPage({
             })}
           </section>
 
+          {/* Not plain "Đi chợ": the navigation carries that name for the week's list in general,
+              and two links reading the same while leading to different places is a guess the
+              reader should not have to make. This one is the list for the plan on screen. */}
           <Link
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-clay-700 px-6 text-base font-bold text-white shadow-soft transition-all hover:bg-clay-900 hover:shadow-lift"
             to={`/shopping/${state.value.planId}`}
           >
             <Icon name="cart" className="size-5" />
-            Đi chợ
+            Đi chợ cho kế hoạch này
           </Link>
 
           {accessToken === undefined || renderAssistant === undefined ? null : (

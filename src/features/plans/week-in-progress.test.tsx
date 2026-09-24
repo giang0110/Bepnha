@@ -79,7 +79,7 @@ describe("the week the plan page is about", () => {
   test("Monday reaches the plan the household is cooking from", async () => {
     const current = renderOn("2026-09-21")
 
-    expect(await screen.findByRole("link", { name: "Đi chợ" })).toBeInTheDocument()
+    expect(await screen.findByRole("link", { name: "Đi chợ cho kế hoạch này" })).toBeInTheDocument()
     expect(current).toHaveBeenCalledWith(
       "token",
       expect.objectContaining({ weekStart: "2026-09-21" })
@@ -94,7 +94,9 @@ describe("the week the plan page is about", () => {
       // to create one, while the plan they were actually using was unreachable.
       const current = renderOn(day)
 
-      expect(await screen.findByRole("link", { name: "Đi chợ" })).toBeInTheDocument()
+      expect(
+        await screen.findByRole("link", { name: "Đi chợ cho kế hoạch này" })
+      ).toBeInTheDocument()
       expect(current).toHaveBeenCalledWith(
         "token",
         expect.objectContaining({ weekStart: "2026-09-21" })
