@@ -2,6 +2,8 @@
 
 import { expect, test, type Page } from "@playwright/test"
 
+import { expectNoAccessibilityViolations } from "./axe"
+
 const SHOPPING_PLAN_ID = "86000000-0000-0000-0000-000000000001"
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -62,4 +64,28 @@ test("320px protected deep links keep keyboard focus and avoid horizontal overfl
   await expect(page.getByRole("heading", { name: "Đi chợ" })).toBeVisible()
   await expectNoHorizontalOverflow(page)
   await expect(page.getByRole("link", { name: "Quay lại kế hoạch tuần" })).toBeVisible()
+})
+
+/**
+ * The same rule set the public pages are held to, on the screens that need a session.
+ *
+ * These are where the app actually spends its life, and where the hand-written checks above see
+ * least: overflow and focus order say nothing about contrast, names, roles or target size.
+ */
+test("signed-in screens have no WCAG A/AA violations at 320px", async ({ page }) => {
+  await onboard(page)
+
+  await page.goto("/household")
+  await expectNoAccessibilityViolations(page)
+
+  await page.goto("/pantry")
+  await expect(page.getByRole("heading", { name: "Tủ bếp" })).toBeVisible()
+  await expectNoAccessibilityViolations(page)
+
+  await page.goto("/plan")
+  await expect(page.getByRole("heading", { name: "Kế hoạch tuần" })).toBeVisible()
+  await expectNoAccessibilityViolations(page)
+
+  await page.goto("/settings/household")
+  await expectNoAccessibilityViolations(page)
 })

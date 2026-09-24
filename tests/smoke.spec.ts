@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Request } from "@playwright/test"
 
+import { expectNoAccessibilityViolations } from "./axe"
+
 const appOrigin = "http://127.0.0.1:4173"
 
 function isFirstPartyAsset(request: Request) {
@@ -162,3 +164,12 @@ test("an online visit refreshes the offline shell, so a deploy reaches installed
     )
     .toBe(true)
 })
+
+// Every screen a person can reach before signing in. These are also the pages a search engine and a
+// first-time visitor see, so a violation here is the first thing anyone meets.
+for (const path of ["/sign-in", "/sign-up", "/forgot-password", "/privacy", "/terms", "/nope"]) {
+  test(`${path} has no WCAG A/AA violations`, async ({ page }) => {
+    await page.goto(path)
+    await expectNoAccessibilityViolations(page)
+  })
+}
