@@ -6,6 +6,7 @@ import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-fo
 import type { PantryRepository } from "@/application/pantry/pantry-repository"
 import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
 import { useAuth } from "@/app/auth/auth-context"
+import { useDocumentTitle } from "@/app/use-document-title"
 import { RequireAuth } from "@/app/auth/require-auth"
 import { NotFoundPage } from "@/app/not-found-page"
 import type { AccountApi } from "@/application/account/account-deletion"
@@ -80,6 +81,8 @@ export function AppRouter({
   plannerApi: PlannerApi
   shoppingListRepository: ShoppingListRepository
 }>) {
+  useDocumentTitle()
+
   return (
     <Routes>
       <Route path="/" element={<HomeRedirect />} />

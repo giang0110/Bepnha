@@ -94,7 +94,7 @@ export function ForgotPasswordPage() {
 
       <p className="text-sm">
         <Link
-          className="font-bold text-herb-700 underline underline-offset-2 hover:text-herb-900"
+          className="inline-flex min-h-11 items-center font-bold text-herb-700 underline underline-offset-2 hover:text-herb-900"
           to="/sign-in"
         >
           Quay lại đăng nhập

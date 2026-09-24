@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Request } from "@playwright/test"
 
+import { expectNoAccessibilityViolations } from "./axe"
+
 const appOrigin = "http://127.0.0.1:4173"
 
 function isFirstPartyAsset(request: Request) {
@@ -126,3 +128,48 @@ test("signing out is what clears the cached household data", async ({ page }) =>
   // The app's own files are not the household's, so they survive.
   expect(await page.evaluate(() => caches.has("bepnha-shell-v1"))).toBe(true)
 })
+
+test("an online visit refreshes the offline shell, so a deploy reaches installed apps", async ({
+  page
+}) => {
+  await page.goto("/")
+  await page.evaluate(() => navigator.serviceWorker.ready)
+  await page.reload()
+  await page.evaluate(() => navigator.serviceWorker.ready)
+
+  // Drop the cached shell, then browse online. Install already ran, so nothing else will put it
+  // back: only a navigation writing its own response into the cache can.
+  await page.evaluate(async () => {
+    const cache = await caches.open("bepnha-shell-v1")
+    await cache.delete("/index.html")
+  })
+  expect(
+    await page.evaluate(async () => {
+      const cache = await caches.open("bepnha-shell-v1")
+      return (await cache.match("/index.html")) !== undefined
+    })
+  ).toBe(false)
+
+  await page.goto("/plan")
+
+  // Without that write-back the offline copy is whatever the very first visit precached, for good:
+  // every later deploy would reach people online and nobody offline, and an installed app would
+  // keep serving a version that no longer exists, bugs included.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const cache = await caches.open("bepnha-shell-v1")
+        return (await cache.match("/index.html")) !== undefined
+      })
+    )
+    .toBe(true)
+})
+
+// Every screen a person can reach before signing in. These are also the pages a search engine and a
+// first-time visitor see, so a violation here is the first thing anyone meets.
+for (const path of ["/sign-in", "/sign-up", "/forgot-password", "/privacy", "/terms", "/nope"]) {
+  test(`${path} has no WCAG A/AA violations`, async ({ page }) => {
+    await page.goto(path)
+    await expectNoAccessibilityViolations(page)
+  })
+}

@@ -1,0 +1,67 @@
+name: Production canary
+
+# Runs the read-only production smoke against the deployed site on a schedule, so that "production
+# is down" is something the repository notices rather than something a household discovers.
+#
+# This is the gap that made 2026-09-23 last as long as it did: plan generation was failing for every
+# household and the only signal was a Vercel log nobody was reading. A failing workflow, by
+# contrast, emails whoever watches the repository.
+#
+# Every check in tests/production is a read. Nothing signs up, signs in, or writes — production
+# holds real households, and a canary that created an account would leave one behind every hour.
+#
+# Required repository variable (not a secret; the origin is public):
+#   BEPNHA_PRODUCTION_URL - the deployed origin, e.g. https://bepnha.vercel.app
+#
+# Note that GitHub disables scheduled workflows after 60 days without repository activity.
+
+on:
+  schedule:
+    # Every three hours. Often enough that an outage is measured in hours rather than days, rare
+    # enough to stay far inside the free minutes.
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-canary
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Read-only smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse to run without a target
+        env:
+          PRODUCTION_URL: ${{ vars.BEPNHA_PRODUCTION_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PRODUCTION_URL}" ]; then
+            echo "Set the BEPNHA_PRODUCTION_URL repository variable to the deployed origin." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Smoke the deployed site
+        env:
+          BEPNHA_PRODUCTION_URL: ${{ vars.BEPNHA_PRODUCTION_URL }}
+        run: npm run smoke:production
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-report-${{ github.run_id }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore

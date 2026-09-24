@@ -27,10 +27,25 @@ const OFFLINE_URL = "/index.html"
 
 const PRECACHE = [OFFLINE_URL, "/manifest.webmanifest", "/icons/icon-192.png"]
 
-/** Same-origin app files that are safe to serve from cache first, because their names are hashed. */
-function isShellAsset(url) {
+/**
+ * Build output, whose file names carry a content hash.
+ *
+ * Safe to serve from cache and never re-check: a changed file is a different name, so a stale hit
+ * is impossible by construction.
+ */
+function isImmutableAsset(url) {
+  return url.pathname.startsWith("/assets/")
+}
+
+/**
+ * App files whose names never change — the fonts, the icons, the manifest.
+ *
+ * These cannot be cache-first, because cache-first on a fixed name means a new icon or a corrected
+ * manifest never reaches anyone who already visited. They are served from cache for speed and
+ * refreshed in the background, so the next visit has the new one.
+ */
+function isRevalidatedAsset(url) {
   return (
-    url.pathname.startsWith("/assets/") ||
     url.pathname.startsWith("/fonts/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname === "/manifest.webmanifest"
@@ -93,14 +108,58 @@ async function networkFirst(request, cacheName) {
 }
 
 async function cacheFirst(request) {
-  const cached = await caches.match(request)
+  const cache = await caches.open(SHELL_CACHE)
+  const cached = await cache.match(request)
   if (cached !== undefined) return cached
   const response = await fetch(request)
-  if (response.ok) {
-    const cache = await caches.open(SHELL_CACHE)
-    await cache.put(request, response.clone())
-  }
+  if (response.ok) await cache.put(request, response.clone())
   return response
+}
+
+/**
+ * Answer from cache at once, and replace it for next time.
+ *
+ * The refresh is deliberately not awaited before answering: a cook opening the app on a slow
+ * connection should not wait on a font they already have. It is also deliberately not fatal — the
+ * whole point is that this path works offline.
+ */
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(SHELL_CACHE)
+  const cached = await cache.match(request)
+  const refresh = fetch(request)
+    .then(async (response) => {
+      if (response.ok) await cache.put(request, response.clone())
+      return response
+    })
+    .catch(() => undefined)
+  if (cached !== undefined) return cached
+  const response = await refresh
+  return response ?? Response.error()
+}
+
+/**
+ * The shell a navigation falls back to, kept current.
+ *
+ * Writing the fresh document back into the cache is the whole point. Without it the offline copy is
+ * whatever was precached on the very first visit, forever: every later deploy reaches people online
+ * and nobody offline, so an installed app keeps serving a version that no longer exists — including
+ * its bugs. Proven by putting a changed index.html behind a running worker and watching the offline
+ * navigation still render the old one.
+ */
+async function navigationWithShellRefresh(request) {
+  try {
+    const response = await fetch(request)
+    if (response.ok) {
+      const cache = await caches.open(SHELL_CACHE)
+      await cache.put(OFFLINE_URL, response.clone())
+    }
+    return response
+  } catch (error) {
+    const cache = await caches.open(SHELL_CACHE)
+    const cached = await cache.match(OFFLINE_URL)
+    if (cached !== undefined) return cached
+    throw error
+  }
 }
 
 self.addEventListener("fetch", (event) => {
@@ -111,10 +170,10 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return
 
   // A navigation must always land somewhere. Offline, that is the cached shell, which then renders
-  // whatever the pages can read for themselves.
+  // whatever the pages can read for themselves — and which every online navigation keeps current.
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(async () => {
+      navigationWithShellRefresh(request).catch(async () => {
         const cached = await caches.match(OFFLINE_URL)
         return cached ?? Response.error()
       })
@@ -122,8 +181,13 @@ self.addEventListener("fetch", (event) => {
     return
   }
 
-  if (isShellAsset(url)) {
+  if (isImmutableAsset(url)) {
     event.respondWith(cacheFirst(request))
+    return
+  }
+
+  if (isRevalidatedAsset(url)) {
+    event.respondWith(staleWhileRevalidate(request))
     return
   }
 

@@ -2,11 +2,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node"
 
 import { ACCOUNT_DELETE_CONFIRMATION } from "../../application/account/account-deletion.js"
 
-import {
-  correlationId,
-  createConsoleOperationalTelemetry,
-  type OperationalTelemetry
-} from "./operational-telemetry.js"
+import { correlationId, type OperationalTelemetry } from "./operational-telemetry.js"
+import { defaultOperationalTelemetry } from "./webhook-alert-telemetry.js"
 import { applyApiSecurityHeaders } from "./security-headers.js"
 import { parseBearerToken, type ServerAuthVerifier } from "../supabase/server-auth.js"
 
@@ -64,7 +61,7 @@ export function createAccountHttpHandler(dependencies: AccountHttpDependencies) 
   return async function handler(request: VercelRequest, response: VercelResponse): Promise<void> {
     applyApiSecurityHeaders(response)
 
-    const telemetry = dependencies.telemetry ?? createConsoleOperationalTelemetry()
+    const telemetry = dependencies.telemetry ?? defaultOperationalTelemetry()
     const now = dependencies.now ?? (() => performance.now())
     const startedAt = now()
     const correlation = correlationId(

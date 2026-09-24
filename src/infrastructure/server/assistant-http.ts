@@ -6,11 +6,8 @@ import {
   ASSISTANT_QUESTION_MAX_LENGTH,
   type MealAssistantPort
 } from "../../application/assistant/meal-assistant.js"
-import {
-  correlationId,
-  createConsoleOperationalTelemetry,
-  type OperationalTelemetry
-} from "./operational-telemetry.js"
+import { correlationId, type OperationalTelemetry } from "./operational-telemetry.js"
+import { defaultOperationalTelemetry } from "./webhook-alert-telemetry.js"
 import { applyApiSecurityHeaders } from "./security-headers.js"
 import { parseBearerToken, type ServerAuthVerifier } from "../supabase/server-auth.js"
 
@@ -86,7 +83,7 @@ export function createAssistantHttpHandler(dependencies: AssistantHttpDependenci
     applyApiSecurityHeaders(response)
     const now = dependencies.now ?? (() => performance.now())
     const rateLimitNow = dependencies.rateLimitNow ?? (() => Date.now())
-    const telemetry = dependencies.telemetry ?? createConsoleOperationalTelemetry()
+    const telemetry = dependencies.telemetry ?? defaultOperationalTelemetry()
     const id = correlationId(
       request.headers["x-correlation-id"],
       dependencies.createCorrelationId ?? (() => crypto.randomUUID())

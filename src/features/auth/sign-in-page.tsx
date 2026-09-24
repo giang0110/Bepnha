@@ -88,7 +88,7 @@ export function SignInPage() {
       </form>
       <p className="text-sm">
         <Link
-          className="font-bold text-herb-700 underline underline-offset-2 hover:text-herb-900"
+          className="inline-flex min-h-11 items-center font-bold text-herb-700 underline underline-offset-2 hover:text-herb-900"
           to="/forgot-password"
         >
           Quên mật khẩu?
@@ -105,13 +105,13 @@ export function SignInPage() {
       </p>
       <p className="flex flex-wrap gap-4 text-sm">
         <Link
-          className="text-ink-soft underline underline-offset-2 hover:text-herb-700"
+          className="inline-flex min-h-11 items-center text-ink-soft underline underline-offset-2 hover:text-herb-700"
           to="/privacy"
         >
           Chính sách riêng tư
         </Link>
         <Link
-          className="text-ink-soft underline underline-offset-2 hover:text-herb-700"
+          className="inline-flex min-h-11 items-center text-ink-soft underline underline-offset-2 hover:text-herb-700"
           to="/terms"
         >
           Điều khoản sử dụng
