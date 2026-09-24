@@ -58,7 +58,20 @@ jobs:
       - run: npm run supabase:reset
       - run: npm run supabase:lint
       - run: npm run supabase:test
-      - run: npm run db:types:check
+      # A stale-types failure must say what changed. Without this the log says only "stale" and
+      # the actual generator output is reachable solely by downloading the artifact below, which
+      # needs a browser and network egress the person debugging may not have.
+      - name: Check generated database types
+        run: |
+          set -uo pipefail
+          if npm run db:types:check; then
+            exit 0
+          fi
+          echo "::group::What the generator produces that the repository does not have"
+          npm run db:types:generate
+          git --no-pager diff -- src/infrastructure/supabase/database.types.ts
+          echo "::endgroup::"
+          exit 1
       - run: npm run test:integration
       - run: npm run test:integration:catalog-admin
       - run: npm run test:integration:planner
