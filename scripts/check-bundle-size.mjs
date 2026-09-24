@@ -55,8 +55,11 @@ function readBuildAssets(root = process.cwd()) {
  * Set just above what the app ships today, so it is a ratchet against drift rather than a target to
  * grow into. Lower it whenever a change makes room; never raise it without saying why in the commit
  * that does.
+ *
+ * It has already earned its keep: a routine dependency update pushed a first visit from 678 KB to
+ * 736 KB and this is what noticed.
  */
-export const FIRST_LOAD_MAX_BYTES = 700_000
+export const FIRST_LOAD_MAX_BYTES = 660_000
 
 export function runBundleSizeCheck(
   root = process.cwd(),
