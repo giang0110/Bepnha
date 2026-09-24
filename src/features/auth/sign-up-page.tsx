@@ -90,13 +90,13 @@ export function SignUpPage() {
       </p>
       <p className="flex flex-wrap gap-4 text-sm">
         <Link
-          className="text-ink-soft underline underline-offset-2 hover:text-herb-700"
+          className="inline-flex min-h-11 items-center text-ink-soft underline underline-offset-2 hover:text-herb-700"
           to="/privacy"
         >
           Chính sách riêng tư
         </Link>
         <Link
-          className="text-ink-soft underline underline-offset-2 hover:text-herb-700"
+          className="inline-flex min-h-11 items-center text-ink-soft underline underline-offset-2 hover:text-herb-700"
           to="/terms"
         >
           Điều khoản sử dụng

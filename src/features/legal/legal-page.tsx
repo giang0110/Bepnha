@@ -38,14 +38,14 @@ function LegalDocument({
       {sections.map((section) => (
         <Section key={section.heading} section={section} />
       ))}
-      <nav className="flex flex-wrap gap-4 border-t pt-4 text-sm">
-        <Link className="font-medium underline" to="/privacy">
+      <nav className="flex flex-wrap gap-x-4 border-t pt-4 text-sm">
+        <Link className="inline-flex min-h-11 items-center font-medium underline" to="/privacy">
           Chính sách riêng tư
         </Link>
-        <Link className="font-medium underline" to="/terms">
+        <Link className="inline-flex min-h-11 items-center font-medium underline" to="/terms">
           Điều khoản sử dụng
         </Link>
-        <Link className="font-medium underline" to="/sign-in">
+        <Link className="inline-flex min-h-11 items-center font-medium underline" to="/sign-in">
           Đăng nhập
         </Link>
       </nav>
