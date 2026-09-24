@@ -2,6 +2,8 @@
 
 import { expect, test, type Page } from "@playwright/test"
 
+import { mockEmptyCurrentPlan } from "./plan-routes"
+
 import { expectNoAccessibilityViolations } from "./axe"
 
 const SHOPPING_PLAN_ID = "86000000-0000-0000-0000-000000000001"
@@ -40,6 +42,7 @@ test("320px protected deep links keep keyboard focus and avoid horizontal overfl
   page
 }) => {
   await onboard(page)
+  await mockEmptyCurrentPlan(page)
 
   await page.goto("/pantry")
   await expect(page.getByRole("heading", { name: "Tủ bếp" })).toBeVisible()
@@ -74,6 +77,7 @@ test("320px protected deep links keep keyboard focus and avoid horizontal overfl
  */
 test("signed-in screens have no WCAG A/AA violations at 320px", async ({ page }) => {
   await onboard(page)
+  await mockEmptyCurrentPlan(page)
 
   await page.goto("/household")
   await expectNoAccessibilityViolations(page)

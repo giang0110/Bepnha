@@ -74,4 +74,17 @@ describe("planner API adapter", () => {
       network.generate("token", { householdId: "h", weekStart: "w", idempotencyKey: "i" })
     ).resolves.toEqual({ ok: false, error: "PLANNER_UNAVAILABLE" })
   })
+
+  test("reports a week with no plan as an absent plan, not as a plan-shaped value", async () => {
+    // The server answers `{ plan: null }` for a week nobody has generated yet. The declared
+    // return type is `PlannerReadyResponse | null`, and callers branch on `value === null`;
+    // handing the envelope back instead made every empty week render as a plan whose items
+    // cannot be read.
+    const api = createPlannerApi(
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ plan: null }) })
+    )
+    await expect(
+      api.current("token", { householdId: "household", weekStart: "2026-09-21" })
+    ).resolves.toEqual({ ok: true, value: null })
+  })
 })

@@ -8,7 +8,12 @@ import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-fo
 import { AuthContext } from "@/app/auth/auth-context"
 import type { HouseholdSetup } from "@/domain/household/household"
 
-import type { PlanItemView, PlannerApi, PlannerReadyResponse } from "./planner-api"
+import {
+  createPlannerApi,
+  type PlanItemView,
+  type PlannerApi,
+  type PlannerReadyResponse
+} from "./planner-api"
 import { WeeklyPlanPage, type WeeklyPlanAssistantRenderer } from "./weekly-plan-page"
 
 const household: HouseholdSetup = {
@@ -270,6 +275,24 @@ function setup(
 }
 
 describe("WeeklyPlanPage", () => {
+  test("offers generation for a week with no plan, reading the real route's own body", async () => {
+    // Every other test here hands the page a stubbed `PlannerApi`, so the adapter between the
+    // route and the page went untested and its empty-week answer drifted from the route's. The
+    // route sends `{ plan: null }`; the page branches on an absent plan. Driving the real adapter
+    // over the real body is the only arrangement that holds those two ends together — with them
+    // apart, this screen showed nothing at all to a household whose week is still empty.
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => null },
+      json: () => Promise.resolve({ plan: null })
+    })
+    setup({ current: createPlannerApi(fetcher).current })
+    expect(
+      await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" })
+    ).toBeInTheDocument()
+    expect(fetcher).toHaveBeenCalledOnce()
+  })
+
   test("generates and renders seven ordered primary meals with immutable details", async () => {
     const user = userEvent.setup()
     const { api } = setup()

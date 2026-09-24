@@ -165,8 +165,17 @@ function isReady(value: unknown): value is PlannerReadyResponse {
   )
 }
 
-function isCurrent(value: unknown): value is PlannerReadyResponse | null {
-  return isRecord(value) && value.plan === null ? true : isReady(value)
+/**
+ * A week nobody has generated yet comes back as `{ plan: null }`, not as a bare `null`: the route
+ * needs a 200 with a body, because a 404 would read as an error. Callers want the absence, not the
+ * envelope, so the envelope is unwrapped here rather than at every call site.
+ */
+function isEmptyWeek(value: unknown): boolean {
+  return isRecord(value) && value.plan === null
+}
+
+function isCurrent(value: unknown): value is PlannerReadyResponse {
+  return isReady(value)
 }
 
 function isPreview(value: unknown): value is PlannerPreviewResponse {
@@ -240,12 +249,14 @@ export function createPlannerApi(fetcher: Fetcher = fetch): PlannerApi {
 
   return {
     generate: (token, input) => post("/api/plans/generate", token, input, isReady),
-    current: (token, input) =>
-      get(
+    current: async (token, input) => {
+      const result = await get<PlannerReadyResponse | null>(
         `/api/plans/current?householdId=${encodeURIComponent(input.householdId)}&weekStart=${encodeURIComponent(input.weekStart)}`,
         token,
-        isCurrent
-      ),
+        (value): value is PlannerReadyResponse | null => isEmptyWeek(value) || isCurrent(value)
+      )
+      return result.ok && isEmptyWeek(result.value) ? { ok: true, value: null } : result
+    },
     preview: (token, input) => post("/api/plans/replacements-preview", token, input, isPreview),
     apply: (token, input) => post("/api/plans/replacements-apply", token, input, isReady)
   }

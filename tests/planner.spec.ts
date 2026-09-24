@@ -2,6 +2,8 @@
 
 import { expect, test, type Page } from "@playwright/test"
 
+import { mockEmptyCurrentPlan } from "./plan-routes"
+
 function planItem(dayIndex: number, name = `Bữa ${dayIndex + 1}`) {
   return {
     dayIndex,
@@ -118,6 +120,7 @@ test("mobile planner generates, shows details, and applies a one-day replacement
   )
 
   await onboard(page)
+  await mockEmptyCurrentPlan(page)
   await page.getByRole("link", { name: "Lập kế hoạch tuần" }).click()
   await page.getByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }).click()
   await expect(page.getByRole("listitem", { name: "Bữa chính Thứ Hai" })).toBeVisible()
@@ -167,6 +170,7 @@ test("planner shows exact over-budget and stale-price warnings without treating 
     })
   )
   await onboard(page)
+  await mockEmptyCurrentPlan(page)
   await page.goto("/plan")
   await page.getByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }).click()
   await expect(page.getByText(/vượt ngân sách 25.000 VND/i)).toBeVisible()

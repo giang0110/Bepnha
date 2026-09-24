@@ -2,6 +2,8 @@
 
 import { expect, test, type Page } from "@playwright/test"
 
+import { mockEmptyCurrentPlan } from "./plan-routes"
+
 function planItem(dayIndex: number, name = `Bữa ${dayIndex + 1}`) {
   return {
     dayIndex,
@@ -163,6 +165,7 @@ test("mobile assistant remains advisory and deterministic replacement requires e
   })
 
   await onboard(page)
+  await mockEmptyCurrentPlan(page)
   await page.getByRole("link", { name: "Lập kế hoạch tuần" }).click()
   await expect(page.getByRole("heading", { name: "Trợ lý Bếp Nhà" })).toHaveCount(0)
 

@@ -2,6 +2,8 @@
 
 import { expect, test, type Page } from "@playwright/test"
 
+import { mockEmptyCurrentPlan } from "./plan-routes"
+
 const PLAN_ID = "40000000-0000-0000-0000-000000000010"
 const REVISION_V1 = "50000000-0000-0000-0000-000000000010"
 const REVISION_V2 = "50000000-0000-0000-0000-000000000011"
@@ -364,6 +366,7 @@ test("shopping list stays revision-bound across check state, refresh, and one-me
   })
 
   await onboard(page)
+  await mockEmptyCurrentPlan(page)
   await page.getByRole("link", { name: "Lập kế hoạch tuần" }).click()
   await page.getByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }).click()
   await page.getByRole("link", { name: "Đi chợ" }).click()
