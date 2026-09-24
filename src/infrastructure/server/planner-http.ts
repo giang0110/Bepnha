@@ -9,11 +9,8 @@ import {
 } from "../../application/planner/planner-use-cases.js"
 import type { ContentHasher } from "../../application/shared/content-hasher.js"
 import type { RateLimiter } from "../../application/shared/rate-limiter.js"
-import {
-  correlationId,
-  createConsoleOperationalTelemetry,
-  type OperationalTelemetry
-} from "./operational-telemetry.js"
+import { correlationId, type OperationalTelemetry } from "./operational-telemetry.js"
+import { defaultOperationalTelemetry } from "./webhook-alert-telemetry.js"
 import { applyApiSecurityHeaders } from "./security-headers.js"
 import { parseBearerToken, type ServerAuthVerifier } from "../supabase/server-auth.js"
 
@@ -269,7 +266,7 @@ function operationalContext(
 ) {
   applyApiSecurityHeaders(response)
   const now = dependencies.now ?? (() => performance.now())
-  const telemetry = dependencies.telemetry ?? createConsoleOperationalTelemetry()
+  const telemetry = dependencies.telemetry ?? defaultOperationalTelemetry()
   const id = correlationId(
     request.headers["x-correlation-id"],
     dependencies.createCorrelationId ?? (() => crypto.randomUUID())

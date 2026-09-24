@@ -73,6 +73,22 @@ Both are covered in **Password recovery** above and both are launch blockers for
 - Custom SMTP must be configured. The built-in sender is rate limited to a handful of messages per
   hour, so without it reset emails are throttled exactly when an owner needs one.
 
+### 3b. Alerting and the canary
+
+Two things now report a production failure instead of waiting for a household to notice.
+
+`BEPNHA_ALERT_WEBHOOK_URL` (repository secret, server-only — never a `VITE_` variable) receives a
+small JSON POST whenever an API route answers 5xx. Any Slack or Discord incoming webhook works. It
+carries the event, the operation, the outcome code, the HTTP status and the correlation id, and
+nothing that identifies a household or a person; the detail stays in the logs the correlation id
+points at. Leaving it unset is a supported state, not a degraded one — the console line is written
+either way, and a webhook that fails or hangs can never delay or fail a request.
+
+`BEPNHA_PRODUCTION_URL` (repository **variable**, not a secret — the origin is public) points the
+**Production canary** workflow at the deployed site. It runs the read-only `tests/production` smoke
+every three hours and fails loudly, which is what makes GitHub notify. Every check is a read;
+nothing signs in or writes.
+
 ### 4. GitHub repository secrets
 
 `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`, for the keep-alive workflow. The public key only —
