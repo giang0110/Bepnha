@@ -670,6 +670,45 @@ export type Database = {
           },
         ]
       }
+      meal_option_ratings: {
+        Row: {
+          created_at: string
+          household_id: string
+          meal_option_id: string
+          rating: Database["public"]["Enums"]["meal_rating"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          meal_option_id: string
+          rating: Database["public"]["Enums"]["meal_rating"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          meal_option_id?: string
+          rating?: Database["public"]["Enums"]["meal_rating"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_option_ratings_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_option_ratings_meal_option_id_fkey"
+            columns: ["meal_option_id"]
+            isOneToOne: false
+            referencedRelation: "meal_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meal_option_recipes: {
         Row: {
           id: string
@@ -1836,6 +1875,97 @@ export type Database = {
           },
         ]
       }
+      shopping_pantry_transfer_lines: {
+        Row: {
+          base_unit_id: string
+          food_id: string
+          pantry_item_id: string
+          shopping_list_item_id: string
+          transfer_id: string
+          transferred_base_quantity: string
+        }
+        Insert: {
+          base_unit_id: string
+          food_id: string
+          pantry_item_id: string
+          shopping_list_item_id: string
+          transfer_id: string
+          transferred_base_quantity: string
+        }
+        Update: {
+          base_unit_id?: string
+          food_id?: string
+          pantry_item_id?: string
+          shopping_list_item_id?: string
+          transfer_id?: string
+          transferred_base_quantity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_pantry_transfer_lines_pantry_item_id_fkey"
+            columns: ["pantry_item_id"]
+            isOneToOne: false
+            referencedRelation: "pantry_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_pantry_transfer_lines_shopping_list_item_id_fkey"
+            columns: ["shopping_list_item_id"]
+            isOneToOne: true
+            referencedRelation: "shopping_list_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_pantry_transfer_lines_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_pantry_transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_pantry_transfers: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          meal_plan_revision_id: string
+          shopping_list_id: string
+          transferred_line_count: number
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          meal_plan_revision_id: string
+          shopping_list_id: string
+          transferred_line_count: number
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          meal_plan_revision_id?: string
+          shopping_list_id?: string
+          transferred_line_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_pantry_transfers_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_pantry_transfers_list_fkey"
+            columns: ["shopping_list_id", "meal_plan_revision_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id", "meal_plan_revision_id"]
+          },
+        ]
+      }
       units: {
         Row: {
           code: string
@@ -1868,6 +1998,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_shopping_to_pantry: {
+        Args: { p_meal_plan_revision_id: string }
+        Returns: Json
+      }
       delete_pantry_item: {
         Args: { p_expected_version: number; p_pantry_item_id: string }
         Returns: string
@@ -1883,6 +2017,10 @@ export type Database = {
       get_current_price_book: { Args: { p_region_id: string }; Returns: Json }
       get_meal_option_aggregate_for_publication: {
         Args: { p_meal_option_version_id: string }
+        Returns: Json
+      }
+      get_meal_option_ratings: {
+        Args: { p_household_id: string }
         Returns: Json
       }
       get_pantry: {
@@ -2195,6 +2333,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_meal_option_rating: {
+        Args: {
+          p_household_id: string
+          p_meal_option_id: string
+          p_rating: string
+        }
+        Returns: Json
+      }
       set_shopping_item_checked: {
         Args: { p_checked: boolean; p_shopping_list_item_id: string }
         Returns: Json
@@ -2264,6 +2410,7 @@ export type Database = {
       meal_plan_revision_kind: "generation" | "regeneration" | "replacement"
       meal_plan_revision_state: "building" | "ready"
       meal_plan_status: "ready" | "archived"
+      meal_rating: "liked" | "disliked"
       recipe_heat_level: "low" | "medium" | "high"
       recipe_tag_kind: "cooking_style" | "protein_hint" | "dish_role"
     }
@@ -2431,6 +2578,7 @@ export const Constants = {
       meal_plan_revision_kind: ["generation", "regeneration", "replacement"],
       meal_plan_revision_state: ["building", "ready"],
       meal_plan_status: ["ready", "archived"],
+      meal_rating: ["liked", "disliked"],
       recipe_heat_level: ["low", "medium", "high"],
       recipe_tag_kind: ["cooking_style", "protein_hint", "dish_role"],
     },
