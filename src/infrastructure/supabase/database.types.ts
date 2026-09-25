@@ -2409,8 +2409,8 @@ export type Database = {
       meal_plan_budget_status: "within" | "over"
       meal_plan_revision_kind: "generation" | "regeneration" | "replacement"
       meal_plan_revision_state: "building" | "ready"
-      meal_rating: "liked" | "disliked"
       meal_plan_status: "ready" | "archived"
+      meal_rating: "liked" | "disliked"
       recipe_heat_level: "low" | "medium" | "high"
       recipe_tag_kind: "cooking_style" | "protein_hint" | "dish_role"
     }
@@ -2577,8 +2577,8 @@ export const Constants = {
       meal_plan_budget_status: ["within", "over"],
       meal_plan_revision_kind: ["generation", "regeneration", "replacement"],
       meal_plan_revision_state: ["building", "ready"],
-      meal_rating: ["liked", "disliked"],
       meal_plan_status: ["ready", "archived"],
+      meal_rating: ["liked", "disliked"],
       recipe_heat_level: ["low", "medium", "high"],
       recipe_tag_kind: ["cooking_style", "protein_hint", "dish_role"],
     },
