@@ -23,6 +23,7 @@ export interface WeeklyPlanScore {
     readonly pantryReuse: number
     readonly preferences: number
     readonly recentWeekRepetition: number
+    readonly mealRating: number
   }
   readonly metrics: {
     readonly repeatedPrimaryProteinOccurrences: number
@@ -36,9 +37,25 @@ export interface WeeklyPlanScore {
     readonly unmatchedPreferenceAssignments: number
     readonly preferenceAssignmentCount: number
     readonly recentlyCookedOccurrences: number
+    readonly likedOccurrences: number
+    readonly dislikedOccurrences: number
   }
   readonly explanations: readonly string[]
 }
+
+/**
+ * What a household has said about individual meals. Absence is not neutrality recorded, it is
+ * nothing said: a household that has never rated anything pays no rating penalty at all.
+ */
+export interface MealOptionRatings {
+  readonly liked: readonly string[]
+  readonly disliked: readonly string[]
+}
+
+export const EMPTY_MEAL_OPTION_RATINGS: MealOptionRatings = Object.freeze({
+  liked: Object.freeze([]),
+  disliked: Object.freeze([])
+})
 
 export function scaledPenalty(weight: number, numerator: number, denominator: number): number {
   if (denominator <= 0) return weight
@@ -64,7 +81,8 @@ export function scoreWeeklyPlan(
   softPreferenceCodes: readonly string[],
   config: PlannerConfigV1 = PLANNER_CONFIG_V1,
   pantryDeductions: readonly CanonicalFoodDeduction[] = [],
-  recentMealOptionIds: readonly string[] = []
+  recentMealOptionIds: readonly string[] = [],
+  ratings: MealOptionRatings = EMPTY_MEAL_OPTION_RATINGS
 ): WeeklyPlanScore {
   const proteinGroups = selected.map((item) => item.primaryProteinGroup)
   const repeatedPrimaryProteinOccurrences = Math.max(
@@ -135,6 +153,18 @@ export function scoreWeeklyPlan(
     recentlyCooked.has(option.mealOptionId)
   ).length
 
+  // Two demerits for a meal the household rejected, one for a meal it has no opinion on, none for
+  // one it asked for. A week of liked meals therefore scores best and a week of rejected ones worst,
+  // with silence in between — and a household that has rated nothing pays nothing, because the
+  // whole term switches off rather than charging everyone a standing fee for having no opinions.
+  const liked = new Set(ratings.liked)
+  const disliked = new Set(ratings.disliked)
+  const likedOccurrences = selected.filter((option) => liked.has(option.mealOptionId)).length
+  const dislikedOccurrences = selected.filter((option) => disliked.has(option.mealOptionId)).length
+  const hasRatings = liked.size > 0 || disliked.size > 0
+  const ratingDemerits =
+    dislikedOccurrences * 2 + (selected.length - likedOccurrences - dislikedOccurrences)
+
   const components = {
     primaryProteinRepetition: scaledPenalty(
       config.diversityWeights.primaryProteinRepetition,
@@ -181,7 +211,10 @@ export function scoreWeeklyPlan(
       config.scoringWeights.recentWeekRepetition,
       recentlyCookedOccurrences,
       config.dayCount
-    )
+    ),
+    mealRating: hasRatings
+      ? scaledPenalty(config.scoringWeights.mealRating, ratingDemerits, config.dayCount * 2)
+      : 0
   }
   return {
     totalQualityPenalty: Object.values(components).reduce((sum, value) => sum + value, 0),
@@ -197,7 +230,9 @@ export function scoreWeeklyPlan(
       pantryCoveredFoodCount: pantryReuse.coveredFoodCount,
       unmatchedPreferenceAssignments,
       preferenceAssignmentCount,
-      recentlyCookedOccurrences
+      recentlyCookedOccurrences,
+      likedOccurrences,
+      dislikedOccurrences
     },
     explanations: [
       "DIVERSITY_PRIMARY_PROTEIN_REPETITION",
@@ -208,7 +243,8 @@ export function scoreWeeklyPlan(
       "REUSE_PACKAGE_LEFTOVER",
       "REUSE_PANTRY_COVERAGE",
       "PREFERENCES_MATCH",
-      "DIVERSITY_RECENT_WEEK_REPETITION"
+      "DIVERSITY_RECENT_WEEK_REPETITION",
+      "PREFERENCES_MEAL_RATING"
     ]
   }
 }

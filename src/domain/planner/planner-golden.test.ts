@@ -4,6 +4,7 @@ import { evaluatePlannerEligibility } from "./evaluate-eligibility"
 import { normalizePlannerInput } from "./normalize-planner-input"
 import { plannerCandidate, plannerInput } from "./planner-test-fixture"
 import type { PlannerInputV1 } from "./planner-input"
+import { EMPTY_MEAL_OPTION_RATINGS, type MealOptionRatings } from "./score-week"
 import { searchWeek } from "./search-week"
 
 function planFromInput(input: PlannerInputV1) {
@@ -231,5 +232,62 @@ describe("recently cooked meals", () => {
   test("plans the same week as before when no history is stated", () => {
     // An input built before this field existed must be unaffected, whatever the engine version says.
     expect(chosenIds(planWithHistory([]))).toEqual(chosenIds(planWithHistory([])))
+  })
+})
+
+describe("meals the household has an opinion about", () => {
+  function planWithRatings(ratings: MealOptionRatings, count = 9) {
+    const input: PlannerInputV1 = {
+      ...plannerInput(
+        Array.from({ length: count }, (_, index) =>
+          plannerCandidate(`golden-${String(index).padStart(2, "0")}-v1`)
+        )
+      ),
+      weeklyPlanBudgetVnd: 700_000,
+      mealOptionRatings: ratings
+    }
+    const normalized = normalizePlannerInput(input)
+    if (!normalized.ok) throw new Error("invalid fixture")
+    const eligibility = evaluatePlannerEligibility(normalized.value)
+    if (!eligibility.ok) throw new Error("ineligible fixture")
+    return searchWeek(
+      eligibility.value.eligible,
+      normalized.value.weeklyPlanBudgetVnd,
+      normalized.value.softPreferenceCodes,
+      normalized.value.calculationDate,
+      normalized.value.priceFreshnessConfig,
+      normalized.value.plannerConfig,
+      [],
+      [],
+      normalized.value.mealOptionRatings ?? EMPTY_MEAL_OPTION_RATINGS
+    )
+  }
+
+  function chosenIds(result: ReturnType<typeof planWithRatings>) {
+    if (!("plan" in result)) throw new Error("expected a ready plan")
+    return result.plan.items.map((item) => item.mealOptionId)
+  }
+
+  test("passes over a disliked meal when the catalogue can spare it", () => {
+    // Nine candidates for seven days, so two can be dropped. The two the household rejected are the
+    // two that should go.
+    const baseline = chosenIds(planWithRatings(EMPTY_MEAL_OPTION_RATINGS))
+    const rejected = baseline.slice(0, 2)
+    const withRatings = chosenIds(planWithRatings({ liked: [], disliked: rejected }))
+
+    expect(withRatings).not.toContain(rejected[0])
+    expect(withRatings).not.toContain(rejected[1])
+    expect(new Set(withRatings).size).toBe(7)
+  })
+
+  test("still returns a week when the household dislikes everything it can eat", () => {
+    // The reason this is a penalty and not an exclusion. Taste must never be able to produce
+    // NO_COMPLETE_PLAN_FOUND: a household that has rejected most of a small catalogue still has to
+    // eat, and allergies are the only thing allowed to empty the list.
+    const everything = chosenIds(planWithRatings(EMPTY_MEAL_OPTION_RATINGS))
+    const result = planWithRatings({ liked: [], disliked: everything }, 7)
+
+    expect("plan" in result).toBe(true)
+    expect(chosenIds(result)).toHaveLength(7)
   })
 })

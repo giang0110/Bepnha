@@ -3,6 +3,7 @@ import { BrowserRouter } from "react-router"
 import type { AccountApi } from "@/application/account/account-deletion"
 import type { AuthSessionPort } from "@/application/auth/auth-session-port"
 import type { HouseholdRepository } from "@/application/household/household-repository"
+import type { MealRatingRepository } from "@/application/meal-rating/meal-rating-repository"
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import type { PantryRepository } from "@/application/pantry/pantry-repository"
 import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
@@ -16,6 +17,7 @@ export function AppRoutes({
   accountApi = createAccountApi(),
   assistantApi = createAssistantApi(),
   householdRepository,
+  mealRatingRepository,
   pantryFoodOptionsRepository,
   pantryRepository,
   plannerApi = createPlannerApi(),
@@ -24,6 +26,7 @@ export function AppRoutes({
   accountApi?: AccountApi
   assistantApi?: AssistantApi
   householdRepository: HouseholdRepository
+  mealRatingRepository?: MealRatingRepository
   pantryFoodOptionsRepository: PantryFoodOptionsRepository
   pantryRepository: PantryRepository
   plannerApi?: PlannerApi
@@ -34,6 +37,7 @@ export function AppRoutes({
       accountApi={accountApi}
       assistantApi={assistantApi}
       householdRepository={householdRepository}
+      {...(mealRatingRepository === undefined ? {} : { mealRatingRepository })}
       pantryFoodOptionsRepository={pantryFoodOptionsRepository}
       pantryRepository={pantryRepository}
       plannerApi={plannerApi}
@@ -45,6 +49,7 @@ export function AppRoutes({
 export interface AppProps {
   authSession: AuthSessionPort
   householdRepository: HouseholdRepository
+  mealRatingRepository?: MealRatingRepository
   pantryFoodOptionsRepository: PantryFoodOptionsRepository
   pantryRepository: PantryRepository
   plannerApi: PlannerApi
@@ -54,6 +59,7 @@ export interface AppProps {
 export default function App({
   authSession,
   householdRepository,
+  mealRatingRepository,
   pantryFoodOptionsRepository,
   pantryRepository,
   plannerApi,
@@ -64,6 +70,7 @@ export default function App({
       <AuthProvider port={authSession}>
         <AppRoutes
           householdRepository={householdRepository}
+          {...(mealRatingRepository === undefined ? {} : { mealRatingRepository })}
           pantryFoodOptionsRepository={pantryFoodOptionsRepository}
           pantryRepository={pantryRepository}
           plannerApi={plannerApi}

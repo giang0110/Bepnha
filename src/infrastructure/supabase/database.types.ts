@@ -670,6 +670,45 @@ export type Database = {
           },
         ]
       }
+      meal_option_ratings: {
+        Row: {
+          created_at: string
+          household_id: string
+          meal_option_id: string
+          rating: Database["public"]["Enums"]["meal_rating"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          meal_option_id: string
+          rating: Database["public"]["Enums"]["meal_rating"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          meal_option_id?: string
+          rating?: Database["public"]["Enums"]["meal_rating"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_option_ratings_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_option_ratings_meal_option_id_fkey"
+            columns: ["meal_option_id"]
+            isOneToOne: false
+            referencedRelation: "meal_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meal_option_recipes: {
         Row: {
           id: string
@@ -1980,6 +2019,10 @@ export type Database = {
         Args: { p_meal_option_version_id: string }
         Returns: Json
       }
+      get_meal_option_ratings: {
+        Args: { p_household_id: string }
+        Returns: Json
+      }
       get_pantry: {
         Args: { p_household_id: string }
         Returns: {
@@ -2290,6 +2333,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_meal_option_rating: {
+        Args: {
+          p_household_id: string
+          p_meal_option_id: string
+          p_rating: string
+        }
+        Returns: Json
+      }
       set_shopping_item_checked: {
         Args: { p_checked: boolean; p_shopping_list_item_id: string }
         Returns: Json
@@ -2358,6 +2409,7 @@ export type Database = {
       meal_plan_budget_status: "within" | "over"
       meal_plan_revision_kind: "generation" | "regeneration" | "replacement"
       meal_plan_revision_state: "building" | "ready"
+      meal_rating: "liked" | "disliked"
       meal_plan_status: "ready" | "archived"
       recipe_heat_level: "low" | "medium" | "high"
       recipe_tag_kind: "cooking_style" | "protein_hint" | "dish_role"
@@ -2525,6 +2577,7 @@ export const Constants = {
       meal_plan_budget_status: ["within", "over"],
       meal_plan_revision_kind: ["generation", "regeneration", "replacement"],
       meal_plan_revision_state: ["building", "ready"],
+      meal_rating: ["liked", "disliked"],
       meal_plan_status: ["ready", "archived"],
       recipe_heat_level: ["low", "medium", "high"],
       recipe_tag_kind: ["cooking_style", "protein_hint", "dish_role"],

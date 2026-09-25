@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react"
 import { Navigate, Route, Routes } from "react-router"
 
+import type { MealRatingRepository } from "@/application/meal-rating/meal-rating-repository"
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import type { PantryRepository } from "@/application/pantry/pantry-repository"
@@ -71,6 +72,7 @@ export function AppRouter({
   accountApi,
   assistantApi,
   householdRepository,
+  mealRatingRepository,
   pantryFoodOptionsRepository,
   pantryRepository,
   plannerApi,
@@ -79,6 +81,7 @@ export function AppRouter({
   accountApi: AccountApi
   assistantApi: AssistantApi
   householdRepository: HouseholdRepository
+  mealRatingRepository?: MealRatingRepository
   pantryFoodOptionsRepository: PantryFoodOptionsRepository
   pantryRepository: PantryRepository
   plannerApi: PlannerApi
@@ -135,6 +138,7 @@ export function AppRouter({
               <WeeklyPlanPage
                 foodOptionsRepository={pantryFoodOptionsRepository}
                 householdRepository={householdRepository}
+                {...(mealRatingRepository === undefined ? {} : { mealRatingRepository })}
                 plannerApi={plannerApi}
                 renderAssistant={({ accessToken, expectedRevisionId, onPreviewDay, planId }) => (
                   <AssistantCard

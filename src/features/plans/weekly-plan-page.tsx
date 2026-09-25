@@ -3,6 +3,11 @@ import { Link } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
 import type { HouseholdRepository } from "@/application/household/household-repository"
+import type {
+  MealRating,
+  MealRatingRepository,
+  MealRatings
+} from "@/application/meal-rating/meal-rating-repository"
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import { useAuth } from "@/app/auth/auth-context"
 import { AppPageShell } from "@/app/components/app-page-shell"
@@ -78,6 +83,11 @@ interface Props {
    * instead of being baked into the snapshot.
    */
   readonly foodOptionsRepository: PantryFoodOptionsRepository
+  /**
+   * Optional, so a screen that only shows the week does not have to carry it. Without it the rating
+   * buttons are absent rather than inert: a control that cannot store an answer is worse than none.
+   */
+  readonly mealRatingRepository?: MealRatingRepository
   readonly renderAssistant?: WeeklyPlanAssistantRenderer
   readonly today?: () => Date
   readonly createId?: () => string
@@ -227,7 +237,60 @@ function BudgetMeter({ spentVnd, budgetVnd }: Readonly<{ spentVnd: number; budge
   )
 }
 
-function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: IngredientLabels }>) {
+/**
+ * What the household thought of this meal.
+ *
+ * Two buttons rather than stars: the planner only understands liked and disliked, and offering a
+ * five-point scale would promise a precision the scoring does not have. Pressing the active one
+ * again withdraws the opinion, because "I no longer mind" is a real thing to want to say and the
+ * alternative is a rating nobody can take back.
+ */
+function MealRatingControl({
+  mealOptionId,
+  rating,
+  onRate
+}: Readonly<{
+  mealOptionId: string
+  rating: MealRating | null
+  onRate: (mealOptionId: string, rating: MealRating | null) => void
+}>) {
+  const choices: readonly { readonly value: MealRating; readonly label: string }[] = [
+    { value: "liked", label: "Thích món này" },
+    { value: "disliked", label: "Không thích" }
+  ]
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-edge pt-3">
+      <span className="text-xs font-semibold text-ink-soft">Gia đình thấy sao?</span>
+      {choices.map((choice) => (
+        <button
+          aria-pressed={rating === choice.value}
+          className={`min-h-11 rounded-full px-4 text-sm font-bold transition-colors ${
+            rating === choice.value
+              ? "bg-herb-600 text-white"
+              : "bg-paper-raised text-ink-soft hover:text-ink"
+          }`}
+          key={choice.value}
+          type="button"
+          onClick={() => onRate(mealOptionId, rating === choice.value ? null : choice.value)}
+        >
+          {choice.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function MealDetails({
+  item,
+  labels,
+  rating,
+  onRate
+}: Readonly<{
+  item: PlanItemView
+  labels: IngredientLabels
+  rating: MealRating | null
+  onRate: (mealOptionId: string, rating: MealRating | null) => void
+}>) {
   return (
     <details className="group/details mt-4 rounded-2xl bg-paper-sunken px-4 py-3 text-sm">
       <summary className="flex cursor-pointer items-center justify-between gap-2 font-bold text-herb-700">
@@ -311,6 +374,7 @@ function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: In
             ))}
           </dl>
         </section>
+        <MealRatingControl mealOptionId={item.mealOptionId} rating={rating} onRate={onRate} />
       </div>
     </details>
   )
@@ -319,6 +383,7 @@ function MealDetails({ item, labels }: Readonly<{ item: PlanItemView; labels: In
 export function WeeklyPlanPage({
   foodOptionsRepository,
   householdRepository,
+  mealRatingRepository,
   plannerApi,
   renderAssistant,
   today = () => new Date(),
@@ -338,6 +403,7 @@ export function WeeklyPlanPage({
    * does to them silently from Tuesday onward.
    */
   const [weekStart, setWeekStart] = useState(() => currentWeekStart(today()))
+  const [ratings, setRatings] = useState<MealRatings>({ liked: [], disliked: [] })
 
   useEffect(() => {
     let active = true
@@ -354,6 +420,24 @@ export function WeeklyPlanPage({
       active = false
     }
   }, [householdRepository])
+
+  useEffect(() => {
+    if (mealRatingRepository === undefined || household === null) return
+    let active = true
+    void mealRatingRepository
+      .load(household.householdId)
+      .then((value) => {
+        if (active) setRatings(value)
+      })
+      .catch(() => {
+        // Ratings are a preference, not the plan. Losing them costs the household two buttons, so
+        // they are not worth turning the week into an error screen.
+        if (active) setRatings({ liked: [], disliked: [] })
+      })
+    return () => {
+      active = false
+    }
+  }, [mealRatingRepository, household])
 
   // Names are presentation only, so a lookup that fails leaves the plan readable rather than
   // replacing it with an error: `describeIngredient` falls back to the identifier and the quantity.
@@ -404,6 +488,26 @@ export function WeeklyPlanPage({
       active = false
     }
   }, [household, accessToken, state.status, plannerApi, weekStart])
+
+  function rateMeal(mealOptionId: string, rating: MealRating | null) {
+    if (mealRatingRepository === undefined || household === null) return
+    // Optimistic: the household sees its own answer at once, and a failed write puts the previous
+    // answer back rather than leaving the button lying about what is stored.
+    const previous = ratings
+    setRatings({
+      liked: [
+        ...ratings.liked.filter((id) => id !== mealOptionId),
+        ...(rating === "liked" ? [mealOptionId] : [])
+      ],
+      disliked: [
+        ...ratings.disliked.filter((id) => id !== mealOptionId),
+        ...(rating === "disliked" ? [mealOptionId] : [])
+      ]
+    })
+    void mealRatingRepository.set(household.householdId, mealOptionId, rating).catch(() => {
+      setRatings(previous)
+    })
+  }
 
   async function generate() {
     if (household === null || accessToken === undefined || submitting) return
@@ -731,7 +835,18 @@ export function WeeklyPlanPage({
                     <Icon name="pan" className="size-4" />
                     Bắt đầu nấu
                   </Link>
-                  <MealDetails item={item} labels={labels} />
+                  <MealDetails
+                    item={item}
+                    labels={labels}
+                    rating={
+                      ratings.liked.includes(item.mealOptionId)
+                        ? "liked"
+                        : ratings.disliked.includes(item.mealOptionId)
+                          ? "disliked"
+                          : null
+                    }
+                    onRate={rateMeal}
+                  />
                 </li>
               ))}
           </ol>

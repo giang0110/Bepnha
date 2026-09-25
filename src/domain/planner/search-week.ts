@@ -11,7 +11,13 @@ import { canonicalJson } from "../shared/canonical-json.js"
 import type { EligibleMealOption } from "./evaluate-eligibility.js"
 import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config.js"
 import type { PlannerWarning } from "./planner-outcome.js"
-import { scaledPenalty, scoreWeeklyPlan, type WeeklyPlanScore } from "./score-week.js"
+import {
+  EMPTY_MEAL_OPTION_RATINGS,
+  scaledPenalty,
+  scoreWeeklyPlan,
+  type MealOptionRatings,
+  type WeeklyPlanScore
+} from "./score-week.js"
 
 type PurchaseBasket = Extract<PurchaseBasketResult, { readonly ok: true }>["value"]
 
@@ -129,7 +135,8 @@ export function calculateCompletedPlanCandidate(
   freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1,
   config: PlannerConfigV1 = PLANNER_CONFIG_V1,
   deductionsInput: readonly CanonicalFoodDeduction[] = [],
-  recentMealOptionIds: readonly string[] = []
+  recentMealOptionIds: readonly string[] = [],
+  ratings: MealOptionRatings = EMPTY_MEAL_OPTION_RATINGS
 ): CompletedPlanCandidate | null {
   if (selected.length !== config.dayCount || violatesWeeklyHardRules(selected)) return null
   const basket = basketFor(selected, calculationDate, freshnessConfig, deductionsInput)
@@ -143,7 +150,8 @@ export function calculateCompletedPlanCandidate(
       softPreferenceCodes,
       config,
       deductionsInput,
-      recentMealOptionIds
+      recentMealOptionIds,
+      ratings
     ),
     stableIdSequence: stableSequence(selected)
   }
@@ -153,7 +161,8 @@ export function qualityLowerBound(
   selected: readonly EligibleMealOption[],
   softPreferenceCodes: readonly string[],
   config: PlannerConfigV1,
-  recentMealOptionIds: readonly string[] = []
+  recentMealOptionIds: readonly string[] = [],
+  ratings: MealOptionRatings = EMPTY_MEAL_OPTION_RATINGS
 ): number {
   const proteins = selected.map((option) => option.primaryProteinGroup)
   const repetitions = selected.length - new Set(proteins).size
@@ -180,7 +189,22 @@ export function qualityLowerBound(
   const repeatedRecently = selected.filter((option) =>
     recentlyCooked.has(option.mealOptionId)
   ).length
+  // Same argument as the recently-cooked term above, and the same necessity. Demerits already
+  // incurred can only grow as the week fills, so counting them here keeps the bound admissible —
+  // and leaving them out does not merely loosen it, it makes the whole term useless: the frontier
+  // is pruned by this bound, so branches that avoid a rejected meal are discarded before anything
+  // gets far enough to be scored on taste.
+  const liked = new Set(ratings.liked)
+  const disliked = new Set(ratings.disliked)
+  const ratingDemerits = selected.reduce(
+    (sum, option) =>
+      sum + (disliked.has(option.mealOptionId) ? 2 : liked.has(option.mealOptionId) ? 0 : 1),
+    0
+  )
   return (
+    (liked.size === 0 && disliked.size === 0
+      ? 0
+      : scaledPenalty(config.scoringWeights.mealRating, ratingDemerits, config.dayCount * 2)) +
     scaledPenalty(config.scoringWeights.recentWeekRepetition, repeatedRecently, config.dayCount) +
     scaledPenalty(config.diversityWeights.primaryProteinRepetition, repetitions, 6) +
     scaledPenalty(config.diversityWeights.adjacentPrimaryProteinReuse, adjacent, 6) +
@@ -264,7 +288,8 @@ export function searchWeek(
   freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1,
   config: PlannerConfigV1 = PLANNER_CONFIG_V1,
   deductionsInput: readonly CanonicalFoodDeduction[] = [],
-  recentMealOptionIds: readonly string[] = []
+  recentMealOptionIds: readonly string[] = [],
+  ratings: MealOptionRatings = EMPTY_MEAL_OPTION_RATINGS
 ): PlannerSearchResult {
   const eligible = [...eligibleInput].sort((left, right) =>
     compareText(left.mealOptionVersionId, right.mealOptionVersionId)
@@ -295,7 +320,8 @@ export function searchWeek(
             selected,
             softPreferenceCodes,
             config,
-            recentMealOptionIds
+            recentMealOptionIds,
+            ratings
           ),
           stableIdSequence: stableSequence(selected)
         })
@@ -327,7 +353,8 @@ export function searchWeek(
         freshnessConfig,
         config,
         deductionsInput,
-        recentMealOptionIds
+        recentMealOptionIds,
+        ratings
       )
     )
     .filter((candidate): candidate is CompletedPlanCandidate => candidate !== null)

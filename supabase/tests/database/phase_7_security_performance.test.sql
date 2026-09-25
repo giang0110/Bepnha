@@ -66,7 +66,8 @@ select ok(
       'public.upsert_pantry_item(uuid,uuid,uuid,uuid,numeric,integer)'::regprocedure,
       'public.delete_pantry_item(uuid,integer)'::regprocedure,
       'public.set_shopping_item_checked(uuid,boolean)'::regprocedure,
-      'public.apply_shopping_to_pantry(uuid)'::regprocedure
+      'public.apply_shopping_to_pantry(uuid)'::regprocedure,
+      'public.set_meal_option_rating(uuid,uuid,text)'::regprocedure
     )
   ),
   'narrow authenticated mutation RPCs remain security definer with fixed search paths'
@@ -81,11 +82,12 @@ select is(
       and function.prosecdef
       and has_function_privilege('authenticated', function.oid, 'EXECUTE')
   ),
-  -- Bốn, không phải ba, kể từ khi đi chợ xong có thể cất phần dư vào tủ bếp. Con số này cố ý cứng:
-  -- thêm một hàm security definer cho người dùng đăng nhập là một quyết định về bảo mật, nên nó
-  -- phải làm bài test này đỏ lên và buộc người thêm nói rõ vì sao.
-  4,
-  'only these four public security-definer functions are callable by authenticated users'
+  -- Năm: bốn hàm trước, cộng việc đặt đánh giá cho một món. `get_meal_option_ratings` không nằm
+  -- trong số này vì nó là security invoker — RLS vẫn là thứ quyết định ai đọc được gì. Con số này
+  -- cố ý cứng: thêm một hàm security definer cho người dùng đăng nhập là một quyết định về bảo
+  -- mật, nên nó phải làm bài test này đỏ lên và buộc người thêm nói rõ vì sao.
+  5,
+  'only these five public security-definer functions are callable by authenticated users'
 );
 
 select is(
