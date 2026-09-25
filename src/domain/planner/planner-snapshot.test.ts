@@ -106,7 +106,7 @@ describe("buildPlannerSnapshotPayloads", () => {
       buildPlannerSnapshotPayloads({ ...base, engineVersion: "planner-engine-v3" }).inputPayload
         .engineVersion
     ).toBe("planner-engine-v3")
-    expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v4")
+    expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v5")
   })
 
   test("includes canonical pantry evidence without changing bytes for pantry item permutations", () => {

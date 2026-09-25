@@ -91,7 +91,8 @@ describe("scoreWeeklyPlan", () => {
       "REUSE_PACKAGE_LEFTOVER",
       "REUSE_PANTRY_COVERAGE",
       "PREFERENCES_MATCH",
-      "DIVERSITY_RECENT_WEEK_REPETITION"
+      "DIVERSITY_RECENT_WEEK_REPETITION",
+      "PREFERENCES_MEAL_RATING"
     ])
     expect(JSON.stringify(score)).not.toMatch(/budget|healthy|medical|adequacy/i)
   })
@@ -184,5 +185,63 @@ describe("scoreWeeklyPlan and recently cooked meals", () => {
     expect(scoreWeeklyPlan(week, basket(week), []).explanations).toContain(
       "DIVERSITY_RECENT_WEEK_REPETITION"
     )
+  })
+
+  test("prefers meals the household liked and charges for the ones it disliked", () => {
+    const week = ["poultry", "beef", "pork", "fish", "tofu", "egg", "seafood"].map(
+      (protein, index) => option(`rated-${index}-v1`, protein)
+    )
+    const ids = week.map((item) => item.mealOptionId)
+    const purchases = basket(week)
+
+    const allLiked = scoreWeeklyPlan(week, purchases, [], undefined, [], [], {
+      liked: ids,
+      disliked: []
+    })
+    // "Unrated" here means this week's meals carry no opinion, not that the household has none at
+    // all — the second is a different case, covered below, and it costs nothing.
+    const unrated = scoreWeeklyPlan(week, purchases, [], undefined, [], [], {
+      liked: ["some-other-meal-the-household-liked"],
+      disliked: []
+    })
+    const allDisliked = scoreWeeklyPlan(week, purchases, [], undefined, [], [], {
+      liked: [],
+      disliked: ids
+    })
+
+    // Monotone across the three: a week of loved meals costs nothing, a week of rejected ones costs
+    // the most, and a week nobody has an opinion on sits between.
+    expect(allLiked.components.mealRating).toBe(0)
+    expect(unrated.components.mealRating).toBeGreaterThan(allLiked.components.mealRating)
+    expect(allDisliked.components.mealRating).toBeGreaterThan(unrated.components.mealRating)
+    expect(allDisliked.metrics.dislikedOccurrences).toBe(7)
+    expect(allLiked.metrics.likedOccurrences).toBe(7)
+  })
+
+  test("charges a household that has rated nothing exactly nothing", () => {
+    const week = ["poultry", "beef", "pork", "fish", "tofu", "egg", "seafood"].map(
+      (protein, index) => option(`silent-${index}-v1`, protein)
+    )
+    // Most households never rate anything. Carrying a standing penalty for that would be a charge
+    // for silence, and it would show up in a plan summary as a fault the household cannot fix.
+    const score = scoreWeeklyPlan(week, basket(week), [], undefined, [], [], {
+      liked: [],
+      disliked: []
+    })
+    expect(score.components.mealRating).toBe(0)
+  })
+
+  test("never lets a rating decide whether a meal may be served at all", () => {
+    // Ratings are taste, not safety. Scoring may push a disliked meal down the list; only allergies
+    // and explicit exclusions remove it, and those are settled before scoring ever runs.
+    const week = ["poultry", "beef", "pork", "fish", "tofu", "egg", "seafood"].map(
+      (protein, index) => option(`still-eligible-${index}-v1`, protein)
+    )
+    const score = scoreWeeklyPlan(week, basket(week), [], undefined, [], [], {
+      liked: [],
+      disliked: week.map((item) => item.mealOptionId)
+    })
+    expect(score.totalQualityPenalty).toBeGreaterThan(0)
+    expect(Number.isFinite(score.totalQualityPenalty)).toBe(true)
   })
 })

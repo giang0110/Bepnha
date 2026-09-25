@@ -81,7 +81,7 @@ describe("planner pantry revision evidence", () => {
     const empty = await generate(input("0"))
     const stocked = await generate(input("800"))
 
-    expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v4")
+    expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v5")
     expect(stocked.value.inputFingerprint).not.toBe(empty.value.inputFingerprint)
     expect(stocked.value.calculationFingerprint).not.toBe(empty.value.calculationFingerprint)
     expect(stocked.value.plan.totalEstimatedCostVnd).toBeLessThan(

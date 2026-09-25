@@ -14,6 +14,7 @@ import {
   GROCERY_CATEGORIES,
   type GroceryCategoryDefinition
 } from "@/domain/shopping/grocery-category-config"
+import { pantryRestockCandidates } from "@/domain/shopping/pantry-restock"
 import { Icon } from "@/app/components/ui/icon"
 
 import { shareText } from "./share-text"
@@ -245,6 +246,8 @@ export function ShoppingListPage({ repository }: Props) {
   const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(new Set())
   const [mutationError, setMutationError] = useState<string | null>(null)
   const [shareNotice, setShareNotice] = useState<string | null>(null)
+  const [restockNotice, setRestockNotice] = useState<string | null>(null)
+  const [restocking, setRestocking] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
@@ -286,6 +289,32 @@ export function ShoppingListPage({ repository }: Props) {
     () => (state.status === "ready" ? categoryGroups(state.value.items) : []),
     [state]
   )
+
+  // What finishing the trip would actually move. The database decides for real — it holds the
+  // per-item latch — but the button should not invite a press that would move nothing.
+  const restockCandidates = useMemo(
+    () => (state.status === "ready" ? pantryRestockCandidates(state.value.items) : []),
+    [state]
+  )
+
+  async function finishShopping() {
+    if (state.status !== "ready" || restocking) return
+    setRestocking(true)
+    setRestockNotice(null)
+    setMutationError(null)
+    try {
+      const result = await repository.applyToPantry(state.value.revisionId)
+      setRestockNotice(
+        result.transferredLineCount === 0
+          ? "Phần dư của chuyến này đã nằm trong tủ bếp từ trước."
+          : `Đã cất phần dư của ${result.transferredLineCount} món vào tủ bếp.`
+      )
+    } catch (error: unknown) {
+      setMutationError(errorCopy(error))
+    } finally {
+      setRestocking(false)
+    }
+  }
 
   async function setChecked(item: ShoppingListItem, checked: boolean) {
     if (state.status !== "ready" || pendingIds.has(item.shoppingListItemId)) return
@@ -477,6 +506,16 @@ export function ShoppingListPage({ repository }: Props) {
           </div>
 
           <div className="flex flex-wrap gap-2" data-print="hide">
+            {/* Chỉ hiện khi thật sự có gì để cất. Một nút không làm gì cả thì tệ hơn là không có
+                nút: nó khiến người ta tưởng đã cất rồi. */}
+            {restockCandidates.length === 0 ? null : (
+              <Button disabled={restocking} type="button" onClick={() => void finishShopping()}>
+                <Icon name="basket" className="size-4" />
+                {restocking
+                  ? "Đang cất vào tủ bếp…"
+                  : `Đi chợ xong, cất ${restockCandidates.length} món dư`}
+              </Button>
+            )}
             <Button type="button" variant="outline" onClick={() => void shareList()}>
               <Icon name="basket" className="size-4" />
               Gửi cho người đi chợ
@@ -489,6 +528,12 @@ export function ShoppingListPage({ repository }: Props) {
           {shareNotice === null ? null : (
             <p className="text-sm text-ink-soft" role="status">
               {shareNotice}
+            </p>
+          )}
+
+          {restockNotice === null ? null : (
+            <p className="text-sm text-herb-700" role="status">
+              {restockNotice}
             </p>
           )}
 

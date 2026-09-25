@@ -84,7 +84,21 @@ export interface ShoppingItemCheckState {
   readonly checkedAt: string | null
 }
 
+/**
+ * What one press of "đi chợ xong" moved into the pantry.
+ *
+ * `transferredLineCount` is this press; `totalTransferredLineCount` is everything the revision has
+ * ever moved. They differ because the transfer latches per item, not per trip: ticking more items
+ * after an earlier press and pressing again moves only the new ones.
+ */
+export interface PantryTransferResult {
+  readonly transferId: string
+  readonly transferredLineCount: number
+  readonly totalTransferredLineCount: number
+}
+
 export interface ShoppingListRepository {
   load(planId: string, revisionId?: string | null): Promise<ShoppingListReadResult | null>
   setChecked(shoppingListItemId: string, checked: boolean): Promise<ShoppingItemCheckState>
+  applyToPantry(revisionId: string): Promise<PantryTransferResult>
 }

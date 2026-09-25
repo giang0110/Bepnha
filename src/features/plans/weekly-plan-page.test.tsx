@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router"
 import { describe, expect, test, vi } from "vitest"
 
 import type { HouseholdRepository } from "@/application/household/household-repository"
+import type { MealRatingRepository } from "@/application/meal-rating/meal-rating-repository"
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import { AuthContext } from "@/app/auth/auth-context"
 import type { HouseholdSetup } from "@/domain/household/household"
@@ -190,7 +191,8 @@ function ready(overrides: Partial<PlannerReadyResponse> = {}): PlannerReadyRespo
 function setup(
   apiOverrides: Partial<PlannerApi> = {},
   renderAssistant?: WeeklyPlanAssistantRenderer,
-  foodOptionsOverrides: Partial<PantryFoodOptionsRepository> = {}
+  foodOptionsOverrides: Partial<PantryFoodOptionsRepository> = {},
+  extras: Readonly<{ mealRatingRepository?: MealRatingRepository }> = {}
 ) {
   const api: PlannerApi = {
     generate: vi.fn().mockResolvedValue({ ok: true, value: ready() }),
@@ -264,6 +266,9 @@ function setup(
           foodOptionsRepository={foodOptionsRepository}
           householdRepository={repository}
           plannerApi={api}
+          {...(extras.mealRatingRepository === undefined
+            ? {}
+            : { mealRatingRepository: extras.mealRatingRepository })}
           {...(renderAssistant === undefined ? {} : { renderAssistant })}
           today={() => new Date("2026-08-27T00:00:00+07:00")}
           createId={() => "30000000-0000-0000-0000-000000000001"}
@@ -625,5 +630,63 @@ describe("WeeklyPlanPage", () => {
       weekStart: "2026-08-24",
       idempotencyKey: "30000000-0000-0000-0000-000000000001"
     })
+  })
+
+  test("records what the household thought of a meal, and lets it take the opinion back", async () => {
+    const user = userEvent.setup()
+    const set = vi.fn(() => Promise.resolve())
+    const mealRatingRepository = {
+      load: vi.fn(() => Promise.resolve({ liked: [], disliked: [] })),
+      set
+    }
+    setup(
+      { current: vi.fn().mockResolvedValue({ ok: true, value: ready() }) },
+      undefined,
+      {},
+      {
+        mealRatingRepository
+      }
+    )
+
+    const panels = await screen.findAllByText("Xem cách nấu và dinh dưỡng")
+    await user.click(panels[0]!)
+
+    const dislike = (await screen.findAllByRole("button", { name: "Không thích" }))[0]!
+    await user.click(dislike)
+    expect(set).toHaveBeenCalledWith(household.householdId, "meal-0", "disliked")
+    expect(dislike).toHaveAttribute("aria-pressed", "true")
+
+    // Pressing the active choice again withdraws the opinion. Without this a household that
+    // mis-tapped would be stuck steering its own planner away from a meal it does not mind.
+    await user.click(dislike)
+    expect(set).toHaveBeenLastCalledWith(household.householdId, "meal-0", null)
+    expect(dislike).toHaveAttribute("aria-pressed", "false")
+  })
+
+  test("keeps the week readable when the ratings cannot be loaded", async () => {
+    const user = userEvent.setup()
+    const mealRatingRepository = {
+      load: vi.fn(() => Promise.reject(new Error("offline"))),
+      set: vi.fn(() => Promise.resolve())
+    }
+    setup(
+      { current: vi.fn().mockResolvedValue({ ok: true, value: ready() }) },
+      undefined,
+      {},
+      {
+        mealRatingRepository
+      }
+    )
+
+    const panels = await screen.findAllByText("Xem cách nấu và dinh dưỡng")
+    await user.click(panels[0]!)
+
+    // Taste is a preference, not the plan. Losing it costs two buttons their state; it must not
+    // cost the household the week it is meant to cook.
+    expect((await screen.findAllByRole("button", { name: "Thích món này" }))[0]).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    )
+    expect(screen.getAllByRole("listitem", { name: /^Bữa chính/u })).toHaveLength(7)
   })
 })

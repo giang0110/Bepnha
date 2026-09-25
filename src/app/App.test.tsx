@@ -65,7 +65,8 @@ const shoppingSetChecked = vi.fn((shoppingListItemId: string, checked: boolean) 
 )
 const shoppingListRepository: ShoppingListRepository = {
   load: shoppingLoad,
-  setChecked: shoppingSetChecked
+  setChecked: shoppingSetChecked,
+  applyToPantry: vi.fn()
 }
 
 function createAuthPort(initialSession: AuthSession | null) {

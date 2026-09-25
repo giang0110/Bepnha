@@ -20,7 +20,15 @@ export const PLANNER_CONFIG_V1 = {
      * abandon a meal planner: the first month is fine, and then it is the same eight dinners
      * forever. It is a penalty rather than a bar, deliberately — see `recentWeekLookback`.
      */
-    recentWeekRepetition: 2000
+    recentWeekRepetition: 2000,
+    /**
+     * What the household said about the meals themselves.
+     *
+     * Weighted alongside recent repetition because a stated opinion is worth about as much as an
+     * inferred one, and deliberately below the hard constraints it must never reach: allergies and
+     * exclusions decide what may be served, and this decides only the order of what already may.
+     */
+    mealRating: 2000
   },
   /**
    * How many weeks back count as "recently cooked".

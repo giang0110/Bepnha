@@ -51,7 +51,8 @@ function completed(cost: number, quality: number, id: string): CompletedPlanCand
         packageLeftover: 0,
         pantryReuse: 0,
         preferences: 0,
-        recentWeekRepetition: 0
+        recentWeekRepetition: 0,
+        mealRating: 0
       },
       metrics: {
         repeatedPrimaryProteinOccurrences: 0,
@@ -64,7 +65,9 @@ function completed(cost: number, quality: number, id: string): CompletedPlanCand
         pantryCoveredFoodCount: 0,
         unmatchedPreferenceAssignments: 0,
         preferenceAssignmentCount: 0,
-        recentlyCookedOccurrences: 0
+        recentlyCookedOccurrences: 0,
+        likedOccurrences: 0,
+        dislikedOccurrences: 0
       },
       explanations: []
     },

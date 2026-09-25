@@ -9,6 +9,7 @@ import {
 } from "../../domain/planner/planner-snapshot.js"
 import { normalizePlannerInput } from "../../domain/planner/normalize-planner-input.js"
 import { previewMealReplacement } from "../../domain/planner/replace-meal.js"
+import { EMPTY_MEAL_OPTION_RATINGS } from "../../domain/planner/score-week.js"
 import { searchWeek, type ReadyPlan } from "../../domain/planner/search-week.js"
 import type { CanonicalFoodDeduction } from "../../domain/pricing/pricing.js"
 import { canonicalJson, canonicalUtf8 } from "../../domain/shared/canonical-json.js"
@@ -201,6 +202,9 @@ async function snapshots(
     ...(normalized.value.recentMealOptionIds === undefined
       ? {}
       : { recentMealOptionIds: normalized.value.recentMealOptionIds }),
+    ...(normalized.value.mealOptionRatings === undefined
+      ? {}
+      : { mealOptionRatings: normalized.value.mealOptionRatings }),
     candidateManifest: manifestFromInput(normalized.value),
     calculation: {
       items: plan.items,
@@ -294,7 +298,8 @@ export async function generateMealPlan(
     normalized.value.priceFreshnessConfig,
     normalized.value.plannerConfig,
     pantryDeductions(normalized.value),
-    normalized.value.recentMealOptionIds ?? []
+    normalized.value.recentMealOptionIds ?? [],
+    normalized.value.mealOptionRatings ?? EMPTY_MEAL_OPTION_RATINGS
   )
   if (!("plan" in planned)) return planned
   const evidenceResult = await snapshots(hasher, normalized.value, planned.plan, planned.warnings)
@@ -389,7 +394,8 @@ async function replacementPreview(
     priceFreshnessConfig: normalized.value.priceFreshnessConfig,
     plannerConfig: normalized.value.plannerConfig,
     pantryDeductions: pantryDeductions(normalized.value),
-    recentMealOptionIds: normalized.value.recentMealOptionIds ?? []
+    recentMealOptionIds: normalized.value.recentMealOptionIds ?? [],
+    mealOptionRatings: normalized.value.mealOptionRatings ?? EMPTY_MEAL_OPTION_RATINGS
   })
   if (!preview.ok) return preview
   const plan: ReadyPlan = {

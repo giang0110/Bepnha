@@ -4,6 +4,7 @@ import {
   ShoppingListRepositoryError,
   type LegacyShoppingListUnavailable,
   type ReadyShoppingList,
+  type PantryTransferResult,
   type ShoppingItemCheckState,
   type ShoppingListItem,
   type ShoppingListReadResult,
@@ -293,6 +294,27 @@ function parseCheckState(
   }
 }
 
+function parseTransferResult(value: unknown): PantryTransferResult {
+  // Counts decide what the screen tells the household about their own pantry, so a shape that is
+  // not what the function promises is a fault, not something to coerce into zero.
+  if (!isRecord(value)) invalidStoredData()
+  const transferredLineCount = value.transferredLineCount
+  const totalTransferredLineCount = value.totalTransferredLineCount
+  if (
+    typeof transferredLineCount !== "number" ||
+    !Number.isInteger(transferredLineCount) ||
+    typeof totalTransferredLineCount !== "number" ||
+    !Number.isInteger(totalTransferredLineCount)
+  ) {
+    invalidStoredData()
+  }
+  return {
+    transferId: nonEmptyString(value.transferId),
+    transferredLineCount,
+    totalTransferredLineCount
+  }
+}
+
 function rpcFailure(error: RpcError): ShoppingListRepositoryError {
   return new ShoppingListRepositoryError(
     error.code === "42501" ? "UNAUTHORIZED" : "DEPENDENCY_UNAVAILABLE"
@@ -320,6 +342,13 @@ export function createSupabaseShoppingListRepository(
       })
       if (error !== null) throw rpcFailure(error)
       return parseCheckState(data, shoppingListItemId, checked)
+    },
+    async applyToPantry(revisionId) {
+      const { data, error } = await client.rpc("apply_shopping_to_pantry", {
+        p_meal_plan_revision_id: revisionId
+      })
+      if (error !== null) throw rpcFailure(error)
+      return parseTransferResult(data)
     }
   }
 }

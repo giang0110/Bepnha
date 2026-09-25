@@ -1,6 +1,7 @@
 import type { AllergenStrictness } from "../household/allergen-strictness.js"
 import type { AllergenAssessment, FoodFactNutrientAmount } from "../catalog/catalog.js"
 import type { MealOptionVersionInput } from "../meal-option/meal-option.js"
+import type { MealOptionRatings } from "./score-week.js"
 import type { PantrySnapshotV1 } from "../pantry/pantry.js"
 import type { PortionMemberGroupInput } from "../portion/calculate-adult-equivalent.js"
 import type { FoodPriceInput } from "../pricing/pricing.js"
@@ -62,6 +63,17 @@ export interface PlannerInputV1 {
    * recipe was revised in between.
    */
   readonly recentMealOptionIds?: readonly string[]
+  /**
+   * What the household has said about individual meals.
+   *
+   * Absent means "not stated" and scores as no opinions at all, so an input built before this field
+   * existed plans the same week it always did. Like the history it is identities rather than
+   * versions: disliking cơm gà is disliking cơm gà, whatever the recipe does next.
+   *
+   * It never decides eligibility. Allergies and explicit exclusions remove a meal from the list;
+   * this only reorders what is already allowed.
+   */
+  readonly mealOptionRatings?: MealOptionRatings
   readonly pantrySnapshot: PantrySnapshotV1
   readonly candidates: readonly PlannerCandidateInput[]
 }

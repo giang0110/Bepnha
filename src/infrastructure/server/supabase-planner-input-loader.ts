@@ -89,6 +89,7 @@ const MISSING_FUNCTION_CODES: ReadonlySet<string> = new Set(["42883", "PGRST202"
  * is short-lived, so applying the migration heals the next instance without a deploy.
  */
 let planHistoryFunctionMissing = false
+let mealRatingFunctionMissing = false
 
 /**
  * What this household cooked in the weeks before this one.
@@ -131,6 +132,45 @@ async function recentMealOptionIds(
   return Array.isArray(result.data)
     ? result.data.filter((id): id is string => typeof id === "string")
     : []
+}
+
+/**
+ * What the household has said about individual meals.
+ *
+ * Tolerant of the function not existing yet for the same reason as the history above: deploys land
+ * before migrations, PostgreSQL answers 42883 for the whole statement, and a plan without ratings is
+ * the plan this app made last week. Undefined means "not stated"; two empty lists mean the household
+ * really has no opinions.
+ */
+async function mealOptionRatings(
+  client: SupabaseClient<Database>,
+  householdId: string
+): Promise<
+  { readonly liked: readonly string[]; readonly disliked: readonly string[] } | undefined
+> {
+  if (mealRatingFunctionMissing) return undefined
+  const result = await client.rpc("get_meal_option_ratings", { p_household_id: householdId })
+  if (result.error !== null) {
+    const code = result.error.code
+    if (typeof code === "string" && MISSING_FUNCTION_CODES.has(code)) {
+      mealRatingFunctionMissing = true
+      console.warn(
+        JSON.stringify({
+          event: "planner_schema_degraded",
+          detail: "meal_rating_function_missing",
+          action: "apply supabase/migrations/20260925010000_meal_option_ratings.sql"
+        })
+      )
+      return undefined
+    }
+    throw new Error("PLANNER_DATA_UNAVAILABLE")
+  }
+  const data: unknown = result.data
+  if (typeof data !== "object" || data === null) return { liked: [], disliked: [] }
+  const record = data as Record<string, unknown>
+  const ids = (value: unknown): readonly string[] =>
+    Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : []
+  return { liked: ids(record.liked), disliked: ids(record.disliked) }
 }
 
 const STEP_COLUMNS = "id, sort_order, instruction_vi, timer_minutes"
@@ -481,10 +521,11 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
   const householdId = string(household.id)
   const priceBook = object(root.priceBook)
   const weekStart = string(root.weekStart)
-  const [units, pantrySnapshot, recentMeals] = await Promise.all([
+  const [units, pantrySnapshot, recentMeals, ratings] = await Promise.all([
     loadUnits(client),
     loadPantrySnapshot(client, householdId),
-    recentMealOptionIds(client, householdId, weekStart)
+    recentMealOptionIds(client, householdId, weekStart),
+    mealOptionRatings(client, householdId)
   ])
   // The RPC returns every published meal option. Hydrating one past the domain candidate limit is
   // enough for `normalizePlannerInput` to raise the same CATALOG_CANDIDATE_LIMIT_EXCEEDED error it
@@ -526,6 +567,7 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
         HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)?.ruleKind === "soft_preference"
     ),
     ...(recentMeals === undefined ? {} : { recentMealOptionIds: recentMeals }),
+    ...(ratings === undefined ? {} : { mealOptionRatings: ratings }),
     pantrySnapshot,
     candidates
   }

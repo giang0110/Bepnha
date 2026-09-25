@@ -122,6 +122,16 @@ export function normalizePlannerInput(input: PlannerInputV1): NormalizeResult {
       ...(input.recentMealOptionIds === undefined
         ? {}
         : { recentMealOptionIds: [...new Set(input.recentMealOptionIds)].sort() }),
+      // Same treatment for the same reason: one canonical order, so the identical set of opinions
+      // always hashes and scores identically.
+      ...(input.mealOptionRatings === undefined
+        ? {}
+        : {
+            mealOptionRatings: {
+              liked: [...new Set(input.mealOptionRatings.liked)].sort(),
+              disliked: [...new Set(input.mealOptionRatings.disliked)].sort()
+            }
+          }),
       pantrySnapshot: pantryResult.value,
       candidates: input.candidates
         .map(canonicalCandidate)

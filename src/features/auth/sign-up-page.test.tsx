@@ -34,7 +34,8 @@ const shoppingListRepository: ShoppingListRepository = {
       checked,
       checkedAt: checked ? "2026-09-01T00:00:00Z" : null
     })
-  )
+  ),
+  applyToPantry: vi.fn()
 }
 
 function renderSignUp(signUp: AuthSessionPort["signUp"]) {

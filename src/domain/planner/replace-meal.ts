@@ -4,6 +4,7 @@ import type { CanonicalFoodDeduction } from "../pricing/pricing.js"
 import type { EligibleMealOption } from "./evaluate-eligibility.js"
 import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config.js"
 import type { PlannerWarning } from "./planner-outcome.js"
+import { EMPTY_MEAL_OPTION_RATINGS, type MealOptionRatings } from "./score-week.js"
 import { calculateCompletedPlanCandidate, selectFinalPlan, type ReadyPlan } from "./search-week.js"
 
 export type ReplacementPreviewResult =
@@ -40,6 +41,7 @@ export function previewMealReplacement(input: {
   readonly pantryDeductions?: readonly CanonicalFoodDeduction[]
   /** Same history the week was planned against, so a swap cannot reintroduce last week's dinner. */
   readonly recentMealOptionIds?: readonly string[]
+  readonly mealOptionRatings?: MealOptionRatings
 }): ReplacementPreviewResult {
   const config = input.plannerConfig ?? PLANNER_CONFIG_V1
   const freshness = input.priceFreshnessConfig ?? PRICE_FRESHNESS_CONFIG_V1
@@ -78,7 +80,8 @@ export function previewMealReplacement(input: {
         freshness,
         config,
         deductions,
-        input.recentMealOptionIds ?? []
+        input.recentMealOptionIds ?? [],
+        input.mealOptionRatings ?? EMPTY_MEAL_OPTION_RATINGS
       )
       return completed === null ? [] : [completed]
     })

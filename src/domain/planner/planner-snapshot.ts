@@ -1,6 +1,7 @@
 import type { PantrySnapshotV1 } from "../pantry/pantry.js"
 
 import type { PersistedPlannerEngineVersion } from "./planner-engine-version.js"
+import type { MealOptionRatings } from "./score-week.js"
 
 export interface PlannerCandidateManifestEntry {
   readonly mealOptionId: string
@@ -39,6 +40,13 @@ export interface PlannerSnapshotSource {
    * made before the field existed, and for one whose history could not be read.
    */
   readonly recentMealOptionIds?: readonly string[]
+  /**
+   * What the household thought of individual meals when this plan was made.
+   *
+   * Recorded for the same reason as the history: without it there is no way to read a plan back and
+   * say why the search preferred one allowed meal over another.
+   */
+  readonly mealOptionRatings?: MealOptionRatings
   readonly candidateManifest: readonly PlannerCandidateManifestEntry[]
   readonly calculation: unknown
 }
@@ -93,6 +101,14 @@ export function buildPlannerSnapshotPayloads(source: PlannerSnapshotSource) {
     ...(source.recentMealOptionIds === undefined
       ? {}
       : { recentMealOptionIds: [...source.recentMealOptionIds].sort() }),
+    ...(source.mealOptionRatings === undefined
+      ? {}
+      : {
+          mealOptionRatings: {
+            liked: [...source.mealOptionRatings.liked].sort(),
+            disliked: [...source.mealOptionRatings.disliked].sort()
+          }
+        }),
     candidateManifest
   }
   return {
