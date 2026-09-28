@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router"
 import { describe, expect, test, vi } from "vitest"
 
+import type { MealRatingRepository } from "@/application/meal-rating/meal-rating-repository"
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import { AuthContext } from "@/app/auth/auth-context"
@@ -101,7 +102,11 @@ function ready(): PlannerReadyResponse {
   }
 }
 
-function setup(apiOverrides: Partial<PlannerApi> = {}, dayIndex = "1") {
+function setup(
+  apiOverrides: Partial<PlannerApi> = {},
+  dayIndex = "1",
+  mealRatingRepository?: MealRatingRepository
+) {
   const api: PlannerApi = {
     generate: vi.fn(),
     current: vi.fn().mockResolvedValue({ ok: true, value: ready() }),
@@ -147,6 +152,7 @@ function setup(apiOverrides: Partial<PlannerApi> = {}, dayIndex = "1") {
                 foodOptionsRepository={foodOptionsRepository}
                 householdRepository={householdRepository}
                 plannerApi={api}
+                {...(mealRatingRepository === undefined ? {} : { mealRatingRepository })}
                 today={() => new Date("2026-08-27T00:00:00+07:00")}
               />
             }
@@ -248,5 +254,43 @@ describe("CookingPage", () => {
     setup({ current: vi.fn().mockResolvedValue({ ok: false, error: { code: "UNAUTHORIZED" } }) })
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Không mở được kế hoạch")
+  })
+
+  test("asks what the household thought once the last step is done", async () => {
+    const user = userEvent.setup()
+    const set = vi.fn(() => Promise.resolve())
+    setup({}, "1", { load: vi.fn(() => Promise.resolve({ liked: [], disliked: [] })), set })
+
+    // The plan loads asynchronously, so wait for the first step before walking to the end.
+    await screen.findByRole("button", { name: "Bước tiếp" })
+    // The question has no place earlier: an opinion about a dish is formed by cooking it, and
+    // asking at step two is asking about nothing.
+    expect(screen.queryByRole("button", { name: "Thích món này" })).not.toBeInTheDocument()
+    let next = screen.queryByRole("button", { name: "Bước tiếp" })
+    while (next !== null) {
+      await user.click(next)
+      next = screen.queryByRole("button", { name: "Bước tiếp" })
+    }
+
+    await user.click(await screen.findByRole("button", { name: "Thích món này" }))
+    expect(set).toHaveBeenCalledWith(household.householdId, "meal-1", "liked")
+  })
+
+  test("still lets the cook leave without answering", async () => {
+    const user = userEvent.setup()
+    setup({}, "1", {
+      load: vi.fn(() => Promise.resolve({ liked: [], disliked: [] })),
+      set: vi.fn(() => Promise.resolve())
+    })
+
+    await screen.findByRole("button", { name: "Bước tiếp" })
+    let next = screen.queryByRole("button", { name: "Bước tiếp" })
+    while (next !== null) {
+      await user.click(next)
+      next = screen.queryByRole("button", { name: "Bước tiếp" })
+    }
+
+    // The question is an offer, not a toll. Someone carrying a hot pan should be able to walk away.
+    expect(await screen.findByRole("link", { name: "Nấu xong" })).toHaveAttribute("href", "/plan")
   })
 })
