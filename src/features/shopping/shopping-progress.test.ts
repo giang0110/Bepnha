@@ -18,6 +18,7 @@ function item(id: string, lineCostVnd: number, checked: boolean): ShoppingListIt
     purchasePackageCount: "1",
     purchaseBaseQuantity: "100",
     leftoverBaseQuantity: "0",
+    transferredToPantry: false,
     packagePriceVnd: lineCostVnd,
     lineCostVnd,
     foodPriceId: "price",

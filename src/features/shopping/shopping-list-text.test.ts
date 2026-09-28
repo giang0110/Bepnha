@@ -22,6 +22,7 @@ function item(overrides: Partial<ShoppingListItem> & { foodNameVi: string }): Sh
     purchasePackageCount: "1",
     purchaseBaseQuantity: "500",
     leftoverBaseQuantity: "400",
+    transferredToPantry: false,
     packagePriceVnd: 30_000,
     lineCostVnd: 30_000,
     foodPriceId: "price",

@@ -47,6 +47,9 @@ const readyPayload = {
       groceryCategoryCode: "staples",
       checked: false,
       checkedAt: null,
+      // The stored row in this fixture carries no `transferredToPantry`, which is what a database
+      // that has not taken the migration answers. False is the reading, not an error.
+      transferredToPantry: false,
       sources: [
         {
           dayIndex: 0,
@@ -195,5 +198,22 @@ describe("Supabase shopping-list repository check state", () => {
     await expect(
       createSupabaseShoppingListRepository(client).setChecked("item-a", true)
     ).rejects.toMatchObject({ code })
+  })
+
+  it("carries a line the pantry has already settled", async () => {
+    const settled = {
+      ...readyPayload,
+      items: readyPayload.items.map((item) => ({ ...item, transferredToPantry: true }))
+    }
+    const { client } = clientWithRpc(() => ({ data: settled, error: null }))
+
+    const result = await createSupabaseShoppingListRepository(client).load("plan-a")
+
+    // The screen decides whether to offer the finish button from this, so a true that arrives as a
+    // false would put the button back over work already done.
+    expect(result).toMatchObject({
+      status: "ready",
+      items: [expect.objectContaining({ transferredToPantry: true })]
+    })
   })
 })

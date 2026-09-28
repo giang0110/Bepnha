@@ -306,9 +306,12 @@ export function ShoppingListPage({ repository }: Props) {
       const result = await repository.applyToPantry(state.value.revisionId)
       setRestockNotice(
         result.transferredLineCount === 0
-          ? "Phần dư của chuyến này đã nằm trong tủ bếp từ trước."
-          : `Đã cất phần dư của ${result.transferredLineCount} món vào tủ bếp.`
+          ? "Chuyến này đã được tính vào tủ bếp từ trước."
+          : `Đã cập nhật tủ bếp cho ${result.transferredLineCount} món.`
       )
+      // The list now carries which lines are settled, so re-read it: without this the button keeps
+      // counting lines it has just finished with.
+      setReloadToken((token) => token + 1)
     } catch (error: unknown) {
       setMutationError(errorCopy(error))
     } finally {
@@ -513,7 +516,7 @@ export function ShoppingListPage({ repository }: Props) {
                 <Icon name="basket" className="size-4" />
                 {restocking
                   ? "Đang cất vào tủ bếp…"
-                  : `Đi chợ xong, cất ${restockCandidates.length} món dư`}
+                  : `Đi chợ xong, cập nhật ${restockCandidates.length} món`}
               </Button>
             )}
             <Button type="button" variant="outline" onClick={() => void shareList()}>

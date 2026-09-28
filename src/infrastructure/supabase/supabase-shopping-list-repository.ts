@@ -215,6 +215,10 @@ function parseItem(value: unknown): ShoppingListItem {
     groceryCategoryCode: parseGroceryCategory(value.groceryCategoryCode),
     checked,
     checkedAt: parseCheckedAt(checked, value.checkedAt),
+    // Absent means the field is not there yet — a list read against a database that has not taken
+    // the migration. False is the right reading of that: nothing had settled this line, because
+    // nothing could. It is the pre-existing behaviour, and pressing the button is idempotent.
+    transferredToPantry: value.transferredToPantry === true,
     sources: parseSources(value.sources)
   }
 }

@@ -30,6 +30,7 @@ function item(
     purchasePackageCount: "1",
     purchaseBaseQuantity: "1000",
     leftoverBaseQuantity: "300",
+    transferredToPantry: false,
     packagePriceVnd: 50_000,
     lineCostVnd: 50_000,
     foodPriceId: `price-${id}`,
@@ -396,13 +397,13 @@ describe("ShoppingListPage", () => {
     })
     renderPage(repo)
 
-    const finish = await screen.findByRole("button", { name: /Đi chợ xong, cất 2 món dư/u })
+    const finish = await screen.findByRole("button", { name: /Đi chợ xong, cập nhật 2 món/u })
     await user.click(finish)
 
     // The revision, not the plan: a shopping list belongs to one revision, and stocking the pantry
     // from a superseded one would credit food nobody bought.
     expect(applyToPantry).toHaveBeenCalledWith("revision-a")
-    expect(await screen.findByText(/Đã cất phần dư của 1 món vào tủ bếp\./u)).toBeInTheDocument()
+    expect(await screen.findByText(/Đã cập nhật tủ bếp cho 1 món\./u)).toBeInTheDocument()
   })
 
   test("says nothing moved when the trip was already stocked", async () => {
@@ -427,7 +428,7 @@ describe("ShoppingListPage", () => {
 
     // Pressing twice is ordinary. Saying "đã cất 0 món" would read as a failure; it is not one.
     expect(
-      await screen.findByText(/Phần dư của chuyến này đã nằm trong tủ bếp từ trước\./u)
+      await screen.findByText(/Chuyến này đã được tính vào tủ bếp từ trước\./u)
     ).toBeInTheDocument()
   })
 
@@ -438,6 +439,25 @@ describe("ShoppingListPage", () => {
     expect(await screen.findByText("250.000 VND / 200.000 VND")).toBeInTheDocument()
     // Nothing was bought, so there is nothing to stock. A button that moves nothing would read as
     // though the trip had been filed away.
+    expect(screen.queryByRole("button", { name: /Đi chợ xong/u })).not.toBeInTheDocument()
+  })
+
+  test("stops offering to settle lines the pantry has already taken", async () => {
+    const list = ready()
+    const { repo } = repository({
+      ...list,
+      items: list.items.map((entry) => ({
+        ...entry,
+        checked: true,
+        checkedAt: "2026-09-01T00:00:00Z",
+        transferredToPantry: true
+      }))
+    })
+    renderPage(repo)
+
+    expect(await screen.findByText("250.000 VND / 200.000 VND")).toBeInTheDocument()
+    // Reopening a finished trip used to show the button again, counting lines it had already
+    // settled. Pressing it did nothing and said so, which is a button whose label is the lie.
     expect(screen.queryByRole("button", { name: /Đi chợ xong/u })).not.toBeInTheDocument()
   })
 })
