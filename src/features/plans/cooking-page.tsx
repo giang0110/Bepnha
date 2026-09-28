@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from "react"
 import { Link, useParams } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
+import type {
+  MealRating,
+  MealRatingRepository
+} from "@/application/meal-rating/meal-rating-repository"
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import { useAuth } from "@/app/auth/auth-context"
@@ -17,6 +21,7 @@ import {
   type IngredientLabels
 } from "./ingredient-labels"
 import type { PlanItemView, PlannerApi } from "./planner-api"
+import { MealRatingControl } from "./meal-rating-control"
 import { useWakeLock } from "./use-wake-lock"
 import { currentWeekStart } from "./week-start"
 
@@ -26,6 +31,11 @@ interface Props {
   readonly foodOptionsRepository: PantryFoodOptionsRepository
   readonly householdRepository: HouseholdRepository
   readonly plannerApi: PlannerApi
+  /**
+   * Optional, like on the week screen: without it the question simply is not asked, which is better
+   * than a control that cannot store the answer.
+   */
+  readonly mealRatingRepository?: MealRatingRepository
   readonly today?: () => Date
 }
 
@@ -164,6 +174,7 @@ export function CookingPage({
   foodOptionsRepository,
   householdRepository,
   plannerApi,
+  mealRatingRepository,
   today
 }: Props) {
   const auth = useAuth()
@@ -172,6 +183,8 @@ export function CookingPage({
   const accessToken = auth.session?.accessToken
 
   const [state, setState] = useState<LoadState>({ status: "loading" })
+  const [householdId, setHouseholdId] = useState<string | null>(null)
+  const [rating, setRating] = useState<MealRating | null>(null)
   const [labels, setLabels] = useState<IngredientLabels>(EMPTY_INGREDIENT_LABELS)
   const [index, setIndex] = useState(0)
   const [reloadToken, setReloadToken] = useState(0)
@@ -220,7 +233,21 @@ export function CookingPage({
         setState({ status: "missing" })
         return
       }
+      setHouseholdId(household.household.householdId)
       setState({ status: "ready", item, mealName: item.mealOptionNameVi })
+      if (mealRatingRepository !== undefined) {
+        const stored = await mealRatingRepository
+          .load(household.household.householdId)
+          .catch(() => null)
+        if (cancelled || stored === null) return
+        setRating(
+          stored.liked.includes(item.mealOptionId)
+            ? "liked"
+            : stored.disliked.includes(item.mealOptionId)
+              ? "disliked"
+              : null
+        )
+      }
     }
 
     void run().catch(() => {
@@ -232,11 +259,14 @@ export function CookingPage({
     // `now` is a clock, not state: re-reading the week whenever it changes identity would refetch
     // on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken, dayIndex, householdRepository, plannerApi, reloadToken])
+  }, [accessToken, dayIndex, householdRepository, mealRatingRepository, plannerApi, reloadToken])
 
   useWakeLock(state.status === "ready")
 
   const steps = state.status === "ready" ? cookingSequence(state.item, labels) : []
+  // Narrowed here rather than at the call site: the control renders deep inside the ready branch,
+  // where TypeScript has lost the discriminant.
+  const ratedMealOptionId = state.status === "ready" ? state.item.mealOptionId : null
   const step = steps[index]
 
   const go = useCallback(
@@ -308,6 +338,27 @@ export function CookingPage({
           </p>
 
           <StepView step={step} />
+
+          {/* Only on the last step, and only here. An opinion about a dish is formed by cooking it,
+              so this is the one moment the household has an answer — and on the week screen the same
+              question sits four taps deep inside a panel about ingredients. It is an offer, not a
+              toll: "Nấu xong" leaves whether or not anyone answers. */}
+          {index === steps.length - 1 &&
+          mealRatingRepository !== undefined &&
+          householdId !== null &&
+          ratedMealOptionId !== null ? (
+            <MealRatingControl
+              mealOptionId={ratedMealOptionId}
+              rating={rating}
+              onRate={(mealOptionId, next) => {
+                const previous = rating
+                setRating(next)
+                void mealRatingRepository
+                  .set(householdId, mealOptionId, next)
+                  .catch(() => setRating(previous))
+              }}
+            />
+          ) : null}
 
           <div className="mt-auto flex gap-3 pt-4">
             <Button
