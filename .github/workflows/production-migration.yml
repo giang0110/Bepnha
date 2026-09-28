@@ -14,9 +14,12 @@ name: Production database migration
 #   1. `plan`  - a dry run. Read-only. Prints exactly which migrations would be applied.
 #   2. `apply` - the write, in the `production` environment so GitHub can hold it for a reviewer.
 #
-# IMPORTANT: the hold in stage 2 only exists if the `production` environment has required reviewers
-# configured (Settings → Environments → production → Required reviewers). Without that, GitHub runs
-# the job straight through and the only gate left is the typed project ref. Configure it.
+# IMPORTANT: the hold in stage 2 is the ONLY gate on this workflow, and it only exists if the
+# `production` environment has required reviewers configured (Settings → Environments → production
+# → Required reviewers). The project ref below used to be a second gate — it had to be typed by
+# hand — but it is now pre-selected, because typing a ref nobody remembers is the kind of chore that
+# gets copied from the wrong place. So there is nothing behind the reviewer hold: without it, pressing
+# "Run workflow" writes to production unattended. Configure it, and keep it configured.
 #
 # Required repository secret:
 #   BEPNHA_PRODUCTION_DB_URL - the **Session pooler** connection string, from
@@ -36,9 +39,17 @@ on:
   workflow_dispatch:
     inputs:
       project_ref:
-        description: "Type the production project ref to confirm the target"
+        # A single-option choice, pre-selected. It cannot be got wrong from the UI, which is the
+        # point: the value is not a password and guarding a manual workflow with a string the
+        # operator has to go and look up buys nothing. It stays an input at all so the run record
+        # names the project it wrote to, and so the assertion below can still refuse a dispatch made
+        # through the API with some other ref.
+        description: "Production project to migrate"
         required: true
-        type: string
+        type: choice
+        default: vkrqzwlpneocgjwhqbsl
+        options:
+          - vkrqzwlpneocgjwhqbsl
 
 permissions:
   contents: read
@@ -58,16 +69,18 @@ jobs:
     name: Plan (dry run)
     runs-on: ubuntu-latest
     steps:
-      - name: Refuse a target that was not typed correctly
-        # The typed value reaches the shell as an environment variable, never interpolated into the
-        # script text: `${{ }}` is substituted before bash sees the line, so an input carrying shell
-        # syntax would run as code rather than be compared as a string.
+      - name: Refuse a target that is not the one production project
+        # The UI can only send the one option, so this passes by construction from a dispatch made
+        # there; it exists for a dispatch made through the API, which may send any string. That value
+        # reaches the shell as an environment variable, never interpolated into the script text:
+        # `${{ }}` is substituted before bash sees the line, so an input carrying shell syntax would
+        # run as code rather than be compared as a string.
         env:
-          TYPED_PROJECT_REF: ${{ inputs.project_ref }}
+          REQUESTED_PROJECT_REF: ${{ inputs.project_ref }}
         run: |
           set -euo pipefail
-          if [ "${TYPED_PROJECT_REF}" != "${PROJECT_REF}" ]; then
-            echo "Typed project ref does not match ${PROJECT_REF}; refusing." >&2
+          if [ "${REQUESTED_PROJECT_REF}" != "${PROJECT_REF}" ]; then
+            echo "Requested project ref does not match ${PROJECT_REF}; refusing." >&2
             exit 1
           fi
 
