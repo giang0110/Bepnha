@@ -1879,7 +1879,8 @@ export type Database = {
         Row: {
           base_unit_id: string
           food_id: string
-          pantry_item_id: string
+          pantry_consumed_base_quantity: string
+          pantry_item_id: string | null
           shopping_list_item_id: string
           transfer_id: string
           transferred_base_quantity: string
@@ -1887,7 +1888,8 @@ export type Database = {
         Insert: {
           base_unit_id: string
           food_id: string
-          pantry_item_id: string
+          pantry_consumed_base_quantity?: string
+          pantry_item_id?: string | null
           shopping_list_item_id: string
           transfer_id: string
           transferred_base_quantity: string
@@ -1895,7 +1897,8 @@ export type Database = {
         Update: {
           base_unit_id?: string
           food_id?: string
-          pantry_item_id?: string
+          pantry_consumed_base_quantity?: string
+          pantry_item_id?: string | null
           shopping_list_item_id?: string
           transfer_id?: string
           transferred_base_quantity?: string

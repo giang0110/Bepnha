@@ -51,6 +51,13 @@ export interface ShoppingListItem {
   readonly groceryCategoryCode: GroceryCategoryCode
   readonly checked: boolean
   readonly checkedAt: string | null
+  /**
+   * Whether finishing the trip has already settled this line against the pantry.
+   *
+   * Absent from a list read before the column existed, which reads as false — the honest answer for
+   * a list nothing had ever settled.
+   */
+  readonly transferredToPantry: boolean
   readonly sources: readonly ShoppingListSource[]
 }
 
