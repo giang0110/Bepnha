@@ -192,7 +192,10 @@ function setup(
   apiOverrides: Partial<PlannerApi> = {},
   renderAssistant?: WeeklyPlanAssistantRenderer,
   foodOptionsOverrides: Partial<PantryFoodOptionsRepository> = {},
-  extras: Readonly<{ mealRatingRepository?: MealRatingRepository }> = {}
+  extras: Readonly<{
+    mealRatingRepository?: MealRatingRepository
+    householdRepository?: HouseholdRepository
+  }> = {}
 ) {
   const api: PlannerApi = {
     generate: vi.fn().mockResolvedValue({ ok: true, value: ready() }),
@@ -226,7 +229,7 @@ function setup(
     }),
     ...apiOverrides
   }
-  const repository: HouseholdRepository = {
+  const repository: HouseholdRepository = extras.householdRepository ?? {
     loadOwn: vi.fn().mockResolvedValue(household),
     saveOwn: vi.fn()
   }
@@ -688,5 +691,31 @@ describe("WeeklyPlanPage", () => {
       "false"
     )
     expect(screen.getAllByRole("listitem", { name: /^Bữa chính/u })).toHaveLength(7)
+  })
+
+  test("sends a household with no setup to onboarding instead of loading forever", async () => {
+    // Signing up and abandoning onboarding leaves a session with no household row. RequireAuth only
+    // checks the session, so this screen is reachable in that state — and it used to enter
+    // `loading_plan`, where the plan effect returns immediately because there is no household to
+    // ask about. The spinner then ran until the tab was closed.
+    setup(
+      {},
+      undefined,
+      {},
+      {
+        householdRepository: { loadOwn: vi.fn().mockResolvedValue(null), saveOwn: vi.fn() }
+      }
+    )
+
+    expect(
+      await screen.findByText("Hãy hoàn tất thông tin gia đình trước khi tạo kế hoạch.")
+    ).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Hoàn tất thông tin gia đình" })).toHaveAttribute(
+      "href",
+      "/onboarding"
+    )
+    // The sentence was already there. What it lacked was an end: no spinner promising something is
+    // still coming, and somewhere to go.
+    expect(screen.queryByText(/Đang tải kế hoạch tuần/u)).not.toBeInTheDocument()
   })
 })

@@ -414,7 +414,11 @@ export function WeeklyPlanPage({
         return
       }
       setHousehold(result.household)
-      setState({ status: "loading_plan" })
+      // A session without a household row is a real state: signing up and leaving onboarding
+      // half-done produces one, and RequireAuth checks only the session. Entering `loading_plan`
+      // here promised a week that nothing would ever fetch, because the plan effect needs a
+      // household id and returns immediately without one.
+      setState(result.household === null ? { status: "idle" } : { status: "loading_plan" })
     })
     return () => {
       active = false
@@ -656,7 +660,16 @@ export function WeeklyPlanPage({
       </div>
 
       {household === null && state.status !== "error" ? (
-        <p role="alert">Hãy hoàn tất thông tin gia đình trước khi tạo kế hoạch.</p>
+        <div className="grid justify-items-start gap-3" role="alert">
+          <p>Hãy hoàn tất thông tin gia đình trước khi tạo kế hoạch.</p>
+          {/* The sentence alone named the obstacle and left the person to find the way round it. */}
+          <Link
+            className="inline-flex min-h-11 items-center rounded-full bg-clay-700 px-5 text-sm font-bold text-white shadow-soft transition-colors hover:bg-clay-900"
+            to="/onboarding"
+          >
+            Hoàn tất thông tin gia đình
+          </Link>
+        </div>
       ) : null}
 
       {state.status === "loading_plan" ? <p role="status">Đang tải kế hoạch tuần…</p> : null}
