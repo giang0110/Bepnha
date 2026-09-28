@@ -254,20 +254,25 @@ supabase migration list
 preferred route: it removes the IPv6 problem (it connects through the session pooler), it runs the
 schema check straight afterwards, and it leaves a record of who dispatched it and what was applied.
 
-Actions → **Production database migration** → Run workflow, from `main`, typing the project ref to
-confirm the target. It runs in two stages:
+Actions → **Production database migration** → Run workflow, from `main`, then press the green
+button. The project ref is pre-selected — there is one production project and it is already in the
+dropdown, so nothing has to be looked up or pasted. It runs in two stages:
 
 1. `plan` — a dry run that prints the migrations it would apply into the run summary. Read-only.
 2. `apply` — the write, plus `verify:production:schema`.
 
 Stage 2 declares the `production` environment, so GitHub holds it for a reviewer — **but only if
-that environment has required reviewers configured** (Settings → Environments → production). Without
-that configuration the run proceeds unattended and the typed project ref is the only gate left, so
-configure it before relying on this as the approval AGENTS.md §5 asks for.
+that environment has required reviewers configured** (Settings → Environments → production →
+Required reviewers). That hold is now the **only** gate on this workflow. Until 2026-09-28 the
+project ref had to be typed by hand and caught a stray dispatch on its own; it no longer does,
+because a string the operator has to go and look up is a chore that gets copied from the wrong place,
+not a safeguard. So check that required reviewers are on, and leave them on: without them, pressing
+Run writes to production unattended, and the approval AGENTS.md §5 asks for does not exist.
 
-The workflow refuses to run from any ref other than `main`, and refuses a project ref that does not
-match the one recorded above. Re-running is safe: a push with nothing to apply reports `Remote
-database is up to date` and succeeds.
+The workflow still refuses to run from any ref other than `main`, and still refuses a project ref
+that does not match the one recorded above — which the dropdown cannot produce, but a dispatch made
+through the API can. Re-running is safe: a push with nothing to apply reports `Remote database is up
+to date` and succeeds.
 
 ### Migration and deploy ordering
 
