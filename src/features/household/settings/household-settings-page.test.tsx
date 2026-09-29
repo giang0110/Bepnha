@@ -149,4 +149,19 @@ describe("HouseholdSettingsPage", () => {
     )
     expect(saveOwn).not.toHaveBeenCalled()
   })
+
+  it("allows direct navigation between sections using step tabs", async () => {
+    const user = userEvent.setup()
+    renderSettings({ loadOwn: vi.fn(() => Promise.resolve(original)), saveOwn: vi.fn() })
+
+    expect(await screen.findByRole("heading", { name: "Chỉnh sửa thành viên" })).toBeInTheDocument()
+
+    // Jump directly to Budget
+    await user.click(screen.getByRole("button", { name: "2. Ngân sách" }))
+    expect(screen.getByRole("heading", { name: "Chỉnh sửa ngân sách" })).toBeInTheDocument()
+
+    // Jump directly to Review
+    await user.click(screen.getByRole("button", { name: "5. Xem lại & Lưu" }))
+    expect(screen.getByRole("heading", { name: "Kiểm tra thay đổi" })).toBeInTheDocument()
+  })
 })

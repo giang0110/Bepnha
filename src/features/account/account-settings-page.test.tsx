@@ -43,6 +43,9 @@ const session: AuthSession = {
 function renderAccountPage(
   deleteOwnAccount: AccountApi["deleteOwnAccount"] = vi.fn(() =>
     Promise.resolve({ ok: true } satisfies DeleteAccountResult)
+  ),
+  updatePassword: AuthSessionPort["updatePassword"] = vi.fn(() =>
+    Promise.resolve({ ok: true as const })
   )
 ) {
   const signOut = vi.fn(() => Promise.resolve({ ok: true as const }))
@@ -53,7 +56,7 @@ function renderAccountPage(
     signOut,
     signUp: vi.fn(),
     requestPasswordReset: vi.fn(),
-    updatePassword: vi.fn()
+    updatePassword
   } as unknown as AuthSessionPort
 
   render(
@@ -69,7 +72,7 @@ function renderAccountPage(
       </AuthProvider>
     </MemoryRouter>
   )
-  return { deleteOwnAccount, signOut }
+  return { deleteOwnAccount, signOut, updatePassword }
 }
 
 async function deleteButton() {
@@ -154,5 +157,50 @@ describe("account deletion", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(expected)
     expect(await deleteButton()).toBeEnabled()
+  })
+})
+
+describe("password change", () => {
+  it("renders the password change form and validates minimum length and match", async () => {
+    const user = userEvent.setup()
+    renderAccountPage()
+
+    expect(await screen.findByRole("heading", { name: "Đổi mật khẩu" })).toBeVisible()
+    const updateBtn = screen.getByRole("button", { name: "Cập nhật mật khẩu" })
+    expect(updateBtn).toBeDisabled()
+
+    const newPassField = screen.getByLabelText("Mật khẩu mới")
+    const confirmPassField = screen.getByLabelText("Xác nhận mật khẩu mới")
+
+    await user.type(newPassField, "short")
+    await user.type(confirmPassField, "short")
+    expect(updateBtn).toBeDisabled()
+
+    await user.clear(newPassField)
+    await user.clear(confirmPassField)
+    await user.type(newPassField, "password123")
+    await user.type(confirmPassField, "password456")
+    expect(updateBtn).toBeDisabled()
+
+    await user.clear(confirmPassField)
+    await user.type(confirmPassField, "password123")
+    expect(updateBtn).toBeEnabled()
+  })
+
+  it("calls updatePassword and shows success message upon valid submission", async () => {
+    const user = userEvent.setup()
+    const updatePassword = vi.fn(() => Promise.resolve({ ok: true as const }))
+    renderAccountPage(undefined, updatePassword)
+
+    const newPassField = await screen.findByLabelText("Mật khẩu mới")
+    const confirmPassField = screen.getByLabelText("Xác nhận mật khẩu mới")
+    const updateBtn = screen.getByRole("button", { name: "Cập nhật mật khẩu" })
+
+    await user.type(newPassField, "validPassword123")
+    await user.type(confirmPassField, "validPassword123")
+    await user.click(updateBtn)
+
+    expect(updatePassword).toHaveBeenCalledWith("validPassword123")
+    expect(await screen.findByRole("status")).toHaveTextContent("Đã đổi mật khẩu thành công.")
   })
 })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useParams } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
@@ -56,6 +56,38 @@ type LoadState =
       readonly mealName: string
     }
 
+function notifyTimerDone(): void {
+  if (typeof window === "undefined") return
+  try {
+    if (
+      typeof navigator !== "undefined" &&
+      "vibrate" in navigator &&
+      typeof navigator.vibrate === "function"
+    ) {
+      navigator.vibrate([200, 100, 200, 100, 300])
+    }
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (AudioContextClass) {
+      const ctx = new AudioContextClass()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = "sine"
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime)
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15)
+      gain.gain.setValueAtTime(0.2, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.5)
+    }
+  } catch {
+    // Autoplay or audio context permission restricted
+  }
+}
+
 /**
  * The countdown for one step.
  *
@@ -76,6 +108,7 @@ function StepTimer({
   const startedAt = progress?.startedAt ?? null
   const pausedWith = progress?.pausedWith ?? null
   const [now, setNow] = useState(() => Date.now())
+  const hasNotifiedRef = useRef(false)
 
   const running = startedAt !== null && pausedWith === null
 
@@ -87,6 +120,15 @@ function StepTimer({
 
   const remaining = secondsRemaining(total, startedAt, pausedWith, now)
   const done = startedAt !== null && remaining <= 0
+
+  useEffect(() => {
+    if (done && !hasNotifiedRef.current) {
+      hasNotifiedRef.current = true
+      notifyTimerDone()
+    } else if (!done) {
+      hasNotifiedRef.current = false
+    }
+  }, [done])
 
   const start = () => {
     const carry = pausedWith ?? total

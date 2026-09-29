@@ -87,9 +87,6 @@ function PantryItemEditor({
       data-testid={`pantry-item-${item.pantryItemId}`}
     >
       <h2 className="font-bold text-ink">{foodName}</h2>
-      <p className="mt-1 text-xs text-ink-soft">
-        Phiên bản dữ liệu thực phẩm {item.foodFactVersionId}
-      </p>
       <div className="mt-3 grid gap-3">
         <label className="grid gap-1 text-sm font-medium">
           <span>Số lượng {foodName}</span>

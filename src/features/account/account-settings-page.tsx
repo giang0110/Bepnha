@@ -49,6 +49,43 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
     setFailure(result.reason)
   }
 
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordBusy, setPasswordBusy] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState<{
+    type: "error" | "success"
+    text: string
+  } | null>(null)
+
+  async function submitPasswordChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (newPassword.length < 8) {
+      setPasswordMessage({ type: "error", text: "Mật khẩu cần ít nhất 8 ký tự." })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ type: "error", text: "Mật khẩu xác nhận không khớp." })
+      return
+    }
+    setPasswordBusy(true)
+    setPasswordMessage(null)
+    const result = await auth.updatePassword(newPassword)
+    setPasswordBusy(false)
+    if (result.ok) {
+      setNewPassword("")
+      setConfirmPassword("")
+      setPasswordMessage({ type: "success", text: "Đã đổi mật khẩu thành công." })
+    } else {
+      setPasswordMessage({
+        type: "error",
+        text:
+          result.reason === "WEAK_PASSWORD"
+            ? "Mật khẩu không đủ mạnh (cần ít nhất 8 ký tự)."
+            : "Không thể đổi mật khẩu lúc này. Vui lòng thử lại sau ít phút."
+      })
+    }
+  }
+
   return (
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <header className="flex flex-col gap-2">
@@ -56,6 +93,56 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
         <h1 className="text-3xl font-extrabold tracking-tight text-ink">Tài khoản</h1>
         {email === null ? null : <p className="text-sm text-ink-soft">{email}</p>}
       </header>
+
+      <section className="flex max-w-2xl flex-col gap-3 rounded-2xl border border-edge bg-paper-raised p-5 shadow-soft">
+        <h2 className="text-lg font-semibold text-ink">Đổi mật khẩu</h2>
+        <p className="text-sm text-ink-soft">
+          Đặt mật khẩu mới cho tài khoản của bạn (tối thiểu 8 ký tự).
+        </p>
+
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(event) => void submitPasswordChange(event)}
+        >
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Mật khẩu mới
+            <input
+              className="h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
+              name="newPassword"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Xác nhận mật khẩu mới
+            <input
+              className="h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+            />
+          </label>
+          {passwordMessage !== null ? (
+            <p
+              role={passwordMessage.type === "error" ? "alert" : "status"}
+              className={`text-sm ${passwordMessage.type === "error" ? "text-chilli-700" : "text-herb-700"}`}
+            >
+              {passwordMessage.text}
+            </p>
+          ) : null}
+          <Button
+            type="submit"
+            className="h-11 w-fit"
+            disabled={newPassword.length < 8 || newPassword !== confirmPassword || passwordBusy}
+          >
+            {passwordBusy ? "Đang cập nhật…" : "Cập nhật mật khẩu"}
+          </Button>
+        </form>
+      </section>
 
       <section className="flex max-w-2xl flex-col gap-3 rounded-2xl border border-chilli-200 bg-paper-raised p-5 shadow-soft">
         <h2 className="text-lg font-semibold text-chilli-900">Xoá tài khoản</h2>

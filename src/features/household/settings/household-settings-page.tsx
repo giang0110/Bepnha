@@ -83,7 +83,7 @@ function HouseholdSettingsEditor({
       tabIndex={-1}
       className="mx-auto min-h-screen w-full max-w-4xl overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
     >
-      <div className="mb-6 rounded-2xl border border-edge bg-paper-raised p-4 shadow-soft sm:flex sm:items-center sm:justify-between sm:gap-4">
+      <div className="mb-4 rounded-2xl border border-edge bg-paper-raised p-4 shadow-soft sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div className="mb-3 sm:mb-0">
           <p className="text-sm font-medium text-herb-700">Chỉnh sửa gia đình</p>
           <p className="mt-1 text-sm text-ink-soft">Bước {state.step}/5</p>
@@ -92,6 +92,30 @@ function HouseholdSettingsEditor({
           Hủy chỉnh sửa
         </Button>
       </div>
+
+      <nav aria-label="Các bước cài đặt" className="mb-6 flex flex-wrap gap-1.5 sm:gap-2">
+        {[
+          { step: 1, label: "Thành viên" },
+          { step: 2, label: "Ngân sách" },
+          { step: 3, label: "Dị ứng & Loại trừ" },
+          { step: 4, label: "Sở thích & Thời gian" },
+          { step: 5, label: "Xem lại & Lưu" }
+        ].map((item) => (
+          <button
+            key={item.step}
+            type="button"
+            className={[
+              "rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm",
+              state.step === item.step
+                ? "bg-herb-100 text-herb-900 ring-1 ring-inset ring-herb-300"
+                : "bg-paper-raised text-ink-soft hover:bg-paper-sunken hover:text-ink"
+            ].join(" ")}
+            onClick={() => dispatch({ type: "go-to-step", step: item.step as 1 | 2 | 3 | 4 | 5 })}
+          >
+            {item.step}. {item.label}
+          </button>
+        ))}
+      </nav>
       {state.step === 1 ? (
         <MemberGroupsStep
           counts={state.memberCounts}
