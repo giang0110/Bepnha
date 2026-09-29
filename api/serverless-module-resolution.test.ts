@@ -35,7 +35,10 @@ function resolveRelative(fromFile: string, specifier: string): string | null {
     `${withoutExtension}.tsx`,
     `${withoutExtension}/index.ts`
   ]) {
-    const path = relative(process.cwd(), resolve(dirname(fromFile), candidate))
+    const path = relative(process.cwd(), resolve(dirname(fromFile), candidate)).replaceAll(
+      "\\",
+      "/"
+    )
     try {
       statSync(path)
       return path
