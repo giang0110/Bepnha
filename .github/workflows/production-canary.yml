@@ -10,8 +10,9 @@ name: Production canary
 # Every check in tests/production is a read. Nothing signs up, signs in, or writes — production
 # holds real households, and a canary that created an account would leave one behind every hour.
 #
-# Required repository variable (not a secret; the origin is public):
-#   BEPNHA_PRODUCTION_URL - the deployed origin, e.g. https://bepnha.vercel.app
+# Optional repository variable (not a secret; the origin is public):
+#   BEPNHA_PRODUCTION_URL - overrides the canonical deployed origin when needed.
+#                          If unset, the workflow uses https://bepnhatoi.vercel.app.
 #
 # Note that GitHub disables scheduled workflows after 60 days without repository activity.
 
@@ -34,15 +35,23 @@ jobs:
     name: Read-only smoke
     runs-on: ubuntu-latest
     steps:
-      - name: Refuse to run without a target
+      - name: Validate the production target
         env:
-          PRODUCTION_URL: ${{ vars.BEPNHA_PRODUCTION_URL }}
+          PRODUCTION_URL: ${{ vars.BEPNHA_PRODUCTION_URL || 'https://bepnhatoi.vercel.app' }}
         run: |
           set -euo pipefail
           if [ -z "${PRODUCTION_URL}" ]; then
-            echo "Set the BEPNHA_PRODUCTION_URL repository variable to the deployed origin." >&2
+            echo "Production canary target is empty." >&2
             exit 1
           fi
+          case "${PRODUCTION_URL}" in
+            https://*) ;;
+            *)
+              echo "Production canary target must use HTTPS: ${PRODUCTION_URL}" >&2
+              exit 1
+              ;;
+          esac
+          echo "Production canary target: ${PRODUCTION_URL}"
 
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -54,7 +63,7 @@ jobs:
 
       - name: Smoke the deployed site
         env:
-          BEPNHA_PRODUCTION_URL: ${{ vars.BEPNHA_PRODUCTION_URL }}
+          BEPNHA_PRODUCTION_URL: ${{ vars.BEPNHA_PRODUCTION_URL || 'https://bepnhatoi.vercel.app' }}
         run: npm run smoke:production
 
       - if: failure()

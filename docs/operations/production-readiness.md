@@ -77,9 +77,10 @@ nothing that identifies a household or a person; the detail stays in the logs th
 points at. Leaving it unset is a supported state, not a degraded one — the console line is written
 either way, and a webhook that fails or hangs can never delay or fail a request.
 
-`BEPNHA_PRODUCTION_URL` (repository **variable**, not a secret — the origin is public) points the
-**Production canary** workflow at the deployed site. It runs the read-only `tests/production` smoke
-every three hours and fails loudly, which is what makes GitHub notify. Every check is a read;
+`BEPNHA_PRODUCTION_URL` is an optional repository **variable** (not a secret — the origin is public)
+that overrides the **Production canary** target. When it is unset, the workflow uses the canonical
+production origin `https://bepnhatoi.vercel.app`. The canary runs the read-only `tests/production`
+smoke every three hours and fails loudly, which is what makes GitHub notify. Every check is a read;
 nothing signs in or writes.
 
 ### 4. GitHub repository secrets
