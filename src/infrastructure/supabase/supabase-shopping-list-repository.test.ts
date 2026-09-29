@@ -2,7 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { describe, expect, it, vi } from "vitest"
 
 import type { Database } from "./database.types"
-import { createSupabaseShoppingListRepository } from "./supabase-shopping-list-repository"
+import {
+  createBrowserShoppingListRepository,
+  createSupabaseShoppingListRepository
+} from "./supabase-shopping-list-repository"
 
 const readyPayload = {
   status: "ready",
@@ -156,6 +159,53 @@ describe("Supabase shopping-list repository read", () => {
     const promise = createSupabaseShoppingListRepository(client).load("plan-a")
     await expect(promise).rejects.toMatchObject({ code })
     await expect(promise).rejects.not.toThrow(/permission|database|host|token|detail/i)
+  })
+})
+
+describe("browser shopping-list cached GET", () => {
+  it("forwards the current bearer token through the same-origin GET without exposing service credentials", async () => {
+    const rpc = vi.fn()
+    const client = {
+      rpc,
+      auth: {
+        getSession: vi.fn().mockResolvedValue({
+          data: { session: { access_token: "user-token" } },
+          error: null
+        })
+      }
+    } as unknown as SupabaseClient<Database>
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ shoppingList: readyPayload })
+    })
+
+    await expect(
+      createBrowserShoppingListRepository(client, fetcher).load("plan-a", "revision-a")
+    ).resolves.toMatchObject({ status: "ready", revisionId: "revision-a" })
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/shopping/current?planId=plan-a&revisionId=revision-a",
+      expect.objectContaining({
+        method: "GET",
+        headers: { Authorization: "Bearer user-token" }
+      })
+    )
+    expect(rpc).not.toHaveBeenCalledWith("get_shopping_list", expect.anything())
+  })
+
+  it("refuses to make a read when there is no authenticated browser session", async () => {
+    const client = {
+      rpc: vi.fn(),
+      auth: { getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }) }
+    } as unknown as SupabaseClient<Database>
+    const fetcher = vi.fn()
+
+    await expect(
+      createBrowserShoppingListRepository(client, fetcher).load("plan-a")
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED"
+    })
+    expect(fetcher).not.toHaveBeenCalled()
   })
 })
 

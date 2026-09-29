@@ -1,4 +1,6 @@
-export const COOKING_PROGRESS_STORAGE_KEY = "bepnha:cooking-progress:v1"
+import { COOKING_PROGRESS_STORAGE_KEY } from "@/app/pwa/household-device-data"
+
+export { COOKING_PROGRESS_STORAGE_KEY } from "@/app/pwa/household-device-data"
 
 export interface TimerProgressV1 {
   readonly startedAt: number | null

@@ -1,3 +1,5 @@
+import { HOUSEHOLD_DEVICE_STORAGE_KEYS } from "./household-device-data"
+
 /** The message the worker listens for. Exported so the test and the worker cannot drift apart. */
 export const PURGE_DATA_MESSAGE = "bepnha:purge-data" as const
 
@@ -11,6 +13,10 @@ interface ServiceWorkerContainerLike {
 
 interface NavigatorLike {
   readonly serviceWorker?: ServiceWorkerContainerLike
+}
+
+interface DeviceStorageLike {
+  readonly removeItem: (key: string) => void
 }
 
 /**
@@ -40,7 +46,21 @@ export async function registerServiceWorker(navigatorLike: NavigatorLike): Promi
  * session ended. Best-effort by nature — if no worker is controlling the page there is no cache to
  * clear either, so having nothing to talk to is success, not failure.
  */
-export async function purgeCachedHouseholdData(navigatorLike: NavigatorLike): Promise<void> {
+export async function purgeCachedHouseholdData(
+  navigatorLike: NavigatorLike,
+  storage: DeviceStorageLike | undefined = typeof localStorage === "undefined"
+    ? undefined
+    : localStorage
+): Promise<void> {
+  if (storage !== undefined) {
+    for (const key of HOUSEHOLD_DEVICE_STORAGE_KEYS) {
+      try {
+        storage.removeItem(key)
+      } catch {
+        // Continue purging the service-worker cache even when device storage is blocked.
+      }
+    }
+  }
   const container = navigatorLike.serviceWorker
   if (container === undefined) return
   try {

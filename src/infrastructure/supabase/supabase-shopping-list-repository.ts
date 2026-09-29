@@ -10,13 +10,13 @@ import {
   type ShoppingListReadResult,
   type ShoppingListRepository,
   type ShoppingListSource
-} from "@/application/shopping/shopping-list-repository"
-import { ExactDecimal } from "@/domain/shared/decimal"
+} from "../../application/shopping/shopping-list-repository.js"
+import { ExactDecimal } from "../../domain/shared/decimal.js"
 import {
   GROCERY_CATEGORIES,
   type GroceryCategoryCode
-} from "@/domain/shopping/grocery-category-config"
-import type { ShoppingWarning } from "@/domain/shopping/shopping-list"
+} from "../../domain/shopping/grocery-category-config.js"
+import type { ShoppingWarning } from "../../domain/shopping/shopping-list.js"
 
 import type { Database } from "./database.types.js"
 
@@ -354,5 +354,56 @@ export function createSupabaseShoppingListRepository(
       if (error !== null) throw rpcFailure(error)
       return parseTransferResult(data)
     }
+  }
+}
+
+interface ShoppingFetchResponse {
+  readonly ok: boolean
+  readonly status: number
+  readonly json: () => Promise<unknown>
+}
+
+type ShoppingFetcher = (url: string, init: RequestInit) => Promise<ShoppingFetchResponse>
+
+/**
+ * Uses a same-origin GET for reads so the service worker can retain an exact revision response.
+ * Narrow writes remain the existing RLS-protected RPC calls on the authenticated Supabase client.
+ */
+export function createBrowserShoppingListRepository(
+  client: SupabaseClient<Database>,
+  fetcher: ShoppingFetcher = fetch
+): ShoppingListRepository {
+  const mutations = createSupabaseShoppingListRepository(client)
+  return {
+    async load(planId, revisionId) {
+      const { data, error } = await client.auth.getSession()
+      const token = data.session?.access_token
+      if (error !== null || token === undefined) {
+        throw new ShoppingListRepositoryError("UNAUTHORIZED")
+      }
+      const query = new URLSearchParams({ planId })
+      if (revisionId !== undefined && revisionId !== null) query.set("revisionId", revisionId)
+      let response: ShoppingFetchResponse
+      try {
+        response = await fetcher(`/api/shopping/current?${query.toString()}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      } catch {
+        throw new ShoppingListRepositoryError("DEPENDENCY_UNAVAILABLE")
+      }
+      if (!response.ok) {
+        throw new ShoppingListRepositoryError(
+          response.status === 401 || response.status === 403
+            ? "UNAUTHORIZED"
+            : "DEPENDENCY_UNAVAILABLE"
+        )
+      }
+      const payload: unknown = await response.json()
+      if (!isRecord(payload) || !Object.hasOwn(payload, "shoppingList")) invalidStoredData()
+      return payload.shoppingList === null ? null : parseReadResult(payload.shoppingList)
+    },
+    setChecked: (shoppingListItemId, checked) => mutations.setChecked(shoppingListItemId, checked),
+    applyToPantry: (revisionId) => mutations.applyToPantry(revisionId)
   }
 }
