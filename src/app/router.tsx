@@ -29,6 +29,9 @@ const AssistantCard = lazy(async () => ({
 const SettingsPage = lazy(async () => ({
   default: (await import("@/features/settings/settings-page")).SettingsPage
 }))
+const HouseholdSummaryPage = lazy(async () => ({
+  default: (await import("@/features/household/household-summary-page")).HouseholdSummaryPage
+}))
 const OnboardingPage = lazy(async () => ({
   default: (await import("@/features/household/onboarding/onboarding-page")).OnboardingPage
 }))
@@ -107,7 +110,14 @@ export function AppRouter({
             </Suspense>
           }
         />
-        <Route path="/household" element={<Navigate replace to="/settings" />} />
+        <Route
+          path="/household"
+          element={
+            <Suspense fallback={<ProtectedRouteFallback />}>
+              <HouseholdSummaryPage repository={householdRepository} />
+            </Suspense>
+          }
+        />
         <Route
           path="/settings"
           element={

@@ -192,11 +192,11 @@ describe("authenticated app shell", () => {
     expect(await screen.findByRole("heading", { name: "Kế hoạch tuần" })).toBeInTheDocument()
   })
 
-  it("keeps the old household URL as a compatibility redirect to settings", async () => {
+  it("routes an authenticated household URL to household summary", async () => {
     householdLoad.mockResolvedValueOnce(household)
     renderRoutes(createAuthPort(session).port, "/household")
 
-    expect(await screen.findByRole("heading", { name: "Cài đặt" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Gia đình của bạn" })).toBeInTheDocument()
   })
 
   it("unsubscribes from auth changes on unmount", async () => {
