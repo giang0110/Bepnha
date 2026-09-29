@@ -1,5 +1,6 @@
 import { Button } from "@/app/components/ui/button"
 import type { HouseholdMemberGroup } from "@/domain/household/household"
+import { calculateAdultEquivalent } from "@/domain/portion/calculate-adult-equivalent"
 
 import { formatVnd } from "../budget-vnd"
 import { memberGroupLabel, ruleLabel } from "../household-display"
@@ -42,6 +43,7 @@ export function ReviewStep({
   onBack,
   onSave
 }: ReviewStepProps) {
+  const adultEquivalent = calculateAdultEquivalent(memberGroups)
   const errorMessage =
     saveState === "stale-error"
       ? "Thông tin đã thay đổi. Vui lòng tải lại trước khi lưu."
@@ -63,6 +65,11 @@ export function ReviewStep({
             <li key={`${group.memberKind}:${group.ageBand}`}>{memberGroupLabel(group)}</li>
           ))}
         </ul>
+        {adultEquivalent.ok ? (
+          <p className="mt-2 text-sm text-ink-soft">
+            Tương đương {adultEquivalent.value.adultEquivalent.replace(".", ",")} suất người lớn
+          </p>
+        ) : null}
       </div>
       <div>
         <h2 className="font-bold text-ink">Ngân sách</h2>

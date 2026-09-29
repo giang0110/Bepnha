@@ -1,6 +1,7 @@
 import { Button } from "@/app/components/ui/button"
 
 import { totalMemberCount, type MemberCountKey, type MemberCounts } from "../household-form-state"
+import { MemberCountStepper } from "./member-count-stepper"
 
 const MEMBER_FIELDS: ReadonlyArray<{ key: MemberCountKey; label: string }> = [
   { key: "adult", label: "Người lớn" },
@@ -40,22 +41,12 @@ export function MemberGroupsStep({
       </div>
       <div className="grid gap-3">
         {MEMBER_FIELDS.map((field) => (
-          <label
+          <MemberCountStepper
             key={field.key}
-            className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-edge-strong bg-paper-raised px-3.5 py-2 font-medium"
-          >
-            <span>{field.label}</span>
-            <input
-              className="h-10 w-20 rounded-xl border px-2 text-right"
-              aria-label={field.label}
-              inputMode="numeric"
-              min={0}
-              max={20}
-              type="number"
-              value={counts[field.key]}
-              onChange={(event) => onChange(field.key, Number(event.currentTarget.value || 0))}
-            />
-          </label>
+            label={field.label}
+            value={counts[field.key]}
+            onChange={(value) => onChange(field.key, value)}
+          />
         ))}
       </div>
       <p className="text-sm text-ink-soft">Hiện chưa hỗ trợ trẻ dưới 1 tuổi.</p>
