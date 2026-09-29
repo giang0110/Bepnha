@@ -33,6 +33,8 @@ import type {
   PlanStepView
 } from "./planner-api"
 import { MealRatingControl } from "./meal-rating-control"
+import { PlanTrustPanel } from "./plan-trust-panel"
+import { ReplacementComparison } from "./replacement-comparison"
 import { stepConditions, stepIngredientNames } from "./step-details"
 import { currentWeekStart, nextWeekStart } from "./week-start"
 
@@ -137,6 +139,14 @@ function errorCopy(code: string): string {
   }
   if (code === "UNAUTHORIZED") return "Phiên đăng nhập đã hết hạn."
   return "Không thể xử lý kế hoạch lúc này. Vui lòng thử lại."
+}
+
+function householdSettingsCanHelp(code: string): boolean {
+  return [
+    "PLAN_INPUT_CHANGED_REGENERATION_REQUIRED",
+    "HARD_FILTER_EXHAUSTED",
+    "UNSUPPORTED_HARD_RULE"
+  ].includes(code)
 }
 
 function SupportReference({ correlationId }: Readonly<{ correlationId: string | undefined }>) {
@@ -664,6 +674,11 @@ export function WeeklyPlanPage({
               Thử lại
             </Button>
           ) : null}
+          {householdSettingsCanHelp(state.code) ? (
+            <Link className={buttonVariants({ variant: "outline" })} to="/settings/household">
+              Xem điều kiện gia đình
+            </Link>
+          ) : null}
         </div>
       ) : null}
 
@@ -698,6 +713,8 @@ export function WeeklyPlanPage({
             })}
           </section>
 
+          {state.value.trust === undefined ? null : <PlanTrustPanel trust={state.value.trust} />}
+
           {/* Not plain "Đi chợ": the navigation carries that name for the week's list in general,
               and two links reading the same while leading to different places is a guess the
               reader should not have to make. This one is the list for the plan on screen. */}
@@ -708,19 +725,6 @@ export function WeeklyPlanPage({
             <Icon name="cart" className="size-5" />
             Đi chợ cho kế hoạch này
           </Link>
-
-          {accessToken === undefined || renderAssistant === undefined ? null : (
-            <Fragment key={`${state.value.planId}:${state.value.revisionId}`}>
-              {renderAssistant({
-                accessToken,
-                planId: state.value.planId,
-                expectedRevisionId: state.value.revisionId,
-                onPreviewDay: (dayIndex) => {
-                  void previewDay(dayIndex)
-                }
-              })}
-            </Fragment>
-          )}
 
           {(() => {
             const index = todayIndexIn(weekStart, today())
@@ -821,14 +825,43 @@ export function WeeklyPlanPage({
                 </li>
               ))}
           </ol>
+
+          {accessToken === undefined || renderAssistant === undefined ? null : (
+            <details className="rounded-3xl border border-edge bg-paper-raised p-4 shadow-soft">
+              <summary className="cursor-pointer font-bold text-ink">
+                Hỏi trợ lý về kế hoạch
+              </summary>
+              <p className="mt-2 text-xs leading-5 text-ink-soft">
+                Trợ lý chỉ giải thích kế hoạch hoặc gợi ý ngày nên xem lại; mọi phép tính và bữa
+                thay thế vẫn do hệ thống tất định xử lý.
+              </p>
+              <div className="mt-3">
+                <Fragment key={`${state.value.planId}:${state.value.revisionId}`}>
+                  {renderAssistant({
+                    accessToken,
+                    planId: state.value.planId,
+                    expectedRevisionId: state.value.revisionId,
+                    onPreviewDay: (dayIndex) => {
+                      void previewDay(dayIndex)
+                    }
+                  })}
+                </Fragment>
+              </div>
+            </details>
+          )}
         </>
       ) : null}
 
       {preview.status === "loading" ? <p role="status">Đang tìm bữa thay thế…</p> : null}
       {preview.status === "error" ? (
-        <div role="alert">
+        <div className="grid justify-items-start gap-2" role="alert">
           <p>{errorCopy(preview.code)}</p>
           <SupportReference correlationId={preview.correlationId} />
+          {householdSettingsCanHelp(preview.code) ? (
+            <Link className={buttonVariants({ variant: "outline" })} to="/settings/household">
+              Xem điều kiện gia đình
+            </Link>
+          ) : null}
         </div>
       ) : null}
       {preview.status === "ready" ? (
@@ -837,16 +870,22 @@ export function WeeklyPlanPage({
           aria-label="Xem trước bữa thay thế"
         >
           <h2 className="font-bold text-ink">Xem trước thay đổi</h2>
-          <p>
-            {
-              preview.value.items.find((item) => item.dayIndex === preview.dayIndex)
-                ?.mealOptionNameVi
-            }
-          </p>
-          <p className="text-sm text-ink-soft">
-            {preview.value.costDeltaVnd >= 0 ? "Tăng" : "Giảm"}{" "}
-            {formatVnd(Math.abs(preview.value.costDeltaVnd))} VND cho cả tuần
-          </p>
+          {(() => {
+            const current =
+              state.status === "ready"
+                ? state.value.plan.items.find((item) => item.dayIndex === preview.dayIndex)
+                : undefined
+            const replacement = preview.value.items.find(
+              (item) => item.dayIndex === preview.dayIndex
+            )
+            return current === undefined || replacement === undefined ? null : (
+              <ReplacementComparison
+                current={current}
+                replacement={replacement}
+                weeklyCostDeltaVnd={preview.value.costDeltaVnd}
+              />
+            )
+          })()}
           <div className="mt-3 flex gap-2">
             <Button disabled={submitting} type="button" onClick={() => void applyPreview()}>
               Áp dụng bữa thay thế

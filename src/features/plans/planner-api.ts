@@ -1,4 +1,5 @@
 import type { RecipeHeatLevel } from "@/domain/recipe/recipe"
+import type { PlanTrustView } from "@/application/planner/plan-trust"
 
 export interface PlanIngredientView {
   readonly sourceId: string
@@ -66,6 +67,7 @@ export interface PlannerReadyResponse {
     readonly totalEstimatedCostVnd: number
   }
   readonly warnings: readonly { readonly code: string; readonly [key: string]: unknown }[]
+  readonly trust?: PlanTrustView
 }
 
 export interface PlannerPreviewResponse {
@@ -75,6 +77,7 @@ export interface PlannerPreviewResponse {
   readonly costDeltaVnd: number
   readonly warnings: readonly { readonly code: string; readonly [key: string]: unknown }[]
   readonly previewFingerprint: string
+  readonly trust?: PlanTrustView
 }
 
 export type PlannerApiResult<T> =
@@ -133,6 +136,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+function isTrust(value: unknown): value is PlanTrustView {
+  return (
+    isRecord(value) &&
+    typeof value.calculationDate === "string" &&
+    (typeof value.adultEquivalent === "string" || value.adultEquivalent === null) &&
+    (typeof value.priceObservedFrom === "string" || value.priceObservedFrom === null) &&
+    (typeof value.priceObservedTo === "string" || value.priceObservedTo === null) &&
+    typeof value.stalePriceCount === "number" &&
+    Number.isSafeInteger(value.stalePriceCount) &&
+    value.stalePriceCount >= 0 &&
+    isRecord(value.coverage) &&
+    value.coverage.serving === "complete" &&
+    value.coverage.nutrition === "complete" &&
+    value.coverage.cost === "complete" &&
+    value.coverage.hardConstraints === "complete" &&
+    Array.isArray(value.explanationCodes) &&
+    value.explanationCodes.every((code) => typeof code === "string")
+  )
+}
+
 export function safePlannerCorrelationId(value: unknown): string | undefined {
   return typeof value === "string" && SAFE_CORRELATION_ID.test(value) ? value : undefined
 }
@@ -161,7 +184,8 @@ function isReady(value: unknown): value is PlannerReadyResponse {
     isRecord(value.plan) &&
     Array.isArray(value.plan.items) &&
     typeof value.plan.totalEstimatedCostVnd === "number" &&
-    Array.isArray(value.warnings)
+    Array.isArray(value.warnings) &&
+    (value.trust === undefined || isTrust(value.trust))
   )
 }
 
@@ -186,7 +210,8 @@ function isPreview(value: unknown): value is PlannerPreviewResponse {
     typeof value.weeklyEstimatedCostVnd === "number" &&
     typeof value.costDeltaVnd === "number" &&
     typeof value.previewFingerprint === "string" &&
-    Array.isArray(value.warnings)
+    Array.isArray(value.warnings) &&
+    (value.trust === undefined || isTrust(value.trust))
   )
 }
 

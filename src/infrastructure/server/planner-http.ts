@@ -223,7 +223,8 @@ function safeSuccess(value: unknown, kind: PlannerOperation) {
       weeklyEstimatedCostVnd: result.weeklyEstimatedCostVnd,
       costDeltaVnd: result.weeklyCostDeltaVnd,
       warnings: result.warnings,
-      previewFingerprint: result.previewFingerprint
+      previewFingerprint: result.previewFingerprint,
+      trust: result.trust
     }
   }
   return {
@@ -236,6 +237,7 @@ function safeSuccess(value: unknown, kind: PlannerOperation) {
     costDeltaVnd: result.costDeltaVnd,
     plan: publicPlan(result.plan),
     warnings: result.warnings,
+    trust: result.trust,
     ...(kind === "generate"
       ? {
           catalogFingerprint: result.catalogFingerprint,

@@ -5,6 +5,7 @@ import type {
   ReplacementAuthoritativeInput
 } from "../../application/planner/planner-use-cases.js"
 import type { PlannerInputV1 } from "../../domain/planner/planner-input.js"
+import { buildPlanTrustView } from "../../application/planner/plan-trust.js"
 
 type DbError = { readonly code?: string; readonly message?: string }
 type RpcResult = Promise<{ readonly data: unknown; readonly error: DbError | null }>
@@ -65,10 +66,12 @@ function currentPlanFrom(
   const revisionId = revision.id
   const budgetVnd = positiveInteger(revision.budget_vnd)
   const budgetStatus = revision.budget_status
+  const calculationDate = revision.calculation_date
   if (
     typeof planId !== "string" ||
     typeof revisionId !== "string" ||
     budgetVnd === null ||
+    typeof calculationDate !== "string" ||
     (budgetStatus !== "within" && budgetStatus !== "over") ||
     !Array.isArray(revision.warnings)
   ) {
@@ -82,7 +85,8 @@ function currentPlanFrom(
     status: budgetStatus === "within" ? "ready_within_budget" : "ready_over_budget",
     budgetVnd,
     plan: plan.currentPlan,
-    warnings: revision.warnings as CurrentPlanView["warnings"]
+    warnings: revision.warnings as CurrentPlanView["warnings"],
+    trust: buildPlanTrustView(plan.currentPlan, calculationDate)
   }
 }
 

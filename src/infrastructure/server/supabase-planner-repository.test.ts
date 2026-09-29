@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest"
 
 import type { PersistPlannerRevisionCommand } from "@/application/planner/planner-use-cases"
+import type { ReplacementAuthoritativeInput } from "@/application/planner/planner-use-cases"
 import { PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
 import { plannerInput } from "@/domain/planner/planner-test-fixture"
 
@@ -160,6 +161,69 @@ describe("Supabase planner repository", () => {
       engineVersion: PLANNER_ENGINE_VERSION,
       calculationDate: "2026-08-26",
       calculationFingerprint: "c".repeat(64)
+    })
+  })
+
+  test("projects current-plan trust from the stored revision and hydrated immutable plan", async () => {
+    const currentPlan = {
+      items: [{ adultEquivalent: "2.55" }],
+      selected: [],
+      purchaseBasket: {
+        lines: [{ observedAt: "2026-08-20", freshness: "stale_usable" }],
+        warnings: [],
+        totalEstimatedCostVnd: 650_000
+      },
+      totalEstimatedCostVnd: 650_000,
+      score: { explanations: ["REUSE_DISTINCT_FOODS"] },
+      stableIdSequence: "stable",
+      frontierMetrics: []
+    } as unknown as ReplacementAuthoritativeInput["currentPlan"]
+    const repository = createSupabasePlannerRepository({
+      userClient: {
+        rpc: vi.fn(() =>
+          success({
+            plan: { id: "plan-1" },
+            revision: {
+              id: "revision-1",
+              budget_vnd: 700_000,
+              budget_status: "within",
+              warnings: [],
+              calculation_date: "2026-08-26"
+            }
+          })
+        )
+      },
+      secretClientFactory: vi.fn(),
+      loader: {
+        hydrateGeneration: vi.fn(),
+        hydrateReplacement: vi.fn(() =>
+          Promise.resolve({
+            input: plannerInput(),
+            currentPlan,
+            planVersion: 1,
+            currentRevisionId: "revision-1",
+            householdSetupVersion: 1,
+            householdInputFingerprint: "fingerprint"
+          })
+        )
+      }
+    })
+
+    await expect(
+      repository.loadCurrentPlan({
+        actorUserId: "user-1",
+        householdId: "household-1",
+        weekStart: "2026-08-24"
+      })
+    ).resolves.toMatchObject({
+      ok: true,
+      value: {
+        trust: {
+          calculationDate: "2026-08-26",
+          adultEquivalent: "2.55",
+          stalePriceCount: 1
+        }
+      }
     })
   })
 
