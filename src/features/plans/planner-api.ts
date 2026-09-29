@@ -35,6 +35,8 @@ export interface PlanItemView {
   readonly mealOptionNameVi: string
   readonly elapsedMinutes: number
   readonly components: readonly {
+    /** Exact source identity used by scaled ingredient lineage. Older rollout payloads may omit it. */
+    readonly mealOptionRecipeId?: string
     readonly mealRole: string
     readonly sortOrder: number
     readonly recipe: {

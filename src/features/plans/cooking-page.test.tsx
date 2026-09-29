@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router"
-import { describe, expect, test, vi } from "vitest"
+import { beforeEach, describe, expect, test, vi } from "vitest"
 
 import type { MealRatingRepository } from "@/application/meal-rating/meal-rating-repository"
 import type { HouseholdRepository } from "@/application/household/household-repository"
@@ -38,6 +38,7 @@ function item(dayIndex: number): PlanItemView {
     elapsedMinutes: 25,
     components: [
       {
+        mealOptionRecipeId: "meal-recipe-main",
         mealRole: "main",
         sortOrder: 2,
         recipe: {
@@ -65,6 +66,7 @@ function item(dayIndex: number): PlanItemView {
         }
       },
       {
+        mealOptionRecipeId: "meal-recipe-staple",
         mealRole: "staple",
         sortOrder: 1,
         recipe: {
@@ -84,7 +86,16 @@ function item(dayIndex: number): PlanItemView {
         }
       }
     ],
-    scaledIngredients: [],
+    scaledIngredients: [
+      {
+        sourceId: "meal-recipe-main:ri-gao",
+        foodId: GAO,
+        foodFactVersionId: "fact-0",
+        baseUnitId: GAM,
+        baseQuantity: "400",
+        grossGrams: "400"
+      }
+    ],
     nutrition: { nutrients: [] }
   }
 }
@@ -130,7 +141,7 @@ function setup(
     ])
   }
 
-  render(
+  const rendered = render(
     <MemoryRouter initialEntries={[`/plan/${dayIndex}/cook`]}>
       <AuthContext.Provider
         value={{
@@ -161,10 +172,12 @@ function setup(
       </AuthContext.Provider>
     </MemoryRouter>
   )
-  return { api }
+  return { api, unmount: rendered.unmount }
 }
 
 describe("CookingPage", () => {
+  beforeEach(() => window.localStorage.clear())
+
   test("opens on the first step of the day it was asked for, not the first day of the week", async () => {
     const { api } = setup()
 
@@ -202,7 +215,7 @@ describe("CookingPage", () => {
     setup()
 
     await user.click(await screen.findByRole("button", { name: "Bước tiếp" }))
-    expect(screen.getByText("Gạo tẻ")).toBeInTheDocument()
+    expect(screen.getByText("Gạo tẻ — 400 g")).toBeInTheDocument()
     expect(screen.getByText("15 phút")).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Bước tiếp" }))
@@ -240,6 +253,36 @@ describe("CookingPage", () => {
     // A countdown that kept running would be timing the marinade while the cook is frying.
     expect(screen.getByText("6:00")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Bắt đầu" })).toBeInTheDocument()
+  })
+
+  test("restores the exact step and running timer after a reload of the same revision", async () => {
+    const user = userEvent.setup()
+    const first = setup()
+
+    await user.click(await screen.findByRole("button", { name: "Bước tiếp" }))
+    await user.click(screen.getByRole("button", { name: "Bắt đầu" }))
+    expect(screen.getByRole("button", { name: "Tạm dừng" })).toBeInTheDocument()
+    first.unmount()
+
+    setup()
+    expect(await screen.findByText("Ướp gà với gia vị.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Tạm dừng" })).toBeInTheDocument()
+  })
+
+  test("does not restore progress from a previous immutable revision", async () => {
+    window.localStorage.setItem(
+      "bepnha:cooking-progress:v1",
+      JSON.stringify({
+        version: "cooking-progress-v1",
+        revisionId: "old-revision",
+        dayIndex: 1,
+        stepKey: "1:1",
+        timers: {}
+      })
+    )
+
+    setup()
+    expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
   })
 
   test("says the meal is missing rather than showing an empty screen", async () => {

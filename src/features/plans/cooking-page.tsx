@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useParams } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
@@ -14,6 +14,12 @@ import { Button, buttonVariants } from "@/app/components/ui/button"
 import { Icon } from "@/app/components/ui/icon"
 
 import { cookingSequence, type CookingStep } from "./cooking-sequence"
+import {
+  clearCookingProgress,
+  loadCookingProgress,
+  saveCookingProgress,
+  type TimerProgressV1
+} from "./cooking-progress-store"
 import { formatCountdown, secondsRemaining } from "./cooking-timer"
 import {
   EMPTY_INGREDIENT_LABELS,
@@ -43,7 +49,12 @@ type LoadState =
   | { readonly status: "loading" }
   | { readonly status: "missing" }
   | { readonly status: "error" }
-  | { readonly status: "ready"; readonly item: PlanItemView; readonly mealName: string }
+  | {
+      readonly status: "ready"
+      readonly revisionId: string
+      readonly item: PlanItemView
+      readonly mealName: string
+    }
 
 /**
  * The countdown for one step.
@@ -52,10 +63,18 @@ type LoadState =
  * counter, so a phone that throttles the tab cannot make it finish late. The interval only decides
  * how often the number is repainted; `secondsRemaining` decides what it says.
  */
-function StepTimer({ minutes }: Readonly<{ minutes: number }>) {
+function StepTimer({
+  minutes,
+  progress,
+  onProgress
+}: Readonly<{
+  minutes: number
+  progress?: TimerProgressV1
+  onProgress: (progress: TimerProgressV1) => void
+}>) {
   const total = minutes * 60
-  const [startedAt, setStartedAt] = useState<number | null>(null)
-  const [pausedWith, setPausedWith] = useState<number | null>(null)
+  const startedAt = progress?.startedAt ?? null
+  const pausedWith = progress?.pausedWith ?? null
   const [now, setNow] = useState(() => Date.now())
 
   const running = startedAt !== null && pausedWith === null
@@ -71,9 +90,9 @@ function StepTimer({ minutes }: Readonly<{ minutes: number }>) {
 
   const start = () => {
     const carry = pausedWith ?? total
-    setStartedAt(Date.now() - (total - carry) * 1000)
-    setPausedWith(null)
-    setNow(Date.now())
+    const current = Date.now()
+    onProgress({ startedAt: current - (total - carry) * 1000, pausedWith: null })
+    setNow(current)
   }
 
   return (
@@ -88,7 +107,11 @@ function StepTimer({ minutes }: Readonly<{ minutes: number }>) {
       </p>
       <div className="mt-3 flex justify-center gap-2">
         {running ? (
-          <Button type="button" variant="outline" onClick={() => setPausedWith(remaining)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onProgress({ startedAt, pausedWith: remaining })}
+          >
             Tạm dừng
           </Button>
         ) : (
@@ -100,10 +123,7 @@ function StepTimer({ minutes }: Readonly<{ minutes: number }>) {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => {
-              setStartedAt(null)
-              setPausedWith(null)
-            }}
+            onClick={() => onProgress({ startedAt: null, pausedWith: null })}
           >
             Đặt lại
           </Button>
@@ -113,7 +133,15 @@ function StepTimer({ minutes }: Readonly<{ minutes: number }>) {
   )
 }
 
-function StepView({ step }: Readonly<{ step: CookingStep }>) {
+function StepView({
+  step,
+  timerProgress,
+  onTimerProgress
+}: Readonly<{
+  step: CookingStep
+  timerProgress?: TimerProgressV1
+  onTimerProgress: (progress: TimerProgressV1) => void
+}>) {
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -142,19 +170,30 @@ function StepView({ step }: Readonly<{ step: CookingStep }>) {
         </ul>
       )}
 
-      {step.ingredientNames.length > 0 && (
+      {step.ingredientDetails.length > 0 && (
         <div className="rounded-2xl bg-paper-sunken px-4 py-3">
           <p className="flex items-center gap-1.5 text-sm font-bold text-ink">
             <Icon name="leaf" className="size-4 text-herb-600" />
             Nguyên liệu cho bước này
           </p>
-          <p className="mt-1 text-ink-soft">{step.ingredientNames.join(", ")}</p>
+          <ul className="mt-1 grid gap-1 text-ink-soft">
+            {step.ingredientDetails.map((ingredient) => (
+              <li key={ingredient.recipeIngredientId}>{ingredient.label}</li>
+            ))}
+          </ul>
         </div>
       )}
 
       {/* Keyed by step so moving on gives a fresh timer: carrying a running countdown into the
           next instruction would time the wrong thing. */}
-      {step.timerMinutes === null ? null : <StepTimer key={step.key} minutes={step.timerMinutes} />}
+      {step.timerMinutes === null ? null : (
+        <StepTimer
+          key={step.key}
+          minutes={step.timerMinutes}
+          onProgress={onTimerProgress}
+          {...(timerProgress === undefined ? {} : { progress: timerProgress })}
+        />
+      )}
     </div>
   )
 }
@@ -187,6 +226,8 @@ export function CookingPage({
   const [rating, setRating] = useState<MealRating | null>(null)
   const [labels, setLabels] = useState<IngredientLabels>(EMPTY_INGREDIENT_LABELS)
   const [index, setIndex] = useState(0)
+  const [timers, setTimers] = useState<Readonly<Record<string, TimerProgressV1>>>({})
+  const [loadedProgressScope, setLoadedProgressScope] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
 
   const now = today ?? (() => new Date())
@@ -233,8 +274,23 @@ export function CookingPage({
         setState({ status: "missing" })
         return
       }
+      const progressScope = `${result.value.revisionId}:${String(dayIndex)}`
+      const progress = loadCookingProgress(window.localStorage, result.value.revisionId, dayIndex)
+      const initialSteps = cookingSequence(item, EMPTY_INGREDIENT_LABELS)
+      const restoredIndex =
+        progress === null
+          ? -1
+          : initialSteps.findIndex((candidate) => candidate.key === progress.stepKey)
       setHouseholdId(household.household.householdId)
-      setState({ status: "ready", item, mealName: item.mealOptionNameVi })
+      setIndex(restoredIndex < 0 ? 0 : restoredIndex)
+      setTimers(progress?.timers ?? {})
+      setLoadedProgressScope(progressScope)
+      setState({
+        status: "ready",
+        revisionId: result.value.revisionId,
+        item,
+        mealName: item.mealOptionNameVi
+      })
       if (mealRatingRepository !== undefined) {
         const stored = await mealRatingRepository
           .load(household.household.householdId)
@@ -263,11 +319,33 @@ export function CookingPage({
 
   useWakeLock(state.status === "ready")
 
-  const steps = state.status === "ready" ? cookingSequence(state.item, labels) : []
+  const steps = useMemo(
+    () => (state.status === "ready" ? cookingSequence(state.item, labels) : []),
+    [labels, state]
+  )
+  const progressScope = state.status === "ready" ? `${state.revisionId}:${String(dayIndex)}` : null
+  const step = steps[index]
+
+  useEffect(() => {
+    if (
+      state.status !== "ready" ||
+      progressScope === null ||
+      loadedProgressScope !== progressScope ||
+      step === undefined
+    ) {
+      return
+    }
+    saveCookingProgress(window.localStorage, {
+      version: "cooking-progress-v1",
+      revisionId: state.revisionId,
+      dayIndex,
+      stepKey: step.key,
+      timers
+    })
+  }, [dayIndex, loadedProgressScope, progressScope, state, step, timers])
   // Narrowed here rather than at the call site: the control renders deep inside the ready branch,
   // where TypeScript has lost the discriminant.
   const ratedMealOptionId = state.status === "ready" ? state.item.mealOptionId : null
-  const step = steps[index]
 
   const go = useCallback(
     (delta: number) => {
@@ -337,7 +415,13 @@ export function CookingPage({
             Món {step.dishNumber}/{step.dishCount} · Tổng bước {index + 1}/{steps.length}
           </p>
 
-          <StepView step={step} />
+          <StepView
+            step={step}
+            onTimerProgress={(progress) =>
+              setTimers((current) => ({ ...current, [step.key]: progress }))
+            }
+            {...(timers[step.key] === undefined ? {} : { timerProgress: timers[step.key] })}
+          />
 
           {/* Only on the last step, and only here. An opinion about a dish is formed by cooking it,
               so this is the one moment the household has an answer — and on the week screen the same
@@ -372,7 +456,16 @@ export function CookingPage({
               Bước trước
             </Button>
             {index === steps.length - 1 ? (
-              <Link className={buttonVariants({ size: "lg", className: "flex-1" })} to="/plan">
+              <Link
+                className={buttonVariants({ size: "lg", className: "flex-1" })}
+                to="/plan"
+                onClick={() => {
+                  if (state.status === "ready") {
+                    clearCookingProgress(window.localStorage, state.revisionId, dayIndex)
+                    setLoadedProgressScope(null)
+                  }
+                }}
+              >
                 Nấu xong
               </Link>
             ) : (
