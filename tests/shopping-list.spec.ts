@@ -322,6 +322,36 @@ test("shopping list stays revision-bound across check state, refresh, and one-me
     })
   })
 
+  const buildShoppingListResponse = (requestedRevisionId: string) => {
+    const isHistorical = requestedRevisionId === REVISION_V1
+    const rawItems = isHistorical ? initialItems : replacementItems
+    const responseItems = rawItems.map((entry) => ({
+      ...entry,
+      checked: checkedByRevision.get(`${requestedRevisionId}:${entry.shoppingListItemId}`) ?? false,
+      checkedAt:
+        checkedByRevision.get(`${requestedRevisionId}:${entry.shoppingListItemId}`) === true
+          ? "2026-09-01T07:00:00Z"
+          : null
+    }))
+    return shoppingReady(requestedRevisionId, responseItems, isHistorical ? 90_000 : 115_000)
+  }
+
+  await page.route("**/api/shopping/current*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback()
+      return
+    }
+    const url = new URL(route.request().url())
+    expect(url.searchParams.get("planId")).toBe(PLAN_ID)
+    const requestedRevisionId = url.searchParams.get("revisionId") ?? currentRevisionId
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
+      body: JSON.stringify({ shoppingList: buildShoppingListResponse(requestedRevisionId) })
+    })
+  })
+
   await page.route("**/rest/v1/rpc/get_shopping_list", async (route) => {
     if (route.request().method() !== "POST") {
       await route.fallback()
@@ -333,23 +363,11 @@ test("shopping list stays revision-bound across check state, refresh, and one-me
     }
     expect(body.p_plan_id).toBe(PLAN_ID)
     const requestedRevisionId = body.p_revision_id ?? currentRevisionId
-    const isHistorical = requestedRevisionId === REVISION_V1
-    const rawItems = isHistorical ? initialItems : replacementItems
-    const responseItems = rawItems.map((entry) => ({
-      ...entry,
-      checked: checkedByRevision.get(`${requestedRevisionId}:${entry.shoppingListItemId}`) ?? false,
-      checkedAt:
-        checkedByRevision.get(`${requestedRevisionId}:${entry.shoppingListItemId}`) === true
-          ? "2026-09-01T07:00:00Z"
-          : null
-    }))
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       headers: { "access-control-allow-origin": "*" },
-      body: JSON.stringify(
-        shoppingReady(requestedRevisionId, responseItems, isHistorical ? 90_000 : 115_000)
-      )
+      body: JSON.stringify(buildShoppingListResponse(requestedRevisionId))
     })
   })
 
