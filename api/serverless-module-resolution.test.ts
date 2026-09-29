@@ -92,7 +92,7 @@ describe("every module a serverless function loads", () => {
   it("reaches beyond api/ into the shared source tree", () => {
     // A closure of only the entrypoints would mean this test proves nothing.
     expect(files.length).toBeGreaterThan(20)
-    expect(files.some((file) => file.startsWith("src/"))).toBe(true)
+    expect(files.some((file) => file.replaceAll("\\", "/").startsWith("src/"))).toBe(true)
   })
 
   it("uses no path alias, because Node resolves one as an npm package", () => {

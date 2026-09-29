@@ -100,6 +100,9 @@ export default tseslint.config(
       "playwright-report/**",
       "test-results/**",
       ".vercel/**",
+      ".worktrees/**",
+      ".superpowers/**",
+      "@/**",
       "supabase/.temp/**",
       "src/infrastructure/supabase/database.types.ts"
     ]
