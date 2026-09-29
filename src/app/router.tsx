@@ -26,8 +26,8 @@ const AccountSettingsPage = lazy(async () => ({
 const AssistantCard = lazy(async () => ({
   default: (await import("@/features/assistant/assistant-card")).AssistantCard
 }))
-const HouseholdSummaryPage = lazy(async () => ({
-  default: (await import("@/features/household/household-summary-page")).HouseholdSummaryPage
+const SettingsPage = lazy(async () => ({
+  default: (await import("@/features/settings/settings-page")).SettingsPage
 }))
 const OnboardingPage = lazy(async () => ({
   default: (await import("@/features/household/onboarding/onboarding-page")).OnboardingPage
@@ -65,7 +65,7 @@ function HomeRedirect() {
   if (auth.status === "loading") {
     return <p role="status">Đang kiểm tra phiên đăng nhập…</p>
   }
-  return <Navigate replace to={auth.status === "authenticated" ? "/household" : "/sign-in"} />
+  return <Navigate replace to={auth.status === "authenticated" ? "/plan" : "/sign-in"} />
 }
 
 export function AppRouter({
@@ -107,11 +107,12 @@ export function AppRouter({
             </Suspense>
           }
         />
+        <Route path="/household" element={<Navigate replace to="/settings" />} />
         <Route
-          path="/household"
+          path="/settings"
           element={
             <Suspense fallback={<ProtectedRouteFallback />}>
-              <HouseholdSummaryPage repository={householdRepository} />
+              <SettingsPage />
             </Suspense>
           }
         />
