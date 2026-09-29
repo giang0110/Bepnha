@@ -180,6 +180,7 @@ test("mobile assistant remains advisory and deterministic replacement requires e
   await expect(page.getByRole("heading", { name: "Trợ lý Bếp Nhà" })).toHaveCount(0)
 
   await page.getByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }).click()
+  await page.getByText("Hỏi trợ lý về kế hoạch").click()
   await expect(page.getByRole("heading", { name: "Trợ lý Bếp Nhà" })).toBeVisible()
 
   await page.getByRole("button", { name: "Giải thích kế hoạch này" }).click()
