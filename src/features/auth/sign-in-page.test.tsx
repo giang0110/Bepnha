@@ -86,7 +86,7 @@ describe("sign in", () => {
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }))
 
     expect(signIn).toHaveBeenCalledWith("user@example.test", "correct horse battery staple")
-    expect(await screen.findByRole("heading", { name: "Gia đình của bạn" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Cài đặt" })).toBeInTheDocument()
   })
 
   it("restores a protected deep link including its query after sign-in", async () => {
