@@ -37,8 +37,27 @@ import { PlanTrustPanel } from "./plan-trust-panel"
 import { ReplacementComparison } from "./replacement-comparison"
 import { stepConditions, stepIngredientNames } from "./step-details"
 import { currentWeekStart, nextWeekStart } from "./week-start"
+import {
+  detectProteinGroup,
+  isWeekendDish,
+  proteinGroupLabel
+} from "@/domain/planner/meal-rotation-insights"
+import { solarToVietnameseLunar } from "@/domain/planner/vietnamese-lunar-calendar"
+import { WeeklyRotationBalanceCard } from "./weekly-rotation-balance-card"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
+
+function addDaysToIso(baseDate: string, days: number): string {
+  const parts = baseDate.split("-").map(Number)
+  const year = parts[0] ?? 2026
+  const month = parts[1] ?? 1
+  const day = parts[2] ?? 1
+  const d = new Date(year, month - 1, day + days, 12, 0, 0)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const dt = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${dt}`
+}
 
 function formatWeekRange(weekStart: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(weekStart)
@@ -726,6 +745,8 @@ export function WeeklyPlanPage({
             Đi chợ cho kế hoạch này
           </Link>
 
+          <WeeklyRotationBalanceCard items={state.value.plan.items} weekStart={weekStart} />
+
           {(() => {
             const index = todayIndexIn(weekStart, today())
             const meal =
@@ -733,6 +754,9 @@ export function WeeklyPlanPage({
                 ? undefined
                 : state.value.plan.items.find((candidate) => candidate.dayIndex === index)
             if (meal === undefined) return null
+            const todaySolar = addDaysToIso(weekStart, meal.dayIndex)
+            const todayLunar = solarToVietnameseLunar(todaySolar)
+            const todayProtein = detectProteinGroup(meal.mealOptionNameVi)
             return (
               /* The app is opened daily and organised weekly. Without this, answering "what am I
                  cooking tonight" meant counting down seven identical cards to find the right one. */
@@ -740,9 +764,20 @@ export function WeeklyPlanPage({
                 aria-label={`Bữa hôm nay, ${DAY_LABELS[meal.dayIndex]}`}
                 className="rounded-3xl border border-herb-200 bg-herb-50 p-5 shadow-soft"
               >
-                <p className="text-xs font-bold tracking-wide text-herb-900 uppercase">
-                  Hôm nay · {DAY_LABELS[meal.dayIndex]}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-bold tracking-wide text-herb-900 uppercase">
+                    Hôm nay · {DAY_LABELS[meal.dayIndex]} ({todayLunar.formattedShort})
+                  </p>
+                  {todayLunar.isVegetarianDay && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-herb-700 px-2.5 py-0.5 text-xs font-bold text-white">
+                      <Icon name="leaf" className="size-3" />
+                      {todayLunar.day === 15 ? "Hôm nay ngày Rằm" : "Hôm nay Mùng 1"}
+                    </span>
+                  )}
+                  <span className="rounded-full bg-paper-sunken px-2.5 py-0.5 text-xs font-medium text-ink-soft">
+                    {proteinGroupLabel(todayProtein)}
+                  </span>
+                </div>
                 <p className="mt-2 text-xl font-extrabold text-balance text-ink">
                   {meal.mealOptionNameVi}
                 </p>
@@ -774,56 +809,89 @@ export function WeeklyPlanPage({
           >
             {[...state.value.plan.items]
               .sort((left, right) => left.dayIndex - right.dayIndex)
-              .map((item) => (
-                <li
-                  aria-label={`Bữa chính ${DAY_LABELS[item.dayIndex]}`}
-                  className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft transition-shadow hover:shadow-lift"
-                  key={item.dayIndex}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="inline-flex rounded-full bg-herb-100 px-3 py-0.5 text-xs font-bold tracking-wide text-herb-900 uppercase">
-                        {DAY_LABELS[item.dayIndex]}
-                      </h2>
-                      <p className="mt-2 text-lg font-bold text-ink" data-testid="meal-name">
-                        {item.mealOptionNameVi}
-                      </p>
-                      <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-soft">
-                        <Icon name="clock" className="size-4" />
-                        Tối đa {item.elapsedMinutes} phút
-                      </p>
-                    </div>
-                    <Button
-                      disabled={submitting}
-                      variant="outline"
-                      type="button"
-                      onClick={() => void previewDay(item.dayIndex)}
-                    >
-                      Đổi bữa
-                    </Button>
-                  </div>
-                  <Link
-                    aria-label={`Bắt đầu nấu ${DAY_LABELS[item.dayIndex]}: ${item.mealOptionNameVi}`}
-                    className={buttonVariants({ className: "mt-4 w-full gap-2" })}
-                    to={`/plan/${item.dayIndex}/cook`}
+              .map((item) => {
+                const solarDate = addDaysToIso(weekStart, item.dayIndex)
+                const lunar = solarToVietnameseLunar(solarDate)
+                const protein = detectProteinGroup(item.mealOptionNameVi)
+                const isWeekend = item.dayIndex === 5 || item.dayIndex === 6
+                const celebratory =
+                  isWeekend && isWeekendDish(item.mealOptionNameVi, item.elapsedMinutes)
+                return (
+                  <li
+                    aria-label={`Bữa chính ${DAY_LABELS[item.dayIndex]}`}
+                    className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft transition-shadow hover:shadow-lift"
+                    key={item.dayIndex}
                   >
-                    <Icon name="pan" className="size-4" />
-                    Bắt đầu nấu
-                  </Link>
-                  <MealDetails
-                    item={item}
-                    labels={labels}
-                    rating={
-                      ratings.liked.includes(item.mealOptionId)
-                        ? "liked"
-                        : ratings.disliked.includes(item.mealOptionId)
-                          ? "disliked"
-                          : null
-                    }
-                    onRate={rateMeal}
-                  />
-                </li>
-              ))}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <h2 className="inline-flex rounded-full bg-herb-100 px-3 py-0.5 text-xs font-bold tracking-wide text-herb-900 uppercase">
+                            {DAY_LABELS[item.dayIndex]}
+                          </h2>
+                          <span className="text-xs font-semibold text-ink-soft">
+                            {lunar.formattedShort}
+                          </span>
+                          {lunar.isVegetarianDay && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full bg-herb-600 px-2 py-0.5 text-[11px] font-bold text-white"
+                              title={lunar.specialDayLabel ?? "Ngày ăn chay"}
+                            >
+                              <Icon name="leaf" className="size-3" />
+                              {lunar.day === 15 ? "Rằm" : "Mùng 1"}
+                            </span>
+                          )}
+                          {celebratory && (
+                            <span
+                              className="inline-flex items-center rounded-full bg-clay-100 px-2 py-0.5 text-[11px] font-bold text-clay-900"
+                              title="Món ngon sum họp cuối tuần"
+                            >
+                              Cuối tuần
+                            </span>
+                          )}
+                          <span className="inline-flex rounded-full bg-paper-sunken px-2 py-0.5 text-[11px] font-medium text-ink-soft">
+                            {proteinGroupLabel(protein)}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-lg font-bold text-ink" data-testid="meal-name">
+                          {item.mealOptionNameVi}
+                        </p>
+                        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-soft">
+                          <Icon name="clock" className="size-4" />
+                          Tối đa {item.elapsedMinutes} phút
+                        </p>
+                      </div>
+                      <Button
+                        disabled={submitting}
+                        variant="outline"
+                        type="button"
+                        onClick={() => void previewDay(item.dayIndex)}
+                      >
+                        Đổi bữa
+                      </Button>
+                    </div>
+                    <Link
+                      aria-label={`Bắt đầu nấu ${DAY_LABELS[item.dayIndex]}: ${item.mealOptionNameVi}`}
+                      className={buttonVariants({ className: "mt-4 w-full gap-2" })}
+                      to={`/plan/${item.dayIndex}/cook`}
+                    >
+                      <Icon name="pan" className="size-5" />
+                      Bắt đầu nấu
+                    </Link>
+                    <MealDetails
+                      item={item}
+                      labels={labels}
+                      rating={
+                        ratings.liked.includes(item.mealOptionId)
+                          ? "liked"
+                          : ratings.disliked.includes(item.mealOptionId)
+                            ? "disliked"
+                            : null
+                      }
+                      onRate={rateMeal}
+                    />
+                  </li>
+                )
+              })}
           </ol>
 
           {accessToken === undefined || renderAssistant === undefined ? null : (
