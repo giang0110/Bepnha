@@ -124,4 +124,19 @@ describe("cookingSequence", () => {
   test("returns nothing for a meal with no dishes rather than throwing", () => {
     expect(cookingSequence({ components: [] } as unknown as PlanItemView, labels)).toEqual([])
   })
+
+  test("skips staple dish steps when skipStaple is true", () => {
+    const sequence = cookingSequence(meal, labels, { skipStaple: true })
+    expect(sequence.map((s) => s.instructionVi)).toEqual([
+      "Ướp gà với gia vị.",
+      "Chiên vàng đều hai mặt."
+    ])
+    expect(sequence[0]).toMatchObject({
+      dishLabel: "Món mặn",
+      dishNumber: 1,
+      dishCount: 1,
+      stepNumber: 1,
+      stepCount: 2
+    })
+  })
 })

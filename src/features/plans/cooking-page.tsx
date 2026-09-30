@@ -476,10 +476,29 @@ export function CookingPage({
   const [counterMode, setCounterMode] = useState(false)
   const [speaking, setSpeaking] = useState(false)
 
+  const [skipRice, setSkipRice] = useState(() => {
+    if (typeof window === "undefined") return false
+    return window.localStorage.getItem("bepnha:cooking:skip-rice") === "true"
+  })
+
+  const toggleSkipRice = () => {
+    setSkipRice((prev) => {
+      const next = !prev
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("bepnha:cooking:skip-rice", String(next))
+      }
+      setIndex(0)
+      return next
+    })
+  }
+
   const steps = useMemo(
-    () => (state.status === "ready" ? cookingSequence(state.item, labels) : []),
-    [labels, state]
+    () =>
+      state.status === "ready" ? cookingSequence(state.item, labels, { skipStaple: skipRice }) : [],
+    [labels, skipRice, state]
   )
+  const hasStaple =
+    state.status === "ready" && state.item.components.some((c) => c.mealRole === "staple")
   const progressScope = state.status === "ready" ? `${state.revisionId}:${String(dayIndex)}` : null
   const step = steps[index]
 
@@ -660,6 +679,27 @@ export function CookingPage({
               </Button>
             ) : null}
           </div>
+
+          {hasStaple ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-herb-200 bg-herb-50/70 p-3 text-xs text-herb-900 shadow-soft dark:border-herb-800/40 dark:bg-herb-950/30 dark:text-herb-200">
+              <div className="flex items-center gap-2">
+                <Icon name="bowl" className="size-4 shrink-0 text-herb-700 dark:text-herb-400" />
+                <span>
+                  <strong>Cơm điện:</strong>{" "}
+                  {skipRice
+                    ? "Đã bỏ qua các bước cắm cơm điện (nhớ cắm nồi cơm trước khi nấu)."
+                    : "Đang hiển thị bước cắm cơm chi tiết."}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={toggleSkipRice}
+                className="shrink-0 font-bold text-herb-800 underline hover:text-herb-950 dark:text-herb-300 dark:hover:text-herb-100"
+              >
+                {skipRice ? "Hiện lại bước nấu cơm" : "Bỏ qua bước nấu cơm"}
+              </button>
+            </div>
+          ) : null}
 
           <div aria-hidden="true" className="flex gap-1">
             {steps.map((candidate, position) => (

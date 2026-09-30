@@ -5,6 +5,7 @@ import { loadHousehold, type LoadHouseholdResult } from "@/application/household
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import { saveHousehold } from "@/application/household/save-household"
 import { Button } from "@/app/components/ui/button"
+import { toast } from "@/app/components/ui/toast"
 import { AppPageShell } from "@/app/components/app-page-shell"
 import type { HouseholdSetup } from "@/domain/household/household"
 
@@ -69,6 +70,7 @@ function HouseholdSettingsEditor({
       household.version
     )
     if (result.ok) {
+      toast.success("Đã lưu thay đổi thông tin gia đình!")
       onSaved()
       return
     }

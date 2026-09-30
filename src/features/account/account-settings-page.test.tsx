@@ -46,13 +46,14 @@ function renderAccountPage(
   ),
   updatePassword: AuthSessionPort["updatePassword"] = vi.fn(() =>
     Promise.resolve({ ok: true as const })
-  )
+  ),
+  signIn: AuthSessionPort["signIn"] = vi.fn(() => Promise.resolve({ ok: true as const, session }))
 ) {
   const signOut = vi.fn(() => Promise.resolve({ ok: true as const }))
   const port = {
     getSession: vi.fn(() => Promise.resolve(session)),
     onAuthStateChange: vi.fn(() => vi.fn()),
-    signIn: vi.fn(),
+    signIn,
     signOut,
     signUp: vi.fn(),
     requestPasswordReset: vi.fn(),
@@ -157,6 +158,23 @@ describe("account deletion", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(expected)
     expect(await deleteButton()).toBeEnabled()
+  })
+
+  it("rejects deletion when security confirmation password is incorrect", async () => {
+    const user = userEvent.setup()
+    const deleteOwnAccount = vi.fn()
+    const signIn = vi.fn(() =>
+      Promise.resolve({ ok: false as const, reason: "INVALID_CREDENTIALS" as const })
+    )
+    renderAccountPage(deleteOwnAccount, vi.fn(), signIn)
+
+    await user.type(await emailField(), OWNER_EMAIL)
+    await user.type(screen.getByLabelText("Mật khẩu xác nhận bảo mật (tùy chọn)"), "wrong-pass")
+    await user.click(await deleteButton())
+
+    expect(signIn).toHaveBeenCalledWith(OWNER_EMAIL, "wrong-pass")
+    expect(deleteOwnAccount).not.toHaveBeenCalled()
+    expect(await screen.findByRole("alert")).toHaveTextContent("đăng nhập lại")
   })
 })
 

@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router"
 import type { AccountApi, DeleteAccountFailure } from "@/application/account/account-deletion"
 import { useAuth } from "@/app/auth/auth-context"
 import { Button } from "@/app/components/ui/button"
+import { toast } from "@/app/components/ui/toast"
 import { AppPageShell } from "@/app/components/app-page-shell"
 
 const failureMessages: Record<DeleteAccountFailure, string> = {
@@ -26,6 +27,7 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
   const auth = useAuth()
   const navigate = useNavigate()
   const [typedEmail, setTypedEmail] = useState("")
+  const [typedPassword, setTypedPassword] = useState("")
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<DeleteAccountFailure | null>(null)
 
@@ -38,8 +40,19 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
 
     setBusy(true)
     setFailure(null)
+
+    if (typedPassword.trim() !== "" && email !== null) {
+      const authResult = await auth.signIn(email, typedPassword)
+      if (!authResult.ok) {
+        setBusy(false)
+        setFailure("UNAUTHORIZED")
+        return
+      }
+    }
+
     const result = await accountApi.deleteOwnAccount(auth.session.accessToken)
     if (result.ok) {
+      toast.info("Tài khoản của bạn đã được xoá.")
       // The account is gone; clearing the local session is what turns that into a signed-out app.
       await auth.signOut()
       void navigate("/sign-in", { replace: true })
@@ -75,6 +88,7 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
       setNewPassword("")
       setConfirmPassword("")
       setPasswordMessage({ type: "success", text: "Đã đổi mật khẩu thành công." })
+      toast.success("Đã đổi mật khẩu thành công!")
     } else {
       setPasswordMessage({
         type: "error",
@@ -162,6 +176,18 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
               autoComplete="off"
               value={typedEmail}
               onChange={(event) => setTypedEmail(event.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Mật khẩu xác nhận bảo mật (tùy chọn)
+            <input
+              className="h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
+              name="confirmDeletePassword"
+              type="password"
+              placeholder="Nhập mật khẩu tài khoản..."
+              autoComplete="current-password"
+              value={typedPassword}
+              onChange={(event) => setTypedPassword(event.target.value)}
             />
           </label>
           {failure === null ? null : (
