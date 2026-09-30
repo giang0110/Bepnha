@@ -4,8 +4,8 @@
   "files": [
     {
       "file": "CHANGES.md",
-      "sha256": "b915a765501c33c7b8ffebaa2d5365181659013f2470999f32000f3fc31a66bc",
-      "bytes": 7947
+      "sha256": "5354b17149bd65907ef371df171b207cf120884425b289a1c5692b0fec3ac1e7",
+      "bytes": 10254
     },
     {
       "file": "ENRICHMENT_STATUS.md",
@@ -39,18 +39,18 @@
     },
     {
       "file": "foods.csv",
-      "sha256": "1b30993cf9192bfdf6831c06de8106e1d479e7530aac532aed5e9a960efcb57a",
-      "bytes": 6246
+      "sha256": "15f690aa7caa361aab3ae38ef09cf9a4633e48e654210c5fcb2d8b4f6288868b",
+      "bytes": 6292
     },
     {
       "file": "meal_option_components.csv",
-      "sha256": "cbff4bc521036980495890c24521761d2e6cee302c3d5f30fb9e238d08f319ff",
-      "bytes": 4235
+      "sha256": "8703a60354d7688bcee22521785689705ba0d40fa5d8006b80bb39d5b5b7c7e4",
+      "bytes": 8579
     },
     {
       "file": "meal_options.csv",
-      "sha256": "e54952df8c7d64a85a18632aaf4b69bc87e58235df18f320bbfb82dd6b476922",
-      "bytes": 3133
+      "sha256": "1030bb8b779edcffcafdf95b90cb08149c8ac9d2976df252f74569f8ab6c302c",
+      "bytes": 6156
     },
     {
       "file": "pack.csv",
@@ -59,33 +59,33 @@
     },
     {
       "file": "price_book.csv",
-      "sha256": "a5e9ca00ef4e3f2d59fe9c079c3a8deaa04a18cc0c9d591d97db7c081dc56be9",
-      "bytes": 80
+      "sha256": "8763b578634d08c0c18698959f9ee86abb777e2bbbac010a2b017af46e48056a",
+      "bytes": 82
     },
     {
       "file": "prices.csv",
-      "sha256": "7cd8fe53f694c144447ad67f78aa2c4ac39a0064b19bb9c72d625cc3d1acfc0a",
-      "bytes": 4585
+      "sha256": "9579492e768fbf3d0e87049a0eea4d88bb940854e8334dd638da9e39e4d1e169",
+      "bytes": 4631
     },
     {
       "file": "recipe_ingredients.csv",
-      "sha256": "691d6dee68d8014f548a569f59a507821aa54c55011b485fd32509a323bf12ab",
-      "bytes": 7897
+      "sha256": "ab692d6f1b58ee8bcb02e5cfd846ffe414e6b6caca4d068fb3acf1f656d34ddf",
+      "bytes": 8080
     },
     {
       "file": "recipe_steps.csv",
-      "sha256": "d5823baaf24c255288ba45ea5e86214c62ff598883cc5a684262466e5c047d27",
-      "bytes": 9967
+      "sha256": "3be8726ae83a55fc3902288f46df4cd03df257f1ee379a233391a980c881a31c",
+      "bytes": 10842
     },
     {
       "file": "recipes.csv",
-      "sha256": "7a0a0ccfbcaac6591c351c7d6ed767e6a26380eba8d3a9b9fd96b21717db1bab",
-      "bytes": 1842
+      "sha256": "d0fd2a870c93338fdf486a79b558634b31e08fac6d2aaca070d114f90c82ba37",
+      "bytes": 1880
     },
     {
       "file": "research_log.csv",
-      "sha256": "539ae8e59cd8140d8ade4c99e00e05995dff9ed2b2954b9bdebb9aee33511ddb",
-      "bytes": 676341
+      "sha256": "7336b812e9a68fd54db1c5f01ad49b4143b71351c491d60b4a775a7c28e948a3",
+      "bytes": 699838
     },
     {
       "file": "review_queue.csv",
