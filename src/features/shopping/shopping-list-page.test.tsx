@@ -281,6 +281,27 @@ describe("ShoppingListPage", () => {
     expect(window.localStorage.getItem("bepnha:shopping-check-queue:v1")).toBeNull()
   })
 
+  test("displays offline market banner and allows manual sync when online with pending checks", async () => {
+    const list = ready()
+    window.localStorage.setItem(
+      "bepnha:shopping-check-queue:v1",
+      JSON.stringify([{ revisionId: list.revisionId, shoppingListItemId: "rice", checked: true }])
+    )
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false })
+    const { repo, setChecked } = repository(list)
+    renderPage(repo)
+
+    expect(await screen.findByText(/Chế độ ngoại tuyến \(Chợ \/ Siêu thị\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 chờ đồng bộ/i)).toBeInTheDocument()
+
+    // Restore online
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: true })
+    window.dispatchEvent(new Event("online"))
+
+    expect(await screen.findByText(/đã đồng bộ 1 thay đổi/i)).toBeInTheDocument()
+    expect(setChecked).toHaveBeenCalledWith("rice", true)
+  })
+
   test("keeps manual extras device-local and outside the authoritative budget total", async () => {
     const user = userEvent.setup()
     const { repo, setChecked } = repository()

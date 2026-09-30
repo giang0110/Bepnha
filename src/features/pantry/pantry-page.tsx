@@ -455,7 +455,11 @@ export function PantryPage({
       ) : null}
       {state.status === "error" ? (
         <div className="grid justify-items-start gap-3" role="alert">
-          <p>Không thể tải tủ bếp lúc này.</p>
+          <p>
+            {typeof navigator !== "undefined" && !navigator.onLine
+              ? "Không có kết nối mạng. Không thể tải tủ bếp lúc này."
+              : "Không thể tải tủ bếp lúc này."}
+          </p>
           {/* Saying "try again" without offering a way to do it leaves a browser reload as the
               only route, which is not an instruction so much as an apology. */}
           <Button
