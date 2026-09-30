@@ -57,6 +57,21 @@ function request(
 
 const repository = {} as PlannerRepository
 
+const trust = {
+  calculationDate: "2026-08-26",
+  adultEquivalent: "2",
+  priceObservedFrom: "2026-08-01",
+  priceObservedTo: "2026-08-20",
+  stalePriceCount: 0,
+  coverage: {
+    serving: "complete" as const,
+    nutrition: "complete" as const,
+    cost: "complete" as const,
+    hardConstraints: "complete" as const
+  },
+  explanationCodes: ["DIVERSITY_COOKING_STYLE_VARIETY"]
+}
+
 function setup() {
   const generate = vi.fn().mockResolvedValue({
     ok: true,
@@ -69,6 +84,7 @@ function setup() {
       budgetVnd: 700_000,
       plan: { items: [], totalEstimatedCostVnd: 600_000 },
       warnings: [],
+      trust,
       catalogFingerprint: "a".repeat(64),
       inputFingerprint: "b".repeat(64),
       calculationFingerprint: "c".repeat(64)
@@ -82,6 +98,7 @@ function setup() {
       weeklyEstimatedCostVnd: 610_000,
       weeklyCostDeltaVnd: 10_000,
       warnings: [],
+      trust,
       previewFingerprint: "d".repeat(64)
     }
   })
@@ -96,7 +113,8 @@ function setup() {
       budgetVnd: 700_000,
       costDeltaVnd: 10_000,
       plan: { items: [], totalEstimatedCostVnd: 610_000 },
-      warnings: []
+      warnings: [],
+      trust
     }
   })
   const current = vi.fn()
@@ -131,7 +149,11 @@ describe("authoritative planner HTTP handlers", () => {
       expect.objectContaining({ actorUserId: "user-1" })
     )
     expect(state.status).toHaveBeenCalledWith(200)
-    expect(state.body).toMatchObject({ status: "ready_within_budget", budgetVnd: 700_000 })
+    expect(state.body).toMatchObject({
+      status: "ready_within_budget",
+      budgetVnd: 700_000,
+      trust: { calculationDate: "2026-08-26", adultEquivalent: "2" }
+    })
     expect(state.body).not.toHaveProperty("inputSnapshot")
     expect(state.body).not.toHaveProperty("calculationSnapshot")
     expectSecurityHeaders(state.setHeader)
@@ -148,7 +170,8 @@ describe("authoritative planner HTTP handlers", () => {
         status: "ready_within_budget",
         budgetVnd: 700_000,
         plan: { items: [], totalEstimatedCostVnd: 650_000 },
-        warnings: []
+        warnings: [],
+        trust
       }
     })
     const found = responseDouble()

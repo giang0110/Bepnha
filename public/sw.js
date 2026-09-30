@@ -11,11 +11,10 @@
  * `bepnha-shell` holds the app's own files — the HTML entry, the hashed JS and CSS, the fonts and
  * icons. None of it is about any particular household, so it survives signing out.
  *
- * `bepnha-data` holds authenticated GET responses, today only the current week's plan. This *is*
- * household data, so the page deletes this cache on sign-out and nothing else ever writes to it.
- * Nothing cross-origin is touched at all: the Supabase calls carry their own tokens and are left to
- * the network, which also means the shopping list is not covered here — it is an RPC POST, and the
- * Cache API cannot store a POST.
+ * `bepnha-data` holds the allowlisted authenticated GET responses for the current plan and exact
+ * shopping-list revisions. This *is* household data, so the page deletes this cache on sign-out and
+ * nothing else ever writes to it. Nothing cross-origin is touched at all: direct Supabase calls
+ * carry their own tokens and are left to the network.
  *
  * Kitchens and markets are where the signal is worst, which is the entire reason this exists.
  */
@@ -54,7 +53,7 @@ function isRevalidatedAsset(url) {
 
 /** The reads worth having offline. Kept to an explicit list so nothing is stored by accident. */
 function isCacheableRead(url) {
-  return url.pathname === "/api/plans/current"
+  return url.pathname === "/api/plans/current" || url.pathname === "/api/shopping/current"
 }
 
 self.addEventListener("install", (event) => {

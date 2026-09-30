@@ -26,6 +26,10 @@ export default defineConfig({
         test: {
           name: "app",
           include: ["src/**/*.test.{ts,tsx}"],
+          exclude: [
+            "src/test/planner-benchmark.test.ts",
+            "src/test/planner-performance-gate.test.ts"
+          ],
           environment: "jsdom",
           setupFiles: "./src/test/setup.ts"
         }

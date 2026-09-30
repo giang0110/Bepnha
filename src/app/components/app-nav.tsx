@@ -2,22 +2,18 @@ import { NavLink } from "react-router"
 import { Icon } from "./ui/icon"
 
 const links = [
-  { to: "/household", label: "Gia đình", shortLabel: "Nhà" },
-  { to: "/plan", label: "Kế hoạch", shortLabel: "Kế hoạch" },
-  // One of the two things this app is for every week, and it had no entry here at all: the only
-  // door was a button on the plan page.
+  { to: "/plan", label: "Hôm nay", shortLabel: "Hôm nay" },
   { to: "/shopping", label: "Đi chợ", shortLabel: "Đi chợ" },
   { to: "/pantry", label: "Tủ bếp", shortLabel: "Tủ bếp" },
-  { to: "/settings/account", label: "Tài khoản", shortLabel: "Tài khoản" }
+  { to: "/settings", label: "Cài đặt", shortLabel: "Cài đặt" }
 ] as const
 
 function NavGlyph({ index }: Readonly<{ index: number }>) {
   const paths = [
     "M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10.5Z",
-    "M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Zm2 4h10M7 12h4m-4 4h7",
     "M3 4h2.2l2.4 11.2a1.6 1.6 0 0 0 1.6 1.3h7.9a1.6 1.6 0 0 0 1.6-1.2L21 8H6M10 20.5h.01M17 20.5h.01",
     "M4 7h16l-1.5 13h-13L4 7Zm3-3h10l1 3H6l1-3Z",
-    "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0"
+    "M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-12v2m0 13v2m8.5-8.5h-2m-13 0h-2m15.4-5.4-1.4 1.4M7 17l-1.4 1.4m11.3 0L15.5 17M7 7 5.6 5.6"
   ] as const
 
   return (
@@ -56,7 +52,7 @@ export function AppNav() {
         </p>
       </div>
 
-      <ul className="grid grid-cols-5 gap-1 px-2 py-2 lg:grid-cols-1 lg:gap-1 lg:px-3 lg:py-1">
+      <ul className="grid grid-cols-4 gap-1 px-2 py-2 lg:grid-cols-1 lg:gap-1 lg:px-3 lg:py-1">
         {links.map((link, index) => (
           <li key={link.to}>
             <NavLink

@@ -83,6 +83,10 @@ describe("planner use cases", () => {
     expect(result.value.catalogFingerprint).toMatch(/^[0-9a-f]{64}$/u)
     expect(result.value.inputFingerprint).toMatch(/^[0-9a-f]{64}$/u)
     expect(result.value.calculationFingerprint).toMatch(/^[0-9a-f]{64}$/u)
+    expect(result.value.trust).toMatchObject({
+      calculationDate: "2026-08-26",
+      adultEquivalent: "2"
+    })
     expect(repo.loadGenerationInput).toHaveBeenCalledWith({
       actorUserId: "user-1",
       householdId: "household-1",

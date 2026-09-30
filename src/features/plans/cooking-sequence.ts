@@ -1,6 +1,7 @@
 import type { IngredientLabels } from "./ingredient-labels"
 import type { PlanItemView } from "./planner-api"
-import { stepConditions, stepIngredientNames } from "./step-details"
+import { stepConditions } from "./step-details"
+import { stepIngredientDetails, type StepIngredientDetail } from "./step-ingredient-details"
 
 /**
  * What each dish in a meal is called. A component's `mealRole` is a code; a cook reads a word.
@@ -30,7 +31,7 @@ export interface CookingStep {
   readonly stepCount: number
   readonly instructionVi: string
   readonly conditions: readonly string[]
-  readonly ingredientNames: readonly string[]
+  readonly ingredientDetails: readonly StepIngredientDetail[]
   readonly timerMinutes: number | null
 }
 
@@ -60,7 +61,15 @@ export function cookingSequence(item: PlanItemView, labels: IngredientLabels): C
       stepCount: steps.length,
       instructionVi: step.instructionVi,
       conditions: stepConditions(step),
-      ingredientNames: stepIngredientNames(step, dish.recipe.ingredients, labels),
+      ingredientDetails: stepIngredientDetails({
+        ingredientIds: step.ingredientIds,
+        recipeIngredients: dish.recipe.ingredients,
+        scaledIngredients: item.scaledIngredients,
+        labels,
+        ...(dish.mealOptionRecipeId === undefined
+          ? {}
+          : { mealOptionRecipeId: dish.mealOptionRecipeId })
+      }),
       timerMinutes: typeof step.timerMinutes === "number" ? step.timerMinutes : null
     }))
   })

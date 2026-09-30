@@ -1,5 +1,5 @@
-import type { GroceryCategoryCode } from "@/domain/shopping/grocery-category-config"
-import type { ShoppingWarning } from "@/domain/shopping/shopping-list"
+import type { GroceryCategoryCode } from "../../domain/shopping/grocery-category-config.js"
+import type { ShoppingWarning } from "../../domain/shopping/shopping-list.js"
 
 export type ShoppingListRepositoryErrorCode =
   "UNAUTHORIZED" | "DEPENDENCY_UNAVAILABLE" | "INVALID_STORED_DATA"

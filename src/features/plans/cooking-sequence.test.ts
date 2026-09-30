@@ -31,8 +31,10 @@ function step(order: number, instructionVi: string, extra: Record<string, unknow
 
 /** Deliberately out of order, so the function has to do the sorting rather than the fixture. */
 const meal = {
+  scaledIngredients: [],
   components: [
     {
+      mealOptionRecipeId: "meal-recipe-main",
       mealRole: "main",
       sortOrder: 2,
       recipe: {
@@ -50,6 +52,7 @@ const meal = {
       }
     },
     {
+      mealOptionRecipeId: "meal-recipe-staple",
       mealRole: "staple",
       sortOrder: 1,
       recipe: {
@@ -98,7 +101,13 @@ describe("cookingSequence", () => {
       conditions: ["6 phút", "Lửa lớn", "170°C"],
       timerMinutes: 6
     })
-    expect(sequence[2]?.ingredientNames).toEqual(["Gạo tẻ"])
+    expect(sequence[2]?.ingredientDetails).toEqual([
+      {
+        recipeIngredientId: "ri-gao",
+        status: "unavailable",
+        label: "Gạo tẻ — chưa có lượng đã tính"
+      }
+    ])
   })
 
   test("gives every step a key that is unique across dishes", () => {

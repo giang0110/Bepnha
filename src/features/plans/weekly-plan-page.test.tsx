@@ -371,14 +371,48 @@ describe("WeeklyPlanPage", () => {
     expect(screen.getByText(/giá cũ nhưng vẫn còn dùng được/i)).toBeInTheDocument()
   })
 
+  test("shows immutable calculation evidence when the server provides it", async () => {
+    const user = userEvent.setup()
+    setup({
+      generate: vi.fn().mockResolvedValue({
+        ok: true,
+        value: ready({
+          trust: {
+            calculationDate: "2026-08-26",
+            adultEquivalent: "2",
+            priceObservedFrom: "2026-08-01",
+            priceObservedTo: "2026-08-20",
+            stalePriceCount: 0,
+            coverage: {
+              serving: "complete",
+              nutrition: "complete",
+              cost: "complete",
+              hardConstraints: "complete"
+            },
+            explanationCodes: ["DIVERSITY_COOKING_STYLE_VARIETY"]
+          }
+        })
+      })
+    })
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    expect(
+      await screen.findByRole("heading", { name: "Vì sao kế hoạch này phù hợp" })
+    ).toBeInTheDocument()
+    expect(screen.getByText(/2 suất người lớn quy đổi/i)).toBeInTheDocument()
+  })
+
   test("previews, cancels without writing, then applies exactly the server replacement", async () => {
     const user = userEvent.setup()
     const { api } = setup()
     await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
     const before = (await screen.findAllByTestId("meal-name")).map((node) => node.textContent)
     await user.click(screen.getAllByRole("button", { name: "Đổi bữa" })[2]!)
-    expect(await screen.findByText("Bữa thay thế")).toBeInTheDocument()
-    expect(screen.getByText(/tăng 10.000 VND/i)).toBeInTheDocument()
+    const comparison = await screen.findByRole("region", { name: "Xem trước bữa thay thế" })
+    expect(within(comparison).getByText("Bữa thay thế")).toBeInTheDocument()
+    expect(within(comparison).getByText("Bữa 3")).toBeInTheDocument()
+    expect(within(comparison).getByText(/tăng 10.000 VND/i)).toBeInTheDocument()
+    expect(within(comparison).getByText(/giỏ mua của cả 7 bữa được tính lại/i)).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Hủy thay đổi" }))
     expect(api.apply).not.toHaveBeenCalled()
 
@@ -403,6 +437,10 @@ describe("WeeklyPlanPage", () => {
     expect(screen.queryByRole("region", { name: "Trợ lý Bếp Nhà" })).not.toBeInTheDocument()
     await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
 
+    const assistantSummary = screen.getByText("Hỏi trợ lý về kế hoạch")
+    expect(assistantSummary.closest("details")).not.toHaveAttribute("open")
+    await user.click(assistantSummary)
+    expect(assistantSummary.closest("details")).toHaveAttribute("open")
     expect(await screen.findByRole("region", { name: "Trợ lý Bếp Nhà" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Xem bữa thay thế cho Thứ Tư" }))
 
@@ -424,6 +462,7 @@ describe("WeeklyPlanPage", () => {
     setup({}, renderAssistant)
 
     await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    await user.click(screen.getByText("Hỏi trợ lý về kế hoạch"))
     const oldState = await screen.findByRole("textbox", {
       name: `Assistant local state ${ready().revisionId}`
     })
@@ -445,6 +484,16 @@ describe("WeeklyPlanPage", () => {
     setup({ generate: vi.fn().mockResolvedValue({ ok: false, error: "STALE_PLAN_VERSION" }) })
     await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
     expect(await screen.findByRole("alert")).toHaveTextContent(/thay đổi.*tải lại trang/i)
+  })
+
+  test("links hard-filter recovery to household settings", async () => {
+    const user = userEvent.setup()
+    setup({ generate: vi.fn().mockResolvedValue({ ok: false, error: "HARD_FILTER_EXHAUSTED" }) })
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    expect(await screen.findByRole("link", { name: "Xem điều kiện gia đình" })).toHaveAttribute(
+      "href",
+      "/settings/household"
+    )
   })
 
   test("shows the week's existing plan on arrival, without being asked to generate one", async () => {

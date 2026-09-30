@@ -18,6 +18,13 @@ import { pantryRestockCandidates } from "@/domain/shopping/pantry-restock"
 import { Icon } from "@/app/components/ui/icon"
 
 import { shareText } from "./share-text"
+import { ManualShoppingExtrasSection } from "./manual-shopping-extras-section"
+import {
+  discardQueuedShoppingCheck,
+  loadQueuedShoppingChecks,
+  queueShoppingCheck,
+  replayQueuedShoppingChecks
+} from "./offline-shopping-store"
 import { shoppingListText } from "./shopping-list-text"
 import { shoppingProgress } from "./shopping-progress"
 
@@ -112,10 +119,12 @@ function staleWarningCopy(value: ReadyShoppingList): string | null {
 function ShoppingItemRow({
   item,
   pending,
+  queued,
   onCheckedChange
 }: Readonly<{
   item: ShoppingListItem
   pending: boolean
+  queued: boolean
   onCheckedChange: (item: ShoppingListItem, checked: boolean) => void
 }>) {
   const unit = unitLabel(item.baseUnitId)
@@ -169,6 +178,7 @@ function ShoppingItemRow({
               ? `Mua ${formatQuantity(item.purchasePackageCount)} gói × ${formatQuantity(item.packageBaseQuantity)} ${unit}`
               : "Không cần mua thêm"}
           </p>
+          {queued ? <p className="text-xs font-medium text-broth-700">Chờ đồng bộ</p> : null}
           <details className="mt-2 rounded-2xl bg-paper-sunken px-3 py-2 text-sm" data-print="hide">
             <summary className="cursor-pointer font-medium">Chi tiết và dùng cho bữa nào</summary>
             <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-ink-soft">
@@ -214,11 +224,13 @@ function CategorySection({
   category,
   items,
   pendingIds,
+  queuedIds,
   onCheckedChange
 }: Readonly<{
   category: GroceryCategoryDefinition
   items: readonly ShoppingListItem[]
   pendingIds: ReadonlySet<string>
+  queuedIds: ReadonlySet<string>
   onCheckedChange: (item: ShoppingListItem, checked: boolean) => void
 }>) {
   return (
@@ -230,6 +242,7 @@ function CategorySection({
             item={item}
             key={item.shoppingListItemId}
             pending={pendingIds.has(item.shoppingListItemId)}
+            queued={queuedIds.has(item.shoppingListItemId)}
             onCheckedChange={onCheckedChange}
           />
         ))}
@@ -244,7 +257,9 @@ export function ShoppingListPage({ repository }: Props) {
   const revisionId = searchParams.get("revisionId")
   const [state, setState] = useState<ViewState>({ status: "loading" })
   const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(new Set())
+  const [queuedIds, setQueuedIds] = useState<ReadonlySet<string>>(new Set())
   const [mutationError, setMutationError] = useState<string | null>(null)
+  const [syncNotice, setSyncNotice] = useState<string | null>(null)
   const [shareNotice, setShareNotice] = useState<string | null>(null)
   const [restockNotice, setRestockNotice] = useState<string | null>(null)
   const [restocking, setRestocking] = useState(false)
@@ -272,7 +287,26 @@ export function ShoppingListPage({ repository }: Props) {
         } else if (result.status === "legacy_unavailable") {
           setState({ status: "legacy", value: result })
         } else {
-          setState({ status: "ready", value: result })
+          const queue = loadQueuedShoppingChecks(window.localStorage, result.revisionId)
+          const desired = new Map(
+            queue.map((entry) => [entry.shoppingListItemId, entry.checked] as const)
+          )
+          setQueuedIds(new Set(queue.map((entry) => entry.shoppingListItemId)))
+          setState({
+            status: "ready",
+            value: {
+              ...result,
+              items: result.items.map((item) =>
+                desired.has(item.shoppingListItemId)
+                  ? {
+                      ...item,
+                      checked: desired.get(item.shoppingListItemId) ?? item.checked,
+                      checkedAt: null
+                    }
+                  : item
+              )
+            }
+          })
         }
       } catch (error: unknown) {
         if (active) setState({ status: "error", message: errorCopy(error) })
@@ -284,6 +318,37 @@ export function ShoppingListPage({ repository }: Props) {
       active = false
     }
   }, [planId, repository, revisionId, reloadToken])
+
+  const readyRevisionId = state.status === "ready" ? state.value.revisionId : null
+
+  useEffect(() => {
+    if (readyRevisionId === null) return
+    const exactRevisionId = readyRevisionId
+    let active = true
+
+    async function synchronize() {
+      if (!navigator.onLine) return
+      const outcome = await replayQueuedShoppingChecks(
+        window.localStorage,
+        exactRevisionId,
+        (shoppingListItemId, checked) => repository.setChecked(shoppingListItemId, checked)
+      )
+      if (!active) return
+      const remaining = loadQueuedShoppingChecks(window.localStorage, exactRevisionId)
+      setQueuedIds(new Set(remaining.map((entry) => entry.shoppingListItemId)))
+      if (outcome.applied > 0) {
+        setSyncNotice(`Đã đồng bộ ${outcome.applied} thay đổi mua sắm.`)
+      }
+    }
+
+    const onOnline = () => void synchronize()
+    window.addEventListener("online", onOnline)
+    void synchronize()
+    return () => {
+      active = false
+      window.removeEventListener("online", onOnline)
+    }
+  }, [readyRevisionId, repository])
 
   const groups = useMemo(
     () => (state.status === "ready" ? categoryGroups(state.value.items) : []),
@@ -352,7 +417,31 @@ export function ShoppingListPage({ repository }: Props) {
               }
             }
       )
-    } catch {
+      discardQueuedShoppingCheck(window.localStorage, {
+        revisionId: state.value.revisionId,
+        shoppingListItemId: item.shoppingListItemId
+      })
+      setQueuedIds((current) => {
+        const next = new Set(current)
+        next.delete(item.shoppingListItemId)
+        return next
+      })
+    } catch (error: unknown) {
+      const queueable =
+        !navigator.onLine ||
+        (error instanceof ShoppingListRepositoryError && error.code === "DEPENDENCY_UNAVAILABLE")
+      if (queueable) {
+        const stored = queueShoppingCheck(window.localStorage, {
+          revisionId: state.value.revisionId,
+          shoppingListItemId: item.shoppingListItemId,
+          checked
+        })
+        if (stored) {
+          setQueuedIds((current) => new Set(current).add(item.shoppingListItemId))
+          setSyncNotice("Thay đổi đã lưu trên thiết bị và sẽ đồng bộ khi có mạng.")
+          return
+        }
+      }
       setState((current) =>
         current.status !== "ready"
           ? current
@@ -540,6 +629,12 @@ export function ShoppingListPage({ repository }: Props) {
             </p>
           )}
 
+          {syncNotice === null ? null : (
+            <p className="text-sm text-broth-700" role="status">
+              {syncNotice}
+            </p>
+          )}
+
           {alertCopy === null ? null : (
             <p
               className="rounded-2xl border border-broth-200 bg-broth-50 p-3 text-sm text-broth-900"
@@ -556,10 +651,16 @@ export function ShoppingListPage({ repository }: Props) {
                 items={items}
                 key={category.code}
                 pendingIds={pendingIds}
+                queuedIds={queuedIds}
                 onCheckedChange={(entry, checked) => void setChecked(entry, checked)}
               />
             ))}
           </div>
+
+          <ManualShoppingExtrasSection
+            key={state.value.revisionId}
+            revisionId={state.value.revisionId}
+          />
         </>
       ) : null}
     </AppPageShell>

@@ -23,13 +23,13 @@ done.
 Until these exist the site loads and then fails to authenticate anyone, because the browser client
 is constructed from `VITE_*` values at build time.
 
-| Variable | Scope | Value |
-| --- | --- | --- |
-| `VITE_SUPABASE_URL` | public, build-time | `https://vkrqzwlpneocgjwhqbsl.supabase.co` |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | public, build-time | project publishable/anon key |
-| `SUPABASE_URL` | public, server | same URL as above |
-| `SUPABASE_PUBLISHABLE_KEY` | public, server | same key as above |
-| `SUPABASE_SECRET_KEY` | **secret, server only** | project secret/service-role key |
+| Variable                        | Scope                   | Value                                      |
+| ------------------------------- | ----------------------- | ------------------------------------------ |
+| `VITE_SUPABASE_URL`             | public, build-time      | `https://vkrqzwlpneocgjwhqbsl.supabase.co` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | public, build-time      | project publishable/anon key               |
+| `SUPABASE_URL`                  | public, server          | same URL as above                          |
+| `SUPABASE_PUBLISHABLE_KEY`      | public, server          | same key as above                          |
+| `SUPABASE_SECRET_KEY`           | **secret, server only** | project secret/service-role key            |
 
 `VITE_*` values are compiled into the browser bundle and are readable by anyone. Never put
 `SUPABASE_SECRET_KEY`, a Gemini key or an Upstash token behind a `VITE_` prefix. A redeploy is
@@ -38,31 +38,24 @@ runtime.
 
 Optional, and only once its own gate is met:
 
-| Variable | Gate |
-| --- | --- |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | enables the shared rate limiter; required before production Gemini |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | only after the shared limiter above is configured |
-| `ASSISTANT_RATE_LIMIT_BURST`, `ASSISTANT_RATE_LIMIT_DAILY` | optional overrides within reviewed bounds |
+| Variable                                                   | Gate                                                               |
+| ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`       | enables the shared rate limiter; required before production Gemini |
+| `GEMINI_API_KEY`, `GEMINI_MODEL`                           | only after the shared limiter above is configured                  |
+| `ASSISTANT_RATE_LIMIT_BURST`, `ASSISTANT_RATE_LIMIT_DAILY` | optional overrides within reviewed bounds                          |
 
 ### 2. Production database schema
 
-Production held zero tables at the last read-only preflight, so this is a bootstrap of the complete
-reviewed chain, not drift repair. Apply the eight migrations in exactly this order:
+The repository currently contains 21 ordered migrations. Do not maintain or execute a hand-copied
+subset from this runbook: inspect the exact candidate checkout and the production-migration workflow
+dry run. Every unapplied migration requires explicit production authorization, including migrations
+added after the historical eight-migration bootstrap described below.
 
-1. `20260825000000_phase_0_security_baseline.sql`
-2. `20260825010000_phase_1_household.sql`
-3. `20260826000000_qualify_household_rpc_constraints.sql`
-4. `20260826010000_phase_2_food_recipe.sql`
-5. `20260826020000_phase_3_planner.sql`
-6. `20260827000000_phase_4_shopping_list.sql`
-7. `20260901000000_phase_5_pantry.sql`
-8. `20260902000000_phase_5_pantry_shopping_trace.sql`
-
-This is the single irreversible step in the sequence and requires explicit authorisation for project
-`vkrqzwlpneocgjwhqbsl` specifically. Verify read-only afterwards per **Production Supabase target**
-above: migration history matches these eight, expected tables and functions exist, generated types
-stay compatible, and both Supabase advisors are reviewed. Never run a remote reset, a test fixture,
-or a catalog-readiness fixture against production.
+This is an irreversible operator step for project `vkrqzwlpneocgjwhqbsl`. Verify read-only
+afterwards per **Production Supabase target**: remote migration history must match the exact
+repository chain, expected tables and functions must exist, generated types must stay compatible,
+and both Supabase advisors must be reviewed. Never run a remote reset, test fixture, or
+catalog-readiness fixture against production.
 
 ### 3. Supabase Auth configuration
 
@@ -222,7 +215,7 @@ Resolved production project as of 2026-09-04:
 
 The repository's `supabase/config.toml` uses `bepnha-local`; that identifier is local-only and must never be treated as the production ref.
 
-At the initial read-only production preflight, the production project had zero recorded migrations and zero `public` tables. The repository `main` contains eight ordered migration files:
+At the initial read-only production preflight, the production project had zero recorded migrations and zero `public` tables. The repository then contained eight ordered migration files:
 
 1. `20260825000000_phase_0_security_baseline.sql`
 2. `20260825010000_phase_1_household.sql`
@@ -233,7 +226,7 @@ At the initial read-only production preflight, the production project had zero r
 7. `20260901000000_phase_5_pantry.sql`
 8. `20260902000000_phase_5_pantry_shopping_trace.sql`
 
-Therefore the first production schema operation is a bootstrap of the complete reviewed migration chain, not an incremental drift repair.
+That historical bootstrap is not the current repository chain. At this commit the repository has 21 migrations; always use the exact-checkout dry run and schema verifier instead of treating the list above as a current apply list.
 
 ### Migration authorization
 
@@ -347,7 +340,7 @@ npm run verify:production:schema
 
 The script derives its expectation from `supabase/migrations/` rather than a maintained list, so it cannot drift from the repository. It opens a read-only session, passes no part of the credential on the command line, and prints `PRODUCTION_SCHEMA_MATCHES_REPOSITORY` only when all of the following hold:
 
-- remote migration history exactly matches the eight repository migrations;
+- remote migration history exactly matches every migration in the candidate checkout;
 - every expected public table and function exists, and no unexpected one does;
 - row level security is enabled on every `public` table.
 
@@ -465,7 +458,7 @@ project now exists, is linked to `giang0110/Bepnha`, and builds:
 - Vercel project: `bepnha` (`prj_ytmKFxiv9EjO8Sld8E2R2eejM8Es`).
 - Production deployments have succeeded from `main` since the install command was pinned.
 
-That resolves the deployment *target*. It does not by itself make the deployment usable: the
+That resolves the deployment _target_. It does not by itself make the deployment usable: the
 environment variables below are still required, and without them the site loads but cannot
 authenticate anyone.
 
@@ -522,6 +515,7 @@ The underlying fragility remains: the build depends on a binary name the declare
 itself provide. A follow-up may switch the `typecheck`/`build` scripts to the `tsc6` binary that
 `@typescript/typescript6` actually ships — verified working — but that changes which compiler checks
 the project, so it needs its own review rather than riding a deployment fix.
+
 ### Function region and duration
 
 `vercel.json` pins `regions: ["sin1"]` so Functions run in Singapore alongside the resolved
@@ -651,6 +645,7 @@ One launch blocker remains, which the codebase cannot supply:
   the operator is a separate question that a qualified reviewer must answer before launch.
 
 Do not publish the application to real households with the placeholder contact still in place.
+
 ## Password recovery
 
 `/forgot-password` and `/reset-password` let an owner who lost their password regain access. Without

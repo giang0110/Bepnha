@@ -1,6 +1,7 @@
 import { Button } from "@/app/components/ui/button"
 
 import { formatVnd, parseVnd } from "../budget-vnd"
+import { BudgetPresets } from "./budget-presets"
 
 interface BudgetStepProps {
   heading?: string
@@ -45,6 +46,13 @@ export function BudgetStep({
           onChange={(event) => onChange(event.currentTarget.value)}
         />
       </label>
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-ink">Chọn nhanh</p>
+        <BudgetPresets
+          selectedVnd={parsed}
+          onSelect={(budgetVnd) => onChange(formatVnd(budgetVnd))}
+        />
+      </div>
       <p className="text-sm text-ink-soft">Nhập số tiền từ 1 đến 100.000.000 VND.</p>
       {showError ? (
         <p role="alert" className="text-sm text-chilli-700">

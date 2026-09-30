@@ -64,19 +64,19 @@ function renderAt(initialEntry: string, activeSession: AuthSession | null = sess
 
 describe("primary navigation", () => {
   it("labels itself so it is reachable as a landmark", async () => {
-    renderAt("/household")
+    renderAt("/settings")
 
     expect(await screen.findByRole("navigation", { name: "Điều hướng chính" })).toBeInTheDocument()
   })
 
   it("links the signed-in destinations", async () => {
-    renderAt("/household")
+    renderAt("/settings")
 
     const nav = await screen.findByRole("navigation", { name: "Điều hướng chính" })
     const hrefs = [...nav.querySelectorAll("a")].map((anchor) => anchor.getAttribute("href"))
     // Đi chợ sits between the plan and the pantry: it is one of the two things this app is for
     // every week, and it used to be reachable only through a button on the plan page.
-    expect(hrefs).toEqual(["/household", "/plan", "/shopping", "/pantry", "/settings/account"])
+    expect(hrefs).toEqual(["/plan", "/shopping", "/pantry", "/settings"])
   })
 
   it("marks the current destination for assistive technology", async () => {
@@ -92,7 +92,7 @@ describe("primary navigation", () => {
 
   it("keeps the skip link ahead of the navigation so one Tab still reaches it", async () => {
     const user = userEvent.setup()
-    renderAt("/household")
+    renderAt("/settings")
 
     // The accessibility suite presses Tab exactly once and expects the skip link. Rendering the
     // navigation first would silently steal that first stop.
@@ -104,7 +104,7 @@ describe("primary navigation", () => {
 
   // The skip link is global, so every protected route must actually provide its target. Several
   // screens rendered a bare status paragraph or a `main` without the id and pointed it at nothing.
-  it.each(["/household", "/settings/household", "/settings/account", "/pantry", "/plan"])(
+  it.each(["/settings", "/settings/household", "/settings/account", "/pantry", "/plan"])(
     "points the skip link at a main landmark that exists on %s",
     async (route) => {
       renderAt(route)

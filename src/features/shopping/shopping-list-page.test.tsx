@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router"
-import { describe, expect, test, vi } from "vitest"
+import { beforeEach, describe, expect, test, vi } from "vitest"
 
 import type {
   ReadyShoppingList,
@@ -126,6 +126,11 @@ function renderPage(repo: ShoppingListRepository, entry = "/shopping/plan-a") {
 }
 
 describe("ShoppingListPage", () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: true })
+  })
+
   test("renders stable category groups, Vietnamese item ordering, totals, package quantities and collapsed provenance", async () => {
     const { repo, load } = repository()
     renderPage(repo)
@@ -240,6 +245,59 @@ describe("ShoppingListPage", () => {
     await user.click(refreshed)
     expect(setChecked).toHaveBeenLastCalledWith("rice", false)
     expect(refreshed).not.toBeChecked()
+  })
+
+  test("keeps an offline check locally and compacts it for later synchronization", async () => {
+    const user = userEvent.setup()
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false })
+    const { repo, setChecked } = repository()
+    setChecked.mockRejectedValue(new Error("offline"))
+    renderPage(repo)
+
+    const rice = await screen.findByRole("checkbox", { name: "Gạo" })
+    await user.click(rice)
+
+    expect(rice).toBeChecked()
+    expect(await screen.findByText(/sẽ đồng bộ khi có mạng/i)).toBeInTheDocument()
+    expect(window.localStorage.getItem("bepnha:shopping-check-queue:v1")).toContain("rice")
+  })
+
+  test("replays queued checks when connectivity returns", async () => {
+    const list = ready()
+    window.localStorage.setItem(
+      "bepnha:shopping-check-queue:v1",
+      JSON.stringify([{ revisionId: list.revisionId, shoppingListItemId: "rice", checked: true }])
+    )
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false })
+    const { repo, setChecked } = repository(list)
+    renderPage(repo)
+
+    expect(await screen.findByRole("checkbox", { name: "Gạo" })).toBeChecked()
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: true })
+    window.dispatchEvent(new Event("online"))
+
+    expect(await screen.findByText(/đã đồng bộ 1 thay đổi/i)).toBeInTheDocument()
+    expect(setChecked).toHaveBeenCalledWith("rice", true)
+    expect(window.localStorage.getItem("bepnha:shopping-check-queue:v1")).toBeNull()
+  })
+
+  test("keeps manual extras device-local and outside the authoritative budget total", async () => {
+    const user = userEvent.setup()
+    const { repo, setChecked } = repository()
+    const first = renderPage(repo)
+
+    await screen.findByText("250.000 VND / 200.000 VND")
+    await user.type(screen.getByRole("textbox", { name: "Món mua thêm" }), "Túi rác")
+    await user.click(screen.getByRole("button", { name: "Thêm món mua riêng" }))
+
+    expect(screen.getByText("Túi rác")).toBeInTheDocument()
+    expect(screen.getByText(/chỉ lưu trên thiết bị này/i)).toBeInTheDocument()
+    expect(screen.getByText("250.000 VND / 200.000 VND")).toBeInTheDocument()
+    expect(setChecked).not.toHaveBeenCalled()
+
+    first.unmount()
+    renderPage(repo)
+    expect(await screen.findByText("Túi rác")).toBeInTheDocument()
   })
 
   test("disables a pending toggle and rolls back the visual state when mutation fails", async () => {

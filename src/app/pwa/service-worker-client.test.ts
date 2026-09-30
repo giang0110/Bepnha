@@ -28,12 +28,17 @@ describe("registerServiceWorker", () => {
 describe("purgeCachedHouseholdData", () => {
   test("tells the controlling worker to drop the household cache", async () => {
     const postMessage = vi.fn()
+    const removeItem = vi.fn()
 
-    await purgeCachedHouseholdData({
-      serviceWorker: { register: vi.fn(), controller: { postMessage } }
-    })
+    await purgeCachedHouseholdData(
+      { serviceWorker: { register: vi.fn(), controller: { postMessage } } },
+      { removeItem }
+    )
 
     expect(postMessage).toHaveBeenCalledWith({ type: "bepnha:purge-data" })
+    expect(removeItem).toHaveBeenCalledWith("bepnha:cooking-progress:v1")
+    expect(removeItem).toHaveBeenCalledWith("bepnha:shopping-check-queue:v1")
+    expect(removeItem).toHaveBeenCalledWith("bepnha:manual-shopping-extras:v1")
   })
 
   test("reaches the worker on the very first load, before it controls the page", async () => {

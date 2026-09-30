@@ -15,6 +15,7 @@ import type { CanonicalFoodDeduction } from "../../domain/pricing/pricing.js"
 import { canonicalJson, canonicalUtf8 } from "../../domain/shared/canonical-json.js"
 import { buildShoppingListSnapshot } from "../../domain/shopping/build-shopping-list-snapshot.js"
 import type { ShoppingListSnapshotV1 } from "../../domain/shopping/shopping-list.js"
+import { buildPlanTrustView, type PlanTrustView } from "./plan-trust.js"
 
 type Failure = { readonly ok: false; readonly error: { readonly code: PlannerFatalCode } }
 
@@ -40,6 +41,7 @@ export interface CurrentPlanView {
   readonly budgetVnd: number
   readonly plan: ReadyPlan
   readonly warnings: readonly { readonly code: string; readonly [key: string]: unknown }[]
+  readonly trust: PlanTrustView
 }
 
 export interface ReplacementAuthoritativeInput {
@@ -341,6 +343,7 @@ export async function generateMealPlan(
           budgetVnd: normalized.value.weeklyPlanBudgetVnd,
           plan: planned.plan,
           warnings: planned.warnings,
+          trust: buildPlanTrustView(planned.plan, normalized.value.calculationDate),
           ...evidence
         }
       }
@@ -420,7 +423,8 @@ async function replacementPreview(
       previewFingerprint: evidenceResult.value.calculationFingerprint,
       evidence: evidenceResult.value,
       authoritative: loaded.value,
-      normalized: normalized.value
+      normalized: normalized.value,
+      trust: buildPlanTrustView(plan, normalized.value.calculationDate)
     }
   }
 }
@@ -480,7 +484,8 @@ export async function applyMealReplacement(
           budgetVnd: normalized.weeklyPlanBudgetVnd,
           costDeltaVnd: preview.value.weeklyCostDeltaVnd,
           plan,
-          warnings: preview.value.warnings
+          warnings: preview.value.warnings,
+          trust: buildPlanTrustView(plan, normalized.calculationDate)
         }
       }
     : persisted

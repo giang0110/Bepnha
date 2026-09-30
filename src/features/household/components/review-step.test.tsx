@@ -25,6 +25,7 @@ describe("ReviewStep", () => {
     expect(screen.getByRole("heading", { name: "Kiểm tra thông tin" })).toBeInTheDocument()
     expect(screen.getByText("2 người lớn")).toBeInTheDocument()
     expect(screen.getByText("1 trẻ 4–6 tuổi")).toBeInTheDocument()
+    expect(screen.getByText("Tương đương 2,55 suất người lớn")).toBeInTheDocument()
     expect(screen.getByText("1.500.000 VND cho 7 bữa chính")).toBeInTheDocument()
     expect(screen.getByText("Dị ứng đậu phộng")).toBeInTheDocument()
     expect(screen.getByText("Không dùng thịt bò")).toBeInTheDocument()

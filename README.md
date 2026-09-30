@@ -82,7 +82,7 @@ The planner selects exactly seven curated primary cooked family meals, one for e
 
 Budget is not part of quality scoring. If any discovered complete plan is within budget, over-budget finalists are discarded. Otherwise the minimum exact basket cost wins first and quality only breaks equal-cost ties. An over-budget result is still a successful plan and reports exact estimate, budget, and overage.
 
-Replacement locks six exact day/version tuples, recomputes the complete weekly basket, and creates a new immutable seven-item revision. Every new Phase 4 generation, regeneration, and replacement uses the shared `planner-engine-v2` production constant. Historical Phase 3 `planner-engine-v1` revisions are never rewritten.
+Replacement locks six exact day/version tuples, recomputes the complete weekly basket, and creates a new immutable seven-item revision. New generation, regeneration, and replacement use the single `PLANNER_ENGINE_VERSION` constant, currently `planner-engine-v5`. Historical revisions keep their recorded engine version and are never rewritten.
 
 ### Shopping-list authority
 
@@ -157,7 +157,7 @@ npm run verify:release:web
 git diff --check
 ```
 
-`verify:release:web` composes environment validation, secret scanning, dependency audit at moderate severity or above, Prettier, ESLint, TypeScript, coverage, production build, the dedicated planner performance gate, and the lightweight SPA/deep-link smoke.
+`verify:release:web` composes environment validation, secret scanning, dependency audit at moderate severity or above, Prettier, scoped sequential ESLint runs, TypeScript, coverage, production build, the dedicated planner performance gate, and the lightweight SPA/deep-link smoke. The ordinary unit and coverage suites intentionally exclude planner benchmarks; run `benchmark:planner` and `test:performance:planner` explicitly so CPU contention from parallel test workers cannot invalidate their timing evidence.
 
 `npm run preflight` records exactly one capability result:
 
