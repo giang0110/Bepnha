@@ -2,7 +2,8 @@ import { describe, expect, test } from "vitest"
 import {
   CANONICAL_DISH_RECIPES,
   findLeftoverMealSuggestions,
-  matchIngredients
+  matchIngredients,
+  summarizeLeftoverEfficiency
 } from "./leftover-meal-matcher"
 
 describe("leftover-meal-matcher domain", () => {
@@ -70,5 +71,23 @@ describe("leftover-meal-matcher domain", () => {
   test("returns empty suggestions when pantry has no matching ingredients", () => {
     const results = findLeftoverMealSuggestions(["Muối tinh", "Đường cát"])
     expect(results).toHaveLength(0)
+  })
+
+  test("matches new canonical dishes such as Canh ngao nấu chua, Gà rang gừng, Thịt ba chỉ luộc", () => {
+    const pantryItems = ["Ngao", "Cà chua", "Rau muống"]
+    const results = findLeftoverMealSuggestions(pantryItems)
+    const dishNames = results.map((d) => d.dishNameVi)
+
+    expect(dishNames).toContain("Canh ngao nấu chua")
+    expect(dishNames).toContain("Rau muống luộc")
+  })
+
+  test("summarizes leftover efficiency with actionable advice", () => {
+    const pantryItems = ["Thịt gà ta", "Gừng"]
+    const summary = summarizeLeftoverEfficiency(pantryItems)
+
+    expect(summary.readyToCookCount).toBeGreaterThanOrEqual(1)
+    expect(summary.adviceVi).toContain("Tủ bếp sẵn sàng nấu ngay")
+    expect(summary.suggestedDishes.length).toBeGreaterThan(0)
   })
 })

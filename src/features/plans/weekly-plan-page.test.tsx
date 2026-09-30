@@ -339,6 +339,35 @@ describe("WeeklyPlanPage", () => {
     expect(screen.queryByText(/danh sách mua sắm/i)).not.toBeInTheDocument()
   })
 
+  test("renders seasonal thermal affinity badges on meals", async () => {
+    const user = userEvent.setup()
+    setup({
+      generate: vi.fn().mockResolvedValue({
+        ok: true,
+        value: ready({
+          plan: {
+            items: [
+              item(0, "Canh chua cá lóc"),
+              item(1, "Gà kho gừng"),
+              item(2, "Bò xào cần tỏi"),
+              item(3, "Đậu phụ sốt cà chua"),
+              item(4, "Cá basa chiên giòn"),
+              item(5, "Lẩu gà lá é"),
+              item(6, "Bún chả Hà Nội")
+            ],
+            totalEstimatedCostVnd: 650_000
+          }
+        })
+      })
+    })
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+
+    const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
+    expect(within(cards[0]!).getByText("Thanh nhiệt")).toBeInTheDocument()
+    expect(within(cards[1]!).getByText("Ấm nồng")).toBeInTheDocument()
+  })
+
   test("shows precise over-budget, bounded-search, and stale-price warnings as successful output", async () => {
     const user = userEvent.setup()
     setup({

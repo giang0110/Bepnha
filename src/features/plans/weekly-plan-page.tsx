@@ -42,6 +42,7 @@ import {
   isWeekendDish,
   proteinGroupLabel
 } from "@/domain/planner/meal-rotation-insights"
+import { detectDishThermalAffinity } from "@/domain/planner/seasonal-weather-insights"
 import { solarToVietnameseLunar } from "@/domain/planner/vietnamese-lunar-calendar"
 import { FamilyCollaborationModal } from "./family-collaboration-modal"
 import { useFamilyWishlist } from "./family-wishlist-store"
@@ -778,6 +779,7 @@ export function WeeklyPlanPage({
             const todaySolar = addDaysToIso(weekStart, meal.dayIndex)
             const todayLunar = solarToVietnameseLunar(todaySolar)
             const todayProtein = detectProteinGroup(meal.mealOptionNameVi)
+            const todayThermal = detectDishThermalAffinity(meal.mealOptionNameVi)
             return (
               /* The app is opened daily and organised weekly. Without this, answering "what am I
                  cooking tonight" meant counting down seven identical cards to find the right one. */
@@ -793,6 +795,18 @@ export function WeeklyPlanPage({
                     <span className="inline-flex items-center gap-1 rounded-full bg-herb-700 px-2.5 py-0.5 text-xs font-bold text-white">
                       <Icon name="leaf" className="size-3" />
                       {todayLunar.day === 15 ? "Hôm nay ngày Rằm" : "Hôm nay Mùng 1"}
+                    </span>
+                  )}
+                  {todayThermal === "cooling" && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-900">
+                      <Icon name="leaf" className="size-3 text-blue-600" />
+                      Thanh nhiệt
+                    </span>
+                  )}
+                  {todayThermal === "warming" && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
+                      <Icon name="flame" className="size-3 text-amber-700" />
+                      Ấm nồng
                     </span>
                   )}
                   <span className="rounded-full bg-paper-sunken px-2.5 py-0.5 text-xs font-medium text-ink-soft">
@@ -834,6 +848,7 @@ export function WeeklyPlanPage({
                 const solarDate = addDaysToIso(weekStart, item.dayIndex)
                 const lunar = solarToVietnameseLunar(solarDate)
                 const protein = detectProteinGroup(item.mealOptionNameVi)
+                const thermal = detectDishThermalAffinity(item.mealOptionNameVi)
                 const isWeekend = item.dayIndex === 5 || item.dayIndex === 6
                 const celebratory =
                   isWeekend && isWeekendDish(item.mealOptionNameVi, item.elapsedMinutes)
@@ -867,6 +882,24 @@ export function WeeklyPlanPage({
                               title="Món ngon sum họp cuối tuần"
                             >
                               Cuối tuần
+                            </span>
+                          )}
+                          {thermal === "cooling" && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700"
+                              title="Món thanh nhiệt, thanh mát"
+                            >
+                              <Icon name="leaf" className="size-3 text-blue-500" />
+                              Thanh nhiệt
+                            </span>
+                          )}
+                          {thermal === "warming" && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+                              title="Món ấm nồng giữ nhiệt"
+                            >
+                              <Icon name="flame" className="size-3 text-amber-600" />
+                              Ấm nồng
                             </span>
                           )}
                           <span className="inline-flex rounded-full bg-paper-sunken px-2 py-0.5 text-[11px] font-medium text-ink-soft">
