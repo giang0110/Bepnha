@@ -3,6 +3,10 @@ import type {
   ShoppingListItem
 } from "@/application/shopping/shopping-list-repository"
 import { GROCERY_CATEGORIES } from "@/domain/shopping/grocery-category-config"
+import {
+  categoryDestination,
+  type ShoppingDestination
+} from "@/domain/shopping/shopping-destinations"
 
 const VI_COLLATOR = new Intl.Collator("vi", { sensitivity: "base" })
 
@@ -48,10 +52,16 @@ function line(item: ShoppingListItem, unitLabel: (baseUnitId: string) => string)
  */
 export function shoppingListText(
   value: ReadyShoppingList,
-  unitLabel: (baseUnitId: string) => string
+  unitLabel: (baseUnitId: string) => string,
+  destination: ShoppingDestination = "all"
 ): string {
+  const targetItems =
+    destination === "all"
+      ? value.items
+      : value.items.filter((item) => categoryDestination(item.groceryCategoryCode) === destination)
+
   const sections = GROCERY_CATEGORIES.map((category) => {
-    const items = value.items
+    const items = targetItems
       .filter((item) => item.groceryCategoryCode === category.code)
       .toSorted(
         (left, right) =>
@@ -63,15 +73,23 @@ export function shoppingListText(
       : `${category.labelVi}\n${items.map((item) => line(item, unitLabel)).join("\n")}`
   }).filter((section): section is string => section !== null)
 
-  const remaining = value.items
+  const totalCost = targetItems.reduce((total, item) => total + item.lineCostVnd, 0)
+  const remaining = targetItems
     .filter((item) => !item.checked)
     .reduce((total, item) => total + item.lineCostVnd, 0)
 
-  const header = `Đi chợ — tuần từ ${formatWeekStart(value.weekStart)}`
+  const destinationPrefix =
+    destination === "wet_market"
+      ? "Đi chợ (Chợ dân sinh) — "
+      : destination === "supermarket"
+        ? "Đi chợ (Siêu thị / Tạp hóa) — "
+        : "Đi chợ — "
+
+  const header = `${destinationPrefix}tuần từ ${formatWeekStart(value.weekStart)}`
   const footer =
-    remaining === value.totalEstimatedCostVnd
-      ? `Tổng ước tính: ${formatVnd(value.totalEstimatedCostVnd)} VND`
-      : `Còn phải mua: ${formatVnd(remaining)} VND / tổng ${formatVnd(value.totalEstimatedCostVnd)} VND`
+    remaining === totalCost
+      ? `Tổng ước tính: ${formatVnd(totalCost)} VND`
+      : `Còn phải mua: ${formatVnd(remaining)} VND / tổng ${formatVnd(totalCost)} VND`
 
   return [header, ...sections, footer].join("\n\n")
 }
