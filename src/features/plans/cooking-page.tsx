@@ -319,12 +319,7 @@ function FamilyCookingNotes({ mealOptionId }: Readonly<{ mealOptionId: string }>
             id="cooking-note-input"
           />
           <div className="flex items-center justify-end gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => setIsEditingNote(false)}
-            >
+            <Button type="button" size="sm" variant="ghost" onClick={() => setIsEditingNote(false)}>
               Hủy
             </Button>
             <Button
