@@ -129,4 +129,30 @@ describe("shoppingListText", () => {
     expect(text).not.toContain("Gia vị")
     expect(text).not.toContain("Khác")
   })
+
+  test("filters and formats specifically for wet market items when requested", () => {
+    const mixed = list([
+      item({ foodNameVi: "Rau muống", groceryCategoryCode: "fresh_produce", lineCostVnd: 15_000 }),
+      item({ foodNameVi: "Nước mắm", groceryCategoryCode: "seasonings", lineCostVnd: 35_000 })
+    ])
+
+    const text = shoppingListText(mixed, unitLabel, "wet_market")
+    expect(text).toContain("Đi chợ (Chợ dân sinh)")
+    expect(text).toContain("Rau muống")
+    expect(text).not.toContain("Nước mắm")
+    expect(text).toContain("Tổng ước tính: 15.000 VND")
+  })
+
+  test("filters and formats specifically for supermarket items when requested", () => {
+    const mixed = list([
+      item({ foodNameVi: "Rau muống", groceryCategoryCode: "fresh_produce", lineCostVnd: 15_000 }),
+      item({ foodNameVi: "Gạo tẻ", groceryCategoryCode: "staples", lineCostVnd: 50_000 })
+    ])
+
+    const text = shoppingListText(mixed, unitLabel, "supermarket")
+    expect(text).toContain("Đi chợ (Siêu thị / Tạp hóa)")
+    expect(text).toContain("Gạo tẻ")
+    expect(text).not.toContain("Rau muống")
+    expect(text).toContain("Tổng ước tính: 50.000 VND")
+  })
 })

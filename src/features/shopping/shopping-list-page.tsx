@@ -14,6 +14,13 @@ import {
   GROCERY_CATEGORIES,
   type GroceryCategoryDefinition
 } from "@/domain/shopping/grocery-category-config"
+import {
+  categoryDestination,
+  filterItemsByCheckStatus,
+  filterItemsByDestination,
+  type ShoppingCheckStatusFilter,
+  type ShoppingDestination
+} from "@/domain/shopping/shopping-destinations"
 import { pantryRestockCandidates } from "@/domain/shopping/pantry-restock"
 import { Icon } from "@/app/components/ui/icon"
 
@@ -120,35 +127,52 @@ function ShoppingItemRow({
   item,
   pending,
   queued,
+  oneHandMode = false,
   onCheckedChange
 }: Readonly<{
   item: ShoppingListItem
   pending: boolean
   queued: boolean
+  oneHandMode?: boolean
   onCheckedChange: (item: ShoppingListItem, checked: boolean) => void
 }>) {
   const unit = unitLabel(item.baseUnitId)
   const hasPantryDeduction = item.pantryDeductedBaseQuantity !== "0"
   const needsPurchase = item.purchasePackageCount !== "0"
 
+  const handleCheckedChange = (checked: boolean) => {
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try {
+        navigator.vibrate(35)
+      } catch {
+        // Haptic feedback is optional and gracefully fails if unsupported
+      }
+    }
+    onCheckedChange(item, checked)
+  }
+
   return (
     <li
-      className="rounded-2xl border border-edge bg-paper-raised p-3 shadow-soft"
+      className={`rounded-2xl border border-edge bg-paper-raised transition-all ${
+        oneHandMode ? "p-4 sm:p-5 ring-1 ring-herb-600/20 shadow-md" : "p-3 shadow-soft"
+      } ${item.checked ? "bg-paper-sunken/60 opacity-80" : ""}`}
       data-testid={`shopping-item-${item.shoppingListItemId}`}
     >
       <div
-        className="flex items-start gap-3"
+        className="flex items-start gap-3.5"
         data-food-id={item.foodId}
         data-testid="shopping-item"
       >
         <input
           aria-label={item.foodNameVi}
           checked={item.checked}
-          className="mt-1 size-5 shrink-0 accent-herb-600"
+          className={`shrink-0 accent-herb-600 transition-transform ${
+            oneHandMode ? "mt-1 size-7 cursor-pointer hover:scale-105" : "mt-1 size-5"
+          }`}
           data-print="hide"
           disabled={pending}
           type="checkbox"
-          onChange={(event) => onCheckedChange(item, event.currentTarget.checked)}
+          onChange={(event) => handleCheckedChange(event.currentTarget.checked)}
         />
         <span
           aria-hidden="true"
@@ -163,17 +187,23 @@ function ShoppingItemRow({
             <h3
               className={
                 item.checked
-                  ? "min-w-0 font-semibold line-through opacity-60"
-                  : "min-w-0 font-semibold"
+                  ? "min-w-0 font-semibold line-through opacity-60 " +
+                    (oneHandMode ? "text-lg text-ink-soft" : "text-ink-soft")
+                  : "min-w-0 font-semibold " + (oneHandMode ? "text-lg text-ink" : "text-ink")
               }
             >
               {item.foodNameVi}
             </h3>
-            <p className="shrink-0 text-sm font-semibold tabular-nums">
+            <p
+              className={
+                "shrink-0 font-semibold tabular-nums " +
+                (oneHandMode ? "text-base text-herb-700" : "text-sm")
+              }
+            >
               {formatVnd(item.lineCostVnd)} VND
             </p>
           </div>
-          <p className="text-sm text-ink-soft">
+          <p className={"text-ink-soft " + (oneHandMode ? "text-sm mt-0.5" : "text-sm")}>
             {needsPurchase
               ? `Mua ${formatQuantity(item.purchasePackageCount)} gói × ${formatQuantity(item.packageBaseQuantity)} ${unit}`
               : "Không cần mua thêm"}
@@ -225,12 +255,14 @@ function CategorySection({
   items,
   pendingIds,
   queuedIds,
+  oneHandMode = false,
   onCheckedChange
 }: Readonly<{
   category: GroceryCategoryDefinition
   items: readonly ShoppingListItem[]
   pendingIds: ReadonlySet<string>
   queuedIds: ReadonlySet<string>
+  oneHandMode?: boolean
   onCheckedChange: (item: ShoppingListItem, checked: boolean) => void
 }>) {
   return (
@@ -241,6 +273,7 @@ function CategorySection({
           <ShoppingItemRow
             item={item}
             key={item.shoppingListItemId}
+            oneHandMode={oneHandMode}
             pending={pendingIds.has(item.shoppingListItemId)}
             queued={queuedIds.has(item.shoppingListItemId)}
             onCheckedChange={onCheckedChange}
@@ -350,10 +383,58 @@ export function ShoppingListPage({ repository }: Props) {
     }
   }, [readyRevisionId, repository])
 
-  const groups = useMemo(
-    () => (state.status === "ready" ? categoryGroups(state.value.items) : []),
-    [state]
-  )
+  const [destinationFilter, setDestinationFilter] = useState<ShoppingDestination>("all")
+  const [statusFilter, setStatusFilter] = useState<ShoppingCheckStatusFilter>("all")
+  const [oneHandMode, setOneHandMode] = useState<boolean>(() => {
+    try {
+      return (
+        typeof window !== "undefined" &&
+        window.localStorage.getItem("bepnha_shopping_one_hand_mode") === "true"
+      )
+    } catch {
+      return false
+    }
+  })
+
+  function toggleOneHandMode() {
+    setOneHandMode((prev) => {
+      const next = !prev
+      try {
+        window.localStorage.setItem("bepnha_shopping_one_hand_mode", String(next))
+      } catch {
+        // storage optional
+      }
+      return next
+    })
+  }
+
+  const channelCounts = useMemo(() => {
+    if (state.status !== "ready") {
+      return { all: 0, wet_market: 0, supermarket: 0, remaining: 0, checked: 0 }
+    }
+    const items = state.value.items
+    return {
+      all: items.length,
+      remaining: items.filter((i) => !i.checked).length,
+      checked: items.filter((i) => i.checked).length,
+      wet_market: items.filter(
+        (i) => !i.checked && categoryDestination(i.groceryCategoryCode) === "wet_market"
+      ).length,
+      supermarket: items.filter(
+        (i) => !i.checked && categoryDestination(i.groceryCategoryCode) === "supermarket"
+      ).length
+    }
+  }, [state])
+
+  const displayedItems = useMemo(() => {
+    if (state.status !== "ready") return []
+    let items = state.value.items
+    items = filterItemsByDestination(items, destinationFilter)
+    items = filterItemsByCheckStatus(items, statusFilter)
+    return items
+  }, [state, destinationFilter, statusFilter])
+
+  const groups = useMemo(() => categoryGroups(displayedItems), [displayedItems])
 
   // What finishing the trip would actually move. The database decides for real — it holds the
   // per-item latch — but the button should not invite a press that would move nothing.
@@ -469,11 +550,15 @@ export function ShoppingListPage({ repository }: Props) {
   const alertCopy = mutationError ?? staleCopy
   const progress = state.status === "ready" ? shoppingProgress(state.value.items) : null
 
-  async function shareList() {
+  async function shareList(dest: ShoppingDestination = destinationFilter) {
     if (state.status !== "ready") return
     const outcome = await shareText(
-      shoppingListText(state.value, unitLabel),
-      "Đi chợ — Bếp Nhà",
+      shoppingListText(state.value, unitLabel, dest),
+      dest === "wet_market"
+        ? "Đi chợ (Chợ dân sinh) — Bếp Nhà"
+        : dest === "supermarket"
+          ? "Đi chợ (Siêu thị / Tạp hóa) — Bếp Nhà"
+          : "Đi chợ — Bếp Nhà",
       navigator
     )
     setShareNotice(
@@ -597,7 +682,19 @@ export function ShoppingListPage({ repository }: Props) {
             </section>
           </div>
 
-          <div className="flex flex-wrap gap-2" data-print="hide">
+          <div className="flex flex-wrap items-center gap-2" data-print="hide">
+            <Button
+              type="button"
+              variant={oneHandMode ? "default" : "outline"}
+              className={
+                oneHandMode ? "bg-herb-700 font-bold text-white ring-2 ring-herb-500/40" : ""
+              }
+              onClick={toggleOneHandMode}
+              data-testid="toggle-one-hand-mode"
+            >
+              <Icon name="check" className="size-4" />
+              Chế độ Đi chợ 1 tay: {oneHandMode ? "BẬT" : "Tắt"}
+            </Button>
             {/* Chỉ hiện khi thật sự có gì để cất. Một nút không làm gì cả thì tệ hơn là không có
                 nút: nó khiến người ta tưởng đã cất rồi. */}
             {restockCandidates.length === 0 ? null : (
@@ -608,13 +705,120 @@ export function ShoppingListPage({ repository }: Props) {
                   : `Đi chợ xong, cập nhật ${restockCandidates.length} món`}
               </Button>
             )}
-            <Button type="button" variant="outline" onClick={() => void shareList()}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void shareList(destinationFilter)}
+            >
               <Icon name="basket" className="size-4" />
-              Gửi cho người đi chợ
+              {destinationFilter === "wet_market"
+                ? "Gửi danh sách Chợ dân sinh"
+                : destinationFilter === "supermarket"
+                  ? "Gửi danh sách Siêu thị"
+                  : "Gửi cho người đi chợ"}
             </Button>
             <Button type="button" variant="outline" onClick={() => window.print()}>
               In danh sách
             </Button>
+          </div>
+
+          {/* Destination & Status Filters */}
+          <div
+            className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between"
+            data-print="hide"
+          >
+            <div
+              className="flex flex-wrap items-center gap-1 rounded-xl bg-paper-sunken p-1 text-xs sm:text-sm font-medium"
+              role="tablist"
+              aria-label="Điểm mua"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={destinationFilter === "all"}
+                className={`rounded-lg px-3 py-1.5 transition-colors ${
+                  destinationFilter === "all"
+                    ? "bg-paper-raised font-bold text-ink shadow-soft"
+                    : "text-ink-soft hover:text-ink"
+                }`}
+                onClick={() => setDestinationFilter("all")}
+                data-testid="dest-filter-all"
+              >
+                Tất cả ({channelCounts.all})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={destinationFilter === "wet_market"}
+                className={`rounded-lg px-3 py-1.5 transition-colors ${
+                  destinationFilter === "wet_market"
+                    ? "bg-paper-raised font-bold text-herb-700 shadow-soft"
+                    : "text-ink-soft hover:text-ink"
+                }`}
+                onClick={() => setDestinationFilter("wet_market")}
+                data-testid="dest-filter-wet-market"
+              >
+                Chợ dân sinh {channelCounts.wet_market > 0 ? `(${channelCounts.wet_market})` : ""}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={destinationFilter === "supermarket"}
+                className={`rounded-lg px-3 py-1.5 transition-colors ${
+                  destinationFilter === "supermarket"
+                    ? "bg-paper-raised font-bold text-herb-700 shadow-soft"
+                    : "text-ink-soft hover:text-ink"
+                }`}
+                onClick={() => setDestinationFilter("supermarket")}
+                data-testid="dest-filter-supermarket"
+              >
+                Siêu thị / Tạp hóa{" "}
+                {channelCounts.supermarket > 0 ? `(${channelCounts.supermarket})` : ""}
+              </button>
+            </div>
+
+            <div
+              className="flex items-center gap-1 rounded-xl bg-paper-sunken p-1 text-xs sm:text-sm font-medium"
+              role="group"
+              aria-label="Lọc trạng thái mua"
+            >
+              <button
+                type="button"
+                className={`rounded-lg px-2.5 py-1 transition-colors ${
+                  statusFilter === "all"
+                    ? "bg-paper-raised font-semibold text-ink shadow-soft"
+                    : "text-ink-soft hover:text-ink"
+                }`}
+                onClick={() => setStatusFilter("all")}
+                data-testid="status-filter-all"
+              >
+                Toàn bộ
+              </button>
+              <button
+                type="button"
+                className={`rounded-lg px-2.5 py-1 transition-colors ${
+                  statusFilter === "remaining"
+                    ? "bg-paper-raised font-semibold text-herb-700 shadow-soft"
+                    : "text-ink-soft hover:text-ink"
+                }`}
+                onClick={() => setStatusFilter("remaining")}
+                data-testid="status-filter-remaining"
+              >
+                Chưa lấy ({channelCounts.remaining})
+              </button>
+              <button
+                type="button"
+                className={`rounded-lg px-2.5 py-1 transition-colors ${
+                  statusFilter === "checked"
+                    ? "bg-paper-raised font-semibold text-ink shadow-soft"
+                    : "text-ink-soft hover:text-ink"
+                }`}
+                onClick={() => setStatusFilter("checked")}
+                data-testid="status-filter-checked"
+              >
+                Đã lấy ({channelCounts.checked})
+              </button>
+            </div>
           </div>
 
           {shareNotice === null ? null : (
@@ -644,18 +848,44 @@ export function ShoppingListPage({ repository }: Props) {
             </p>
           )}
 
-          <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
-            {groups.map(({ category, items }) => (
-              <CategorySection
-                category={category}
-                items={items}
-                key={category.code}
-                pendingIds={pendingIds}
-                queuedIds={queuedIds}
-                onCheckedChange={(entry, checked) => void setChecked(entry, checked)}
-              />
-            ))}
-          </div>
+          {groups.length === 0 ? (
+            <div
+              className="rounded-2xl border border-edge bg-paper-raised p-6 text-center shadow-soft"
+              role="status"
+            >
+              <Icon name="check" className="mx-auto mb-2 size-7 text-herb-600" />
+              <p className="font-semibold text-ink">
+                {statusFilter === "remaining"
+                  ? "Tuyệt vời! Bạn đã lấy đủ mọi thứ trong danh mục này."
+                  : "Không có nguyên liệu nào phù hợp với bộ lọc hiện tại."}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3"
+                onClick={() => {
+                  setDestinationFilter("all")
+                  setStatusFilter("all")
+                }}
+              >
+                Xem toàn bộ danh sách
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+              {groups.map(({ category, items }) => (
+                <CategorySection
+                  category={category}
+                  items={items}
+                  key={category.code}
+                  oneHandMode={oneHandMode}
+                  pendingIds={pendingIds}
+                  queuedIds={queuedIds}
+                  onCheckedChange={(entry, checked) => void setChecked(entry, checked)}
+                />
+              ))}
+            </div>
+          )}
 
           <ManualShoppingExtrasSection
             key={state.value.revisionId}

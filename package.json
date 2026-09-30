@@ -66,6 +66,9 @@
     "node": ">=24 <25"
   },
   "overrides": {
+    "eslint": {
+      "brace-expansion": "5.0.12"
+    },
     "@vercel/node": {
       "path-to-regexp": "6.3.0",
       "undici": "7.30.0"

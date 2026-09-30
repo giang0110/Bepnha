@@ -518,4 +518,81 @@ describe("ShoppingListPage", () => {
     // settled. Pressing it did nothing and said so, which is a button whose label is the lie.
     expect(screen.queryByRole("button", { name: /Đi chợ xong/u })).not.toBeInTheDocument()
   })
+
+  test("toggles one-hand shopping mode and persists preference in localStorage", async () => {
+    const user = userEvent.setup()
+    const { repo } = repository()
+    renderPage(repo)
+
+    const toggleBtn = await screen.findByTestId("toggle-one-hand-mode")
+    expect(toggleBtn).toHaveTextContent("Chế độ Đi chợ 1 tay: Tắt")
+
+    await user.click(toggleBtn)
+    expect(toggleBtn).toHaveTextContent("Chế độ Đi chợ 1 tay: BẬT")
+    expect(window.localStorage.getItem("bepnha_shopping_one_hand_mode")).toBe("true")
+
+    await user.click(toggleBtn)
+    expect(toggleBtn).toHaveTextContent("Chế độ Đi chợ 1 tay: Tắt")
+    expect(window.localStorage.getItem("bepnha_shopping_one_hand_mode")).toBe("false")
+  })
+
+  test("filters displayed categories by destination (wet market vs supermarket)", async () => {
+    const user = userEvent.setup()
+    const { repo } = repository()
+    renderPage(repo)
+
+    expect(await screen.findByRole("heading", { name: "Đi chợ" })).toBeInTheDocument()
+    expect(screen.getAllByTestId("shopping-category")).toHaveLength(4)
+
+    // Filter to Wet market (Rau củ, Trứng đậu hũ)
+    const wetMarketTab = screen.getByTestId("dest-filter-wet-market")
+    await user.click(wetMarketTab)
+
+    const wetCategories = screen.getAllByTestId("shopping-category")
+    expect(
+      wetCategories.map((group) => within(group).getByRole("heading", { level: 2 }).textContent)
+    ).toEqual(["Rau củ", "Trứng, đậu hũ & sữa"])
+
+    // Filter to Supermarket (Lương thực chính, Gia vị)
+    const supermarketTab = screen.getByTestId("dest-filter-supermarket")
+    await user.click(supermarketTab)
+
+    const dryCategories = screen.getAllByTestId("shopping-category")
+    expect(
+      dryCategories.map((group) => within(group).getByRole("heading", { level: 2 }).textContent)
+    ).toEqual(["Lương thực chính", "Gia vị"])
+
+    // Return to All
+    const allTab = screen.getByTestId("dest-filter-all")
+    await user.click(allTab)
+    expect(screen.getAllByTestId("shopping-category")).toHaveLength(4)
+  })
+
+  test("filters shopping items by remaining and checked status", async () => {
+    const user = userEvent.setup()
+    const list = ready()
+    const { repo } = repository({
+      ...list,
+      items: [
+        { ...list.items[0]!, shoppingListItemId: "item-a", checked: false },
+        { ...list.items[1]!, shoppingListItemId: "item-b", checked: true }
+      ]
+    })
+    renderPage(repo)
+
+    expect(await screen.findByTestId("shopping-item-item-a")).toBeInTheDocument()
+    expect(screen.getByTestId("shopping-item-item-b")).toBeInTheDocument()
+
+    // Filter to remaining (Chưa lấy)
+    const remainingFilter = screen.getByTestId("status-filter-remaining")
+    await user.click(remainingFilter)
+    expect(screen.getByTestId("shopping-item-item-a")).toBeInTheDocument()
+    expect(screen.queryByTestId("shopping-item-item-b")).not.toBeInTheDocument()
+
+    // Filter to checked (Đã lấy)
+    const checkedFilter = screen.getByTestId("status-filter-checked")
+    await user.click(checkedFilter)
+    expect(screen.queryByTestId("shopping-item-item-a")).not.toBeInTheDocument()
+    expect(screen.getByTestId("shopping-item-item-b")).toBeInTheDocument()
+  })
 })
