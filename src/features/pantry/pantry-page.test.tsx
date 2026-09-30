@@ -46,6 +46,30 @@ const vegetable: PantryFoodOption = {
   units: [{ unitId: "unit-g", unitCode: "g", unitNameVi: "gam" }]
 }
 
+const egg: PantryFoodOption = {
+  foodId: "food-egg",
+  foodNameVi: "Trứng gà",
+  foodFactVersionId: "fact-egg-v1",
+  baseUnitId: "unit-item",
+  units: [{ unitId: "unit-item", unitCode: "item", unitNameVi: "quả" }]
+}
+
+const tomato: PantryFoodOption = {
+  foodId: "food-tomato",
+  foodNameVi: "Cà chua",
+  foodFactVersionId: "fact-tomato-v1",
+  baseUnitId: "unit-g",
+  units: [{ unitId: "unit-g", unitCode: "g", unitNameVi: "gam" }]
+}
+
+const pork: PantryFoodOption = {
+  foodId: "food-pork",
+  foodNameVi: "Thịt ba chỉ",
+  foodFactVersionId: "fact-pork-v1",
+  baseUnitId: "unit-g",
+  units: [{ unitId: "unit-g", unitCode: "g", unitNameVi: "gam" }]
+}
+
 function pantryItem(overrides: Partial<PantryItemRecord> = {}): PantryItemRecord {
   return {
     pantryItemId: "pantry-rice",
@@ -70,7 +94,7 @@ function setup(initialItems: readonly PantryItemRecord[] = []) {
   const load = vi.fn().mockResolvedValue(initialItems)
   const upsert = vi.fn()
   const remove = vi.fn()
-  const foodOptionsLoad = vi.fn().mockResolvedValue([rice, vegetable])
+  const foodOptionsLoad = vi.fn().mockResolvedValue([rice, vegetable, egg, tomato, pork])
   const pantryRepository: PantryRepository = { load, upsert, remove }
   const foodOptionsRepository: PantryFoodOptionsRepository = {
     load: foodOptionsLoad
@@ -207,5 +231,89 @@ describe("PantryPage", () => {
     // an apology.
     expect(await screen.findByTestId(/^pantry-item-/u)).toBeInTheDocument()
     expect(load).toHaveBeenCalledTimes(2)
+  })
+
+  test("filters pantry items by storage zones (ngăn mát, ngăn đông, tủ đồ khô)", async () => {
+    const user = userEvent.setup()
+    const riceItem = pantryItem({ pantryItemId: "item-rice", foodId: rice.foodId })
+    const vegItem = pantryItem({ pantryItemId: "item-veg", foodId: vegetable.foodId })
+    const porkItem = pantryItem({ pantryItemId: "item-pork", foodId: pork.foodId })
+
+    setup([riceItem, vegItem, porkItem])
+
+    const nav = await screen.findByRole("navigation", {
+      name: "Khu vực lưu trữ tủ bếp"
+    })
+    expect(nav).toBeInTheDocument()
+
+    // All 3 items initially visible
+    expect(screen.getByTestId("pantry-item-item-rice")).toBeInTheDocument()
+    expect(screen.getByTestId("pantry-item-item-veg")).toBeInTheDocument()
+    expect(screen.getByTestId("pantry-item-item-pork")).toBeInTheDocument()
+
+    // Filter to Ngăn mát (vegetable)
+    await user.click(within(nav).getByRole("button", { name: /Ngăn mát/i }))
+    expect(screen.getByTestId("pantry-item-item-veg")).toBeInTheDocument()
+    expect(screen.queryByTestId("pantry-item-item-rice")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("pantry-item-item-pork")).not.toBeInTheDocument()
+
+    // Filter to Ngăn đông (pork)
+    await user.click(within(nav).getByRole("button", { name: /Ngăn đông/i }))
+    expect(screen.getByTestId("pantry-item-item-pork")).toBeInTheDocument()
+    expect(screen.queryByTestId("pantry-item-item-veg")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("pantry-item-item-rice")).not.toBeInTheDocument()
+
+    // Filter to Tủ đồ khô (rice)
+    await user.click(within(nav).getByRole("button", { name: /Tủ đồ khô/i }))
+    expect(screen.getByTestId("pantry-item-item-rice")).toBeInTheDocument()
+    expect(screen.queryByTestId("pantry-item-item-veg")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("pantry-item-item-pork")).not.toBeInTheDocument()
+
+    // Filter back to Tất cả
+    await user.click(within(nav).getByRole("button", { name: /^Tất cả/i }))
+    expect(screen.getByTestId("pantry-item-item-rice")).toBeInTheDocument()
+    expect(screen.getByTestId("pantry-item-item-veg")).toBeInTheDocument()
+    expect(screen.getByTestId("pantry-item-item-pork")).toBeInTheDocument()
+  })
+
+  test("populates the form when a quick preset button is clicked", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await screen.findByRole("heading", { name: "Tủ bếp" })
+
+    const quickRiceBtn = screen.getByRole("button", { name: "+ Gạo" })
+    await user.click(quickRiceBtn)
+
+    expect(screen.getByRole("combobox", { name: "Thực phẩm" })).toHaveValue(rice.foodId)
+    expect(screen.getByRole("combobox", { name: "Đơn vị" })).toHaveValue("unit-g")
+    expect(screen.getByRole("spinbutton", { name: "Số lượng" })).toHaveValue(1)
+  })
+
+  test("displays zero food waste suggestions (nấu vét tủ) when pantry ingredients match recipes", async () => {
+    const user = userEvent.setup()
+    const eggItem = pantryItem({ pantryItemId: "item-egg", foodId: egg.foodId, quantity: "4" })
+    const tomatoItem = pantryItem({
+      pantryItemId: "item-tomato",
+      foodId: tomato.foodId,
+      quantity: "3"
+    })
+
+    setup([eggItem, tomatoItem])
+
+    expect(await screen.findByTestId("leftover-meal-suggestions")).toBeInTheDocument()
+    expect(screen.getByText("Nấu vét tủ chống lãng phí")).toBeInTheDocument()
+
+    // Canh cà chua trứng has both Trứng gà and Cà chua -> ready to cook!
+    const soupCard = screen.getByTestId("leftover-dish-canh_ca_chua_trung")
+    expect(soupCard).toBeInTheDocument()
+    expect(within(soupCard).getByText("Canh cà chua trứng")).toBeInTheDocument()
+    expect(within(soupCard).getByText("Đủ đồ")).toBeInTheDocument()
+    expect(within(soupCard).getByText("✓ Cà chua")).toBeInTheDocument()
+    expect(within(soupCard).getByText("✓ Trứng gà")).toBeInTheDocument()
+
+    // Can toggle to only show ready to cook dishes
+    await user.click(screen.getByRole("button", { name: /Nấu được ngay/i }))
+    expect(screen.getByTestId("leftover-dish-canh_ca_chua_trung")).toBeInTheDocument()
   })
 })
