@@ -336,4 +336,95 @@ describe("CookingPage", () => {
     // The question is an offer, not a toll. Someone carrying a hot pan should be able to walk away.
     expect(await screen.findByRole("link", { name: "Nấu xong" })).toHaveAttribute("href", "/plan")
   })
+
+  test("toggles counter stand mode to enlarge view and navigation buttons", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await screen.findByText("Vo gạo.")
+    const counterToggle = screen.getByRole("button", { name: "Kệ bếp" })
+    expect(counterToggle).toBeInTheDocument()
+
+    await user.click(counterToggle)
+    expect(screen.getByRole("button", { name: "Chế độ kệ bếp: Bật" })).toBeInTheDocument()
+    const nextBtn = screen.getByRole("button", { name: "Bước tiếp" })
+    expect(nextBtn.className).toContain("min-h-16")
+
+    await user.click(screen.getByRole("button", { name: "Chế độ kệ bếp: Bật" }))
+    expect(screen.getByRole("button", { name: "Kệ bếp" })).toBeInTheDocument()
+    expect(nextBtn.className).not.toContain("min-h-16")
+  })
+
+  test("manages family cooking notes saved in localStorage", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await screen.findByText("Vo gạo.")
+    expect(screen.getByText("Mẹo & Ghi chú của gia đình")).toBeInTheDocument()
+    const addNoteBtn = screen.getByRole("button", { name: "+ Thêm ghi chú" })
+
+    await user.click(addNoteBtn)
+    const textarea = screen.getByPlaceholderText(/Giảm 1 thìa đường/i)
+    await user.type(textarea, "Nấu cơm ráo nước, cho thêm chút dầu mè")
+
+    const saveBtn = screen.getByRole("button", { name: "Lưu ghi chú" })
+    await user.click(saveBtn)
+
+    expect(screen.getByText("Nấu cơm ráo nước, cho thêm chút dầu mè")).toBeInTheDocument()
+    expect(window.localStorage.getItem("bepnha:cooking-note:v1:meal-1")).toBe(
+      "Nấu cơm ráo nước, cho thêm chút dầu mè"
+    )
+    expect(screen.getByRole("button", { name: "Sửa ghi chú" })).toBeInTheDocument()
+  })
+
+  test("speaks cooking instruction and cancels on step navigation", async () => {
+    const mockSpeak = vi.fn()
+    const mockCancel = vi.fn()
+    Object.defineProperty(window, "speechSynthesis", {
+      value: {
+        speak: mockSpeak,
+        cancel: mockCancel,
+        speaking: false
+      },
+      writable: true,
+      configurable: true
+    })
+    ;(window as unknown as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = class {
+      text: string
+      lang = ""
+      rate = 1
+      constructor(text = "") {
+        this.text = text
+      }
+    }
+
+    const user = userEvent.setup()
+    setup()
+
+    await screen.findByText("Vo gạo.")
+    const speakBtn = screen.getByRole("button", { name: "Đọc bước" })
+    await user.click(speakBtn)
+
+    expect(mockSpeak).toHaveBeenCalledTimes(1)
+
+    // Moving to next step should cancel speech
+    const nextBtn = screen.getByRole("button", { name: "Bước tiếp" })
+    await user.click(nextBtn)
+    expect(mockCancel).toHaveBeenCalled()
+  })
+
+  test("navigates steps using ArrowRight and ArrowLeft keyboard shortcuts", async () => {
+    setup()
+
+    await screen.findByText("Vo gạo.")
+    expect(screen.getByText(/Món 1\/2/u)).toBeInTheDocument()
+
+    // Press ArrowRight to go to next step
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }))
+    expect(await screen.findByText("Ướp gà với gia vị.")).toBeInTheDocument()
+
+    // Press ArrowLeft to go back
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }))
+    expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
+  })
 })

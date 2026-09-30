@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 interface WakeLockSentinelLike {
   release: () => Promise<void>
@@ -13,6 +13,12 @@ function wakeLock(): WakeLockLike | null {
   return candidate ?? null
 }
 
+export interface WakeLockState {
+  readonly isLocked: boolean
+  readonly isSupported: boolean
+  readonly toggle: () => void
+}
+
 /**
  * Keeps the screen on while a cook is following steps with their hands full.
  *
@@ -20,14 +26,18 @@ function wakeLock(): WakeLockLike | null {
  * API is the only way to prevent it, and it is best-effort by design: Safari gained it late, a
  * browser may refuse, and every browser drops the lock when the tab is hidden — which is why the
  * visibility listener re-requests rather than assuming the first grant holds.
- *
- * Failure is silent on purpose. There is nothing a cook can do about an unsupported browser, and an
- * error banner over a recipe would cost more than the screen dimming does.
  */
-export function useWakeLock(active: boolean): void {
+export function useWakeLock(active: boolean): WakeLockState {
+  const [isLocked, setIsLocked] = useState(false)
+  const [manualDisabled, setManualDisabled] = useState(false)
+  const isSupported = typeof navigator !== "undefined" && "wakeLock" in navigator
+
   useEffect(() => {
     const api = wakeLock()
-    if (!active || api === null) return
+    if (!active || manualDisabled || api === null) {
+      setIsLocked(false)
+      return
+    }
 
     let sentinel: WakeLockSentinelLike | null = null
     let released = false
@@ -40,8 +50,9 @@ export function useWakeLock(active: boolean): void {
           return
         }
         sentinel = granted
+        setIsLocked(true)
       } catch {
-        // A refusal is not worth reporting: the page still works, the screen just dims.
+        setIsLocked(false)
       }
     }
 
@@ -56,6 +67,17 @@ export function useWakeLock(active: boolean): void {
       released = true
       document.removeEventListener("visibilitychange", onVisibility)
       void sentinel?.release().catch(() => undefined)
+      setIsLocked(false)
     }
-  }, [active])
+  }, [active, manualDisabled])
+
+  const toggle = useCallback(() => {
+    setManualDisabled((prev) => !prev)
+  }, [])
+
+  return {
+    isLocked,
+    isSupported,
+    toggle
+  }
 }
