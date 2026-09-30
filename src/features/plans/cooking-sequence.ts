@@ -35,6 +35,10 @@ export interface CookingStep {
   readonly timerMinutes: number | null
 }
 
+export interface CookingSequenceOptions {
+  readonly skipStaple?: boolean
+}
+
 /**
  * Flattens a meal into the order it is actually cooked.
  *
@@ -46,8 +50,15 @@ export interface CookingStep {
  * The result is flat because cooking is: one instruction at a time, carrying which dish it belongs
  * to and where it sits, so a cook who looks up knows where they are.
  */
-export function cookingSequence(item: PlanItemView, labels: IngredientLabels): CookingStep[] {
-  const dishes = [...item.components].sort((left, right) => left.sortOrder - right.sortOrder)
+export function cookingSequence(
+  item: PlanItemView,
+  labels: IngredientLabels,
+  options: CookingSequenceOptions = {}
+): CookingStep[] {
+  let dishes = [...item.components].sort((left, right) => left.sortOrder - right.sortOrder)
+  if (options.skipStaple) {
+    dishes = dishes.filter((dish) => dish.mealRole !== "staple")
+  }
 
   return dishes.flatMap((dish, dishIndex) => {
     const steps = [...dish.recipe.steps].sort((left, right) => left.order - right.order)

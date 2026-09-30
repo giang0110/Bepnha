@@ -23,6 +23,7 @@ import {
 } from "@/domain/shopping/shopping-destinations"
 import { pantryRestockCandidates } from "@/domain/shopping/pantry-restock"
 import { Icon } from "@/app/components/ui/icon"
+import { toast } from "@/app/components/ui/toast"
 
 import { shareText } from "./share-text"
 import { ManualShoppingExtrasSection } from "./manual-shopping-extras-section"
@@ -568,6 +569,11 @@ export function ShoppingListPage({ repository }: Props) {
           ? "Trình duyệt này không cho chia sẻ hoặc chép. Bạn có thể dùng nút In."
           : null
     )
+    if (outcome === "copied") {
+      toast.success("Đã sao chép danh sách đi chợ vào khay nhớ tạm!")
+    } else if (outcome === "shared") {
+      toast.success("Đã chia sẻ danh sách đi chợ thành công!")
+    }
   }
 
   return (

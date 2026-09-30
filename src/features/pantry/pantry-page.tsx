@@ -15,6 +15,7 @@ import {
 import { AppPageShell } from "@/app/components/app-page-shell"
 import { Button } from "@/app/components/ui/button"
 import { Icon } from "@/app/components/ui/icon"
+import { toast } from "@/app/components/ui/toast"
 import {
   PANTRY_STORAGE_ZONES,
   pantryStorageZone,
@@ -351,6 +352,7 @@ export function PantryPage({
           state.options
         )
       })
+      toast.success("Đã cập nhật thực phẩm trong tủ bếp!")
     } catch (error: unknown) {
       if (error instanceof PantryRepositoryError && error.code === "VERSION_CONFLICT") {
         await reloadAfterConflict(state.householdId, state.options)
@@ -372,6 +374,7 @@ export function PantryPage({
         ...state,
         items: state.items.filter((entry) => entry.pantryItemId !== item.pantryItemId)
       })
+      toast.info("Đã xoá thực phẩm khỏi tủ bếp.")
     } catch (error: unknown) {
       if (error instanceof PantryRepositoryError && error.code === "VERSION_CONFLICT") {
         await reloadAfterConflict(state.householdId, state.options)
@@ -406,6 +409,7 @@ export function PantryPage({
         expectedVersion: 0
       })
       setState({ ...state, items: sortItems([...state.items, saved], state.options) })
+      toast.success("Đã thêm thực phẩm vào tủ bếp!")
       setSelectedFoodId("")
       setSelectedUnitId("")
       setNewQuantity("0")

@@ -427,4 +427,22 @@ describe("CookingPage", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }))
     expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
   })
+
+  test("toggles skipping rice steps and remembers preference in localStorage", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await screen.findByText("Vo gạo.")
+    const skipRiceBtn = screen.getByRole("button", { name: "Bỏ qua bước nấu cơm" })
+    await user.click(skipRiceBtn)
+
+    expect(screen.queryByText("Vo gạo.")).not.toBeInTheDocument()
+    expect(screen.getByText("Ướp gà với gia vị.")).toBeInTheDocument()
+    expect(window.localStorage.getItem("bepnha:cooking:skip-rice")).toBe("true")
+
+    const showRiceBtn = screen.getByRole("button", { name: "Hiện lại bước nấu cơm" })
+    await user.click(showRiceBtn)
+    expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
+    expect(window.localStorage.getItem("bepnha:cooking:skip-rice")).toBe("false")
+  })
 })

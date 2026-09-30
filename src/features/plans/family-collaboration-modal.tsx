@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Button } from "@/app/components/ui/button"
 import { Icon } from "@/app/components/ui/icon"
+import { toast } from "@/app/components/ui/toast"
 import {
   formatFamilyMenuAnnouncement,
   generateFamilyMealCalendarIcs,
@@ -70,12 +71,14 @@ export function FamilyCollaborationModal({
       requestedBy: "Thành viên gia đình"
     })
     setWishes(updated)
+    toast.success("Đã ghi nhận bình chọn của bạn!")
   }
 
   const handleRemove = (mealOptionId: string) => {
     if (typeof window === "undefined") return
     const updated = removeWishFromStore(window.localStorage, householdId, mealOptionId)
     setWishes(updated)
+    toast.info("Đã xoá món khỏi danh sách mong muốn")
   }
 
   const handleAddWish = (e: React.FormEvent) => {
@@ -93,6 +96,7 @@ export function FamilyCollaborationModal({
         note: note.trim() || undefined
       })
       setWishes(updated)
+      toast.success("Đã thêm món vào danh sách mong muốn!")
     }
 
     setMemberName("")
@@ -104,6 +108,7 @@ export function FamilyCollaborationModal({
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(announcementText)
         setCopied(true)
+        toast.success("Đã sao chép thông báo thực đơn tuần!")
         setTimeout(() => setCopied(false), 2000)
       }
     } catch {
@@ -118,6 +123,7 @@ export function FamilyCollaborationModal({
           title: "Thực đơn Bếp Nhà tuần này",
           text: announcementText
         })
+        toast.success("Đã chia sẻ thực đơn tuần!")
       } catch {
         // User cancelled share
       }
@@ -142,6 +148,7 @@ export function FamilyCollaborationModal({
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+    toast.success("Đã tải tệp lịch thực đơn tuần (.ics)!")
   }
 
   return (
