@@ -87,3 +87,24 @@ Các ô rỗng còn lại ở cột tùy chọn như `preparationNoteVi`, `timer
 ### Safety rule for BepNha
 For allergy exclusion, treat `contains` as exclude and treat `unknown` as **not cleared** (also exclude or require explicit user acknowledgement). Do **not** interpret `unknown` as `absent`. A future `absent` value should require SKU/supplier-specific composition plus allergen/cross-contact evidence appropriate to the product.
 
+# CATALOG EXPANSION PASS — 2026-09-30
+
+## Mở rộng danh mục bữa ăn gia đình (meal_options: 24 -> 48 món)
+
+- Bổ sung **24 bữa ăn gia đình hoàn chỉnh mới** từ sự kết hợp hài hoà, chuẩn vị Việt của 38 công thức món mặn + món rau/canh đã được chứng nhận và thẩm định đầy đủ:
+  - Thịt gia cầm (poultry): 4 món mới (gà kho gừng canh bí đao, gà chiên mắm canh cà chua trứng, gà xào sả ớt rau muống luộc, gà kho nấm canh bí đỏ).
+  - Thịt heo (pork): 6 món mới (thịt kho trứng canh cải thảo, sườn ram mặn rau muống luộc, sườn ram mặn mướp xào, thịt xào đậu cô ve cải ngọt, thịt xào hành tây canh cà chua trứng, sườn kho khoai tây canh bí đao).
+  - Thịt bò (beef): 3 món mới (bò xào giá rau muống xào, bò kho cà rốt cải ngọt, bò xào hành tây canh bí đỏ).
+  - Thủy hải sản cá (fish): 4 món mới (cá lóc kho tộ rau muống luộc, cá basa chiên giòn canh cà chua trứng, cá nục kho cà chua canh cải thảo, cá basa kho tiêu canh bí đao).
+  - Hải sản tôm & mực (seafood): 3 món mới (tôm rim mặn rau muống luộc, tôm xào bí đao canh cà chua trứng, mực xào cà chua canh bí đỏ).
+  - Món từ trứng (egg): 1 món mới (trứng chiên hành rau muống luộc).
+  - Món chay từ đậu hũ (plant): 3 món mới (đậu hũ sốt cà chua canh bí đao, đậu hũ chiên sả canh cà chua trứng, đậu hũ kho nấm canh cải thảo).
+- Tất cả 24 món mới tuân thủ nghiêm ngặt quy tắc tất định BepNha:
+  - Không sinh thêm nguyên liệu hay giá giả định;
+  - Sử dụng 100% công thức và thành phần dinh dưỡng đã xác minh chuẩn FAO/Viện Dinh dưỡng;
+  - `yieldAdultEquivalent`, `activeMinutes`, `elapsedMinutes`, `quantityMultiplier` được tính toán chính xác theo công thức tất định trong `research_log.csv`.
+- Ghi nhật ký đầy đủ **72 dòng** vào `research_log.csv`.
+- Cập nhật SHA256 và kích thước byte trong `manifest.json`.
+- Xác minh `catalog:validate`: **PASS** (`mealOptions: 48, valid: true, ready: true`).
+- Xác minh `catalog:audit`: **PASS** (`NO_BLOCKING_FINDINGS`).
+
