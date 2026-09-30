@@ -346,6 +346,81 @@ export const RECIPES: readonly RecipeSpec[] = [
     nameVi: "Canh bí đỏ thịt băm",
     method: "canh",
     ingredients: ["bi_do", "thit_bo_xay", "hanh_la", "hat_nem"]
+  },
+  {
+    code: "thit_ba_chi_luoc",
+    nameVi: "Thịt ba chỉ luộc",
+    method: "luoc",
+    ingredients: ["thit_ba_chi", "hanh_tim", "gung", "muoi"]
+  },
+  {
+    code: "thit_rang_chay_canh",
+    nameVi: "Thịt ba chỉ rang cháy cạnh",
+    method: "xao",
+    ingredients: ["thit_ba_chi", "hanh_tim", "hanh_la", "nuoc_mam", "duong_cat", "tieu_xay"]
+  },
+  {
+    code: "suon_xao_chua_ngot",
+    nameVi: "Sườn xào chua ngọt",
+    method: "xao",
+    ingredients: ["suon_heo", "ca_chua", "hanh_tay", "toi", "nuoc_mam", "duong_cat", "dau_an"]
+  },
+  {
+    code: "canh_suon_khoai_tay",
+    nameVi: "Canh sườn khoai tây cà rốt",
+    method: "canh",
+    ingredients: ["suon_heo", "khoai_tay", "ca_rot", "hanh_la", "hat_nem"]
+  },
+  {
+    code: "tom_rim_thit_ba_chi",
+    nameVi: "Tôm rim thịt ba chỉ",
+    method: "kho",
+    ingredients: [
+      "tom_the",
+      "thit_ba_chi",
+      "toi",
+      "hanh_tim",
+      "nuoc_mam",
+      "duong_cat",
+      "tieu_xay",
+      "dau_an"
+    ]
+  },
+  {
+    code: "ga_luoc_gung",
+    nameVi: "Gà luộc gừng",
+    method: "luoc",
+    ingredients: ["ga_ta", "gung", "hanh_tim", "muoi"]
+  },
+  {
+    code: "ga_xao_nam_rom",
+    nameVi: "Gà xào nấm rơm",
+    method: "xao",
+    ingredients: ["ga_ta", "nam_rom", "hanh_tim", "toi", "nuoc_mam", "dau_an"]
+  },
+  {
+    code: "canh_cai_ngot_thit_bam",
+    nameVi: "Canh cải ngọt thịt băm",
+    method: "canh",
+    ingredients: ["cai_ngot", "thit_nac_vai", "hanh_tim", "hat_nem"]
+  },
+  {
+    code: "dau_hu_luoc",
+    nameVi: "Đậu hũ luộc",
+    method: "luoc",
+    ingredients: ["dau_hu_trang", "muoi"]
+  },
+  {
+    code: "canh_dau_hu_ca_chua",
+    nameVi: "Canh đậu hũ cà chua trứng",
+    method: "canh",
+    ingredients: ["dau_hu_trang", "ca_chua", "trung_ga", "hanh_la", "hat_nem", "muoi"]
+  },
+  {
+    code: "muc_xao_hanh_tay",
+    nameVi: "Mực xào hành tây",
+    method: "xao",
+    ingredients: ["muc_ong", "hanh_tay", "toi", "hanh_la", "nuoc_mam", "tieu_xay", "dau_an"]
   }
 ]
 
@@ -604,6 +679,350 @@ export const MEALS: readonly MealSpec[] = [
     components: [
       ["dau_hu_kho_nam", "main"],
       ["muop_xao_toi", "vegetable"]
+    ]
+  },
+
+  // Expanded pairings from staging pack
+  {
+    code: "com_ga_kho_gung_canh_bi_dao",
+    nameVi: "Cơm gà kho gừng, canh bí đao",
+    proteinHintCode: "poultry",
+    cookingStyleCodes: ["kho", "canh"],
+    components: [
+      ["ga_kho_gung", "main"],
+      ["canh_bi_dao_thit_bam", "soup"]
+    ]
+  },
+  {
+    code: "com_ga_chien_mam_canh_ca_chua_trung",
+    nameVi: "Cơm gà chiên nước mắm, canh cà chua trứng",
+    proteinHintCode: "poultry",
+    cookingStyleCodes: ["chien", "canh"],
+    components: [
+      ["ga_chien_nuoc_mam", "main"],
+      ["canh_ca_chua_trung", "soup"]
+    ]
+  },
+  {
+    code: "com_ga_xao_sa_ot_rau_muong",
+    nameVi: "Cơm gà xào sả ớt, rau muống luộc",
+    proteinHintCode: "poultry",
+    cookingStyleCodes: ["xao", "luoc"],
+    components: [
+      ["ga_xao_sa_ot", "main"],
+      ["rau_muong_luoc", "vegetable"]
+    ]
+  },
+  {
+    code: "com_ga_kho_nam_canh_bi_do",
+    nameVi: "Cơm gà kho nấm, canh bí đỏ",
+    proteinHintCode: "poultry",
+    cookingStyleCodes: ["kho", "canh"],
+    components: [
+      ["ga_kho_nam", "main"],
+      ["canh_bi_do_thit_bam", "soup"]
+    ]
+  },
+  {
+    code: "com_thit_kho_trung_canh_cai_thao",
+    nameVi: "Cơm thịt kho trứng, canh cải thảo",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["kho", "canh"],
+    components: [
+      ["thit_kho_trung", "main"],
+      ["canh_cai_thao_thit", "soup"]
+    ]
+  },
+  {
+    code: "com_suon_ram_man_rau_muong",
+    nameVi: "Cơm sườn ram mặn, rau muống luộc",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["kho", "luoc"],
+    components: [
+      ["suon_ram_man", "main"],
+      ["rau_muong_luoc", "vegetable"]
+    ]
+  },
+  {
+    code: "com_suon_ram_man_muop_xao",
+    nameVi: "Cơm sườn ram mặn, mướp xào tỏi",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["kho", "xao"],
+    components: [
+      ["suon_ram_man", "main"],
+      ["muop_xao_toi", "vegetable"]
+    ]
+  },
+  {
+    code: "com_thit_xao_dau_cove_cai_ngot",
+    nameVi: "Cơm thịt xào đậu cô ve, cải ngọt luộc",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["xao", "luoc"],
+    components: [
+      ["thit_xao_dau_cove", "main"],
+      ["cai_ngot_luoc", "vegetable"]
+    ]
+  },
+  {
+    code: "com_thit_xao_hanh_tay_canh_ca_chua_trung",
+    nameVi: "Cơm thịt xào hành tây, canh cà chua trứng",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["xao", "canh"],
+    components: [
+      ["thit_xao_hanh_tay", "main"],
+      ["canh_ca_chua_trung", "soup"]
+    ]
+  },
+  {
+    code: "com_suon_kho_khoai_tay_canh_bi_dao",
+    nameVi: "Cơm sườn kho khoai tây, canh bí đao",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["kho", "canh"],
+    components: [
+      ["suon_kho_khoai_tay", "main"],
+      ["canh_bi_dao_thit_bam", "soup"]
+    ]
+  },
+  {
+    code: "com_bo_xao_gia_rau_muong",
+    nameVi: "Cơm bò xào giá, rau muống xào tỏi",
+    proteinHintCode: "beef",
+    cookingStyleCodes: ["xao"],
+    components: [
+      ["bo_xao_gia", "main"],
+      ["rau_muong_xao_toi", "vegetable"]
+    ]
+  },
+  {
+    code: "com_bo_kho_ca_rot_cai_ngot",
+    nameVi: "Cơm bò kho cà rốt, cải ngọt luộc",
+    proteinHintCode: "beef",
+    cookingStyleCodes: ["kho", "luoc"],
+    components: [
+      ["bo_kho_ca_rot", "main"],
+      ["cai_ngot_luoc", "vegetable"]
+    ]
+  },
+  {
+    code: "com_bo_xao_hanh_tay_canh_bi_do",
+    nameVi: "Cơm bò xào hành tây, canh bí đỏ",
+    proteinHintCode: "beef",
+    cookingStyleCodes: ["xao", "canh"],
+    components: [
+      ["bo_xao_hanh_tay", "main"],
+      ["canh_bi_do_thit_bam", "soup"]
+    ]
+  },
+  {
+    code: "com_ca_loc_kho_to_rau_muong",
+    nameVi: "Cơm cá lóc kho tộ, rau muống luộc",
+    proteinHintCode: "fish",
+    cookingStyleCodes: ["kho", "luoc"],
+    components: [
+      ["ca_loc_kho_to", "main"],
+      ["rau_muong_luoc", "vegetable"]
+    ]
+  },
+  {
+    code: "com_ca_basa_chien_canh_ca_chua_trung",
+    nameVi: "Cơm cá basa chiên giòn, canh cà chua trứng",
+    proteinHintCode: "fish",
+    cookingStyleCodes: ["chien", "canh"],
+    components: [
+      ["ca_basa_chien_gion", "main"],
+      ["canh_ca_chua_trung", "soup"]
+    ]
+  },
+  {
+    code: "com_ca_nuc_kho_ca_chua_canh_cai_thao",
+    nameVi: "Cơm cá nục kho cà chua, canh cải thảo",
+    proteinHintCode: "fish",
+    cookingStyleCodes: ["kho", "canh"],
+    components: [
+      ["ca_nuc_kho_ca_chua", "main"],
+      ["canh_cai_thao_thit", "soup"]
+    ]
+  },
+  {
+    code: "com_ca_basa_kho_tieu_canh_bi_dao",
+    nameVi: "Cơm cá basa kho tiêu, canh bí đao",
+    proteinHintCode: "fish",
+    cookingStyleCodes: ["kho", "canh"],
+    components: [
+      ["ca_basa_kho_tieu", "main"],
+      ["canh_bi_dao_thit_bam", "soup"]
+    ]
+  },
+  {
+    code: "com_tom_rim_man_rau_muong",
+    nameVi: "Cơm tôm rim mặn, rau muống luộc",
+    proteinHintCode: "crustacean",
+    cookingStyleCodes: ["kho", "luoc"],
+    components: [
+      ["tom_rim_man", "main"],
+      ["rau_muong_luoc", "vegetable"]
+    ]
+  },
+  {
+    code: "com_tom_xao_bi_dao_canh_ca_chua_trung",
+    nameVi: "Cơm tôm xào bí đao, canh cà chua trứng",
+    proteinHintCode: "crustacean",
+    cookingStyleCodes: ["xao", "canh"],
+    components: [
+      ["tom_xao_bi_dao", "main"],
+      ["canh_ca_chua_trung", "soup"]
+    ]
+  },
+  {
+    code: "com_muc_xao_ca_chua_canh_bi_do",
+    nameVi: "Cơm mực xào cà chua, canh bí đỏ",
+    proteinHintCode: "mollusc",
+    cookingStyleCodes: ["xao", "canh"],
+    components: [
+      ["muc_xao_ca_chua", "main"],
+      ["canh_bi_do_thit_bam", "soup"]
+    ]
+  },
+  {
+    code: "com_trung_chien_hanh_rau_muong",
+    nameVi: "Cơm trứng chiên hành, rau muống luộc",
+    proteinHintCode: "egg",
+    cookingStyleCodes: ["chien", "luoc"],
+    components: [
+      ["trung_chien_hanh", "main"],
+      ["rau_muong_luoc", "vegetable"]
+    ]
+  },
+  {
+    code: "com_dau_hu_sot_ca_chua_canh_bi_dao",
+    nameVi: "Cơm đậu hũ sốt cà chua, canh bí đao",
+    proteinHintCode: "tofu",
+    cookingStyleCodes: ["xao", "canh"],
+    components: [
+      ["dau_hu_sot_ca_chua", "main"],
+      ["canh_bi_dao_thit_bam", "soup"]
+    ]
+  },
+  {
+    code: "com_dau_hu_chien_sa_canh_ca_chua_trung",
+    nameVi: "Cơm đậu hũ chiên sả, canh cà chua trứng",
+    proteinHintCode: "tofu",
+    cookingStyleCodes: ["chien", "canh"],
+    components: [
+      ["dau_hu_chien_sa", "main"],
+      ["canh_ca_chua_trung", "soup"]
+    ]
+  },
+  {
+    code: "com_dau_hu_kho_nam_canh_cai_thao",
+    nameVi: "Cơm đậu hũ kho nấm, canh cải thảo",
+    proteinHintCode: "tofu",
+    cookingStyleCodes: ["kho", "canh"],
+    components: [
+      ["dau_hu_kho_nam", "main"],
+      ["canh_cai_thao_thit", "soup"]
+    ]
+  },
+
+  // Additional classic home-cooked meals
+  {
+    code: "com_thit_luoc_canh_bi_dao",
+    nameVi: "Cơm thịt ba chỉ luộc, canh bí đao",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["luoc", "canh"],
+    components: [
+      ["thit_ba_chi_luoc", "main"],
+      ["canh_bi_dao_thit_bam", "soup"]
+    ]
+  },
+  {
+    code: "com_thit_rang_chay_canh_rau_muong",
+    nameVi: "Cơm thịt ba chỉ rang cháy cạnh, rau muống luộc",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["xao", "luoc"],
+    components: [
+      ["thit_rang_chay_canh", "main"],
+      ["rau_muong_luoc", "vegetable"]
+    ]
+  },
+  {
+    code: "com_suon_xao_chua_ngot_canh_cai_ngot",
+    nameVi: "Cơm sườn xào chua ngọt, canh cải ngọt thịt băm",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["xao", "canh"],
+    components: [
+      ["suon_xao_chua_ngot", "main"],
+      ["canh_cai_ngot_thit_bam", "soup"]
+    ]
+  },
+  {
+    code: "com_canh_suon_khoai_tay_dau_hu_chien",
+    nameVi: "Cơm canh sườn khoai tây cà rốt, đậu hũ chiên sả",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["canh", "chien"],
+    components: [
+      ["canh_suon_khoai_tay", "soup"],
+      ["dau_hu_chien_sa", "side"]
+    ]
+  },
+  {
+    code: "com_tom_rim_thit_canh_bi_do",
+    nameVi: "Cơm tôm rim thịt ba chỉ, canh bí đỏ",
+    proteinHintCode: "crustacean",
+    cookingStyleCodes: ["kho", "canh"],
+    components: [
+      ["tom_rim_thit_ba_chi", "main"],
+      ["canh_bi_do_thit_bam", "soup"]
+    ]
+  },
+  {
+    code: "com_ga_luoc_canh_cai_thao",
+    nameVi: "Cơm gà luộc gừng, canh cải thảo",
+    proteinHintCode: "poultry",
+    cookingStyleCodes: ["luoc", "canh"],
+    components: [
+      ["ga_luoc_gung", "main"],
+      ["canh_cai_thao_thit", "soup"]
+    ]
+  },
+  {
+    code: "com_ga_xao_nam_rau_den",
+    nameVi: "Cơm gà xào nấm rơm, rau dền luộc",
+    proteinHintCode: "poultry",
+    cookingStyleCodes: ["xao", "luoc"],
+    components: [
+      ["ga_xao_nam_rom", "main"],
+      ["rau_den_luoc", "vegetable"]
+    ]
+  },
+  {
+    code: "com_muc_xao_hanh_tay_canh_ca_chua",
+    nameVi: "Cơm mực xào hành tây, canh cà chua trứng",
+    proteinHintCode: "mollusc",
+    cookingStyleCodes: ["xao", "canh"],
+    components: [
+      ["muc_xao_hanh_tay", "main"],
+      ["canh_ca_chua_trung", "soup"]
+    ]
+  },
+  {
+    code: "com_thit_kho_trung_dau_hu_luoc",
+    nameVi: "Cơm thịt kho trứng, đậu hũ luộc",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["kho", "luoc"],
+    components: [
+      ["thit_kho_trung", "main"],
+      ["dau_hu_luoc", "vegetable"]
+    ]
+  },
+  {
+    code: "com_thit_xao_dau_canh_dau_hu_ca_chua",
+    nameVi: "Cơm thịt xào đậu cô ve, canh đậu hũ cà chua",
+    proteinHintCode: "pork",
+    cookingStyleCodes: ["xao", "canh"],
+    components: [
+      ["thit_xao_dau_cove", "main"],
+      ["canh_dau_hu_ca_chua", "soup"]
     ]
   }
 ]

@@ -51,6 +51,7 @@ export function FamilyCollaborationModal({
 
   // Add wish form state
   const [selectedMealId, setSelectedMealId] = useState<string>(availableMealOptions[0]?.id ?? "")
+  const [customMealName, setCustomMealName] = useState<string>("")
   const [memberName, setMemberName] = useState<string>("")
   const [note, setNote] = useState<string>("")
   const [copied, setCopied] = useState<boolean>(false)
@@ -85,13 +86,18 @@ export function FamilyCollaborationModal({
     e.preventDefault()
     if (!selectedMealId || !memberName.trim()) return
 
-    const option = availableMealOptions.find((o) => o.id === selectedMealId)
-    if (!option) return
+    const isCustom = selectedMealId === "custom"
+    const finalMealName = isCustom
+      ? customMealName.trim()
+      : availableMealOptions.find((o) => o.id === selectedMealId)?.nameVi
+    if (!finalMealName) return
+
+    const finalMealId = isCustom ? `custom-${Date.now()}` : selectedMealId
 
     if (typeof window !== "undefined") {
       const updated = addWishToStore(window.localStorage, householdId, {
-        mealOptionId: option.id,
-        mealOptionNameVi: option.nameVi,
+        mealOptionId: finalMealId,
+        mealOptionNameVi: finalMealName,
         requestedBy: memberName.trim(),
         note: note.trim() || undefined
       })
@@ -100,6 +106,7 @@ export function FamilyCollaborationModal({
     }
 
     setMemberName("")
+    setCustomMealName("")
     setNote("")
   }
 
@@ -300,8 +307,27 @@ export function FamilyCollaborationModal({
                         {opt.nameVi}
                       </option>
                     ))}
+                    <option value="custom">✏️ Nhập món khác ngoài danh sách...</option>
                   </select>
                 </div>
+                {selectedMealId === "custom" && (
+                  <div>
+                    <label
+                      htmlFor="wish-custom-meal-input"
+                      className="text-xs font-medium text-ink-soft"
+                    >
+                      Tên món muốn ăn
+                    </label>
+                    <input
+                      id="wish-custom-meal-input"
+                      type="text"
+                      placeholder="Ví dụ: Sườn xào chua ngọt, Chả lá lốt..."
+                      className="mt-1 w-full rounded-xl border border-edge bg-paper-raised px-3 py-2 text-xs text-ink placeholder:text-ink-soft/60"
+                      value={customMealName}
+                      onChange={(e) => setCustomMealName(e.target.value)}
+                    />
+                  </div>
+                )}
                 <div>
                   <label htmlFor="wish-member-input" className="text-xs font-medium text-ink-soft">
                     Ai muốn ăn món này?
@@ -332,7 +358,10 @@ export function FamilyCollaborationModal({
                   className="mt-1 w-full justify-center gap-1.5"
                   size="sm"
                   type="submit"
-                  disabled={!memberName.trim() || !selectedMealId}
+                  disabled={
+                    !memberName.trim() ||
+                    (selectedMealId === "custom" ? !customMealName.trim() : !selectedMealId)
+                  }
                 >
                   <Icon name="heart" className="size-4" />
                   Thêm nguyện vọng

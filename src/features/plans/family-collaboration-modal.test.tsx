@@ -101,4 +101,43 @@ describe("FamilyCollaborationModal", () => {
     expect(boSotVangElements.length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText(/Đề xuất bởi: Bé Bắp/)).toBeInTheDocument()
   })
+
+  it("allows entering a custom dish craving not in the options list", async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+
+    render(
+      <FamilyCollaborationModal
+        isOpen={true}
+        householdId="hh-test"
+        householdName="Nhà Mình"
+        weekStart="2026-09-21"
+        planItems={mockPlanItems}
+        availableMealOptions={[{ id: "opt-1", nameVi: "Canh chua cá lóc" }]}
+        onClose={onClose}
+      />
+    )
+
+    // Select custom option
+    const select = screen.getByLabelText(/Chọn món muốn ăn/i)
+    await user.selectOptions(select, "custom")
+
+    // Input custom dish name
+    const customInput = screen.getByLabelText(/Tên món muốn ăn/i)
+    await user.type(customInput, "Sườn xào chua ngọt")
+
+    const memberInput = screen.getByPlaceholderText(/Ví dụ: Bé Bắp, Mẹ, Bố/i)
+    await user.type(memberInput, "Mẹ")
+
+    const noteInput = screen.getByPlaceholderText(/Ví dụ: Thèm lâu rồi/i)
+    await user.type(noteInput, "Món này cả nhà đều thích")
+
+    const addBtn = screen.getByRole("button", { name: /Thêm nguyện vọng/i })
+    await user.click(addBtn)
+
+    // Should display the custom dish in wishlist
+    expect(await screen.findByText("Sườn xào chua ngọt")).toBeInTheDocument()
+    expect(screen.getByText(/Đề xuất bởi: Mẹ/)).toBeInTheDocument()
+    expect(screen.getByText(/Món này cả nhà đều thích/)).toBeInTheDocument()
+  })
 })
