@@ -30,6 +30,12 @@ import type { PlanItemView, PlannerApi } from "./planner-api"
 import { MealRatingControl } from "./meal-rating-control"
 import { useWakeLock } from "./use-wake-lock"
 import { currentWeekStart } from "./week-start"
+import {
+  cancelCookingSpeech,
+  isSpeechSynthesisSupported,
+  speakCookingInstruction
+} from "./cooking-speech"
+import { loadCookingNote, saveCookingNote } from "./cooking-notes-store"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -178,24 +184,34 @@ function StepTimer({
 function StepView({
   step,
   timerProgress,
-  onTimerProgress
+  onTimerProgress,
+  counterMode
 }: Readonly<{
   step: CookingStep
   timerProgress?: TimerProgressV1
   onTimerProgress: (progress: TimerProgressV1) => void
+  counterMode?: boolean
 }>) {
   return (
-    <div className="grid gap-4">
+    <div className={`grid ${counterMode ? "gap-6" : "gap-4"}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-clay-50 px-3 py-1 text-sm font-bold text-clay-900">
+        <span
+          className={`rounded-full bg-clay-50 font-bold text-clay-900 ${
+            counterMode ? "px-4 py-1.5 text-base" : "px-3 py-1 text-sm"
+          }`}
+        >
           {step.dishLabel}
         </span>
-        <span className="text-sm font-semibold text-ink-soft">
+        <span className={`font-semibold text-ink-soft ${counterMode ? "text-base" : "text-sm"}`}>
           Bước {step.stepNumber}/{step.stepCount}
         </span>
       </div>
 
-      <p className="text-2xl leading-snug font-bold text-balance text-ink sm:text-3xl">
+      <p
+        className={`leading-snug font-bold text-balance text-ink ${
+          counterMode ? "text-3xl sm:text-4xl lg:text-5xl" : "text-2xl sm:text-3xl"
+        }`}
+      >
         {step.instructionVi}
       </p>
 
@@ -203,7 +219,9 @@ function StepView({
         <ul className="flex flex-wrap gap-2">
           {step.conditions.map((condition) => (
             <li
-              className="rounded-full bg-broth-50 px-3 py-1 text-sm font-bold text-broth-900"
+              className={`rounded-full bg-broth-50 font-bold text-broth-900 ${
+                counterMode ? "px-4 py-1.5 text-base" : "px-3 py-1 text-sm"
+              }`}
               key={condition}
             >
               {condition}
@@ -213,12 +231,27 @@ function StepView({
       )}
 
       {step.ingredientDetails.length > 0 && (
-        <div className="rounded-2xl bg-paper-sunken px-4 py-3">
-          <p className="flex items-center gap-1.5 text-sm font-bold text-ink">
-            <Icon name="leaf" className="size-4 text-herb-600" />
+        <div
+          className={`rounded-2xl bg-paper-sunken ${
+            counterMode ? "px-5 py-4 text-base" : "px-4 py-3 text-sm"
+          }`}
+        >
+          <p
+            className={`flex items-center gap-1.5 font-bold text-ink ${
+              counterMode ? "text-base" : "text-sm"
+            }`}
+          >
+            <Icon
+              name="leaf"
+              className={counterMode ? "size-5 text-herb-600" : "size-4 text-herb-600"}
+            />
             Nguyên liệu cho bước này
           </p>
-          <ul className="mt-1 grid gap-1 text-ink-soft">
+          <ul
+            className={`mt-1 grid gap-1 text-ink-soft ${
+              counterMode ? "text-base sm:text-lg" : "text-sm"
+            }`}
+          >
             {step.ingredientDetails.map((ingredient) => (
               <li key={ingredient.recipeIngredientId}>{ingredient.label}</li>
             ))}
@@ -235,6 +268,86 @@ function StepView({
           onProgress={onTimerProgress}
           {...(timerProgress === undefined ? {} : { progress: timerProgress })}
         />
+      )}
+    </div>
+  )
+}
+
+function FamilyCookingNotes({ mealOptionId }: Readonly<{ mealOptionId: string }>) {
+  const [cookingNote, setCookingNote] = useState(
+    () => loadCookingNote(window.localStorage, mealOptionId) ?? ""
+  )
+  const [isEditingNote, setIsEditingNote] = useState(false)
+  const [noteSavedFeedback, setNoteSavedFeedback] = useState(false)
+
+  const handleSaveNote = useCallback(
+    (newNote: string) => {
+      saveCookingNote(window.localStorage, mealOptionId, newNote)
+      setCookingNote(newNote.trim())
+      setIsEditingNote(false)
+      setNoteSavedFeedback(true)
+      setTimeout(() => setNoteSavedFeedback(false), 2000)
+    },
+    [mealOptionId]
+  )
+
+  return (
+    <div className="rounded-2xl border border-edge bg-paper-raised p-4 shadow-soft">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Icon name="note" className="size-4 text-herb-700" />
+          <h3 className="text-sm font-bold text-ink">Mẹo & Ghi chú của gia đình</h3>
+        </div>
+        {!isEditingNote && (
+          <button
+            type="button"
+            onClick={() => setIsEditingNote(true)}
+            className="text-xs font-semibold text-herb-700 hover:underline"
+          >
+            {cookingNote ? "Sửa ghi chú" : "+ Thêm ghi chú"}
+          </button>
+        )}
+      </div>
+
+      {isEditingNote ? (
+        <div className="mt-2.5 grid gap-2">
+          <textarea
+            className="w-full rounded-xl border border-edge bg-paper p-2.5 text-sm text-ink placeholder:text-ink-muted focus:border-herb-500 focus:outline-none"
+            rows={3}
+            placeholder="Ví dụ: Giảm 1 thìa đường, chiên giòn hơn cho bé, ướp tiêu 15 phút..."
+            defaultValue={cookingNote}
+            id="cooking-note-input"
+          />
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" size="sm" variant="ghost" onClick={() => setIsEditingNote(false)}>
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                const input = document.getElementById(
+                  "cooking-note-input"
+                ) as HTMLTextAreaElement | null
+                handleSaveNote(input?.value ?? "")
+              }}
+            >
+              Lưu ghi chú
+            </Button>
+          </div>
+        </div>
+      ) : cookingNote ? (
+        <p className="mt-2 text-sm whitespace-pre-wrap text-ink-soft">{cookingNote}</p>
+      ) : (
+        <p className="mt-1 text-xs text-ink-muted">
+          Chưa có ghi chú khẩu vị cho món này. Thêm mẹo để nhớ cho những lần nấu sau!
+        </p>
+      )}
+
+      {noteSavedFeedback && (
+        <p className="mt-1 text-xs font-bold text-herb-700" role="status">
+          ✓ Đã lưu ghi chú cho món này
+        </p>
       )}
     </div>
   )
@@ -359,7 +472,9 @@ export function CookingPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, dayIndex, householdRepository, mealRatingRepository, plannerApi, reloadToken])
 
-  useWakeLock(state.status === "ready")
+  const wakeLockState = useWakeLock(state.status === "ready")
+  const [counterMode, setCounterMode] = useState(false)
+  const [speaking, setSpeaking] = useState(false)
 
   const steps = useMemo(
     () => (state.status === "ready" ? cookingSequence(state.item, labels) : []),
@@ -367,6 +482,14 @@ export function CookingPage({
   )
   const progressScope = state.status === "ready" ? `${state.revisionId}:${String(dayIndex)}` : null
   const step = steps[index]
+
+  useEffect(() => {
+    return () => {
+      cancelCookingSpeech()
+    }
+  }, [])
+
+  const mealOptionId = state.status === "ready" ? state.item.mealOptionId : null
 
   useEffect(() => {
     if (
@@ -391,19 +514,48 @@ export function CookingPage({
 
   const go = useCallback(
     (delta: number) => {
+      cancelCookingSpeech()
+      setSpeaking(false)
       setIndex((current) => Math.min(Math.max(current + delta, 0), Math.max(steps.length - 1, 0)))
     },
     [steps.length]
   )
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement | null)?.isContentEditable
+      ) {
+        return
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault()
+        go(-1)
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault()
+        go(1)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [go])
+
   const dayLabel = DAY_LABELS[dayIndex] ?? "Bữa chính"
 
   return (
-    <AppPageShell className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5 px-4 py-6 text-ink sm:px-6">
+    <AppPageShell
+      className={`mx-auto flex min-h-screen w-full flex-col gap-5 px-4 py-6 text-ink sm:px-6 ${
+        counterMode ? "max-w-4xl" : "max-w-2xl"
+      }`}
+    >
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-herb-700">{dayLabel}</p>
-          <h1 className="text-xl font-extrabold tracking-tight text-ink">
+          <h1
+            className={`${counterMode ? "text-2xl sm:text-3xl" : "text-xl"} font-extrabold tracking-tight text-ink`}
+          >
             {state.status === "ready" ? state.mealName : "Đang nấu"}
           </h1>
         </div>
@@ -442,6 +594,73 @@ export function CookingPage({
 
       {step === undefined ? null : (
         <>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-edge/60 pb-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={counterMode ? "default" : "outline"}
+                onClick={() => setCounterMode((prev) => !prev)}
+                className="flex items-center gap-1.5 rounded-full"
+                title="Phóng to chữ và nút bấm để nhìn rõ từ xa trên kệ bếp"
+              >
+                <Icon name="expand" className="size-4" />
+                <span>{counterMode ? "Chế độ kệ bếp: Bật" : "Kệ bếp"}</span>
+              </Button>
+
+              {isSpeechSynthesisSupported() ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={speaking ? "default" : "outline"}
+                  onClick={() => {
+                    if (speaking) {
+                      cancelCookingSpeech()
+                      setSpeaking(false)
+                    } else {
+                      const ok = speakCookingInstruction(step.instructionVi, () =>
+                        setSpeaking(false)
+                      )
+                      if (ok) setSpeaking(true)
+                    }
+                  }}
+                  className="flex items-center gap-1.5 rounded-full"
+                  title="Đọc to hướng dẫn nấu bằng giọng nói"
+                >
+                  <Icon name="speaker" className="size-4" />
+                  <span>{speaking ? "Dừng đọc" : "Đọc bước"}</span>
+                </Button>
+              ) : null}
+            </div>
+
+            {wakeLockState.isSupported ? (
+              <Button
+                type="button"
+                size="sm"
+                variant={wakeLockState.isLocked ? "outline" : "ghost"}
+                onClick={wakeLockState.toggle}
+                className={`flex items-center gap-1.5 rounded-full ${
+                  wakeLockState.isLocked
+                    ? "border-amber-300 bg-amber-50 text-amber-900"
+                    : "text-ink-soft"
+                }`}
+                title={
+                  wakeLockState.isLocked
+                    ? "Màn hình đang giữ luôn sáng"
+                    : "Chạm để giữ màn hình luôn sáng"
+                }
+              >
+                <Icon
+                  name="sun"
+                  className={`size-4 ${wakeLockState.isLocked ? "text-amber-600" : ""}`}
+                />
+                <span className="text-xs">
+                  {wakeLockState.isLocked ? "Màn hình sáng" : "Màn hình tự tắt"}
+                </span>
+              </Button>
+            ) : null}
+          </div>
+
           <div aria-hidden="true" className="flex gap-1">
             {steps.map((candidate, position) => (
               <span
@@ -459,11 +678,16 @@ export function CookingPage({
 
           <StepView
             step={step}
+            counterMode={counterMode}
             onTimerProgress={(progress) =>
               setTimers((current) => ({ ...current, [step.key]: progress }))
             }
             {...(timers[step.key] === undefined ? {} : { timerProgress: timers[step.key] })}
           />
+
+          {mealOptionId !== null && (
+            <FamilyCookingNotes key={mealOptionId} mealOptionId={mealOptionId} />
+          )}
 
           {/* Only on the last step, and only here. An opinion about a dish is formed by cooking it,
               so this is the one moment the household has an answer — and on the week screen the same
@@ -488,7 +712,7 @@ export function CookingPage({
 
           <div className="mt-auto flex gap-3 pt-4">
             <Button
-              className="flex-1"
+              className={`flex-1 ${counterMode ? "min-h-16 text-lg font-extrabold sm:text-xl" : ""}`}
               disabled={index === 0}
               size="lg"
               type="button"
@@ -499,7 +723,10 @@ export function CookingPage({
             </Button>
             {index === steps.length - 1 ? (
               <Link
-                className={buttonVariants({ size: "lg", className: "flex-1" })}
+                className={buttonVariants({
+                  size: "lg",
+                  className: `flex-1 ${counterMode ? "min-h-16 text-lg font-extrabold sm:text-xl" : ""}`
+                })}
                 to="/plan"
                 onClick={() => {
                   if (state.status === "ready") {
@@ -511,7 +738,12 @@ export function CookingPage({
                 Nấu xong
               </Link>
             ) : (
-              <Button className="flex-1" size="lg" type="button" onClick={() => go(1)}>
+              <Button
+                className={`flex-1 ${counterMode ? "min-h-16 text-lg font-extrabold sm:text-xl" : ""}`}
+                size="lg"
+                type="button"
+                onClick={() => go(1)}
+              >
                 Bước tiếp
               </Button>
             )}
