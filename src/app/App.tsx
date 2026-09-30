@@ -9,6 +9,8 @@ import type { PantryRepository } from "@/application/pantry/pantry-repository"
 import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
 import { AuthProvider } from "@/app/auth/auth-provider"
 import { AppRouter } from "@/app/router"
+import { ThemeProvider } from "@/app/theme/theme-context"
+import { ToastContainer } from "@/app/components/ui/toast"
 import { createAccountApi } from "@/features/account/account-api"
 import { createAssistantApi, type AssistantApi } from "@/features/assistant/assistant-api"
 import { createPlannerApi, type PlannerApi } from "@/features/plans/planner-api"
@@ -67,16 +69,19 @@ export default function App({
 }: AppProps) {
   return (
     <BrowserRouter>
-      <AuthProvider port={authSession}>
-        <AppRoutes
-          householdRepository={householdRepository}
-          {...(mealRatingRepository === undefined ? {} : { mealRatingRepository })}
-          pantryFoodOptionsRepository={pantryFoodOptionsRepository}
-          pantryRepository={pantryRepository}
-          plannerApi={plannerApi}
-          shoppingListRepository={shoppingListRepository}
-        />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider port={authSession}>
+          <AppRoutes
+            householdRepository={householdRepository}
+            {...(mealRatingRepository === undefined ? {} : { mealRatingRepository })}
+            pantryFoodOptionsRepository={pantryFoodOptionsRepository}
+            pantryRepository={pantryRepository}
+            plannerApi={plannerApi}
+            shoppingListRepository={shoppingListRepository}
+          />
+          <ToastContainer />
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   )
 }
