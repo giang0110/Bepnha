@@ -767,4 +767,17 @@ describe("WeeklyPlanPage", () => {
     // still coming, and somewhere to go.
     expect(screen.queryByText(/Đang tải kế hoạch tuần/u)).not.toBeInTheDocument()
   })
+
+  test("displays weekly rotation balance card and lunar dates on meal cards", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    expect(await screen.findByText(/Cân bằng đạm & Phong tục tuần này/i)).toBeInTheDocument()
+    expect(screen.getByText(/Phân bố nguồn đạm trong tuần:/i)).toBeInTheDocument()
+
+    // Each day card has a lunar date tag (e.g. "Âl")
+    const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
+    expect(cards[0]?.textContent).toContain("Âl")
+  })
 })
