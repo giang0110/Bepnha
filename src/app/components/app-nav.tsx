@@ -1,4 +1,5 @@
 import { NavLink } from "react-router"
+import { ThemeToggle } from "@/app/theme/theme-context"
 import { Icon } from "./ui/icon"
 
 const links = [
@@ -40,12 +41,15 @@ export function AppNav() {
       className="fixed inset-x-0 bottom-0 z-50 border-t border-edge bg-paper-raised/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_28px_rgb(107_93_84_/_0.1)] backdrop-blur lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-t-0 lg:pb-0 lg:shadow-none"
     >
       <div className="hidden px-5 pb-5 pt-7 lg:block">
-        <p className="flex items-center gap-2 text-sm font-extrabold tracking-tight text-herb-700">
-          <span className="grid size-8 place-items-center rounded-2xl bg-herb-100 text-herb-700">
-            <Icon name="bowl" className="size-[18px]" />
-          </span>
-          Bếp Nhà
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-2 text-sm font-extrabold tracking-tight text-herb-700">
+            <span className="grid size-8 place-items-center rounded-2xl bg-herb-100 text-herb-700">
+              <Icon name="bowl" className="size-[18px]" />
+            </span>
+            Bếp Nhà
+          </p>
+          <ThemeToggle />
+        </div>
         <p className="mt-3 text-lg font-bold text-ink">Bữa cơm gọn hơn mỗi tuần</p>
         <p className="mt-1 text-xs leading-5 text-ink-soft">
           Kế hoạch, tủ bếp và danh sách đi chợ trong cùng một nơi.

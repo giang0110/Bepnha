@@ -95,6 +95,55 @@
   --shadow-lift: 0 2px 4px rgb(107 93 84 / 0.06), 0 14px 34px -14px rgb(107 93 84 / 0.28);
 }
 
+html.dark {
+  /* Dark paper surfaces - warm charcoal & deep earthy tones */
+  --color-paper: #1c1815;
+  --color-paper-raised: #28221c;
+  --color-paper-sunken: #14110e;
+
+  /* Dark ink text - warm cream & soft beige */
+  --color-ink: #f7ede2;
+  --color-ink-soft: #c2b4a8;
+  --color-ink-faint: #8d7e73;
+
+  /* Herb accents in dark mode */
+  --color-herb-50: #1a2a16;
+  --color-herb-100: #243c1f;
+  --color-herb-200: #34572c;
+  --color-herb-500: #5d9b46;
+  --color-herb-600: #74b85a;
+  --color-herb-700: #8ecf75;
+  --color-herb-900: #dcecd3;
+
+  /* Clay accents in dark mode */
+  --color-clay-50: #2d1a12;
+  --color-clay-100: #42251a;
+  --color-clay-200: #5e3525;
+  --color-clay-500: #d97a4a;
+  --color-clay-700: #e88d61;
+  --color-clay-900: #fadfd0;
+
+  /* Broth accents in dark mode */
+  --color-broth-50: #2a2310;
+  --color-broth-200: #45391a;
+  --color-broth-700: #e0b043;
+  --color-broth-900: #fdf6e3;
+
+  /* Chilli accents in dark mode */
+  --color-chilli-50: #2d1210;
+  --color-chilli-200: #4a1d1a;
+  --color-chilli-600: #e65c50;
+  --color-chilli-700: #f07b70;
+  --color-chilli-900: #fdeeec;
+
+  /* Edges and shadows */
+  --color-edge: #383029;
+  --color-edge-strong: #4f443b;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 20px -8px rgb(0 0 0 / 0.5);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.4), 0 14px 34px -14px rgb(0 0 0 / 0.6);
+}
+
 :root {
   font-family: var(--font-sans);
   color: var(--color-ink);

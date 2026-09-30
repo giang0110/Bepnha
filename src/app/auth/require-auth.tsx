@@ -4,6 +4,7 @@ import { AppNav } from "@/app/components/app-nav"
 import { AppSkipLink } from "@/app/components/app-skip-link"
 import { OfflineBanner } from "@/app/components/offline-banner"
 import { SignOutButton } from "@/features/auth/sign-out-button"
+import { ThemeToggle } from "@/app/theme/theme-context"
 
 import { useAuth } from "./auth-context"
 
@@ -32,8 +33,9 @@ export function RequireAuth() {
         <div className="min-w-0 pb-24 lg:pb-0">
           <Outlet />
           <div className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6 lg:px-8">
-            <div className="border-t border-edge pt-5">
+            <div className="flex items-center justify-between border-t border-edge pt-5">
               <SignOutButton />
+              <ThemeToggle />
             </div>
           </div>
         </div>
