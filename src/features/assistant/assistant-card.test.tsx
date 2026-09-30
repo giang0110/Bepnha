@@ -30,10 +30,48 @@ describe("AssistantCard", () => {
     expect(
       screen.getByRole("button", { name: "Bữa nào nên xem thử để đa dạng hơn?" })
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Gợi ý đổi bữa thanh nhiệt theo thời tiết nắng nóng" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Gợi ý đổi bữa ấm cúng cho ngày mưa rét" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Bữa nào phù hợp ăn chay ngày Rằm hoặc Mùng Một?" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Cách tận dụng nguyên liệu tồn kho tủ bếp để tiết kiệm?" })
+    ).toBeInTheDocument()
     expect(screen.getByRole("textbox", { name: "Câu hỏi cho Trợ lý Bếp Nhà" })).toHaveAttribute(
       "maxlength",
       "500"
     )
+  })
+
+  test("triggers seasonal hot weather question correctly", async () => {
+    const user = userEvent.setup()
+    const assistantApi = api({
+      ok: true,
+      value: {
+        kind: "explanation",
+        summaryVi: "Gợi ý đổi sang món canh chua cho ngày nắng nóng.",
+        observationsVi: []
+      }
+    })
+    render(<AssistantCard {...props} assistantApi={assistantApi} onPreviewDay={vi.fn()} />)
+
+    await user.click(
+      screen.getByRole("button", { name: "Gợi ý đổi bữa thanh nhiệt theo thời tiết nắng nóng" })
+    )
+
+    expect(assistantApi.ask).toHaveBeenCalledWith("access-token", {
+      planId: props.planId,
+      expectedRevisionId: props.expectedRevisionId,
+      question: "Gợi ý đổi bữa thanh nhiệt theo thời tiết nắng nóng"
+    })
+    expect(
+      await screen.findByText("Gợi ý đổi sang món canh chua cho ngày nắng nóng.")
+    ).toBeInTheDocument()
   })
 
   test("renders an explanation returned by the assistant", async () => {

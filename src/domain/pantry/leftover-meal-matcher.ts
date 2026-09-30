@@ -216,6 +216,78 @@ export const CANONICAL_DISH_RECIPES: readonly CanonicalDishRecipe[] = Object.fre
     dishNameVi: "Canh bí đỏ thịt băm",
     category: "vegetable",
     primaryIngredients: ["Bí đỏ", "Thịt nạc vai heo"]
+  },
+  {
+    id: "thit_ba_chi_luoc",
+    dishNameVi: "Thịt ba chỉ luộc",
+    category: "pork",
+    primaryIngredients: ["Thịt ba chỉ", "Hành tím"]
+  },
+  {
+    id: "thit_rang_chay_canh",
+    dishNameVi: "Thịt ba chỉ rang cháy cạnh",
+    category: "pork",
+    primaryIngredients: ["Thịt ba chỉ", "Hành lá"]
+  },
+  {
+    id: "suon_xao_chua_ngot",
+    dishNameVi: "Sườn xào chua ngọt",
+    category: "pork",
+    primaryIngredients: ["Sườn heo", "Cà chua"]
+  },
+  {
+    id: "canh_suon_khoai_tay",
+    dishNameVi: "Canh sườn khoai tây",
+    category: "pork",
+    primaryIngredients: ["Sườn heo", "Khoai tây"]
+  },
+  {
+    id: "tom_rim_thit_ba_chi",
+    dishNameVi: "Tôm rim thịt ba chỉ",
+    category: "seafood",
+    primaryIngredients: ["Tôm thẻ", "Thịt ba chỉ"]
+  },
+  {
+    id: "canh_ngao_nau_chua",
+    dishNameVi: "Canh ngao nấu chua",
+    category: "seafood",
+    primaryIngredients: ["Ngao", "Cà chua"]
+  },
+  {
+    id: "nam_dui_ga_kho_tieu",
+    dishNameVi: "Nấm đùi gà kho tiêu chay",
+    category: "vegetable",
+    primaryIngredients: ["Nấm đùi gà", "Tiêu xay"]
+  },
+  {
+    id: "canh_dua_bo",
+    dishNameVi: "Canh dưa bò",
+    category: "beef",
+    primaryIngredients: ["Thịt bò bắp", "Dưa chua"]
+  },
+  {
+    id: "ga_rang_gung",
+    dishNameVi: "Gà rang gừng",
+    category: "poultry",
+    primaryIngredients: ["Thịt gà ta", "Gừng"]
+  },
+  {
+    id: "canh_ga_la_giang",
+    dishNameVi: "Canh gà lá giang",
+    category: "poultry",
+    primaryIngredients: ["Thịt gà ta", "Lá giang"]
+  },
+  {
+    id: "ca_thu_sot_ca",
+    dishNameVi: "Cá thu sốt cà chua",
+    category: "fish",
+    primaryIngredients: ["Cá thu", "Cà chua"]
+  },
+  {
+    id: "rau_muong_luoc",
+    dishNameVi: "Rau muống luộc",
+    category: "vegetable",
+    primaryIngredients: ["Rau muống"]
   }
 ])
 
@@ -249,7 +321,12 @@ const COMMON_ALIASES: Readonly<Record<string, readonly string[]>> = Object.freez
   "suon heo": ["suon heo", "suon", "suon non", "suon lon"],
   "ca basa": ["ca basa", "basa", "ca tra"],
   "tom the": ["tom the", "tom", "tom su", "tom tuoi"],
-  "muc ong": ["muc ong", "muc", "muc tuoi", "muc la"]
+  "muc ong": ["muc ong", "muc", "muc tuoi", "muc la"],
+  ngao: ["ngao", "ngao hoa", "ngheu", "ngao song"],
+  "ca thu": ["ca thu", "ca thu tuoi", "ca thu cat khuc"],
+  "nam dui ga": ["nam dui ga", "nam dui ga tuoi"],
+  "dua chua": ["dua chua", "dua cai chua", "dua muoi"],
+  "la giang": ["la giang", "la giang tuoi"]
 })
 
 export function matchIngredients(
@@ -336,4 +413,40 @@ export function findLeftoverMealSuggestions(
     if (rankDiff !== 0) return rankDiff
     return b.matchPercentage - a.matchPercentage
   })
+}
+
+export interface LeftoverEfficiencyReport {
+  readonly readyToCookCount: number
+  readonly almostReadyCount: number
+  readonly suggestedDishes: readonly LeftoverDishMatch[]
+  readonly adviceVi: string
+}
+
+export function summarizeLeftoverEfficiency(
+  availableFoodNames: readonly string[],
+  recipes: readonly CanonicalDishRecipe[] = CANONICAL_DISH_RECIPES
+): LeftoverEfficiencyReport {
+  const suggestions = findLeftoverMealSuggestions(availableFoodNames, recipes)
+  const readyToCook = suggestions.filter((s) => s.status === "ready_to_cook")
+  const almostReady = suggestions.filter((s) => s.status === "almost_ready")
+
+  const adviceVi =
+    readyToCook.length > 0
+      ? `Tủ bếp sẵn sàng nấu ngay: Có ${readyToCook.length} món đủ nguyên liệu (${readyToCook
+          .slice(0, 2)
+          .map((d) => d.dishNameVi)
+          .join(", ")}). Ưu tiên nấu trước để chống lãng phí.`
+      : almostReady.length > 0
+        ? `Tủ bếp sắp đủ nguyên liệu: Có ${almostReady.length} món chỉ thiếu 1 nguyên liệu (${almostReady
+            .slice(0, 2)
+            .map((d) => d.dishNameVi)
+            .join(", ")}).`
+        : "Hiện chưa có món nào khớp với thực phẩm trong tủ bếp."
+
+  return {
+    readyToCookCount: readyToCook.length,
+    almostReadyCount: almostReady.length,
+    suggestedDishes: suggestions.slice(0, 5),
+    adviceVi
+  }
 }

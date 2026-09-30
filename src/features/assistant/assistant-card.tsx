@@ -11,6 +11,10 @@ import type { AssistantApi } from "./assistant-api"
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 const EXPLAIN_QUESTION = "Giải thích kế hoạch này"
 const VARIETY_QUESTION = "Bữa nào nên xem thử để đa dạng hơn?"
+const SEASONAL_HOT_QUESTION = "Gợi ý đổi bữa thanh nhiệt theo thời tiết nắng nóng"
+const SEASONAL_COLD_QUESTION = "Gợi ý đổi bữa ấm cúng cho ngày mưa rét"
+const LUNAR_VEG_QUESTION = "Bữa nào phù hợp ăn chay ngày Rằm hoặc Mùng Một?"
+const LEFTOVER_QUESTION = "Cách tận dụng nguyên liệu tồn kho tủ bếp để tiết kiệm?"
 
 type AdviceState =
   | { readonly status: "idle" | "loading" }
@@ -103,6 +107,38 @@ export function AssistantCard({
           onClick={() => void ask(VARIETY_QUESTION)}
         >
           {VARIETY_QUESTION}
+        </Button>
+        <Button
+          disabled={advice.status === "loading"}
+          type="button"
+          variant="outline"
+          onClick={() => void ask(SEASONAL_HOT_QUESTION)}
+        >
+          {SEASONAL_HOT_QUESTION}
+        </Button>
+        <Button
+          disabled={advice.status === "loading"}
+          type="button"
+          variant="outline"
+          onClick={() => void ask(SEASONAL_COLD_QUESTION)}
+        >
+          {SEASONAL_COLD_QUESTION}
+        </Button>
+        <Button
+          disabled={advice.status === "loading"}
+          type="button"
+          variant="outline"
+          onClick={() => void ask(LUNAR_VEG_QUESTION)}
+        >
+          {LUNAR_VEG_QUESTION}
+        </Button>
+        <Button
+          disabled={advice.status === "loading"}
+          type="button"
+          variant="outline"
+          onClick={() => void ask(LEFTOVER_QUESTION)}
+        >
+          {LEFTOVER_QUESTION}
         </Button>
       </div>
 
