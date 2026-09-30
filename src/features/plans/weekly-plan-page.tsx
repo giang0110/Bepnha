@@ -43,6 +43,8 @@ import {
   proteinGroupLabel
 } from "@/domain/planner/meal-rotation-insights"
 import { solarToVietnameseLunar } from "@/domain/planner/vietnamese-lunar-calendar"
+import { FamilyCollaborationModal } from "./family-collaboration-modal"
+import { useFamilyWishlist } from "./family-wishlist-store"
 import { WeeklyRotationBalanceCard } from "./weekly-rotation-balance-card"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
@@ -391,6 +393,8 @@ export function WeeklyPlanPage({
    */
   const [weekStart, setWeekStart] = useState(() => currentWeekStart(today()))
   const [ratings, setRatings] = useState<MealRatings>({ liked: [], disliked: [] })
+  const [showFamilyModal, setShowFamilyModal] = useState(false)
+  const familyWishes = useFamilyWishlist(household?.householdId ?? null)
 
   useEffect(() => {
     let active = true
@@ -737,13 +741,30 @@ export function WeeklyPlanPage({
           {/* Not plain "Đi chợ": the navigation carries that name for the week's list in general,
               and two links reading the same while leading to different places is a guess the
               reader should not have to make. This one is the list for the plan on screen. */}
-          <Link
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-clay-700 px-6 text-base font-bold text-white shadow-soft transition-all hover:bg-clay-900 hover:shadow-lift"
-            to={`/shopping/${state.value.planId}`}
-          >
-            <Icon name="cart" className="size-5" />
-            Đi chợ cho kế hoạch này
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-clay-700 px-6 text-base font-bold text-white shadow-soft transition-all hover:bg-clay-900 hover:shadow-lift"
+              to={`/shopping/${state.value.planId}`}
+            >
+              <Icon name="cart" className="size-5" />
+              Đi chợ cho kế hoạch này
+            </Link>
+            <Button
+              className="min-h-12 gap-2 rounded-full px-5 font-bold"
+              type="button"
+              variant="outline"
+              onClick={() => setShowFamilyModal(true)}
+            >
+              <Icon name="users" className="size-5 text-herb-700" />
+              Gia đình & Chia sẻ
+              {familyWishes.length > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-clay-100 px-2 py-0.5 text-xs font-bold text-clay-900">
+                  <Icon name="heart" className="size-3 text-clay-600" />
+                  {familyWishes.length}
+                </span>
+              )}
+            </Button>
+          </div>
 
           <WeeklyRotationBalanceCard items={state.value.plan.items} weekStart={weekStart} />
 
@@ -946,12 +967,23 @@ export function WeeklyPlanPage({
             const replacement = preview.value.items.find(
               (item) => item.dayIndex === preview.dayIndex
             )
+            const isFamilyWished =
+              replacement !== undefined &&
+              familyWishes.some((w) => w.mealOptionId === replacement.mealOptionId)
             return current === undefined || replacement === undefined ? null : (
-              <ReplacementComparison
-                current={current}
-                replacement={replacement}
-                weeklyCostDeltaVnd={preview.value.costDeltaVnd}
-              />
+              <>
+                {isFamilyWished && (
+                  <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-clay-100 px-3 py-1 text-xs font-bold text-clay-900">
+                    <Icon name="heart" className="size-3.5 text-clay-600" />
+                    Món này được người nhà bình chọn trong tuần!
+                  </div>
+                )}
+                <ReplacementComparison
+                  current={current}
+                  replacement={replacement}
+                  weeklyCostDeltaVnd={preview.value.costDeltaVnd}
+                />
+              </>
             )
           })()}
           <div className="mt-3 flex gap-2">
@@ -969,6 +1001,22 @@ export function WeeklyPlanPage({
           </div>
         </section>
       ) : null}
+
+      {household !== null && state.status === "ready" && (
+        <FamilyCollaborationModal
+          availableMealOptions={state.value.plan.items.map((i) => ({
+            id: i.mealOptionId,
+            nameVi: i.mealOptionNameVi
+          }))}
+          householdId={household.householdId}
+          householdName="Gia đình mình"
+          initialWishes={familyWishes}
+          isOpen={showFamilyModal}
+          planItems={state.value.plan.items}
+          weekStart={weekStart}
+          onClose={() => setShowFamilyModal(false)}
+        />
+      )}
     </AppPageShell>
   )
 }
