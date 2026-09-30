@@ -298,6 +298,11 @@ export function ShoppingListPage({ repository }: Props) {
   const [restockNotice, setRestockNotice] = useState<string | null>(null)
   const [restocking, setRestocking] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    return typeof navigator !== "undefined" && typeof navigator.onLine === "boolean"
+      ? navigator.onLine
+      : true
+  })
 
   useEffect(() => {
     let active = true
@@ -375,14 +380,39 @@ export function ShoppingListPage({ repository }: Props) {
       }
     }
 
-    const onOnline = () => void synchronize()
+    const onOnline = () => {
+      setIsOnline(true)
+      void synchronize()
+    }
+    const onOffline = () => {
+      setIsOnline(false)
+    }
+
     window.addEventListener("online", onOnline)
+    window.addEventListener("offline", onOffline)
     void synchronize()
     return () => {
       active = false
       window.removeEventListener("online", onOnline)
+      window.removeEventListener("offline", onOffline)
     }
   }, [readyRevisionId, repository])
+
+  async function triggerManualSync() {
+    if (readyRevisionId === null || !navigator.onLine) return
+    const outcome = await replayQueuedShoppingChecks(
+      window.localStorage,
+      readyRevisionId,
+      (shoppingListItemId, checked) => repository.setChecked(shoppingListItemId, checked)
+    )
+    const remaining = loadQueuedShoppingChecks(window.localStorage, readyRevisionId)
+    setQueuedIds(new Set(remaining.map((entry) => entry.shoppingListItemId)))
+    if (outcome.applied > 0) {
+      const notice = `Đã đồng bộ ${outcome.applied} thay đổi mua sắm.`
+      setSyncNotice(notice)
+      toast.success(notice)
+    }
+  }
 
   const [destinationFilter, setDestinationFilter] = useState<ShoppingDestination>("all")
   const [statusFilter, setStatusFilter] = useState<ShoppingCheckStatusFilter>("all")
@@ -446,6 +476,15 @@ export function ShoppingListPage({ repository }: Props) {
 
   async function finishShopping() {
     if (state.status !== "ready" || restocking) return
+    if (!navigator.onLine) {
+      toast.info(
+        "Bạn đang ở chế độ ngoại tuyến. Vui lòng kết nối mạng để hoàn tất nhập vào tủ bếp."
+      )
+      return
+    }
+    if (queuedIds.size > 0) {
+      await triggerManualSync()
+    }
     setRestocking(true)
     setRestockNotice(null)
     setMutationError(null)
@@ -826,6 +865,46 @@ export function ShoppingListPage({ repository }: Props) {
               </button>
             </div>
           </div>
+
+          {!isOnline && (
+            <div
+              className="flex items-center justify-between gap-3 rounded-2xl border border-broth-300 bg-broth-50 p-3 text-xs text-broth-900 shadow-soft"
+              role="status"
+            >
+              <div className="flex items-center gap-2">
+                <span className="flex size-2 shrink-0 rounded-full bg-clay-500 animate-pulse" />
+                <p className="font-semibold">
+                  Chế độ ngoại tuyến (Chợ / Siêu thị) — Các món đã gạch được lưu an toàn trên máy.
+                </p>
+              </div>
+              {queuedIds.size > 0 && (
+                <span className="shrink-0 rounded-full border border-edge bg-paper px-2 py-0.5 text-[11px] font-bold text-ink">
+                  {queuedIds.size} chờ đồng bộ
+                </span>
+              )}
+            </div>
+          )}
+
+          {isOnline && queuedIds.size > 0 && (
+            <div
+              className="flex items-center justify-between gap-3 rounded-2xl border border-herb-200 bg-herb-50 p-3 text-xs text-herb-900"
+              role="status"
+            >
+              <span className="font-medium">
+                Có {queuedIds.size} thay đổi mua sắm đã lưu trên máy.
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 gap-1.5 bg-paper text-xs font-bold"
+                type="button"
+                onClick={() => void triggerManualSync()}
+              >
+                <Icon name="refresh" className="size-3.5" />
+                Đồng bộ ngay
+              </Button>
+            </div>
+          )}
 
           {shareNotice === null ? null : (
             <p className="text-sm text-ink-soft" role="status">
