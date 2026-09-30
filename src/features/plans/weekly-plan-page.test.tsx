@@ -780,4 +780,20 @@ describe("WeeklyPlanPage", () => {
     const cards = await screen.findAllByRole("listitem", { name: /^Bữa chính/u })
     expect(cards[0]?.textContent).toContain("Âl")
   })
+
+  test("opens family collaboration modal when clicking Gia đình & Chia sẻ", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const familyBtn = await screen.findByRole("button", { name: /Gia đình & Chia sẻ/i })
+    expect(familyBtn).toBeInTheDocument()
+
+    await user.click(familyBtn)
+    expect(
+      await screen.findByRole("dialog", { name: "Gia đình & Chia sẻ thực đơn" })
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Món cả nhà thèm/i)).toBeInTheDocument()
+    expect(screen.getByText(/Gửi thực đơn cho cả nhà/i)).toBeInTheDocument()
+  })
 })
