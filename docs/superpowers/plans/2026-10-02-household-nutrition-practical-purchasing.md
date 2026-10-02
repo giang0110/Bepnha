@@ -181,7 +181,7 @@ expect(saltResult).toMatchObject({ ok: true, value: { actualIngredient: { baseQu
 - `calculatePurchaseBasketV2(requirements: readonly CanonicalFoodRequirement[], prices: readonly FoodPriceInputV2[], calculationDate: string, freshnessConfig: PriceFreshnessConfigV1, pantryDeductions: readonly CanonicalFoodDeduction[]): PurchaseBasketResultV2`. Success `value` is `PurchaseBasketV2` with lines/warnings/total; errors retain v1 price failures and add `INVALID_PURCHASE_RULE`/`PURCHASE_AMOUNT_OUT_OF_RANGE`.
 - Add `calculateRecipeConsumptionCostV2(ingredients: readonly RecipeCostIngredient[], prices: readonly FoodPriceInputV2[], calculationDate: string, freshnessConfig: PriceFreshnessConfigV1): RecipeConsumptionCostResult`, retaining the existing consumption-cost result shape and its rounding rule.
 
-- [ ] **Step 1: Write RED tests.** `loose_fish_600_buys_600`, `loose_fish_620_step_50_buys_650`, `fixed_fish_600_buys_pack_1000`, `loose_eggs_3_differs_from_box_10`, `weekly_aggregation_then_pantry_then_sale_rounding`, `fully_covered_food_has_zero_purchase_and_preserves_deduction`. With fixture 100,000 đ/1,000 g, assert 600 g/60,000 đ/0 dư and 650 g/65,000 đ/30 g dư. With eggs 3 and pantry 2, assert loose buy 1 or box buy 10/dư 9. Add noninteger count/pack steps, wrong dimension, missing/duplicate/conflicting prices, stale/future price, safe-integer overflow and sub-đồng rounding; no invalid input becomes a zero cost. Consumption costs must use 3 eggs, not theoretical 2.4 or purchased box 10.
+- [x] **Step 1: Write RED tests.** `loose_fish_600_buys_600`, `loose_fish_620_step_50_buys_650`, `fixed_fish_600_buys_pack_1000`, `loose_eggs_3_differs_from_box_10`, `weekly_aggregation_then_pantry_then_sale_rounding`, `fully_covered_food_has_zero_purchase_and_preserves_deduction`. With fixture 100,000 đ/1,000 g, assert 600 g/60,000 đ/0 dư and 650 g/65,000 đ/30 g dư. With eggs 3 and pantry 2, assert loose buy 1 or box buy 10/dư 9. Add noninteger count/pack steps, wrong dimension, missing/duplicate/conflicting prices, stale/future price, safe-integer overflow and sub-đồng rounding; no invalid input becomes a zero cost. Consumption costs must use 3 eggs, not theoretical 2.4 or purchased box 10.
 
 ```ts
 expect(looseFishResult).toMatchObject({
@@ -211,11 +211,11 @@ expect(coveredResult).toMatchObject({
 })
 ```
 
-- [ ] **Step 2: Run RED.** `npm run test -- src/domain/pricing/calculate-purchase-basket-v2.test.ts src/domain/pricing/calculate-recipe-consumption-cost.test.ts src/domain/pricing/calculate-purchase-basket.test.ts`.
-- [ ] **Step 3: Implement typed price normalization and basket v2.** Aggregate actual need, subtract eligible deductions, branch on the declared purchase mode. Keep source lines when `remaining = 0`: purchase count/quantity/cost/leftover are 0 but need and deduction remain; no positive purchase is forced. Use the exact formulas and line/total currency rounding from spec §8. Leave the existing v1 basket untouched.
-- [ ] **Step 4: Implement consumption-cost v2 using quote rates.** Price provenance/freshness/base unit are still validated. A shared internal rate-cost helper may serve both exported functions if v1 golden behavior remains unchanged; do not equate used cost with purchased cost.
-- [ ] **Step 5: Run GREEN.** Repeat Step 2, then `npm run typecheck`; all exit 0.
-- [ ] **Step 6: Stage the task files and commit.** `git commit -m "feat: calculate purchases by weight count or fixed pack"`.
+- [x] **Step 2: Run RED.** `npm run test -- src/domain/pricing/calculate-purchase-basket-v2.test.ts src/domain/pricing/calculate-recipe-consumption-cost.test.ts src/domain/pricing/calculate-purchase-basket.test.ts`.
+- [x] **Step 3: Implement typed price normalization and basket v2.** Aggregate actual need, subtract eligible deductions, branch on the declared purchase mode. Keep source lines when `remaining = 0`: purchase count/quantity/cost/leftover are 0 but need and deduction remain; no positive purchase is forced. Use the exact formulas and line/total currency rounding from spec §8. Leave the existing v1 basket untouched.
+- [x] **Step 4: Implement consumption-cost v2 using quote rates.** Price provenance/freshness/base unit are still validated. A shared internal rate-cost helper may serve both exported functions if v1 golden behavior remains unchanged; do not equate used cost with purchased cost.
+- [x] **Step 5: Run GREEN.** Repeat Step 2, then `npm run typecheck`; all exit 0.
+- [x] **Step 6: Stage the task files and commit.** `git commit -m "feat: calculate purchases by weight count or fixed pack"`.
 
 ### Task 5: Metadata catalog có phiên bản, nguồn và đường xuất bản được kiểm tra
 
