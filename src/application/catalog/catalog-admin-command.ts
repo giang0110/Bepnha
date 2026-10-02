@@ -1,3 +1,5 @@
+import type { FoodQuantityPolicyV1 } from "../../domain/recipe/food-quantity-policy.ts"
+import type { PurchaseRuleV2 } from "../../domain/pricing/purchasing-v2.ts"
 import type { RecipeHeatLevel } from "../../domain/recipe/recipe.js"
 
 import type { AllergenAssessmentStatus, CatalogDimension } from "../../domain/catalog/catalog.js"
@@ -63,7 +65,8 @@ export interface RecipeVersionDraftInput {
   readonly tagIds: readonly string[]
 }
 
-export interface PriceBookDraftInput {
+export interface PriceBookDraftInputV1 {
+  readonly purchasingVersion?: never
   readonly priceBookId: string
   readonly expectedRevision: number
   readonly effectiveFrom: string
@@ -83,6 +86,29 @@ export interface PriceBookDraftInput {
   }[]
 }
 
+export type PriceDraftV1 = PriceBookDraftInputV1["prices"][number]
+export interface PriceDraftV2 extends PriceDraftV1 {
+  readonly baseDimension: CatalogDimension
+  readonly purchaseRule: PurchaseRuleV2
+  readonly purchaseProvenance: string
+}
+export interface PriceBookDraftInputV2 extends Omit<
+  PriceBookDraftInputV1,
+  "prices" | "purchasingVersion"
+> {
+  readonly purchasingVersion: "purchase-v2"
+  readonly prices: readonly PriceDraftV2[]
+}
+export type PriceBookDraftInput = PriceBookDraftInputV1 | PriceBookDraftInputV2
+export interface FoodQuantityPolicyDraftInput extends Omit<
+  FoodQuantityPolicyV1,
+  "id" | "version" | "contentHash"
+> {
+  readonly foodQuantityPolicyVersionId: string
+  readonly expectedRevision: number
+  readonly foodId: string
+}
+
 export type CatalogAdminCommand =
   | {
       readonly action: "create_food"
@@ -91,6 +117,17 @@ export type CatalogAdminCommand =
         readonly nameVi: string
         readonly baseDimension: CatalogDimension
         readonly baseUnitId: string
+      }
+    }
+  | {
+      readonly action: "save_food_quantity_policy_draft"
+      readonly input: FoodQuantityPolicyDraftInput
+    }
+  | {
+      readonly action: "publish_food_quantity_policy"
+      readonly input: {
+        readonly foodQuantityPolicyVersionId: string
+        readonly expectedRevision: number
       }
     }
   | { readonly action: "save_food_fact_draft"; readonly input: FoodFactDraftInput }

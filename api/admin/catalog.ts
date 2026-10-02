@@ -41,6 +41,20 @@ const inputKeys = {
     "dietaryTagCodes",
     "conversions"
   ],
+  save_food_quantity_policy_draft: [
+    "foodQuantityPolicyVersionId",
+    "expectedRevision",
+    "foodId",
+    "foodFactVersionId",
+    "versionNumber",
+    "baseUnitId",
+    "baseDimension",
+    "foodForm",
+    "stepBaseQuantity",
+    "rounding",
+    "provenance"
+  ],
+  publish_food_quantity_policy: ["foodQuantityPolicyVersionId", "expectedRevision"],
   publish_food_fact: ["foodFactVersionId", "expectedRevision"],
   retire_food: ["foodId", "expectedRevision"],
   create_recipe: ["code", "nameVi"],
@@ -168,6 +182,9 @@ function nestedDraftShapeIsValid(action: string, input: UnknownRecord): boolean 
         (item) =>
           isRecord(item) &&
           hasExactKeys(item, [
+            ...(input.purchasingVersion === "purchase-v2"
+              ? ["baseDimension", "purchaseRule", "purchaseProvenance"]
+              : []),
             "foodPriceId",
             "foodId",
             "foodFactVersionId",
@@ -179,7 +196,15 @@ function nestedDraftShapeIsValid(action: string, input: UnknownRecord): boolean 
             "purchaseIncrement",
             "observedAt",
             "sourceReference"
-          ])
+          ]) &&
+          (input.purchasingVersion !== "purchase-v2" ||
+            (isRecord(item.purchaseRule) &&
+              hasExactKeys(
+                item.purchaseRule,
+                item.purchaseRule.mode === "fixed_pack"
+                  ? ["mode", "packIncrement"]
+                  : ["mode", "saleStepBaseQuantity"]
+              )))
       )
     )
   }
@@ -203,7 +228,12 @@ function parseCommand(value: unknown): CatalogAdminCommand | null {
   }
   const action = value.action as keyof typeof inputKeys
   if (
-    !hasExactKeys(value.input, inputKeys[action]) ||
+    !hasExactKeys(value.input, [
+      ...inputKeys[action],
+      ...(action === "save_price_book_draft" && value.input.purchasingVersion === "purchase-v2"
+        ? ["purchasingVersion"]
+        : [])
+    ]) ||
     !nestedDraftShapeIsValid(action, value.input)
   ) {
     return null

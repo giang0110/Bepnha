@@ -1,3 +1,5 @@
+import type { PurchaseRuleV2 } from "../../src/domain/pricing/purchasing-v2.ts"
+import type { FoodQuantityPolicyV1 } from "../../src/domain/recipe/food-quantity-policy.ts"
 import {
   REQUIRED_NUTRIENT_CODES,
   SUPPORTED_ALLERGEN_CODES
@@ -169,3 +171,27 @@ export interface CatalogPackValidationReport {
   readonly blockers: readonly string[]
   readonly diagnostics: readonly CatalogPackDiagnostic[]
 }
+
+export interface CatalogPackQuantityPolicy {
+  readonly foodCode: string
+  readonly foodFactVersionNumber: number
+  readonly versionNumber: number
+  readonly baseUnitCode: string
+  readonly foodForm: FoodQuantityPolicyV1["foodForm"]
+  readonly stepBaseQuantity: string
+  readonly rounding: FoodQuantityPolicyV1["rounding"]
+  readonly provenance: string
+}
+export type CatalogPackPriceV1 = CatalogPackPriceBook["prices"][number]
+export interface CatalogPackPriceV2 extends CatalogPackPriceV1 {
+  readonly purchaseRule: PurchaseRuleV2
+  readonly purchaseProvenance: string
+}
+export interface CatalogPackV2 extends Omit<CatalogPackV1, "schemaVersion" | "priceBook"> {
+  readonly schemaVersion: "2"
+  readonly foodQuantityPolicies: readonly CatalogPackQuantityPolicy[]
+  readonly priceBook: Omit<CatalogPackPriceBook, "prices"> & {
+    readonly prices: readonly CatalogPackPriceV2[]
+  }
+}
+export type CatalogPack = CatalogPackV1 | CatalogPackV2

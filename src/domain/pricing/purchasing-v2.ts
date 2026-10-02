@@ -1,6 +1,6 @@
-import { decimalToCanonical, parseCanonicalDecimal } from "../shared/decimal"
-import { CATALOG_DIMENSIONS, type CatalogDimension } from "../catalog/catalog"
-import type { PurchaseBasketFatalCode, PurchaseBasketWarning } from "./pricing"
+import { decimalToCanonical, parseCanonicalDecimal } from "../shared/decimal.ts"
+import { CATALOG_DIMENSIONS, type CatalogDimension } from "../catalog/catalog.ts"
+import type { PurchaseBasketFatalCode, PurchaseBasketWarning } from "./pricing.ts"
 export type PurchaseRuleV2 =
   | { readonly mode: "fixed_pack"; readonly packIncrement: string }
   | { readonly mode: "loose_mass" | "loose_count"; readonly saleStepBaseQuantity: string }
@@ -51,11 +51,77 @@ export type PriceNormalizationV2 =
       readonly error: { readonly code: "INVALID_PRICE" | "INVALID_PURCHASE_RULE" }
     }
 
-export function normalizeFoodPriceV2(price: FoodPriceInputV2): PriceNormalizationV2 {
-  const fail = (code: "INVALID_PRICE" | "INVALID_PURCHASE_RULE"): PriceNormalizationV2 => ({
+export type PurchaseTermsInputV2 = Pick<
+  FoodPriceInputV2,
+  "baseDimension" | "quoteBaseQuantity" | "purchaseRule" | "purchaseProvenance"
+>
+export type PurchaseTermsNormalizationV2 =
+  | { readonly ok: true; readonly value: PurchaseTermsInputV2 }
+  | {
+      readonly ok: false
+      readonly error: { readonly code: "INVALID_PRICE" | "INVALID_PURCHASE_RULE" }
+    }
+export function normalizePurchaseTermsV2(
+  input: PurchaseTermsInputV2
+): PurchaseTermsNormalizationV2 {
+  const fail = (code: "INVALID_PRICE" | "INVALID_PURCHASE_RULE"): PurchaseTermsNormalizationV2 => ({
     ok: false,
     error: { code }
   })
+  const quote = parseCanonicalDecimal(input.quoteBaseQuantity, {
+    allowNegative: false,
+    allowZero: false
+  })
+  if (!quote.ok) return fail("INVALID_PRICE")
+  if (
+    !CATALOG_DIMENSIONS.includes(input.baseDimension) ||
+    typeof input.purchaseProvenance !== "string" ||
+    input.purchaseProvenance.trim().length === 0
+  )
+    return fail("INVALID_PURCHASE_RULE")
+  const rule = input.purchaseRule
+  if (typeof rule !== "object" || rule === null || Object.keys(rule).length !== 2)
+    return fail("INVALID_PURCHASE_RULE")
+  if (input.baseDimension === "count" && !quote.value.isInteger())
+    return fail("INVALID_PURCHASE_RULE")
+  if (rule.mode === "fixed_pack") {
+    const increment = parseCanonicalDecimal(rule.packIncrement, {
+      allowNegative: false,
+      allowZero: false
+    })
+    if (!increment.ok || !increment.value.isInteger()) return fail("INVALID_PURCHASE_RULE")
+    return {
+      ok: true,
+      value: {
+        ...input,
+        quoteBaseQuantity: decimalToCanonical(quote.value),
+        purchaseRule: { mode: "fixed_pack", packIncrement: decimalToCanonical(increment.value) }
+      }
+    }
+  }
+  if (
+    (rule.mode !== "loose_mass" && rule.mode !== "loose_count") ||
+    (rule.mode === "loose_mass" && input.baseDimension !== "mass") ||
+    (rule.mode === "loose_count" && input.baseDimension !== "count")
+  )
+    return fail("INVALID_PURCHASE_RULE")
+  const step = parseCanonicalDecimal(rule.saleStepBaseQuantity, {
+    allowNegative: false,
+    allowZero: false
+  })
+  if (!step.ok || (rule.mode === "loose_count" && !step.value.isInteger()))
+    return fail("INVALID_PURCHASE_RULE")
+  return {
+    ok: true,
+    value: {
+      ...input,
+      quoteBaseQuantity: decimalToCanonical(quote.value),
+      purchaseRule: { mode: rule.mode, saleStepBaseQuantity: decimalToCanonical(step.value) }
+    }
+  }
+}
+
+export function normalizeFoodPriceV2(price: FoodPriceInputV2): PriceNormalizationV2 {
   const quote = parseCanonicalDecimal(price.quoteBaseQuantity, {
     allowNegative: false,
     allowZero: false
@@ -73,52 +139,10 @@ export function normalizeFoodPriceV2(price: FoodPriceInputV2): PriceNormalizatio
       price.baseUnitId
     ].some((id) => typeof id !== "string" || id.trim().length === 0)
   )
-    return fail("INVALID_PRICE")
-  if (
-    !CATALOG_DIMENSIONS.includes(price.baseDimension) ||
-    typeof price.purchaseProvenance !== "string" ||
-    price.purchaseProvenance.trim().length === 0 ||
-    !/^[a-f0-9]{64}$/u.test(price.purchaseTermsContentHash)
-  )
-    return fail("INVALID_PURCHASE_RULE")
-  const rule = price.purchaseRule
-  if (typeof rule !== "object" || rule === null || Object.keys(rule).length !== 2)
-    return fail("INVALID_PURCHASE_RULE")
-  if (price.baseDimension === "count" && !quote.value.isInteger())
-    return fail("INVALID_PURCHASE_RULE")
-  if (rule.mode === "fixed_pack") {
-    const increment = parseCanonicalDecimal(rule.packIncrement, {
-      allowNegative: false,
-      allowZero: false
-    })
-    if (!increment.ok || !increment.value.isInteger()) return fail("INVALID_PURCHASE_RULE")
-    return {
-      ok: true,
-      value: {
-        ...price,
-        quoteBaseQuantity: decimalToCanonical(quote.value),
-        purchaseRule: { mode: "fixed_pack", packIncrement: decimalToCanonical(increment.value) }
-      }
-    }
-  }
-  if (
-    (rule.mode !== "loose_mass" && rule.mode !== "loose_count") ||
-    (rule.mode === "loose_mass" && price.baseDimension !== "mass") ||
-    (rule.mode === "loose_count" && price.baseDimension !== "count")
-  )
-    return fail("INVALID_PURCHASE_RULE")
-  const step = parseCanonicalDecimal(rule.saleStepBaseQuantity, {
-    allowNegative: false,
-    allowZero: false
-  })
-  if (!step.ok || (rule.mode === "loose_count" && !step.value.isInteger()))
-    return fail("INVALID_PURCHASE_RULE")
-  return {
-    ok: true,
-    value: {
-      ...price,
-      quoteBaseQuantity: decimalToCanonical(quote.value),
-      purchaseRule: { mode: rule.mode, saleStepBaseQuantity: decimalToCanonical(step.value) }
-    }
-  }
+    return { ok: false, error: { code: "INVALID_PRICE" } }
+  if (!/^[a-f0-9]{64}$/u.test(price.purchaseTermsContentHash))
+    return { ok: false, error: { code: "INVALID_PURCHASE_RULE" } }
+  const terms = normalizePurchaseTermsV2(price)
+  if (!terms.ok) return terms
+  return { ok: true, value: { ...price, ...terms.value } }
 }

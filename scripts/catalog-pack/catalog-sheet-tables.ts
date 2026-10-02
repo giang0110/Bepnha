@@ -1,4 +1,4 @@
-import type { CatalogPackV1 } from "./catalog-pack-types.ts"
+import type { CatalogPack, CatalogPackV1, CatalogPackV2 } from "./catalog-pack-types.ts"
 
 /**
  * The catalog pack as a set of flat tables, so it can be authored in a spreadsheet instead of by
@@ -118,6 +118,34 @@ export const SHEET_HEADERS: Record<SheetFileName, readonly string[]> = {
 }
 
 export type SheetBundle = Record<SheetFileName, string[][]>
+export type SheetBundleV2 = SheetBundle & { "food_quantity_policies.csv": string[][] }
+export const SHEET_FILE_NAMES_V2 = [...SHEET_FILE_NAMES, "food_quantity_policies.csv"] as const
+export type SheetFileNameV2 = (typeof SHEET_FILE_NAMES_V2)[number]
+export const SHEET_HEADERS_V2: Record<SheetFileNameV2, readonly string[]> = {
+  ...SHEET_HEADERS,
+  "pack.csv": [...SHEET_HEADERS["pack.csv"], "schemaVersion"],
+  "prices.csv": [
+    ...SHEET_HEADERS["prices.csv"],
+    "purchaseMode",
+    "packIncrement",
+    "saleStepBaseQuantity",
+    "purchaseProvenance"
+  ],
+  "food_quantity_policies.csv": [
+    "foodCode",
+    "foodFactVersionNumber",
+    "versionNumber",
+    "baseUnitCode",
+    "foodForm",
+    "stepBaseQuantity",
+    "rounding",
+    "provenance"
+  ]
+}
+export function sheetSchemaVersion(bundle: SheetBundle): string {
+  const index = (bundle["pack.csv"][0] ?? []).findIndex((name) => name.trim() === "schemaVersion")
+  return index === -1 ? "1" : (bundle["pack.csv"][1]?.[index] ?? "")
+}
 
 /* ------------------------------------------------------------------ cells */
 
@@ -155,7 +183,10 @@ function readList(cell: string): string[] {
 
 /* ----------------------------------------------------------------- export */
 
-export function packToSheets(pack: CatalogPackV1): SheetBundle {
+export function packToSheets(pack: CatalogPackV1): SheetBundle
+export function packToSheets(pack: CatalogPackV2): SheetBundleV2
+export function packToSheets(pack: CatalogPack): SheetBundle | SheetBundleV2
+export function packToSheets(pack: CatalogPack): SheetBundle | SheetBundleV2 {
   const bundle = Object.fromEntries(
     SHEET_FILE_NAMES.map((name) => [name, [[...SHEET_HEADERS[name]]]])
   ) as SheetBundle
@@ -288,13 +319,41 @@ export function packToSheets(pack: CatalogPackV1): SheetBundle {
     }
   }
 
+  if (pack.schemaVersion === "2") {
+    const v2 = bundle as SheetBundleV2
+    v2["pack.csv"][0] = [...SHEET_HEADERS_V2["pack.csv"]]
+    v2["pack.csv"][1]?.push("2")
+    v2["prices.csv"][0] = [...SHEET_HEADERS_V2["prices.csv"]]
+    pack.priceBook.prices.forEach((price, index) =>
+      v2["prices.csv"][index + 1]?.push(
+        price.purchaseRule.mode,
+        price.purchaseRule.mode === "fixed_pack" ? price.purchaseRule.packIncrement : "",
+        price.purchaseRule.mode === "fixed_pack" ? "" : price.purchaseRule.saleStepBaseQuantity,
+        price.purchaseProvenance
+      )
+    )
+    v2["food_quantity_policies.csv"] = [
+      [...SHEET_HEADERS_V2["food_quantity_policies.csv"]],
+      ...pack.foodQuantityPolicies.map((policy) => [
+        policy.foodCode,
+        number_(policy.foodFactVersionNumber),
+        number_(policy.versionNumber),
+        policy.baseUnitCode,
+        policy.foodForm,
+        policy.stepBaseQuantity,
+        policy.rounding,
+        policy.provenance
+      ])
+    ]
+    return v2
+  }
   return bundle
 }
 
 /* ----------------------------------------------------------------- import */
 
 export interface SheetReadError {
-  readonly file: SheetFileName
+  readonly file: SheetFileNameV2
   readonly message: string
 }
 
@@ -308,12 +367,15 @@ interface SheetTable {
 
 /** Written as a factory rather than a class: Node runs these scripts by stripping types only, and
  * that mode rejects TypeScript parameter properties. */
-function sheetTable(file: SheetFileName, rows: readonly (readonly string[])[]): SheetTable {
+function sheetTable(
+  rows: readonly (readonly string[])[],
+  expectedHeaders: readonly string[]
+): SheetTable {
   const header = rows[0] ?? []
   const indexByColumn = new Map(header.map((name, index) => [name.trim(), index]))
 
   return {
-    missingColumns: () => SHEET_HEADERS[file].filter((name) => !indexByColumn.has(name)),
+    missingColumns: () => expectedHeaders.filter((name) => !indexByColumn.has(name)),
     records: () =>
       rows.slice(1).map((row) => ({
         cell: (column: string) => {
@@ -337,24 +399,39 @@ function groupBy(records: readonly Record_[], column: string): Map<string, Recor
 
 /**
  * Builds the pack document from the tables. The result is deliberately typed as unknown rather than
- * `CatalogPackV1`: a half-filled spreadsheet cannot produce a valid pack, and pretending otherwise
+ * `CatalogPack`: a half-filled spreadsheet cannot produce a valid pack, and pretending otherwise
  * would move the judgement out of the validator and into this file. Feed the output to
  * `catalog:validate`.
  */
-export function sheetsToPack(bundle: SheetBundle): {
+export function sheetsToPack(bundle: SheetBundle | SheetBundleV2): {
   readonly pack: unknown
   readonly errors: readonly SheetReadError[]
 } {
   const errors: SheetReadError[] = []
+  const schemaVersion = sheetSchemaVersion(bundle)
+  const headers = schemaVersion === "2" ? SHEET_HEADERS_V2 : SHEET_HEADERS
   const tables = {} as Record<SheetFileName, SheetTable>
 
   for (const name of SHEET_FILE_NAMES) {
-    const table = sheetTable(name, bundle[name] ?? [])
+    const table = sheetTable(bundle[name] ?? [], headers[name])
     const missing = table.missingColumns()
     if (missing.length > 0) {
       errors.push({ file: name, message: `missing column(s): ${missing.join(", ")}` })
     }
     tables[name] = table
+  }
+  let policyTable: SheetTable | undefined
+  if (schemaVersion === "2") {
+    policyTable = sheetTable(
+      (bundle as Partial<SheetBundleV2>)["food_quantity_policies.csv"] ?? [],
+      SHEET_HEADERS_V2["food_quantity_policies.csv"]
+    )
+    const missing = policyTable.missingColumns()
+    if (missing.length > 0)
+      errors.push({
+        file: "food_quantity_policies.csv",
+        message: `missing column(s): ${missing.join(", ")}`
+      })
   }
   if (errors.length > 0) return { pack: null, errors }
 
@@ -384,7 +461,21 @@ export function sheetsToPack(bundle: SheetBundle): {
   )
 
   const pack = {
-    schemaVersion: "1",
+    schemaVersion,
+    ...(schemaVersion !== "2"
+      ? {}
+      : {
+          foodQuantityPolicies: policyTable!.records().map((row) => ({
+            foodCode: row.cell("foodCode"),
+            foodFactVersionNumber: readInteger(row.cell("foodFactVersionNumber")),
+            versionNumber: readInteger(row.cell("versionNumber")),
+            baseUnitCode: row.cell("baseUnitCode"),
+            foodForm: row.cell("foodForm"),
+            stepBaseQuantity: row.cell("stepBaseQuantity"),
+            rounding: row.cell("rounding"),
+            provenance: row.cell("provenance")
+          }))
+        }),
     catalogCode: packRow.cell("catalogCode"),
     preparedAt: packRow.cell("preparedAt"),
     source: {
@@ -471,7 +562,19 @@ export function sheetsToPack(bundle: SheetBundle): {
         packagePriceVnd: readInteger(row.cell("packagePriceVnd")),
         purchaseIncrement: row.cell("purchaseIncrement"),
         observedAt: row.cell("observedAt"),
-        sourceReference: row.cell("sourceReference")
+        sourceReference: row.cell("sourceReference"),
+        ...(schemaVersion !== "2"
+          ? {}
+          : {
+              purchaseProvenance: row.cell("purchaseProvenance"),
+              purchaseRule:
+                row.cell("purchaseMode") === "fixed_pack"
+                  ? { mode: "fixed_pack", packIncrement: row.cell("packIncrement") }
+                  : {
+                      mode: row.cell("purchaseMode"),
+                      saleStepBaseQuantity: row.cell("saleStepBaseQuantity")
+                    }
+            })
       }))
     },
     mealOptions: tables["meal_options.csv"].records().map((option) => {

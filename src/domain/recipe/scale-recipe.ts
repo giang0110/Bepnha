@@ -1,11 +1,11 @@
-import type { FoodFactUnitConversion } from "../catalog/catalog.js"
+import type { FoodFactUnitConversion } from "../catalog/catalog.ts"
 import {
   calculateAdultEquivalent,
   type PortionMemberGroupInput
-} from "../portion/calculate-adult-equivalent.js"
-import type { PortionConfigV1 } from "../portion/portion-config.js"
-import { PORTION_CONFIG_V1 } from "../portion/portion-config.js"
-import { normalizeRecipeSteps, type RecipeVersionInput } from "./recipe.js"
+} from "../portion/calculate-adult-equivalent.ts"
+import type { PortionConfigV1 } from "../portion/portion-config.ts"
+import { PORTION_CONFIG_V1 } from "../portion/portion-config.ts"
+import { normalizeRecipeSteps, type RecipeVersionInput } from "./recipe.ts"
 import {
   ExactDecimal,
   ROUND_HALF_UP,
@@ -13,7 +13,7 @@ import {
   roundDecimal,
   parseCanonicalDecimal,
   type ExactDecimalValue
-} from "../shared/decimal.js"
+} from "../shared/decimal.ts"
 
 export type RecipeScaleErrorCode =
   | "INVALID_PORTION_CONFIG"

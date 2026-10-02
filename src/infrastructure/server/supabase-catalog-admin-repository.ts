@@ -107,6 +107,12 @@ function aggregateShapeIsValid(value: unknown): value is CatalogPublicationAggre
   if (!isRecord(value) || !Array.isArray(value["prices"] ?? value["ingredients"] ?? [])) {
     return false
   }
+  if (value.aggregateType === "food_quantity_policy_version")
+    return (
+      isRecord(value.policy) &&
+      Array.isArray(value.conversions) &&
+      typeof value.foodFactContentHash === "string"
+    )
   if (value.aggregateType === "food_fact_version") {
     return (
       isRecord(value.food) &&
@@ -197,6 +203,29 @@ export function createSupabaseCatalogAdminRepository(
   }
 
   return {
+    async saveFoodQuantityPolicyDraft(input) {
+      const { foodQuantityPolicyVersionId, expectedRevision, ...definition } = input
+      const { data, error } = await client.rpc("save_food_quantity_policy_draft", {
+        p_policy_id: foodQuantityPolicyVersionId,
+        p_expected_revision: expectedRevision,
+        p_definition: definition,
+        p_actor_user_id: actorUserId
+      })
+      return error === null
+        ? resultFromRow(data, "draft", foodQuantityPolicyVersionId)
+        : failure(error)
+    },
+    async publishFoodQuantityPolicy(input) {
+      const { data, error } = await client.rpc("publish_food_quantity_policy", {
+        p_policy_id: input.id,
+        p_expected_revision: input.expectedRevision,
+        p_content_hash: input.contentHash,
+        p_actor_user_id: actorUserId
+      })
+      return error === null
+        ? resultFromRow(data, "published", input.id, input.contentHash)
+        : failure(error)
+    },
     async createFood(input) {
       const { data, error } = await client
         .from("foods")
@@ -447,7 +476,7 @@ export function createSupabaseCatalogAdminRepository(
       return error === null ? resultFromRow(data, "draft") : failure(error)
     },
     async savePriceBookDraft(input) {
-      const { data, error } = await client.rpc("save_price_book_draft_atomic", {
+      const args = {
         p_price_book_id: input.priceBookId,
         p_expected_revision: input.expectedRevision,
         p_effective_from: input.effectiveFrom,
@@ -462,10 +491,21 @@ export function createSupabaseCatalogAdminRepository(
           package_price_vnd: item.packagePriceVnd,
           purchase_increment: item.purchaseIncrement,
           observed_at: item.observedAt,
-          source_reference: item.sourceReference
+          source_reference: item.sourceReference,
+          ...(input.purchasingVersion === "purchase-v2" && "purchaseRule" in item
+            ? {
+                base_dimension: item.baseDimension,
+                purchase_rule: item.purchaseRule,
+                purchase_provenance: item.purchaseProvenance
+              }
+            : {})
         })),
         p_actor_user_id: actorUserId
-      })
+      }
+      const { data, error } =
+        input.purchasingVersion === "purchase-v2"
+          ? await client.rpc("save_price_book_draft_v2", args)
+          : await client.rpc("save_price_book_draft_atomic", args)
       return error === null
         ? resultFromRow(
             { ...(isRecord(data) ? data : {}), id: input.priceBookId },

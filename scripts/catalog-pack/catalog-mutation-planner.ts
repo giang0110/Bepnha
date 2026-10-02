@@ -12,7 +12,7 @@ import type {
   MutationPlanBindingV1
 } from "./catalog-mutation-types.ts"
 import { validateCatalogPackBytes } from "./catalog-pack-report.ts"
-import type { CatalogPackV1 } from "./catalog-pack-types.ts"
+import type { CatalogPack } from "./catalog-pack-types.ts"
 import { validateCatalogPackValue } from "./catalog-pack-validator.ts"
 import type {
   ResolvedCatalogManifestV1,
@@ -53,7 +53,7 @@ function failurePlan(
   }
 }
 
-function decodeValidatedPack(inputBytes: Uint8Array): CatalogPackV1 | null {
+function decodeValidatedPack(inputBytes: Uint8Array): CatalogPack | null {
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(inputBytes)
     const value = JSON.parse(text) as unknown
@@ -73,7 +73,7 @@ function uniqueCodes(codes: readonly string[]): string[] {
   return [...new Set(codes)].sort(lexical)
 }
 
-function requiredUnitCodes(pack: CatalogPackV1): string[] {
+function requiredUnitCodes(pack: CatalogPack): string[] {
   return uniqueCodes([
     ...pack.foods.flatMap((food) => [
       food.baseUnitCode,
@@ -86,11 +86,11 @@ function requiredUnitCodes(pack: CatalogPackV1): string[] {
   ])
 }
 
-function requiredCategoryCodes(pack: CatalogPackV1): string[] {
+function requiredCategoryCodes(pack: CatalogPack): string[] {
   return uniqueCodes(pack.foods.flatMap((food) => food.fact.categoryAncestry))
 }
 
-function requiredAllergenCodes(pack: CatalogPackV1): string[] {
+function requiredAllergenCodes(pack: CatalogPack): string[] {
   return uniqueCodes(
     pack.foods.flatMap((food) =>
       food.fact.allergenAssessments.map((assessment) => assessment.allergenCode)
@@ -98,13 +98,13 @@ function requiredAllergenCodes(pack: CatalogPackV1): string[] {
   )
 }
 
-function requiredNutrientCodes(pack: CatalogPackV1): string[] {
+function requiredNutrientCodes(pack: CatalogPack): string[] {
   return uniqueCodes(
     pack.foods.flatMap((food) => food.fact.nutrients.map((nutrient) => nutrient.nutrientCode))
   )
 }
 
-function requiredDietaryTagCodes(pack: CatalogPackV1): string[] {
+function requiredDietaryTagCodes(pack: CatalogPack): string[] {
   return uniqueCodes(pack.foods.flatMap((food) => food.fact.dietaryTagCodes))
 }
 
@@ -113,7 +113,7 @@ interface RequiredRecipeTag {
   readonly kind: ResolvedRecipeTagReference["kind"] | null
 }
 
-function requiredRecipeTags(pack: CatalogPackV1): RequiredRecipeTag[] {
+function requiredRecipeTags(pack: CatalogPack): RequiredRecipeTag[] {
   const required = new Map<string, RequiredRecipeTag>()
 
   for (const recipe of pack.recipes) {
@@ -150,7 +150,7 @@ function exactReferenceByCode<T extends { readonly code: string }>(
 }
 
 function validateReferences(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   manifest: ResolvedCatalogManifestV1
 ): CatalogMutationDiagnostic | null {
   for (const code of requiredUnitCodes(pack)) {
@@ -331,9 +331,40 @@ function exactTarget(
 }
 
 function validateTargets(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   manifest: ResolvedCatalogManifestV1
 ): CatalogMutationDiagnostic | null {
+  if (pack.schemaVersion === "2") {
+    if (
+      manifest.foodQuantityPolicies === undefined ||
+      manifest.foodQuantityPolicies.length !== pack.foodQuantityPolicies.length
+    )
+      return diagnostic(
+        "MANIFEST_TARGET_MISSING",
+        "$.foodQuantityPolicies",
+        "V2 requires each explicit physical policy target"
+      )
+    for (const p of pack.foodQuantityPolicies) {
+      const targets = manifest.foodQuantityPolicies.filter(
+        (t) =>
+          t.foodCode === p.foodCode &&
+          t.foodFactVersionNumber === p.foodFactVersionNumber &&
+          t.requestedVersionNumber === p.versionNumber
+      )
+      if (
+        targets.length !== 1 ||
+        !["missing", "pending_parent_creation"].includes(targets[0]!.version.state) ||
+        targets[0]!.version.id !== null ||
+        targets[0]!.version.revision !== null ||
+        targets[0]!.version.publicationStatus !== null
+      )
+        return diagnostic(
+          "VERSION_STATE_INVALID",
+          "$.foodQuantityPolicies",
+          "Policy target must be a unique new immutable version"
+        )
+    }
+  }
   for (const food of pack.foods) {
     const result = exactTarget(manifest.foods, food.code, `$.foods.${food.code}`)
     if ("issue" in result) return result.issue
@@ -437,7 +468,7 @@ const mealOptionVersionHandle = (code: string, version: number): string =>
   `version:meal_option:${code}:${version}`
 
 function buildBindings(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   manifest: ResolvedCatalogManifestV1
 ): MutationPlanBindingV1[] {
   const bindings: MutationPlanBindingV1[] = []
@@ -499,6 +530,12 @@ function buildBindings(
     })
   }
 
+  if (pack.schemaVersion === "2")
+    for (const p of pack.foodQuantityPolicies)
+      bindings.push({
+        handle: `version:quantity_policy:${p.foodCode}:${p.foodFactVersionNumber}:${p.versionNumber}`,
+        source: { kind: "allocate_uuid" }
+      })
   for (const recipe of pack.recipes) {
     const target = manifest.recipes.find((item) => item.code === recipe.code)
     if (target === undefined) continue
@@ -576,6 +613,8 @@ const operationRank: Record<CatalogMutationOperationKind, number> = {
   create_food: 1,
   save_food_fact_draft: 2,
   publish_food_fact: 3,
+  save_food_quantity_policy_draft: 3.1,
+  publish_food_quantity_policy: 3.2,
   create_recipe: 4,
   save_recipe_version_draft: 5,
   publish_recipe: 6,
@@ -660,7 +699,7 @@ function recipeTagHandle(manifest: ResolvedCatalogManifestV1, code: string): str
 }
 
 function buildOperations(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   manifest: ResolvedCatalogManifestV1
 ): CatalogMutationPlanOperationV1[] {
   const operations: CatalogMutationPlanOperationV1[] = []
@@ -731,6 +770,50 @@ function buildOperations(
     foodFactPublishes.set(`${food.code}:${food.fact.versionNumber}`, publishId)
   }
 
+  const policyPublishes: string[] = []
+  if (pack.schemaVersion === "2")
+    for (const p of [...pack.foodQuantityPolicies].sort((a, b) =>
+      lexical(
+        `${a.foodCode}:${a.foodFactVersionNumber}:${a.versionNumber}`,
+        `${b.foodCode}:${b.foodFactVersionNumber}:${b.versionNumber}`
+      )
+    )) {
+      const handle = `version:quantity_policy:${p.foodCode}:${p.foodFactVersionNumber}:${p.versionNumber}`
+      const saveId = `save_food_quantity_policy_draft:${p.foodCode}:${p.foodFactVersionNumber}:${p.versionNumber}`
+      const publishId = `publish_food_quantity_policy:${p.foodCode}:${p.foodFactVersionNumber}:${p.versionNumber}`
+      operations.push({
+        operationId: saveId,
+        kind: "save_food_quantity_policy_draft",
+        logicalKey: handle,
+        dependsOn: [foodFactPublishes.get(`${p.foodCode}:${p.foodFactVersionNumber}`)!],
+        input: {
+          foodQuantityPolicyVersionId: bind(handle),
+          expectedRevision: 1,
+          foodId: bind(foodIdentityHandle(p.foodCode)),
+          foodFactVersionId: bind(foodFactVersionHandle(p.foodCode, p.foodFactVersionNumber)),
+          versionNumber: p.versionNumber,
+          baseUnitId: bind(`reference:unit:${p.baseUnitCode}`),
+          baseDimension: pack.foods.find((f) => f.code === p.foodCode)!.baseDimension,
+          foodForm: p.foodForm,
+          stepBaseQuantity: p.stepBaseQuantity,
+          rounding: p.rounding,
+          provenance: p.provenance
+        },
+        outputs: commandOutputs
+      })
+      operations.push({
+        operationId: publishId,
+        kind: "publish_food_quantity_policy",
+        logicalKey: handle,
+        dependsOn: [saveId],
+        input: {
+          foodQuantityPolicyVersionId: bind(handle),
+          expectedRevision: output(saveId, "revision")
+        },
+        outputs: commandOutputs
+      })
+      policyPublishes.push(publishId)
+    }
   for (const recipe of [...pack.recipes].sort((left, right) => lexical(left.code, right.code))) {
     const target = manifest.recipes.find((item) => item.code === recipe.code)
     if (target === undefined) continue
@@ -844,12 +927,13 @@ function buildOperations(
     operationId: priceSaveId,
     kind: "save_price_book_draft",
     logicalKey: `price_book:${priceBook.regionCode}:${priceBook.versionNumber}`,
-    dependsOn: uniqueCodes(priceDependencies),
+    dependsOn: uniqueCodes([...priceDependencies, ...policyPublishes]),
     input: {
       priceBookId: bind(priceBookHandle(priceBook.regionCode, priceBook.versionNumber)),
       expectedRevision: output(priceCreateId, "revision"),
       effectiveFrom: priceBook.effectiveFrom,
       effectiveTo: priceBook.effectiveTo,
+      ...(pack.schemaVersion === "2" ? { purchasingVersion: "purchase-v2" } : {}),
       prices: canonicalPrices.map((price) => ({
         foodPriceId: `price:${priceBook.regionCode}:${priceBook.versionNumber}:${price.foodCode}`,
         foodId: bind(foodIdentityHandle(price.foodCode)),
@@ -861,7 +945,14 @@ function buildOperations(
         packagePriceVnd: price.packagePriceVnd,
         purchaseIncrement: price.purchaseIncrement,
         observedAt: price.observedAt,
-        sourceReference: price.sourceReference
+        sourceReference: price.sourceReference,
+        ...(pack.schemaVersion === "2" && "purchaseRule" in price
+          ? {
+              baseDimension: pack.foods.find((f) => f.code === price.foodCode)!.baseDimension,
+              purchaseRule: price.purchaseRule,
+              purchaseProvenance: price.purchaseProvenance
+            }
+          : {})
       }))
     },
     outputs: commandOutputs

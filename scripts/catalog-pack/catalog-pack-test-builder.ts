@@ -176,3 +176,29 @@ export function buildReadyCatalogPack(): MutableCatalogPackV1 {
     mealOptions
   }
 }
+
+export function purchasingPackFixture() {
+  const legacy = buildReadyCatalogPack()
+  return {
+    ...legacy,
+    schemaVersion: "2" as const,
+    foodQuantityPolicies: legacy.foods.map((food) => ({
+      foodCode: food.code,
+      foodFactVersionNumber: 1,
+      versionNumber: 1,
+      baseUnitCode: "g",
+      foodForm: "portionable_mass" as const,
+      stepBaseQuantity: "1",
+      rounding: "half_up" as const,
+      provenance: "Synthetic reviewed cut portions, not a supplier claim"
+    })),
+    priceBook: {
+      ...legacy.priceBook,
+      prices: legacy.priceBook.prices.map((price) => ({
+        ...price,
+        purchaseRule: { mode: "fixed_pack" as const, packIncrement: "1" },
+        purchaseProvenance: "Synthetic verified fixed pack; no loose offer inferred"
+      }))
+    }
+  }
+}

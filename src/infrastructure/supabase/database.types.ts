@@ -335,6 +335,57 @@ export type Database = {
           },
         ]
       }
+      food_price_purchase_terms: {
+        Row: {
+          base_dimension: Database["public"]["Enums"]["catalog_dimension"]
+          content_hash: string | null
+          food_price_id: string
+          pack_increment: number | null
+          price_book_id: string
+          provenance: string
+          purchase_mode: string
+          sale_step_base_quantity: number | null
+          version: string
+        }
+        Insert: {
+          base_dimension: Database["public"]["Enums"]["catalog_dimension"]
+          content_hash?: string | null
+          food_price_id: string
+          pack_increment?: number | null
+          price_book_id: string
+          provenance: string
+          purchase_mode: string
+          sale_step_base_quantity?: number | null
+          version?: string
+        }
+        Update: {
+          base_dimension?: Database["public"]["Enums"]["catalog_dimension"]
+          content_hash?: string | null
+          food_price_id?: string
+          pack_increment?: number | null
+          price_book_id?: string
+          provenance?: string
+          purchase_mode?: string
+          sale_step_base_quantity?: number | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_price_purchase_terms_food_price_id_price_book_id_fkey"
+            columns: ["food_price_id", "price_book_id"]
+            isOneToOne: false
+            referencedRelation: "food_prices"
+            referencedColumns: ["id", "price_book_id"]
+          },
+          {
+            foreignKeyName: "food_price_purchase_terms_price_book_id_fkey"
+            columns: ["price_book_id"]
+            isOneToOne: false
+            referencedRelation: "price_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       food_prices: {
         Row: {
           base_unit_id: string
@@ -406,6 +457,88 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "price_books"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      food_quantity_policy_versions: {
+        Row: {
+          base_dimension: Database["public"]["Enums"]["catalog_dimension"]
+          base_unit_id: string
+          content_hash: string | null
+          created_at: string
+          created_by: string
+          food_fact_version_id: string
+          food_form: string
+          food_id: string
+          id: string
+          provenance: string
+          publication_status: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at: string | null
+          revision: number
+          rounding: string
+          step_base_quantity: number
+          updated_at: string
+          version_number: number
+        }
+        Insert: {
+          base_dimension: Database["public"]["Enums"]["catalog_dimension"]
+          base_unit_id: string
+          content_hash?: string | null
+          created_at?: string
+          created_by: string
+          food_fact_version_id: string
+          food_form: string
+          food_id: string
+          id?: string
+          provenance: string
+          publication_status?: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at?: string | null
+          revision?: number
+          rounding: string
+          step_base_quantity: number
+          updated_at?: string
+          version_number: number
+        }
+        Update: {
+          base_dimension?: Database["public"]["Enums"]["catalog_dimension"]
+          base_unit_id?: string
+          content_hash?: string | null
+          created_at?: string
+          created_by?: string
+          food_fact_version_id?: string
+          food_form?: string
+          food_id?: string
+          id?: string
+          provenance?: string
+          publication_status?: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at?: string | null
+          revision?: number
+          rounding?: string
+          step_base_quantity?: number
+          updated_at?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_quantity_policy_versions_base_unit_id_base_dimension_fkey"
+            columns: ["base_unit_id", "base_dimension"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id", "dimension"]
+          },
+          {
+            foreignKeyName: "food_quantity_policy_versions_food_id_base_unit_id_fkey"
+            columns: ["food_id", "base_unit_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id", "base_unit_id"]
+          },
+          {
+            foreignKeyName: "food_quantity_policy_versions_food_id_food_fact_version_id_fkey"
+            columns: ["food_id", "food_fact_version_id"]
+            isOneToOne: false
+            referencedRelation: "food_fact_versions"
+            referencedColumns: ["food_id", "id"]
           },
         ]
       }
@@ -1273,6 +1406,7 @@ export type Database = {
           id: string
           publication_status: Database["public"]["Enums"]["catalog_publication_status"]
           published_at: string | null
+          purchase_contract_version: string | null
           region_id: string
           retired_at: string | null
           revision: number
@@ -1288,6 +1422,7 @@ export type Database = {
           id?: string
           publication_status?: Database["public"]["Enums"]["catalog_publication_status"]
           published_at?: string | null
+          purchase_contract_version?: string | null
           region_id: string
           retired_at?: string | null
           revision?: number
@@ -1303,6 +1438,7 @@ export type Database = {
           id?: string
           publication_status?: Database["public"]["Enums"]["catalog_publication_status"]
           published_at?: string | null
+          purchase_contract_version?: string | null
           region_id?: string
           retired_at?: string | null
           revision?: number
@@ -2178,6 +2314,39 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      publish_food_quantity_policy: {
+        Args: {
+          p_actor_user_id: string
+          p_content_hash: string
+          p_expected_revision: number
+          p_policy_id: string
+        }
+        Returns: {
+          base_dimension: Database["public"]["Enums"]["catalog_dimension"]
+          base_unit_id: string
+          content_hash: string | null
+          created_at: string
+          created_by: string
+          food_fact_version_id: string
+          food_form: string
+          food_id: string
+          id: string
+          provenance: string
+          publication_status: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at: string | null
+          revision: number
+          rounding: string
+          step_base_quantity: number
+          updated_at: string
+          version_number: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "food_quantity_policy_versions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       publish_meal_option_version: {
         Args: {
           p_actor_user_id: string
@@ -2223,6 +2392,7 @@ export type Database = {
           id: string
           publication_status: Database["public"]["Enums"]["catalog_publication_status"]
           published_at: string | null
+          purchase_contract_version: string | null
           region_id: string
           retired_at: string | null
           revision: number
@@ -2294,6 +2464,39 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "meal_options"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_food_quantity_policy_draft: {
+        Args: {
+          p_actor_user_id: string
+          p_definition: Json
+          p_expected_revision: number
+          p_policy_id: string
+        }
+        Returns: {
+          base_dimension: Database["public"]["Enums"]["catalog_dimension"]
+          base_unit_id: string
+          content_hash: string | null
+          created_at: string
+          created_by: string
+          food_fact_version_id: string
+          food_form: string
+          food_id: string
+          id: string
+          provenance: string
+          publication_status: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at: string | null
+          revision: number
+          rounding: string
+          step_base_quantity: number
+          updated_at: string
+          version_number: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "food_quantity_policy_versions"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2415,6 +2618,39 @@ export type Database = {
           id: string
           publication_status: Database["public"]["Enums"]["catalog_publication_status"]
           published_at: string | null
+          purchase_contract_version: string | null
+          region_id: string
+          retired_at: string | null
+          revision: number
+          updated_at: string
+          version_number: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "price_books"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_price_book_draft_v2: {
+        Args: {
+          p_actor_user_id: string
+          p_effective_from: string
+          p_effective_to: string
+          p_expected_revision: number
+          p_price_book_id: string
+          p_prices: Json
+        }
+        Returns: {
+          content_hash: string | null
+          created_at: string
+          created_by: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          publication_status: Database["public"]["Enums"]["catalog_publication_status"]
+          published_at: string | null
+          purchase_contract_version: string | null
           region_id: string
           retired_at: string | null
           revision: number

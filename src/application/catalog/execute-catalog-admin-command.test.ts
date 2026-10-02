@@ -20,6 +20,8 @@ const success = {
 function adminRepository(overrides: Partial<CatalogAdminRepository> = {}): CatalogAdminRepository {
   return {
     createFood: vi.fn().mockResolvedValue(success),
+    saveFoodQuantityPolicyDraft: vi.fn().mockResolvedValue(success),
+    publishFoodQuantityPolicy: vi.fn().mockResolvedValue(success),
     saveFoodFactDraft: vi.fn().mockResolvedValue(success),
     publishFoodFact: vi.fn().mockResolvedValue({
       ok: true,
@@ -154,6 +156,8 @@ async function capturePublicationPayload(aggregate: CatalogPublicationAggregate)
   const repository = adminRepository({
     getAggregateForPublication: vi.fn().mockResolvedValue({ ok: true, value: aggregate })
   })
+  if (aggregate.aggregateType === "food_quantity_policy_version")
+    throw new Error("Legacy hash fixture")
   const command =
     aggregate.aggregateType === "recipe_version"
       ? ({

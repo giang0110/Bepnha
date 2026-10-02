@@ -1,7 +1,9 @@
+import type { FoodFactUnitConversion } from "../../domain/catalog/catalog.ts"
 import type { RecipeHeatLevel } from "../../domain/recipe/recipe.js"
 
 import type {
   FoodFactDraftInput,
+  FoodQuantityPolicyDraftInput,
   PriceBookDraftInput,
   RecipeDraftIngredient,
   RecipeVersionDraftInput
@@ -82,6 +84,7 @@ export interface PriceBookPublicationAggregate {
   readonly aggregateType: "price_book"
   readonly book: {
     readonly priceBookId: string
+    readonly purchasingVersion?: "purchase-v2"
     readonly regionId: string
     readonly versionNumber: number
     readonly revision: number
@@ -96,8 +99,22 @@ export interface PriceBookPublicationAggregate {
   })[]
 }
 
+export interface FoodQuantityPolicyPublicationAggregate {
+  readonly aggregateType: "food_quantity_policy_version"
+  readonly policy: Omit<FoodQuantityPolicyDraftInput, "expectedRevision"> & {
+    readonly revision: number
+    readonly publicationStatus: "draft" | "published"
+    readonly contentHash: string | null
+  }
+  readonly foodFactContentHash: string
+  readonly foodFactPublicationStatus: "draft" | "published"
+  readonly conversions: readonly FoodFactUnitConversion[]
+}
 export type CatalogPublicationAggregate =
-  FoodFactPublicationAggregate | RecipePublicationAggregate | PriceBookPublicationAggregate
+  | FoodFactPublicationAggregate
+  | RecipePublicationAggregate
+  | PriceBookPublicationAggregate
+  | FoodQuantityPolicyPublicationAggregate
 
 export type CatalogAdminFailureReason =
   | "VALIDATION_FAILED"
@@ -144,6 +161,14 @@ export interface CatalogAdminRepository {
     readonly nameVi: string
     readonly baseDimension: CatalogDimension
     readonly baseUnitId: string
+  }) => Promise<CatalogAdminResult>
+  readonly saveFoodQuantityPolicyDraft: (
+    input: FoodQuantityPolicyDraftInput
+  ) => Promise<CatalogAdminResult>
+  readonly publishFoodQuantityPolicy: (input: {
+    readonly id: string
+    readonly expectedRevision: number
+    readonly contentHash: string
   }) => Promise<CatalogAdminResult>
   readonly saveFoodFactDraft: (input: FoodFactDraftInput) => Promise<CatalogAdminResult>
   readonly publishFoodFact: (input: {

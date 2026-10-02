@@ -217,7 +217,8 @@ function isManifest(value: unknown): value is ResolvedCatalogManifestV1 {
       "recipes",
       "priceBook",
       "mealOptions",
-      "diagnostics"
+      "diagnostics",
+      ...(Object.hasOwn(value, "foodQuantityPolicies") ? ["foodQuantityPolicies"] : [])
     ])
   ) {
     return false
@@ -236,7 +237,25 @@ function isManifest(value: unknown): value is ResolvedCatalogManifestV1 {
     every(value.recipes, isResolvedIdentityVersion) &&
     (value.priceBook === null || isResolvedPriceBookTarget(value.priceBook)) &&
     every(value.mealOptions, isResolvedIdentityVersion) &&
-    every(value.diagnostics, isDiagnostic)
+    every(value.diagnostics, isDiagnostic) &&
+    (!Object.hasOwn(value, "foodQuantityPolicies") ||
+      (Array.isArray(value.foodQuantityPolicies) &&
+        value.foodQuantityPolicies.every(
+          (p) =>
+            isRecord(p) &&
+            exactKeys(p, [
+              "foodCode",
+              "foodFactVersionNumber",
+              "requestedVersionNumber",
+              "version"
+            ]) &&
+            isNonEmptyString(p.foodCode) &&
+            isSafeInteger(p.foodFactVersionNumber) &&
+            p.foodFactVersionNumber > 0 &&
+            isSafeInteger(p.requestedVersionNumber) &&
+            p.requestedVersionNumber > 0 &&
+            isVersion(p.version)
+        )))
   )
 }
 

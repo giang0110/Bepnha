@@ -2,10 +2,13 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import process from "node:process"
 
-import type { CatalogPackV1 } from "./catalog-pack-types.ts"
+import type { CatalogPack } from "./catalog-pack-types.ts"
 import { parseCsv, serializeCsv } from "./catalog-sheet-csv.ts"
 import {
   SHEET_FILE_NAMES,
+  SHEET_FILE_NAMES_V2,
+  sheetSchemaVersion,
+  type SheetBundleV2,
   packToSheets,
   sheetsToPack,
   type SheetBundle
@@ -65,14 +68,15 @@ export function parseSheetArgs(argv: readonly string[]): ParseResult {
 }
 
 function exportSheets(packPath: string, directory: string): string {
-  const pack = JSON.parse(readFileSync(packPath, "utf8")) as CatalogPackV1
+  const pack = JSON.parse(readFileSync(packPath, "utf8")) as CatalogPack
   const bundle = packToSheets(pack)
 
   mkdirSync(directory, { recursive: true })
-  for (const name of SHEET_FILE_NAMES) {
-    writeFileSync(join(directory, name), serializeCsv(bundle[name]), "utf8")
+  const names = pack.schemaVersion === "2" ? SHEET_FILE_NAMES_V2 : SHEET_FILE_NAMES
+  for (const name of names) {
+    writeFileSync(join(directory, name), serializeCsv((bundle as SheetBundleV2)[name]), "utf8")
   }
-  return `Wrote ${SHEET_FILE_NAMES.length} tables to ${directory}\n`
+  return `Wrote ${names.length} tables to ${directory}\n`
 }
 
 function importSheets(directory: string, outPath: string): { message: string; ok: boolean } {
@@ -85,6 +89,15 @@ function importSheets(directory: string, outPath: string): { message: string; ok
     } catch {
       missingFiles.push(name)
       bundle[name] = []
+    }
+  }
+  if (sheetSchemaVersion(bundle) === "2") {
+    try {
+      ;(bundle as SheetBundleV2)["food_quantity_policies.csv"] = parseCsv(
+        readFileSync(join(directory, "food_quantity_policies.csv"), "utf8")
+      )
+    } catch {
+      missingFiles.push("food_quantity_policies.csv")
     }
   }
   if (missingFiles.length > 0) {

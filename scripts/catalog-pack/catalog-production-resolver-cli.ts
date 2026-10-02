@@ -3,7 +3,7 @@ import process from "node:process"
 import { fileURLToPath } from "node:url"
 
 import { validateCatalogPackBytes } from "./catalog-pack-report.ts"
-import type { CatalogPackV1 } from "./catalog-pack-types.ts"
+import type { CatalogPack } from "./catalog-pack-types.ts"
 import { validateCatalogPackValue } from "./catalog-pack-validator.ts"
 import type { CatalogReferenceReader } from "./catalog-production-reader.ts"
 import { resolveCatalogProductionReferences } from "./catalog-production-resolver.ts"
@@ -96,7 +96,7 @@ function failureManifest(
   }
 }
 
-function packFromValidatedBytes(input: Uint8Array): CatalogPackV1 | null {
+function packFromValidatedBytes(input: Uint8Array): CatalogPack | null {
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(input)
     const value = JSON.parse(text) as unknown

@@ -136,6 +136,41 @@ const catalogPackSchema = z.strictObject({
   mealOptions: z.array(mealOptionSchema)
 })
 
+const purchaseRuleSchema = z.discriminatedUnion("mode", [
+  z.strictObject({ mode: z.literal("fixed_pack"), packIncrement: decimalTextSchema }),
+  z.strictObject({
+    mode: z.enum(["loose_mass", "loose_count"]),
+    saleStepBaseQuantity: decimalTextSchema
+  })
+])
+const catalogPackSchemaV2 = catalogPackSchema.extend({
+  schemaVersion: z.literal("2"),
+  foodQuantityPolicies: z.array(
+    z.strictObject({
+      foodCode: codeSchema,
+      foodFactVersionNumber: z.number(),
+      versionNumber: z.number(),
+      baseUnitCode: codeSchema,
+      foodForm: z.enum([
+        "portionable_mass",
+        "seasoning_mass",
+        "divisible_volume",
+        "whole_count",
+        "whole_piece"
+      ]),
+      stepBaseQuantity: decimalTextSchema,
+      rounding: z.enum(["ceil", "half_up"]),
+      provenance: labelSchema
+    })
+  ),
+  priceBook: priceBookSchema.extend({
+    prices: z.array(
+      priceSchema.extend({ purchaseRule: purchaseRuleSchema, purchaseProvenance: labelSchema })
+    )
+  })
+})
 export function parseCatalogPackShape(value: unknown) {
-  return catalogPackSchema.safeParse(value)
+  return z
+    .discriminatedUnion("schemaVersion", [catalogPackSchema, catalogPackSchemaV2])
+    .safeParse(value)
 }

@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs"
+import { SHEET_FILE_NAMES_V2, sheetsToPack, type SheetBundleV2 } from "./catalog-sheet-tables.ts"
+import { validateCatalogPackValue } from "./catalog-pack-validator.ts"
+import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import process from "node:process"
 
@@ -232,6 +234,51 @@ export function allergenFindings(
   return findings
 }
 
+function nutritionMetadataFindings(directory: string): AuditFinding[] {
+  if (!existsSync(join(directory, "pack.csv"))) return []
+  const packRows = readTable(directory, "pack.csv")
+  if (packRows[0]?.schemaVersion !== "2") return []
+  const tables: Record<string, string[][]> = {}
+  for (const file of SHEET_FILE_NAMES_V2) {
+    if (!existsSync(join(directory, file)))
+      return [
+        {
+          severity: "error",
+          code:
+            file === "food_quantity_policies.csv"
+              ? "MISSING_QUANTITY_POLICY"
+              : "PURCHASE_TERMS_UNVERIFIED",
+          subject: file,
+          detail: "V2 metadata file is required; no defaults or policy inferred"
+        }
+      ]
+    tables[file] = parseCsv(readFileSync(join(directory, file), "utf8"))
+  }
+  const imported = sheetsToPack(tables as SheetBundleV2)
+  if (imported.pack === null)
+    return imported.errors.map((error) => ({
+      severity: "error",
+      code:
+        error.file === "food_quantity_policies.csv"
+          ? "MISSING_QUANTITY_POLICY"
+          : "PURCHASE_TERMS_UNVERIFIED",
+      subject: error.file,
+      detail: error.message
+    }))
+  const codes = new Set([
+    "MISSING_QUANTITY_POLICY",
+    "INVALID_QUANTITY_POLICY",
+    "QUANTITY_POLICY_MISMATCH",
+    "MISSING_WHOLE_PIECE_CONVERSION",
+    "PURCHASE_TERMS_UNVERIFIED",
+    "PURCHASE_DIMENSION_MISMATCH",
+    "INVALID_PURCHASE_RULE"
+  ])
+  return validateCatalogPackValue(imported.pack)
+    .diagnostics.filter((d) => codes.has(d.code))
+    .map((d) => ({ severity: d.severity, code: d.code, subject: d.path, detail: d.message }))
+}
+
 export function auditBundle(directory: string): {
   readonly findings: readonly AuditFinding[]
   readonly statusCounts: Readonly<Record<string, number>>
@@ -248,6 +295,7 @@ export function auditBundle(directory: string): {
 
   return {
     findings: [
+      ...nutritionMetadataFindings(directory),
       ...energyFindings(nutrients),
       ...allergenFindings(foods, assessments),
       ...provenanceFindings(nutrients, "provenance", "nutrition"),

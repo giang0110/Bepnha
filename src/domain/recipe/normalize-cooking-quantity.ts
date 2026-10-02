@@ -6,7 +6,10 @@ import {
   parseCanonicalDecimal,
   roundDecimal
 } from "../shared/decimal"
-import type { FoodQuantityPolicyV1 } from "./food-quantity-policy"
+import {
+  validateFoodQuantityPolicyDefinition,
+  type FoodQuantityPolicyV1
+} from "./food-quantity-policy"
 import { conversionIsConsistent, type ScaledRecipeIngredient } from "./scale-recipe"
 
 export type CookingAdjustmentReason =
@@ -75,38 +78,8 @@ export function normalizeCookingQuantity(
     !conversionIsConsistent(conversion)
   )
     return failure("INVALID_UNIT_CONVERSION")
-  const physicalStep = step.value.mul(conversion.foodBaseUnitToDimensionBase)
-  if (policy.foodForm === "portionable_mass" || policy.foodForm === "seasoning_mass") {
-    if (
-      policy.baseDimension !== "mass" ||
-      policy.rounding !== "half_up" ||
-      !physicalStep.eq(policy.foodForm === "portionable_mass" ? "1" : "0.1")
-    )
-      return failure("INVALID_QUANTITY_POLICY")
-  } else if (policy.foodForm === "divisible_volume") {
-    if (
-      policy.baseDimension !== "volume" ||
-      policy.rounding !== "half_up" ||
-      !physicalStep.eq("0.1")
-    )
-      return failure("INVALID_QUANTITY_POLICY")
-  } else if (policy.foodForm === "whole_count") {
-    if (
-      policy.baseDimension !== "count" ||
-      policy.rounding !== "ceil" ||
-      !physicalStep.isInteger() ||
-      physicalStep.lt(1)
-    )
-      return failure("INVALID_QUANTITY_POLICY")
-  } else if (policy.foodForm === "whole_piece") {
-    if (policy.rounding !== "ceil") return failure("INVALID_QUANTITY_POLICY")
-    if (conversion.sourceDimension !== "count") return failure("MISSING_WHOLE_PIECE_CONVERSION")
-    const piecesPerStep = step.value
-      .mul(conversion.sourceToDimensionBase)
-      .div(conversion.baseQuantityPerUnit)
-    if (!piecesPerStep.isInteger() || piecesPerStep.lt(1))
-      return failure("MISSING_WHOLE_PIECE_CONVERSION")
-  } else return failure("INVALID_QUANTITY_POLICY")
+  const definition = validateFoodQuantityPolicyDefinition(policy, conversion)
+  if (!definition.ok) return failure(definition.error.code)
   const source = parseCanonicalDecimal(ingredient.sourceQuantity, {
     allowNegative: false,
     allowZero: false

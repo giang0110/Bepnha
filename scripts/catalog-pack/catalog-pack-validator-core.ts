@@ -1,3 +1,6 @@
+import { validateFoodQuantityPolicyDefinition } from "../../src/domain/recipe/food-quantity-policy.ts"
+import { normalizePurchaseTermsV2 } from "../../src/domain/pricing/purchasing-v2.ts"
+import type { FoodFactUnitConversion } from "../../src/domain/catalog/catalog.ts"
 import { parseCanonicalDecimal } from "../../src/domain/shared/decimal.ts"
 import { isRecipeHeatLevel, RECIPE_HEAT_LEVELS } from "../../src/domain/recipe/recipe.ts"
 import { parseCatalogPackShape } from "./catalog-pack-schema.ts"
@@ -8,12 +11,12 @@ import {
   LAUNCH_UNIT_CODES,
   type CatalogPackDiagnostic,
   type CatalogPackFood,
-  type CatalogPackV1,
+  type CatalogPack,
   type CatalogPackValidationReport
 } from "./catalog-pack-types.ts"
 
 export interface CatalogPackValidationCoreResult {
-  readonly pack: CatalogPackV1 | null
+  readonly pack: CatalogPack | null
   readonly catalogCode: string | null
   readonly diagnostics: readonly CatalogPackDiagnostic[]
   readonly blockers: readonly string[]
@@ -282,7 +285,7 @@ function validateSupportedUnit(
   }
 }
 
-function validateTopLevelFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): void {
+function validateTopLevelFields(pack: CatalogPack, diagnostics: CatalogPackDiagnostic[]): void {
   validateCode(pack.catalogCode, "$.catalogCode", diagnostics)
   if (!isValidRfc3339(pack.preparedAt)) {
     addError(
@@ -297,7 +300,7 @@ function validateTopLevelFields(pack: CatalogPackV1, diagnostics: CatalogPackDia
 }
 
 function validateFoodFields(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   diagnostics: CatalogPackDiagnostic[],
   blockers: Set<string>
 ): void {
@@ -499,7 +502,7 @@ function validateFoodFields(
   })
 }
 
-function validateRecipeFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): void {
+function validateRecipeFields(pack: CatalogPack, diagnostics: CatalogPackDiagnostic[]): void {
   validateUniqueCodes(
     pack.recipes.map((recipe) => recipe.code),
     "$.recipes",
@@ -606,7 +609,7 @@ function validateRecipeFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagn
 }
 
 function validatePriceFields(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   diagnostics: CatalogPackDiagnostic[],
   blockers: Set<string>
 ): void {
@@ -710,7 +713,7 @@ function validatePriceFields(
   })
 }
 
-function validateMealOptionFields(pack: CatalogPackV1, diagnostics: CatalogPackDiagnostic[]): void {
+function validateMealOptionFields(pack: CatalogPack, diagnostics: CatalogPackDiagnostic[]): void {
   validateUniqueCodes(
     pack.mealOptions.map((meal) => meal.code),
     "$.mealOptions",
@@ -797,7 +800,7 @@ function validateMealOptionFields(pack: CatalogPackV1, diagnostics: CatalogPackD
 }
 
 function validateGraph(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   diagnostics: CatalogPackDiagnostic[],
   blockers: Set<string>
 ): GraphResult {
@@ -1005,10 +1008,170 @@ function validateGraph(
   return { reachableFoodCodes, reachableRecipeCodes, pricedReachableFoodCodes }
 }
 
-function addLaunchReadinessBlockers(pack: CatalogPackV1, blockers: Set<string>): void {
+function addLaunchReadinessBlockers(pack: CatalogPack, blockers: Set<string>): void {
   if (pack.mealOptions.length < 21) blockers.add("MINIMUM_MEAL_OPTIONS_NOT_MET")
   const proteinGroups = new Set(pack.mealOptions.map((meal) => meal.version.proteinHintCode))
   if (proteinGroups.size < 3) blockers.add("INSUFFICIENT_PRIMARY_PROTEIN_GROUP_CAPACITY")
+}
+
+const UNIT_FACTORS: Readonly<Record<string, string>> = {
+  g: "1",
+  kg: "1000",
+  ml: "1",
+  l: "1000",
+  tsp: "5",
+  tbsp: "15",
+  item: "1"
+}
+function policyConversion(
+  food: CatalogPackFood,
+  conversion: CatalogPackFood["fact"]["conversions"][number]
+): FoodFactUnitConversion | null {
+  const sourceDimension = UNIT_DIMENSIONS[conversion.unitCode]
+  const sourceFactor = UNIT_FACTORS[conversion.unitCode]
+  const baseFactor = UNIT_FACTORS[food.baseUnitCode]
+  if (sourceDimension === undefined || sourceFactor === undefined || baseFactor === undefined)
+    return null
+  return {
+    unitId: conversion.unitCode,
+    unitCode: conversion.unitCode,
+    sourceDimension,
+    sourceToDimensionBase: sourceFactor,
+    foodBaseUnitId: food.baseUnitCode,
+    foodBaseDimension: food.baseDimension,
+    foodBaseUnitToDimensionBase: baseFactor,
+    baseQuantityPerUnit: conversion.baseQuantityPerUnit,
+    grossGramsPerUnit: conversion.grossGramsPerUnit,
+    displayStep: conversion.displayStep
+  }
+}
+function validateNutritionMetadata(
+  pack: CatalogPack,
+  diagnostics: CatalogPackDiagnostic[],
+  blockers: Set<string>
+): void {
+  if (pack.schemaVersion !== "2") return
+  const foods = new Map(pack.foods.map((food) => [food.code, food]))
+  const validPolicies = new Set<string>()
+  const keys = new Set<string>()
+  pack.foodQuantityPolicies.forEach((policy, index) => {
+    const path = `$.foodQuantityPolicies[${index}]`
+    validateCode(policy.foodCode, `${path}.foodCode`, diagnostics)
+    validatePositiveVersion(
+      policy.foodFactVersionNumber,
+      `${path}.foodFactVersionNumber`,
+      diagnostics
+    )
+    validatePositiveVersion(policy.versionNumber, `${path}.versionNumber`, diagnostics)
+    validateProvenance(policy.provenance, `${path}.provenance`, diagnostics)
+    const key = `${policy.foodCode}:${policy.foodFactVersionNumber}:${policy.versionNumber}`
+    if (keys.has(key))
+      addError(
+        diagnostics,
+        "DUPLICATE_QUANTITY_POLICY",
+        path,
+        "One policy version per exact food fact"
+      )
+    keys.add(key)
+    const food = foods.get(policy.foodCode)
+    if (food === undefined || food.fact.versionNumber !== policy.foodFactVersionNumber) {
+      addError(
+        diagnostics,
+        "QUANTITY_POLICY_FACT_MISMATCH",
+        path,
+        "Policy must bind the exact food fact in this pack"
+      )
+      return
+    }
+    const conversions = food.fact.conversions
+      .map((conversion) => policyConversion(food, conversion))
+      .filter((conversion) => conversion !== null)
+    const conversion =
+      policy.foodForm === "whole_piece"
+        ? conversions.find((item) => item.sourceDimension === "count")
+        : (conversions.find((item) => item.unitId === food.baseUnitCode) ?? conversions[0])
+    if (conversion === undefined) {
+      addError(
+        diagnostics,
+        policy.foodForm === "whole_piece"
+          ? "MISSING_WHOLE_PIECE_CONVERSION"
+          : "MISSING_UNIT_CONVERSION",
+        path,
+        "Policy requires a reviewed physical conversion"
+      )
+      return
+    }
+    const validation = validateFoodQuantityPolicyDefinition(
+      { ...policy, baseDimension: food.baseDimension, baseUnitId: policy.baseUnitCode },
+      conversion
+    )
+    if (!validation.ok) {
+      addError(
+        diagnostics,
+        validation.error.code,
+        path,
+        "Policy step, form and unit must describe a usable physical amount"
+      )
+      return
+    }
+    validPolicies.add(`${policy.foodCode}:${policy.foodFactVersionNumber}`)
+  })
+  pack.foods.forEach((food, index) => {
+    if (validPolicies.has(`${food.code}:${food.fact.versionNumber}`)) return
+    addError(
+      diagnostics,
+      "MISSING_QUANTITY_POLICY",
+      `$.foods[${index}]`,
+      "No reviewed cooking policy for this exact food fact"
+    )
+    blockers.add("MISSING_QUANTITY_POLICY")
+  })
+  pack.priceBook.prices.forEach((price, index) => {
+    const path = `$.priceBook.prices[${index}]`
+    const food = foods.get(price.foodCode)
+    if (food === undefined) return
+    if (
+      !isTrimmedLength(price.purchaseProvenance, 1, 500) ||
+      /^(?:unknown|n\/a|na|todo|tbd|pending|placeholder)$/iu.test(price.purchaseProvenance)
+    ) {
+      addError(
+        diagnostics,
+        "PURCHASE_TERMS_UNVERIFIED",
+        `${path}.purchaseProvenance`,
+        "Sale terms require a concrete reviewed source"
+      )
+      return
+    }
+    if (
+      (price.purchaseRule.mode === "loose_mass" && food.baseDimension !== "mass") ||
+      (price.purchaseRule.mode === "loose_count" && food.baseDimension !== "count")
+    ) {
+      addError(
+        diagnostics,
+        "PURCHASE_DIMENSION_MISMATCH",
+        `${path}.purchaseRule`,
+        "Sale mode must match the food's physical base dimension"
+      )
+      return
+    }
+    const terms = normalizePurchaseTermsV2({
+      baseDimension: food.baseDimension,
+      quoteBaseQuantity: price.packageBaseQuantity,
+      purchaseRule: price.purchaseRule,
+      purchaseProvenance: price.purchaseProvenance
+    })
+    if (
+      !terms.ok ||
+      (price.purchaseRule.mode === "fixed_pack" &&
+        price.purchaseRule.packIncrement !== price.purchaseIncrement)
+    )
+      addError(
+        diagnostics,
+        "INVALID_PURCHASE_RULE",
+        `${path}.purchaseRule`,
+        "Explicit sale steps and quote basis must be consistent"
+      )
+  })
 }
 
 export function validateCatalogPackValue(value: unknown): CatalogPackValidationCoreResult {
@@ -1033,6 +1196,7 @@ export function validateCatalogPackValue(value: unknown): CatalogPackValidationC
   const blockers = new Set<string>()
 
   validateTopLevelFields(pack, diagnostics)
+  validateNutritionMetadata(pack, diagnostics, blockers)
   validateFoodFields(pack, diagnostics, blockers)
   validateRecipeFields(pack, diagnostics)
   validatePriceFields(pack, diagnostics, blockers)

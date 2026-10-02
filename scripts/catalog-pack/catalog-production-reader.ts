@@ -1,4 +1,4 @@
-import type { CatalogPackV1 } from "./catalog-pack-types.ts"
+import type { CatalogPack } from "./catalog-pack-types.ts"
 import type {
   CatalogProductionSnapshot,
   ProductionCategoryRow,
@@ -27,7 +27,8 @@ export const CATALOG_PRODUCTION_TABLES = [
   "recipe_versions",
   "price_books",
   "meal_options",
-  "meal_option_versions"
+  "meal_option_versions",
+  "food_quantity_policy_versions"
 ] as const
 
 export type CatalogProductionTable = (typeof CATALOG_PRODUCTION_TABLES)[number]
@@ -56,7 +57,7 @@ export type CatalogProductionSnapshotLoadResult =
   | { readonly ok: false; readonly reason: "DEPENDENCY_UNAVAILABLE" }
 
 export interface CatalogReferenceReader {
-  readonly loadSnapshot: (pack: CatalogPackV1) => Promise<CatalogProductionSnapshotLoadResult>
+  readonly loadSnapshot: (pack: CatalogPack) => Promise<CatalogProductionSnapshotLoadResult>
 }
 
 const COLUMNS = {
@@ -73,7 +74,9 @@ const COLUMNS = {
   recipe_versions: "id,recipe_id,version_number,revision,publication_status",
   price_books: "id,region_id,version_number,revision,publication_status",
   meal_options: "id,code,name_vi,status,revision",
-  meal_option_versions: "id,meal_option_id,version_number,revision,publication_status"
+  meal_option_versions: "id,meal_option_id,version_number,revision,publication_status",
+  food_quantity_policy_versions:
+    "id,food_fact_version_id,version_number,revision,publication_status"
 } as const satisfies Readonly<Record<CatalogProductionTable, string>>
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -277,7 +280,7 @@ function parseRows<T>(rows: readonly unknown[], parser: (row: unknown) => T | nu
   return parsed
 }
 
-function requiredUnitCodes(pack: CatalogPackV1): string[] {
+function requiredUnitCodes(pack: CatalogPack): string[] {
   const values: string[] = []
   for (const food of pack.foods) {
     values.push(food.baseUnitCode)
@@ -292,11 +295,11 @@ function requiredUnitCodes(pack: CatalogPackV1): string[] {
   return uniqueSorted(values)
 }
 
-function requiredCategoryCodes(pack: CatalogPackV1): string[] {
+function requiredCategoryCodes(pack: CatalogPack): string[] {
   return uniqueSorted(pack.foods.flatMap((food) => food.fact.categoryAncestry))
 }
 
-function requiredAllergenCodes(pack: CatalogPackV1): string[] {
+function requiredAllergenCodes(pack: CatalogPack): string[] {
   return uniqueSorted(
     pack.foods.flatMap((food) =>
       food.fact.allergenAssessments.map((assessment) => assessment.allergenCode)
@@ -304,17 +307,17 @@ function requiredAllergenCodes(pack: CatalogPackV1): string[] {
   )
 }
 
-function requiredDietaryTagCodes(pack: CatalogPackV1): string[] {
+function requiredDietaryTagCodes(pack: CatalogPack): string[] {
   return uniqueSorted(pack.foods.flatMap((food) => food.fact.dietaryTagCodes))
 }
 
-function requiredNutrientCodes(pack: CatalogPackV1): string[] {
+function requiredNutrientCodes(pack: CatalogPack): string[] {
   return uniqueSorted(
     pack.foods.flatMap((food) => food.fact.nutrients.map((nutrient) => nutrient.nutrientCode))
   )
 }
 
-function requiredRecipeTagCodes(pack: CatalogPackV1): string[] {
+function requiredRecipeTagCodes(pack: CatalogPack): string[] {
   const values: string[] = []
   for (const meal of pack.mealOptions) {
     values.push(`protein_${meal.version.proteinHintCode}`)
@@ -350,7 +353,7 @@ async function select(
 
 async function loadSnapshot(
   gateway: CatalogSelectGateway,
-  pack: CatalogPackV1
+  pack: CatalogPack
 ): Promise<CatalogProductionSnapshotLoadResult> {
   const unitsRaw = await select(gateway, codeRequest("units", requiredUnitCodes(pack)))
   if (unitsRaw === null) return dependencyUnavailable()
@@ -511,6 +514,24 @@ async function loadSnapshot(
     mealOptionVersions = parsed
   }
 
+  let foodQuantityPolicies: ProductionVersionRow[] = []
+  if (pack.schemaVersion === "2" && foodFactVersions.length > 0) {
+    const raw = await select(gateway, {
+      table: "food_quantity_policy_versions",
+      columns: COLUMNS.food_quantity_policy_versions,
+      filters: [
+        {
+          column: "food_fact_version_id",
+          operation: "in",
+          value: uniqueSorted(foodFactVersions.map((f) => f.id))
+        }
+      ]
+    })
+    if (raw === null) return dependencyUnavailable()
+    const parsed = parseRows(raw, (row) => parseVersionRow(row, "food_fact_version_id"))
+    if (parsed === null) return dependencyUnavailable()
+    foodQuantityPolicies = parsed
+  }
   return {
     ok: true,
     value: {
@@ -523,6 +544,7 @@ async function loadSnapshot(
       recipeTags,
       foods,
       foodFactVersions,
+      ...(pack.schemaVersion === "2" ? { foodQuantityPolicies } : {}),
       recipes,
       recipeVersions,
       priceBooks,

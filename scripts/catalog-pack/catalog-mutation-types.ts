@@ -45,6 +45,8 @@ export interface MutationPlanBindingV1 {
 
 export type CatalogMutationOperationKind =
   | "create_food"
+  | "save_food_quantity_policy_draft"
+  | "publish_food_quantity_policy"
   | "save_food_fact_draft"
   | "publish_food_fact"
   | "create_recipe"
