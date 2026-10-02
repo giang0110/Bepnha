@@ -9,7 +9,23 @@ import type { EligibleMealOption } from "./evaluate-eligibility.js"
 import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config.js"
 import { scorePantryReuse } from "./score-pantry-reuse.js"
 
-type PurchaseBasket = Extract<PurchaseBasketResult, { readonly ok: true }>["value"]
+export type ScoringMealOption = Pick<
+  EligibleMealOption,
+  | "mealOptionId"
+  | "primaryProteinGroup"
+  | "cookingStyleCodes"
+  | "roles"
+  | "foodCategoryCodes"
+  | "foodCategoryCodesByFood"
+  | "requirements"
+>
+export interface ScoringPurchaseBasket {
+  readonly lines: readonly Pick<
+    Extract<PurchaseBasketResult, { readonly ok: true }>["value"]["lines"][number],
+    "purchaseBaseQuantity" | "leftoverBaseQuantity"
+  >[]
+}
+export type PlannerScoringConfig = Omit<PlannerConfigV1, "version"> & { readonly version: string }
 
 export interface WeeklyPlanScore {
   readonly totalQualityPenalty: number
@@ -67,7 +83,7 @@ export function scaledPenalty(weight: number, numerator: number, denominator: nu
   return Math.min(weight, Math.max(0, value))
 }
 
-function preferenceMatches(option: EligibleMealOption, code: string): boolean {
+function preferenceMatches(option: ScoringMealOption, code: string): boolean {
   const rule = HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)
   if (rule === undefined || rule.ruleKind !== "soft_preference") return false
   if (code === "prefer_vegetable_forward") return option.roles.includes("vegetable")
@@ -76,10 +92,10 @@ function preferenceMatches(option: EligibleMealOption, code: string): boolean {
 }
 
 export function scoreWeeklyPlan(
-  selected: readonly EligibleMealOption[],
-  basket: PurchaseBasket,
+  selected: readonly ScoringMealOption[],
+  basket: ScoringPurchaseBasket,
   softPreferenceCodes: readonly string[],
-  config: PlannerConfigV1 = PLANNER_CONFIG_V1,
+  config: PlannerScoringConfig = PLANNER_CONFIG_V1,
   pantryDeductions: readonly CanonicalFoodDeduction[] = [],
   recentMealOptionIds: readonly string[] = [],
   ratings: MealOptionRatings = EMPTY_MEAL_OPTION_RATINGS

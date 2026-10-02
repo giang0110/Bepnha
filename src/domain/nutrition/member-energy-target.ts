@@ -1,9 +1,9 @@
-import type { MemberProfileV1 } from "@/domain/household/member-profile"
+import type { MemberProfileV1 } from "../household/member-profile.js"
 import {
   isMemberMeasurement,
   validateMemberProfiles
-} from "@/domain/household/validate-member-profiles"
-import { ExactDecimal, ROUND_HALF_UP, roundDecimal } from "@/domain/shared/decimal"
+} from "../household/validate-member-profiles.js"
+import { ExactDecimal, ROUND_HALF_UP, roundDecimal } from "../shared/decimal.js"
 
 export const ENERGY_TARGET_VERSION = "energy-target-v1" as const
 export const ACTIVITY_FACTORS = {

@@ -1,17 +1,17 @@
-import { normalizeFoodPriceV2, type FoodPriceInputV2 } from "./purchasing-v2"
+import { normalizeFoodPriceV2, type FoodPriceInputV2 } from "./purchasing-v2.js"
 import {
   classifyPriceFreshness,
   type StalePriceWarning
-} from "@/domain/pricing/classify-price-freshness"
-import type { FoodPriceInput, RecipeCostIngredient } from "@/domain/pricing/pricing"
-import { PRICE_FRESHNESS_CONFIG_V1, type PriceFreshnessConfigV1 } from "@/domain/pricing/pricing"
+} from "../pricing/classify-price-freshness.js"
+import type { FoodPriceInput, RecipeCostIngredient } from "../pricing/pricing.js"
+import { PRICE_FRESHNESS_CONFIG_V1, type PriceFreshnessConfigV1 } from "../pricing/pricing.js"
 import {
   ExactDecimal,
   ROUND_HALF_UP,
   decimalToCanonical,
   roundDecimal,
   parseCanonicalDecimal
-} from "@/domain/shared/decimal"
+} from "../shared/decimal.js"
 
 export type RecipeCostFatalCode =
   | "INVALID_DECIMAL"

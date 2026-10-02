@@ -1,8 +1,8 @@
 import { z } from "zod"
 
-import type { HouseholdMemberGroup } from "./household"
-import { ACTIVITY_LEVELS, type MemberProfileV1 } from "./member-profile"
-import { ExactDecimal, decimalToCanonical, parseCanonicalDecimal } from "@/domain/shared/decimal"
+import type { HouseholdMemberGroup } from "./household.js"
+import { ACTIVITY_LEVELS, type MemberProfileV1 } from "./member-profile.js"
+import { ExactDecimal, decimalToCanonical, parseCanonicalDecimal } from "../shared/decimal.js"
 
 export function isMemberMeasurement(
   value: unknown,
@@ -62,7 +62,11 @@ export type MemberProfilesValidationResult =
 
 export function validateMemberProfiles(
   value: unknown,
-  groups: readonly HouseholdMemberGroup[]
+  groups: readonly {
+    readonly memberKind: HouseholdMemberGroup["memberKind"]
+    readonly ageBand: string
+    readonly memberCount: number
+  }[]
 ): MemberProfilesValidationResult {
   const parsed = z.array(memberProfileSchema).max(20).safeParse(value)
   if (!parsed.success) {

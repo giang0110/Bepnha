@@ -21,9 +21,20 @@ import {
 
 type PurchaseBasket = Extract<PurchaseBasketResult, { readonly ok: true }>["value"]
 
-interface SearchState {
-  readonly selected: readonly EligibleMealOption[]
-  readonly basket: PurchaseBasket
+export type SearchMealIdentity = Pick<
+  EligibleMealOption,
+  "mealOptionId" | "mealOptionVersionId" | "mainRecipeVersionIds"
+>
+export interface SearchBasket {
+  readonly totalEstimatedCostVnd: number
+  readonly warnings: readonly PlannerWarning[]
+}
+interface SearchState<
+  M extends SearchMealIdentity = EligibleMealOption,
+  B extends SearchBasket = PurchaseBasket
+> {
+  readonly selected: readonly M[]
+  readonly basket: B
   readonly qualityLowerBound: number
   readonly stableIdSequence: string
 }
@@ -120,7 +131,7 @@ function basketFor(
   return result.ok ? result.value : null
 }
 
-export function violatesWeeklyHardRules(selected: readonly EligibleMealOption[]): boolean {
+export function violatesWeeklyHardRules(selected: readonly SearchMealIdentity[]): boolean {
   if (new Set(selected.map((option) => option.mealOptionId)).size !== selected.length) return true
   return selected.slice(1).some((option, index) => {
     const previous = selected[index]
@@ -158,9 +169,9 @@ export function calculateCompletedPlanCandidate(
 }
 
 export function qualityLowerBound(
-  selected: readonly EligibleMealOption[],
+  selected: readonly Pick<EligibleMealOption, "mealOptionId" | "primaryProteinGroup" | "roles">[],
   softPreferenceCodes: readonly string[],
-  config: PlannerConfigV1,
+  config: Omit<PlannerConfigV1, "version">,
   recentMealOptionIds: readonly string[] = [],
   ratings: MealOptionRatings = EMPTY_MEAL_OPTION_RATINGS
 ): number {
@@ -215,11 +226,14 @@ export function qualityLowerBound(
   )
 }
 
-function stableSequence(selected: readonly EligibleMealOption[]): string {
+function stableSequence(selected: readonly SearchMealIdentity[]): string {
   return selected.map((option) => option.mealOptionVersionId).join("|")
 }
 
-function qualityOrder(left: SearchState, right: SearchState): number {
+function qualityOrder<M extends SearchMealIdentity, B extends SearchBasket>(
+  left: SearchState<M, B>,
+  right: SearchState<M, B>
+): number {
   return (
     left.qualityLowerBound - right.qualityLowerBound ||
     left.basket.totalEstimatedCostVnd - right.basket.totalEstimatedCostVnd ||
@@ -227,7 +241,10 @@ function qualityOrder(left: SearchState, right: SearchState): number {
   )
 }
 
-function costOrder(left: SearchState, right: SearchState): number {
+function costOrder<M extends SearchMealIdentity, B extends SearchBasket>(
+  left: SearchState<M, B>,
+  right: SearchState<M, B>
+): number {
   return (
     left.basket.totalEstimatedCostVnd - right.basket.totalEstimatedCostVnd ||
     left.qualityLowerBound - right.qualityLowerBound ||
@@ -235,18 +252,24 @@ function costOrder(left: SearchState, right: SearchState): number {
   )
 }
 
-export function selectFinalPlan(
-  complete: readonly CompletedPlanCandidate[],
+export function selectFinalPlan<
+  C extends {
+    readonly basket: SearchBasket
+    readonly score: { readonly totalQualityPenalty: number }
+    readonly stableIdSequence: string
+  }
+>(
+  complete: readonly C[],
   budgetVnd: number
 ):
   | {
       readonly status: "ready_within_budget"
-      readonly plan: CompletedPlanCandidate
+      readonly plan: C
       readonly warnings: readonly PlannerWarning[]
     }
   | {
       readonly status: "ready_over_budget"
-      readonly plan: CompletedPlanCandidate
+      readonly plan: C
       readonly warnings: readonly PlannerWarning[]
     } {
   const within = complete.filter((plan) => plan.basket.totalEstimatedCostVnd <= budgetVnd)
@@ -280,56 +303,51 @@ export function selectFinalPlan(
   }
 }
 
-export function searchWeek(
-  eligibleInput: readonly EligibleMealOption[],
-  budgetVnd: number,
-  softPreferenceCodes: readonly string[],
-  calculationDate: string,
-  freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1,
-  config: PlannerConfigV1 = PLANNER_CONFIG_V1,
-  deductionsInput: readonly CanonicalFoodDeduction[] = [],
-  recentMealOptionIds: readonly string[] = [],
-  ratings: MealOptionRatings = EMPTY_MEAL_OPTION_RATINGS
-): PlannerSearchResult {
-  const eligible = [...eligibleInput].sort((left, right) =>
+export function searchBoundedWeek<
+  M extends SearchMealIdentity,
+  B extends SearchBasket,
+  C
+>(options: {
+  readonly eligible: readonly M[]
+  readonly config: Pick<PlannerConfigV1, "dayCount" | "frontier">
+  readonly emptyBasket: B
+  readonly basketFor: (selected: readonly M[]) => B | null
+  readonly qualityLowerBound: (selected: readonly M[]) => number
+  readonly complete: (selected: readonly M[]) => C | null
+}): { readonly complete: readonly C[]; readonly frontierMetrics: readonly FrontierMetric[] } {
+  const eligible = [...options.eligible].sort((left, right) =>
     compareText(left.mealOptionVersionId, right.mealOptionVersionId)
   )
-  let frontier: SearchState[] = [
+  let frontier: SearchState<M, B>[] = [
     {
       selected: [],
-      basket: { lines: [], warnings: [], totalEstimatedCostVnd: 0 },
+      basket: options.emptyBasket,
       qualityLowerBound: 0,
       stableIdSequence: ""
     }
   ]
   const frontierMetrics: FrontierMetric[] = []
-  for (let depth = 1; depth <= config.dayCount; depth += 1) {
-    const expanded: SearchState[] = []
+  for (let depth = 1; depth <= options.config.dayCount; depth += 1) {
+    const expanded: SearchState<M, B>[] = []
     for (const state of [...frontier].sort((left, right) =>
       compareText(left.stableIdSequence, right.stableIdSequence)
     )) {
       for (const candidate of eligible) {
         const selected = [...state.selected, candidate]
         if (violatesWeeklyHardRules(selected)) continue
-        const basket = basketFor(selected, calculationDate, freshnessConfig, deductionsInput)
+        const basket = options.basketFor(selected)
         if (basket === null) continue
         expanded.push({
           selected,
           basket,
-          qualityLowerBound: qualityLowerBound(
-            selected,
-            softPreferenceCodes,
-            config,
-            recentMealOptionIds,
-            ratings
-          ),
+          qualityLowerBound: options.qualityLowerBound(selected),
           stableIdSequence: stableSequence(selected)
         })
       }
     }
-    const quality = [...expanded].sort(qualityOrder).slice(0, config.frontier.qualitySize)
-    const cost = [...expanded].sort(costOrder).slice(0, config.frontier.costSize)
-    const union = new Map<string, SearchState>()
+    const quality = [...expanded].sort(qualityOrder).slice(0, options.config.frontier.qualitySize)
+    const cost = [...expanded].sort(costOrder).slice(0, options.config.frontier.costSize)
+    const union = new Map<string, SearchState<M, B>>()
     for (const state of [...quality, ...cost]) union.set(state.stableIdSequence, state)
     frontier = [...union.values()].sort((left, right) =>
       compareText(left.stableIdSequence, right.stableIdSequence)
@@ -343,11 +361,34 @@ export function searchWeek(
     })
   }
 
-  const complete: CompletedPlanCandidate[] = frontier
-    .filter((state) => state.selected.length === config.dayCount)
-    .map((state) =>
+  const complete = frontier
+    .filter((state) => state.selected.length === options.config.dayCount)
+    .map((state) => options.complete(state.selected))
+    .filter((candidate): candidate is C => candidate !== null)
+  return { complete, frontierMetrics }
+}
+
+export function searchWeek(
+  eligibleInput: readonly EligibleMealOption[],
+  budgetVnd: number,
+  softPreferenceCodes: readonly string[],
+  calculationDate: string,
+  freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1,
+  config: PlannerConfigV1 = PLANNER_CONFIG_V1,
+  deductionsInput: readonly CanonicalFoodDeduction[] = [],
+  recentMealOptionIds: readonly string[] = [],
+  ratings: MealOptionRatings = EMPTY_MEAL_OPTION_RATINGS
+): PlannerSearchResult {
+  const { complete, frontierMetrics } = searchBoundedWeek({
+    eligible: eligibleInput,
+    config,
+    emptyBasket: { lines: [], warnings: [], totalEstimatedCostVnd: 0 },
+    basketFor: (selected) => basketFor(selected, calculationDate, freshnessConfig, deductionsInput),
+    qualityLowerBound: (selected) =>
+      qualityLowerBound(selected, softPreferenceCodes, config, recentMealOptionIds, ratings),
+    complete: (selected) =>
       calculateCompletedPlanCandidate(
-        state.selected,
+        selected,
         softPreferenceCodes,
         calculationDate,
         freshnessConfig,
@@ -356,8 +397,7 @@ export function searchWeek(
         recentMealOptionIds,
         ratings
       )
-    )
-    .filter((candidate): candidate is CompletedPlanCandidate => candidate !== null)
+  })
   if (complete.length === 0) {
     return {
       ok: false,

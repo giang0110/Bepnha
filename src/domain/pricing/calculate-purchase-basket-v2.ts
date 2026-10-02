@@ -1,26 +1,26 @@
-import { applyPantryDeduction } from "../pantry/apply-pantry-deduction"
+import { applyPantryDeduction } from "../pantry/apply-pantry-deduction.js"
 import {
   ExactDecimal,
   ROUND_CEIL,
   ROUND_HALF_UP,
   decimalToCanonical,
   parseCanonicalDecimal
-} from "../shared/decimal"
-import { classifyPriceFreshness } from "./classify-price-freshness"
+} from "../shared/decimal.js"
+import { classifyPriceFreshness } from "./classify-price-freshness.js"
 import {
   normalizeFoodPriceV2,
   type FoodPriceInputV2,
   type PurchaseBasketFatalCodeV2,
   type PurchaseBasketLineV2,
   type PurchaseBasketResultV2
-} from "./purchasing-v2"
+} from "./purchasing-v2.js"
 import {
   PRICE_FRESHNESS_CONFIG_V1,
   type CanonicalFoodRequirement,
   type CanonicalFoodDeduction,
   type PriceFreshnessConfigV1,
   type PurchaseBasketWarning
-} from "./pricing"
+} from "./pricing.js"
 
 export function calculatePurchaseBasketV2(
   requirementsInput: readonly CanonicalFoodRequirement[],

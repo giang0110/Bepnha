@@ -87,7 +87,7 @@ export interface EligibilityRejection {
  *
  * The specific reason is not lost: it travels as the rejection's `code`.
  */
-const HARD_RULE_REJECTION_RANK: Readonly<
+export const HARD_RULE_REJECTION_RANK: Readonly<
   Record<
     Exclude<ReturnType<typeof evaluateHardRules>["status"], "eligible">,
     EligibilityRejection["stage"]
@@ -109,7 +109,9 @@ function reject(
   return { mealOptionVersionId: candidate.mealOption.mealOptionVersionId, stage, code }
 }
 
-function completeLineage(candidate: PlannerCandidateInput): boolean {
+export function completeLineage(
+  candidate: Pick<PlannerCandidateInput, "ingredientLineage">
+): boolean {
   return candidate.ingredientLineage.every(
     (lineage) =>
       lineage.foodFactStatus === "published" &&
@@ -125,7 +127,9 @@ function completeLineage(candidate: PlannerCandidateInput): boolean {
   )
 }
 
-function nutritionComplete(candidate: PlannerCandidateInput): boolean {
+export function nutritionComplete(
+  candidate: Pick<PlannerCandidateInput, "ingredientLineage">
+): boolean {
   return candidate.ingredientLineage.every(
     (lineage) =>
       new Set(lineage.nutrients.map((item) => item.nutrientCode)).size ===
@@ -136,12 +140,31 @@ function nutritionComplete(candidate: PlannerCandidateInput): boolean {
   )
 }
 
-function diagnostic(rejections: readonly EligibilityRejection[]): PlannerFatalCode {
+export function eligibilityDiagnostic(
+  rejections: readonly EligibilityRejection[]
+): PlannerFatalCode {
   if (rejections.some((item) => item.stage === 2 || item.stage === 6)) {
     return "INCOMPLETE_CATALOG_LINEAGE"
   }
   if (rejections.some((item) => item.stage === 5)) return "NO_USABLE_PRICE"
   return "HARD_FILTER_EXHAUSTED"
+}
+
+export function candidatePublicationIsValid(
+  candidate: Omit<PlannerCandidateInput, "prices">
+): boolean {
+  return !(
+    candidate.identityStatus !== "published" ||
+    candidate.mealOption.status !== "published" ||
+    candidate.priceBookStatus !== "published" ||
+    !HASH_PATTERN.test(candidate.mealOptionContentHash) ||
+    candidate.mealOption.contentHash !== candidate.mealOptionContentHash ||
+    !HASH_PATTERN.test(candidate.priceBookContentHash) ||
+    candidate.mealOption.components.some(
+      (component) =>
+        component.recipeStatus !== "published" || !HASH_PATTERN.test(component.recipeContentHash)
+    )
+  )
 }
 
 export function evaluatePlannerEligibility(input: NormalizedPlannerInputV1): EligibilityResult {
@@ -155,18 +178,7 @@ export function evaluatePlannerEligibility(input: NormalizedPlannerInputV1): Eli
   const eligible: EligibleMealOption[] = []
   const rejected: EligibilityRejection[] = []
   for (const candidate of input.candidates) {
-    if (
-      candidate.identityStatus !== "published" ||
-      candidate.mealOption.status !== "published" ||
-      candidate.priceBookStatus !== "published" ||
-      !HASH_PATTERN.test(candidate.mealOptionContentHash) ||
-      candidate.mealOption.contentHash !== candidate.mealOptionContentHash ||
-      !HASH_PATTERN.test(candidate.priceBookContentHash) ||
-      candidate.mealOption.components.some(
-        (component) =>
-          component.recipeStatus !== "published" || !HASH_PATTERN.test(component.recipeContentHash)
-      )
-    ) {
+    if (!candidatePublicationIsValid(candidate)) {
       rejected.push(reject(candidate, 1, "PUBLICATION_INVALID"))
       continue
     }
@@ -294,7 +306,7 @@ export function evaluatePlannerEligibility(input: NormalizedPlannerInputV1): Eli
     return {
       ok: false,
       error: {
-        code: diagnostic(rejected),
+        code: eligibilityDiagnostic(rejected),
         scope: "EXACT_LOADED_CATALOG_SNAPSHOT"
       }
     }

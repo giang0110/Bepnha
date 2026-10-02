@@ -1,16 +1,16 @@
-import { CATALOG_DIMENSIONS, type FoodFactUnitConversion } from "../catalog/catalog"
+import { CATALOG_DIMENSIONS, type FoodFactUnitConversion } from "../catalog/catalog.js"
 import {
   ExactDecimal,
   ROUND_CEIL,
   ROUND_HALF_UP,
   parseCanonicalDecimal,
   roundDecimal
-} from "../shared/decimal"
+} from "../shared/decimal.js"
 import {
   validateFoodQuantityPolicyDefinition,
   type FoodQuantityPolicyV1
-} from "./food-quantity-policy"
-import { conversionIsConsistent, type ScaledRecipeIngredient } from "./scale-recipe"
+} from "./food-quantity-policy.js"
+import { conversionIsConsistent, type ScaledRecipeIngredient } from "./scale-recipe.js"
 
 export type CookingAdjustmentReason =
   "UNCHANGED" | "ROUND_UP_TO_WHOLE_UNIT" | "ROUND_TO_PHYSICAL_STEP" | "MINIMUM_PHYSICAL_STEP"

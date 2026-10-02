@@ -37,3 +37,17 @@ export const PORTION_CONFIG_V1: PortionConfigV1 = Object.freeze({
   version: "portion-v1",
   coefficients
 })
+
+export interface PortionConfigV2 extends Omit<PortionConfigV1, "version"> {
+  readonly version: "portion-v2"
+  readonly minimumMemberCoefficient: "0.5"
+  readonly maximumMemberCoefficient: "2"
+  readonly energyTargetVersion: "energy-target-v1"
+}
+export const PORTION_CONFIG_V2: PortionConfigV2 = Object.freeze({
+  version: "portion-v2",
+  coefficients,
+  minimumMemberCoefficient: "0.5",
+  maximumMemberCoefficient: "2",
+  energyTargetVersion: "energy-target-v1"
+})
