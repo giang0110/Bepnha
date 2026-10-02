@@ -153,19 +153,25 @@ test("mobile pantry CRUD persists explicit zero quantity without automatic consu
 
   await page.getByLabel("Thực phẩm", { exact: true }).selectOption({ label: "Gạo pantry browser" })
   await page.getByLabel("Đơn vị", { exact: true }).selectOption(KILOGRAM_UNIT_ID)
+  await page
+    .getByRole("group", { name: "Chọn nhanh số lượng", exact: true })
+    .getByRole("button", { name: "0,5 kg" })
+    .click()
+  await expect(page.getByLabel("Số lượng", { exact: true })).toHaveValue("0.5")
+  // A shortcut fills the form; the household can still enter its exact quantity before saving.
   await page.getByLabel("Số lượng", { exact: true }).fill("0.25")
   await page.getByRole("button", { name: "Thêm vào tủ bếp" }).click()
 
   await expect(page.getByRole("heading", { name: "Gạo pantry browser" })).toBeVisible()
-  await expect(page.getByLabel("Số lượng Gạo pantry browser")).toHaveValue("0.25")
+  await expect(page.getByLabel("Số lượng Gạo pantry browser", { exact: true })).toHaveValue("0.25")
   expect(pantryItem).toMatchObject({ quantity: 0.25, base_quantity: 250, version: 1 })
 
-  await page.getByLabel("Số lượng Gạo pantry browser").fill("0")
+  await page.getByLabel("Số lượng Gạo pantry browser", { exact: true }).fill("0")
   await page.getByRole("button", { name: "Lưu Gạo pantry browser" }).click()
   expect(pantryItem).toMatchObject({ quantity: 0, base_quantity: 0, version: 2 })
 
   await page.reload()
-  await expect(page.getByLabel("Số lượng Gạo pantry browser")).toHaveValue("0")
+  await expect(page.getByLabel("Số lượng Gạo pantry browser", { exact: true })).toHaveValue("0")
   await expect(page.getByText(/không tự trừ tủ bếp khi bạn đánh dấu đã mua/i)).toBeVisible()
 
   const unnamedControls = await page
@@ -187,4 +193,19 @@ test("mobile pantry CRUD persists explicit zero quantity without automatic consu
   await page.getByRole("button", { name: "Xóa Gạo pantry browser" }).click()
   await expect(page.getByRole("heading", { name: "Gạo pantry browser" })).toHaveCount(0)
   expect(pantryItem).toBeUndefined()
+
+  await page.reload()
+  const recents = page.getByRole("group", { name: "Thực phẩm gần đây" })
+  await expect(recents.getByText("Chỉ lưu trên thiết bị này.")).toBeVisible()
+  await recents.getByRole("button", { name: "Chọn lại Gạo pantry browser" }).click()
+  await expect(page.getByLabel("Thực phẩm", { exact: true })).toHaveValue(FOOD_ID)
+  await expect(page.getByLabel("Số lượng", { exact: true })).toHaveValue("0")
+  expect(pantryItem).toBeUndefined()
+
+  await page.goto("/settings/account")
+  await page.getByRole("button", { name: "Đăng xuất", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible()
+  expect(
+    await page.evaluate(() => localStorage.getItem("bepnha:recent-pantry-foods:v1"))
+  ).toBeNull()
 })

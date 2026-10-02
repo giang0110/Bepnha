@@ -1,7 +1,7 @@
-import { render, screen, within } from "@testing-library/react"
+import { act, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
-import { describe, expect, test, vi } from "vitest"
+import { beforeEach, describe, expect, test, vi } from "vitest"
 
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import {
@@ -16,6 +16,8 @@ import type {
 import type { HouseholdSetup } from "@/domain/household/household"
 
 import { PantryPage } from "./pantry-page"
+
+const RECENTS_KEY = "bepnha:recent-pantry-foods:v1"
 
 const household: HouseholdSetup = {
   householdId: "20000000-0000-0000-0000-000000000001",
@@ -100,7 +102,7 @@ function setup(initialItems: readonly PantryItemRecord[] = []) {
     load: foodOptionsLoad
   }
 
-  render(
+  const { unmount } = render(
     <MemoryRouter>
       <PantryPage
         foodOptionsRepository={foodOptionsRepository}
@@ -117,11 +119,166 @@ function setup(initialItems: readonly PantryItemRecord[] = []) {
     foodOptionsLoad,
     load,
     upsert,
-    remove
+    remove,
+    unmount
   }
 }
 
 describe("PantryPage", () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  test("offers quantities for the selected unit while preserving manual entry", async () => {
+    const user = userEvent.setup()
+    setup()
+    await screen.findByRole("heading", { name: "Tủ bếp" })
+    await user.selectOptions(screen.getByRole("combobox", { name: "Thực phẩm" }), rice.foodId)
+
+    const presets = screen.getByRole("group", { name: "Chọn nhanh số lượng" })
+    await user.click(within(presets).getByRole("button", { name: "500 g" }))
+    expect(screen.getByRole("spinbutton", { name: "Số lượng" })).toHaveValue(500)
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Đơn vị" }), "unit-kg")
+    expect(within(presets).queryByRole("button", { name: "500 g" })).not.toBeInTheDocument()
+    await user.click(within(presets).getByRole("button", { name: "0,5 kg" }))
+    expect(screen.getByRole("spinbutton", { name: "Số lượng" })).toHaveValue(0.5)
+    expect(within(presets).getByRole("button", { name: "0,5 kg" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    )
+
+    await user.clear(screen.getByRole("spinbutton", { name: "Số lượng" }))
+    await user.type(screen.getByRole("spinbutton", { name: "Số lượng" }), "0.75")
+    expect(screen.getByRole("spinbutton", { name: "Số lượng" })).toHaveValue(0.75)
+    expect(within(presets).getByRole("button", { name: "0,5 kg" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    )
+  })
+
+  test("offers count quantities in the existing item editor without saving automatically", async () => {
+    const user = userEvent.setup()
+    const existing = pantryItem({
+      pantryItemId: "pantry-egg",
+      foodId: egg.foodId,
+      unitId: "unit-item"
+    })
+    const { upsert } = setup([existing])
+    const row = await screen.findByTestId("pantry-item-pantry-egg")
+
+    await user.click(within(row).getByRole("button", { name: "4 quả" }))
+    expect(within(row).getByRole("spinbutton", { name: "Số lượng Trứng gà" })).toHaveValue(4)
+    expect(within(row).getByRole("combobox", { name: "Đơn vị Trứng gà" })).toHaveValue("unit-item")
+    expect(upsert).not.toHaveBeenCalled()
+  })
+
+  test("remembers a successful save and offers it again after removal", async () => {
+    const user = userEvent.setup()
+    const { upsert, remove } = setup()
+    upsert.mockResolvedValueOnce(pantryItem({ version: 1 }))
+    remove.mockResolvedValueOnce("pantry-rice")
+    await screen.findByRole("heading", { name: "Tủ bếp" })
+    await user.click(screen.getByRole("button", { name: "+ Gạo" }))
+    await user.click(screen.getByRole("button", { name: "Thêm vào tủ bếp" }))
+    await screen.findByTestId("pantry-item-pantry-rice")
+
+    expect(JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "null")).toEqual([
+      { householdId: household.householdId, foodId: rice.foodId }
+    ])
+    expect(screen.queryByRole("button", { name: "Chọn lại Gạo" })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Xóa Gạo" }))
+    const recents = await screen.findByRole("group", { name: "Thực phẩm gần đây" })
+    expect(within(recents).getByText("Chỉ lưu trên thiết bị này.")).toBeInTheDocument()
+    await user.click(within(recents).getByRole("button", { name: "Chọn lại Gạo" }))
+    expect(screen.getByRole("combobox", { name: "Thực phẩm" })).toHaveValue(rice.foodId)
+    expect(screen.getByRole("spinbutton", { name: "Số lượng" })).toHaveValue(0)
+    expect(upsert).toHaveBeenCalledTimes(1)
+  })
+
+  test("restores only this household's published recents and clears search on selection", async () => {
+    localStorage.setItem(
+      RECENTS_KEY,
+      JSON.stringify([
+        { householdId: "another-household", foodId: egg.foodId },
+        { householdId: household.householdId, foodId: "retired-food" },
+        { householdId: household.householdId, foodId: rice.foodId },
+        { householdId: household.householdId, foodId: vegetable.foodId }
+      ])
+    )
+    const user = userEvent.setup()
+    setup([pantryItem()])
+    const recents = await screen.findByRole("group", { name: "Thực phẩm gần đây" })
+    expect(within(recents).getAllByRole("button")).toHaveLength(1)
+    await user.type(screen.getByRole("searchbox", { name: "Tìm thực phẩm" }), "thịt")
+    await user.click(within(recents).getByRole("button", { name: "Chọn lại Rau muống" }))
+    expect(screen.getByRole("searchbox", { name: "Tìm thực phẩm" })).toHaveValue("")
+    expect(screen.getByRole("combobox", { name: "Thực phẩm" })).toHaveValue(vegetable.foodId)
+  })
+
+  test("does not remember failed writes", async () => {
+    const user = userEvent.setup()
+    const { upsert } = setup()
+    upsert.mockRejectedValueOnce(new PantryRepositoryError("DEPENDENCY_UNAVAILABLE"))
+    await screen.findByRole("heading", { name: "Tủ bếp" })
+    await user.click(screen.getByRole("button", { name: "+ Gạo" }))
+    await user.click(screen.getByRole("button", { name: "Thêm vào tủ bếp" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(/không thể thêm/i)
+    expect(localStorage.getItem(RECENTS_KEY)).toBeNull()
+  })
+
+  test("does not restore purged recents when a save resolves after leaving the page", async () => {
+    const user = userEvent.setup()
+    const { upsert, unmount } = setup()
+    let finishSave: (saved: PantryItemRecord) => void = () => undefined
+    const pendingSave = new Promise<PantryItemRecord>((resolve) => {
+      finishSave = resolve
+    })
+    upsert.mockReturnValueOnce(pendingSave)
+    await screen.findByRole("heading", { name: "Tủ bếp" })
+    await user.click(screen.getByRole("button", { name: "+ Gạo" }))
+    await user.click(screen.getByRole("button", { name: "Thêm vào tủ bếp" }))
+    unmount()
+    localStorage.removeItem(RECENTS_KEY)
+    await act(async () => {
+      finishSave(pantryItem({ version: 1 }))
+      await pendingSave
+    })
+    expect(localStorage.getItem(RECENTS_KEY)).toBeNull()
+  })
+
+  test("remembers successful edits and still saves when device storage is blocked", async () => {
+    const user = userEvent.setup()
+    const existing = pantryItem()
+    const { upsert } = setup([existing])
+    upsert.mockResolvedValueOnce(pantryItem({ quantity: "2", version: 3 }))
+    const row = await screen.findByTestId("pantry-item-pantry-rice")
+    await user.click(within(row).getByRole("button", { name: "2 kg" }))
+    await user.click(within(row).getByRole("button", { name: "Lưu Gạo" }))
+    expect(JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "null")).toEqual([
+      { householdId: household.householdId, foodId: rice.foodId }
+    ])
+
+    const blocked = vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new Error("storage disabled")
+    })
+    try {
+      upsert.mockResolvedValueOnce(pantryItem({ quantity: "1", version: 4 }))
+      const updated = screen.getByTestId("pantry-item-pantry-rice")
+      await user.click(within(updated).getByRole("button", { name: "1 kg" }))
+      await user.click(within(updated).getByRole("button", { name: "Lưu Gạo" }))
+      expect(
+        within(screen.getByTestId("pantry-item-pantry-rice")).getByRole("spinbutton", {
+          name: "Số lượng Gạo"
+        })
+      ).toHaveValue(1)
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    } finally {
+      blocked.mockRestore()
+    }
+  })
+
   test("loads the owner pantry and published food options into a mobile-first accessible empty state", async () => {
     const { load, foodOptionsLoad } = setup()
 
