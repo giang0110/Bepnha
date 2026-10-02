@@ -6,19 +6,24 @@ import { EMPTY_MEMBER_COUNTS, memberGroupsFromCounts } from "../household-form-s
 import { MemberGroupsStep } from "./member-groups-step"
 
 describe("MemberGroupsStep", () => {
-  it("renders every supported anonymous group with touch and keyboard labels", () => {
+  it("renders every supported child group with touch and keyboard labels", () => {
     render(
-      <MemberGroupsStep counts={EMPTY_MEMBER_COUNTS} onChange={vi.fn()} onContinue={vi.fn()} />
+      <MemberGroupsStep
+        profiles={[]}
+        mealShareInput="33"
+        onProfileAction={vi.fn()}
+        counts={EMPTY_MEMBER_COUNTS}
+        onChange={vi.fn()}
+        onContinue={vi.fn()}
+      />
     )
 
     for (const label of [
-      "Người lớn",
       "Trẻ 1–3 tuổi",
       "Trẻ 4–6 tuổi",
       "Trẻ 7–9 tuổi",
       "Trẻ 10–12 tuổi",
-      "Trẻ 13–17 tuổi",
-      "Người cao tuổi"
+      "Trẻ 13–17 tuổi"
     ]) {
       expect(screen.getByRole("spinbutton", { name: label })).toBeInTheDocument()
     }
@@ -30,17 +35,27 @@ describe("MemberGroupsStep", () => {
     const onChange = vi.fn()
     const onContinue = vi.fn()
     const { rerender } = render(
-      <MemberGroupsStep counts={EMPTY_MEMBER_COUNTS} onChange={onChange} onContinue={onContinue} />
+      <MemberGroupsStep
+        profiles={[]}
+        mealShareInput="33"
+        onProfileAction={vi.fn()}
+        counts={EMPTY_MEMBER_COUNTS}
+        onChange={onChange}
+        onContinue={onContinue}
+      />
     )
 
     expect(screen.getByRole("button", { name: "Tiếp tục" })).toBeDisabled()
-    const adultInput = screen.getByRole("spinbutton", { name: "Người lớn" })
+    const adultInput = screen.getByRole("spinbutton", { name: "Trẻ 1–3 tuổi" })
     await user.clear(adultInput)
     await user.type(adultInput, "1")
-    expect(onChange).toHaveBeenLastCalledWith("adult", 1)
+    expect(onChange).toHaveBeenLastCalledWith("child_1_3", 1)
 
     rerender(
       <MemberGroupsStep
+        profiles={[]}
+        mealShareInput="33"
+        onProfileAction={vi.fn()}
         counts={{ ...EMPTY_MEMBER_COUNTS, adult: 20 }}
         onChange={onChange}
         onContinue={onContinue}
@@ -54,6 +69,9 @@ describe("MemberGroupsStep", () => {
   it("blocks a total above 20 with an accessible error", () => {
     render(
       <MemberGroupsStep
+        profiles={[]}
+        mealShareInput="33"
+        onProfileAction={vi.fn()}
         counts={{ ...EMPTY_MEMBER_COUNTS, adult: 20, elderly: 1 }}
         onChange={vi.fn()}
         onContinue={vi.fn()}

@@ -368,7 +368,7 @@ expect(JSON.stringify(assistantContext)).not.toContain("weightKg")
 - `MemberProfileDraft` retains profile identity/label/goal/sex/activity and replaces the three numeric fields with `heightInput`, `weightInput`, `ageInput` strings; empty input is not 0. Share input is a string until validated. Form save converts to `MemberProfileV1` without changing the original draft on failure.
 - Card renders label/measurements/age/sex/activity/goal, BMI and applied/unapplied reason using domain helpers. Review step includes applied member counts, target estimates and the 7-bữa/33%-day explanation; both save flows send full `nutritionSetup`.
 
-- [ ] **Step 1: Write RED tests.** `comma_decimal_is_preserved_as_canonical`, `remove_middle_member_does_not_move_weight_to_another_person`, `legacy_counts_create_blank_profiles_without_body_defaults`, `bmi_preview_uses_current_draft`, `missing_age_sex_activity_does_not_claim_goal_applied`, `share_20_50_bounds_and_33_default`, `save_failure_keeps_all_profile_inputs`, `signout_or_household_change_ignores_late_save_reply`. Assert 65,50/170,5 parse to 65.5/170.5, labels are associated to inputs, no placeholder sex/activity, save reload retains exact IDs and excludes profile data from device storage. Newly added profile gets a new ID, never a removed person's ID.
+- [x] **Step 1: Write RED tests.** `comma_decimal_is_preserved_as_canonical`, `remove_middle_member_does_not_move_weight_to_another_person`, `legacy_counts_create_blank_profiles_without_body_defaults`, `bmi_preview_uses_current_draft`, `missing_age_sex_activity_does_not_claim_goal_applied`, `share_20_50_bounds_and_33_default`, `save_failure_keeps_all_profile_inputs`, `signout_or_household_change_ignores_late_save_reply`. Assert 65,50/170,5 parse to 65.5/170.5, labels are associated to inputs, no placeholder sex/activity, save reload retains exact IDs and excludes profile data from device storage. Newly added profile gets a new ID, never a removed person's ID.
 
 ```ts
 expect(parseMemberMeasurementInput("65,50")).toEqual({ ok: true, value: "65.5" })
@@ -377,11 +377,11 @@ expect(remainingProfiles.map((profile) => profile.id)).toEqual([firstId, thirdId
 expect(screen.getByText("22,49")).toBeVisible() // draft 170 cm / 65 kg
 ```
 
-- [ ] **Step 2: Run RED.** `npm run test -- src/features/household` with new reducer/card/parser tests.
-- [ ] **Step 3: Implement form state and focused components.** Keep children grouped and total 1–20. BMI shows 2 decimals, kcal integer for presentation only, goal choice independent of BMI. Add partial-profile messages and low-BMI lose reason. Render the share setting with exact single-bữa scope, avoid another wizard step or a separate health dashboard.
-- [ ] **Step 4: Wire onboarding/settings/review/summary.** Preserve draft on validation/network/schema errors, existing stale-reload behavior and auth/unmount cancellation. Never persist body draft to localStorage; use route chunks already in place. Add profile data to the own-household view only.
-- [ ] **Step 5: Run GREEN and browser flow.** Repeat Step 2 and `npm run typecheck`; `node scripts/local-supabase-env.mjs -- npx playwright test --config=/workspace/.cloud-onboarding/playwright-bepnha.config.ts tests/household-onboarding.spec.ts`. Use real local save/reload/RLS alongside the existing test auth fixture; all exit 0.
-- [ ] **Step 6: Stage the task files and commit.** `git commit -m "feat: edit family body measurements and meal goals"`.
+- [x] **Step 2: Run RED.** `npm run test -- src/features/household` with new reducer/card/parser tests.
+- [x] **Step 3: Implement form state and focused components.** Keep children grouped and total 1–20. BMI shows 2 decimals, kcal integer for presentation only, goal choice independent of BMI. Add partial-profile messages and low-BMI lose reason. Render the share setting with exact single-bữa scope, avoid another wizard step or a separate health dashboard.
+- [x] **Step 4: Wire onboarding/settings/review/summary.** Preserve draft on validation/network/schema errors, existing stale-reload behavior and auth/unmount cancellation. Never persist body draft to localStorage; use route chunks already in place. Add profile data to the own-household view only.
+- [x] **Step 5: Run GREEN and browser flow.** Repeat Step 2 and `npm run typecheck`; `node scripts/local-supabase-env.mjs -- npx playwright test --config=/workspace/.cloud-onboarding/playwright-bepnha.config.ts tests/household-onboarding.spec.ts`. Use real local save/reload/RLS alongside the existing test auth fixture; all exit 0.
+- [x] **Step 6: Stage the task files and commit.** `git commit -m "feat: edit family body measurements and meal goals"`.
 
 ### Task 10: Hiển thị khẩu phần/lượng mua và bật luồng v6
 

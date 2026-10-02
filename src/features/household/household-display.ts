@@ -30,3 +30,13 @@ export function memberGroupLabel(group: HouseholdMemberGroup): string {
 export function ruleLabel(code: string): string {
   return HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)?.labelVi ?? code
 }
+
+export const goalLabel = (goal: "maintain" | "gain" | "lose") =>
+  ({ maintain: "Giữ cân", gain: "Tăng cân", lose: "Giảm cân" })[goal]
+export function energyReasonLabel(reason: string): string {
+  return reason === "INCOMPLETE_PROFILE"
+    ? "Chưa đủ tuổi, chiều cao, cân nặng, giới tính hoặc mức vận động để áp dụng mục tiêu; dùng khẩu phần theo nhóm tuổi."
+    : reason === "UNSUPPORTED_WEIGHT_LOSS"
+      ? "BMI dưới 18,5: mục tiêu giảm cân được lưu nhưng chưa áp dụng; dùng khẩu phần theo nhóm tuổi."
+      : "Chưa tính được mục tiêu năng lượng; kiểm tra lại thông tin."
+}

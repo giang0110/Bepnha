@@ -1,4 +1,4 @@
-import { useReducer, useState } from "react"
+import { useEffect, useRef, useReducer, useState } from "react"
 import { useNavigate } from "react-router"
 
 import type { HouseholdRepository } from "@/application/household/household-repository"
@@ -13,6 +13,7 @@ import { parseVnd } from "../budget-vnd"
 import {
   householdFormReducer,
   INITIAL_HOUSEHOLD_FORM_STATE,
+  nutritionSetupFromForm,
   memberGroupsFromCounts
 } from "../household-form-state"
 
@@ -24,14 +25,25 @@ export function OnboardingPage({ repository }: OnboardingPageProps) {
   const [state, dispatch] = useReducer(householdFormReducer, INITIAL_HOUSEHOLD_FORM_STATE)
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const navigate = useNavigate()
+  const nutritionValidation = nutritionSetupFromForm(state)
   const budgetVnd = parseVnd(state.budgetInput)
+  const requestEpoch = useRef(0)
+  useEffect(() => {
+    requestEpoch.current += 1
+    return () => {
+      requestEpoch.current += 1
+    }
+  }, [repository])
 
   async function save() {
-    if (budgetVnd === null) return
+    const nutrition = nutritionSetupFromForm(state)
+    if (budgetVnd === null || !nutrition.ok) return
+    const epoch = requestEpoch.current
     setSaveState("saving")
     const result = await saveHousehold(
       repository,
       {
+        nutritionSetup: nutrition.value,
         memberGroups: memberGroupsFromCounts(state.memberCounts),
         weeklyPlanBudgetVnd: budgetVnd,
         maxElapsedMinutes: state.maxElapsedMinutes,
@@ -40,12 +52,14 @@ export function OnboardingPage({ repository }: OnboardingPageProps) {
       },
       null
     )
+    if (epoch !== requestEpoch.current) return
     if (result.ok) {
       void navigate("/household", { replace: true })
       return
     }
     if (result.reason === "STALE_HOUSEHOLD_VERSION") setSaveState("stale-error")
     else if (result.reason === "UNAUTHORIZED") setSaveState("auth-error")
+    else if (result.reason === "DEPENDENCY_SCHEMA_NOT_READY") setSaveState("schema-error")
     else setSaveState("retryable-error")
   }
 
@@ -69,6 +83,9 @@ export function OnboardingPage({ repository }: OnboardingPageProps) {
       </div>
       {state.step === 1 ? (
         <MemberGroupsStep
+          profiles={state.memberProfiles}
+          mealShareInput={state.mealEnergyShareInput}
+          onProfileAction={dispatch}
           counts={state.memberCounts}
           onChange={(key, count) => dispatch({ type: "set-member-count", key, count })}
           onContinue={() => dispatch({ type: "go-to-step", step: 2 })}
@@ -107,6 +124,7 @@ export function OnboardingPage({ repository }: OnboardingPageProps) {
       ) : null}
       {state.step === 5 && budgetVnd !== null ? (
         <ReviewStep
+          nutritionSetup={nutritionValidation.ok ? nutritionValidation.value : undefined}
           budgetVnd={budgetVnd}
           hardRuleCodes={state.hardRuleCodes}
           maxElapsedMinutes={state.maxElapsedMinutes}
@@ -114,6 +132,7 @@ export function OnboardingPage({ repository }: OnboardingPageProps) {
           preferenceCodes={state.preferenceCodes}
           saveState={saveState}
           onBack={() => dispatch({ type: "go-to-step", step: 4 })}
+          canSave={nutritionValidation.ok}
           onSave={() => void save()}
         />
       ) : null}

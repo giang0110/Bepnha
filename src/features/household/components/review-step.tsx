@@ -5,9 +5,16 @@ import { calculateAdultEquivalent } from "@/domain/portion/calculate-adult-equiv
 import { formatVnd } from "../budget-vnd"
 import { memberGroupLabel, ruleLabel } from "../household-display"
 
-export type SaveState = "idle" | "saving" | "retryable-error" | "stale-error" | "auth-error"
+import type { HouseholdNutritionSetupV1 } from "@/domain/household/member-profile"
+import { calculateMemberEnergyTarget } from "@/domain/nutrition/member-energy-target"
+import { energyReasonLabel, goalLabel } from "../household-display"
+
+export type SaveState =
+  "schema-error" | "idle" | "saving" | "retryable-error" | "stale-error" | "auth-error"
 
 interface ReviewStepProps {
+  nutritionSetup?: HouseholdNutritionSetupV1 | undefined
+  canSave?: boolean
   budgetVnd: number
   hardRuleCodes: readonly string[]
   heading?: string
@@ -33,6 +40,8 @@ function RuleList({ codes, empty }: Readonly<{ codes: readonly string[]; empty: 
 
 export function ReviewStep({
   budgetVnd,
+  nutritionSetup,
+  canSave = true,
   hardRuleCodes,
   heading = "Kiểm tra thông tin",
   maxElapsedMinutes,
@@ -45,13 +54,15 @@ export function ReviewStep({
 }: ReviewStepProps) {
   const adultEquivalent = calculateAdultEquivalent(memberGroups)
   const errorMessage =
-    saveState === "stale-error"
-      ? "Thông tin đã thay đổi. Vui lòng tải lại trước khi lưu."
-      : saveState === "auth-error"
-        ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
-        : saveState === "retryable-error"
-          ? "Không thể lưu thông tin lúc này. Vui lòng thử lại."
-          : null
+    saveState === "schema-error"
+      ? "Máy chủ chưa sẵn sàng lưu hồ sơ dinh dưỡng. Thông tin bạn nhập vẫn được giữ; hãy thử lại sau."
+      : saveState === "stale-error"
+        ? "Thông tin đã thay đổi. Vui lòng tải lại trước khi lưu."
+        : saveState === "auth-error"
+          ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
+          : saveState === "retryable-error"
+            ? "Không thể lưu thông tin lúc này. Vui lòng thử lại."
+            : null
 
   return (
     <section aria-labelledby="review-step-heading" className="flex flex-col gap-5">
@@ -71,6 +82,33 @@ export function ReviewStep({
           </p>
         ) : null}
       </div>
+      {nutritionSetup ? (
+        <div>
+          <h2 className="font-bold text-ink">Mục tiêu và khẩu phần</h2>
+          <p className="text-sm text-ink-soft">
+            Một bữa chính mỗi ngày, {nutritionSetup.plannedMealSharePercent}% năng lượng ngày; 7 bữa
+            mỗi tuần.
+          </p>
+          <ul>
+            {nutritionSetup.memberProfiles.map((p) => {
+              const energy = calculateMemberEnergyTarget(p, nutritionSetup.plannedMealSharePercent)
+              return (
+                <li className="mt-2" key={p.id}>
+                  {p.label ||
+                    `${p.memberKind === "adult" ? "Người lớn" : "Người cao tuổi"} ${p.sortOrder}`}
+                  : {goalLabel(p.goal)} —{" "}
+                  {energy.status === "applied"
+                    ? `${Math.round(Number(energy.mealTargetKcal)).toLocaleString("vi-VN")} kcal/bữa`
+                    : energyReasonLabel(energy.reason)}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ) : null}
+      {!canSave ? (
+        <p role="alert">Kiểm tra lại thông tin thành viên và tỷ lệ năng lượng ở bước Thành viên.</p>
+      ) : null}
       <div>
         <h2 className="font-bold text-ink">Ngân sách</h2>
         <p>{formatVnd(budgetVnd)} VND cho 7 bữa chính</p>
@@ -103,7 +141,12 @@ export function ReviewStep({
         >
           Quay lại
         </Button>
-        <Button className="h-11" type="button" disabled={saveState === "saving"} onClick={onSave}>
+        <Button
+          className="h-11"
+          type="button"
+          disabled={saveState === "saving" || !canSave}
+          onClick={onSave}
+        >
           {saveState === "saving"
             ? "Đang lưu…"
             : saveState === "retryable-error"

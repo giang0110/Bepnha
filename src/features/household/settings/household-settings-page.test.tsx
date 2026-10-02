@@ -58,7 +58,7 @@ describe("HouseholdSettingsPage", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent(/đang tải/i)
     expect(await screen.findByRole("heading", { name: "Chỉnh sửa thành viên" })).toBeInTheDocument()
-    expect(screen.getByRole("spinbutton", { name: "Người lớn" })).toHaveValue(2)
+    expect(screen.getAllByLabelText("Cân nặng (kg)")).toHaveLength(2)
     expect(screen.getByRole("spinbutton", { name: "Trẻ 7–9 tuổi" })).toHaveValue(1)
   })
 
@@ -132,7 +132,7 @@ describe("HouseholdSettingsPage", () => {
     expect(loadOwn).toHaveBeenCalledOnce()
 
     await user.click(screen.getByRole("button", { name: "Tải lại thông tin mới nhất" }))
-    expect(await screen.findByRole("spinbutton", { name: "Người lớn" })).toHaveValue(3)
+    expect(await screen.findAllByLabelText("Cân nặng (kg)")).toHaveLength(3)
     expect(loadOwn).toHaveBeenCalledTimes(2)
   })
 
