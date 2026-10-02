@@ -99,15 +99,15 @@ describe("OnboardingPage member and budget flow", () => {
         weeklyPlanBudgetVnd: 1_500_000,
         maxElapsedMinutes: 45,
         ruleCodes: ["allergen_peanut", "prefer_soup"],
-        allergenStrictness: {},
-        nutritionSetup: expect.objectContaining({
-          version: "household-nutrition-v1",
-          plannedMealSharePercent: 33,
-          memberProfiles: expect.any(Array)
-        })
+        allergenStrictness: {}
       }),
       null
     )
+    expect(saveOwn.mock.calls[0]?.[0].nutritionSetup).toMatchObject({
+      version: "household-nutrition-v1",
+      plannedMealSharePercent: 33
+    })
+    expect(saveOwn.mock.calls[0]?.[0].nutritionSetup?.memberProfiles).toHaveLength(2)
     expect(await screen.findByRole("heading", { name: "Đã lưu gia đình" })).toBeInTheDocument()
   })
 

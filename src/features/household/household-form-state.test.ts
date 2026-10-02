@@ -37,7 +37,7 @@ test("legacy counts create blank private drafts without guessed body inputs", ()
       maxElapsedMinutes: 30,
       ruleCodes: [],
       allergenStrictness: {}
-    } as HouseholdSetup,
+    },
     () => ids[i++]!
   )
   expect(state.memberProfiles).toHaveLength(2)
