@@ -82,7 +82,7 @@ describe("expectedSchemaFromMigrations", () => {
 
     // These counts are meant to be edited by hand. They are what makes a migration that nobody
     // meant to add show up as a failing test rather than as a surprise in production.
-    expect(repository.migrations).toHaveLength(26)
+    expect(repository.migrations).toHaveLength(27)
     expect(repository.migrations[0]).toBe("20260825000000")
     // Two more tables and one more function for the shopping trip that stocks the pantry, then one
     // more table and two more functions for what the household thinks of individual meals. Making

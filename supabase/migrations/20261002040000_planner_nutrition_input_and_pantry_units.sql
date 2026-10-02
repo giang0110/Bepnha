@@ -88,9 +88,39 @@ declare definition text; patched text;
 begin
  definition:=pg_get_functiondef('public.apply_shopping_to_pantry(uuid)'::regprocedure);
  patched:=replace(definition,E'begin\n',E'begin\n  perform private.begin_plan_transition();\n  perform set_config(\'bepnha.shopping_transition_revision\',p_meal_plan_revision_id::text,true);\n');
+ patched:=replace(patched,'  v_fact_version_id uuid;',E'  v_fact_version_id uuid;\n  v_is_v6 boolean;');
+ patched:=replace(patched,'  select list.id, plan.household_id','  select list.id, plan.household_id, revision.engine_version = ''planner-engine-v6''');
+ patched:=replace(patched,'  into v_shopping_list_id, v_household_id','  into v_shopping_list_id, v_household_id, v_is_v6');
+ patched:=replace(patched,'  join public.meal_plans as plan on plan.id = list.meal_plan_id',E'  join public.meal_plans as plan on plan.id = list.meal_plan_id\n  join public.meal_plan_revisions as revision on revision.id = list.meal_plan_revision_id');
+ patched:=replace(patched,'      item.base_unit_id,',E'      item.base_unit_id,\n      item.price_food_fact_version_id,\n      item.policy_refs,');
+ patched:=replace(patched,$old$    if v_has_pantry_row then
+      v_fact_version_id := v_existing.food_fact_version_id;$old$,$new$    if v_has_pantry_row then
+      -- Whole pieces have an immutable measured identity. A later stock edit needs an explicit
+      -- regeneration decision; it must not merge two facts merely because both use grams.
+      if v_is_v6 and v_existing.food_fact_version_id is distinct from v_item.price_food_fact_version_id
+        and exists (select 1 from jsonb_array_elements(v_item.policy_refs) as ref
+          join public.food_quantity_policy_versions q on q.id = (ref->>'id')::uuid
+          where q.food_form in ('whole_count','whole_piece')) then
+        raise exception using errcode = '23514', message = 'PANTRY_FACT_CHANGED_REGENERATION_REQUIRED';
+      end if;
+      v_fact_version_id := v_existing.food_fact_version_id;$new$);
+ patched:=replace(patched,$old$      select food.current_fact_version_id
+      into v_fact_version_id
+      from public.foods as food
+      where food.id = v_item.food_id;$old$,$new$      if v_is_v6 then
+        v_fact_version_id := v_item.price_food_fact_version_id;
+      else
+        select food.current_fact_version_id
+        into v_fact_version_id
+        from public.foods as food
+        where food.id = v_item.food_id;
+      end if;$new$);
  patched:=replace(patched,E'  return jsonb_build_object(',E'  perform private.end_plan_transition();\n  return jsonb_build_object(');
  patched:=replace(patched,E'end;\n$function$',E'exception when others then\n  perform private.end_plan_transition();\n  raise;\nend;\n$function$');
- if patched=definition or patched not like '%shopping_transition_revision%' or patched not like '%exception when others%' then raise exception using errcode='55000',message='NUTRITION_PANTRY_TRANSITION_PATCH_REQUIRED';end if;
+ if patched=definition or patched not like '%shopping_transition_revision%' or patched not like '%exception when others%'
+   or patched not like '%PANTRY_FACT_CHANGED_REGENERATION_REQUIRED%'
+   or patched not like '%v_fact_version_id := v_item.price_food_fact_version_id%'
+   or patched not like '%v_household_id, v_is_v6%' then raise exception using errcode='55000',message='NUTRITION_PANTRY_TRANSITION_PATCH_REQUIRED';end if;
  execute patched;
 end $patch$;
 

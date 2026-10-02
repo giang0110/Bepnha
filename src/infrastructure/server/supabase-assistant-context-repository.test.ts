@@ -199,8 +199,9 @@ test("v6 assistant reads only saved meal evidence and never hydrates current bod
   const result = await repo.loadCurrent({ actorUserId: "owner", planId: "plan" })
   expect(result).toMatchObject({
     ok: true,
-    value: { currentRevisionId: "revision", evidence: { meals: expect.any(Array) } }
+    value: { currentRevisionId: "revision" }
   })
+  if (result.ok) expect(result.value.evidence.meals).toHaveLength(7)
   expect(hydrateReplacement).not.toHaveBeenCalled()
   for (const key of ["weightKg", "heightCm", "nutritionSetup", "memberProfiles"])
     expect(JSON.stringify(result)).not.toContain(key)

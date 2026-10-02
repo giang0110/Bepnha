@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest"
-import { NodeContentHasher } from "../../infrastructure/server/node-content-hasher"
+import { createHash } from "node:crypto"
+import type { ContentHasher } from "@/application/shared/content-hasher"
 import { plannerCandidateV2, plannerInputV2 } from "../../domain/planner/planner-v2-test-fixture"
 import {
   evaluatePlannerEligibilityV2,
@@ -16,6 +17,9 @@ const command = {
   weekStart: "2026-08-31",
   calculationDate: "2026-08-26",
   idempotencyKey: "key"
+}
+const hasher: ContentHasher = {
+  sha256: (content) => Promise.resolve(createHash("sha256").update(content).digest("hex"))
 }
 function fixture() {
   const input: PlannerInputV2 = {
@@ -50,7 +54,7 @@ function fixture() {
     ok: true,
     value: { planId: "plan", revisionId: "new-revision", planVersion: 2, idempotent: false }
   })
-  const repository: PlannerRepositoryV2 = {
+  const repository = {
     loadGenerationInput: vi.fn().mockResolvedValue({ ok: true, value: input }),
     loadReplacementInput: vi.fn().mockResolvedValue({
       ok: true,
@@ -65,7 +69,7 @@ function fixture() {
     }),
     loadCurrentPlan: vi.fn().mockResolvedValue({ ok: true, value: null }),
     persistRevision: persist
-  }
+  } satisfies PlannerRepositoryV2
   const legacyRepository = {
     loadGenerationInput: vi.fn(),
     loadReplacementInput: vi.fn(),
@@ -80,7 +84,7 @@ function fixture() {
     useCases: createVersionedPlannerUseCases({
       repository,
       legacyRepository,
-      hasher: new NodeContentHasher()
+      hasher
     })
   }
 }
@@ -89,17 +93,11 @@ describe("versioned nutrition planning", () => {
     const f = fixture()
     const r = await f.useCases.generate(command)
     expect(r.ok).toBe(true)
-    expect(f.persist).toHaveBeenCalledWith(
-      expect.objectContaining({
-        engineVersion: "planner-engine-v6",
-        portionConfigVersion: "portion-v2",
-        plannerConfigVersion: "planner-v2",
-        calculationSnapshot: expect.objectContaining({
-          shoppingList: expect.objectContaining({ version: "shopping-list-v2" })
-        })
-      })
-    )
     const stored = f.persist.mock.calls[0]![0]
+    expect(stored.engineVersion).toBe("planner-engine-v6")
+    expect(stored.portionConfigVersion).toBe("portion-v2")
+    expect(stored.plannerConfigVersion).toBe("planner-v2")
+    expect(stored.calculationSnapshot).toHaveProperty("shoppingList.version", "shopping-list-v2")
     expect(JSON.stringify(stored.inputSnapshot)).toContain('"weightKg":"65"')
     expect(JSON.stringify(stored.inputSnapshot)).toContain('"bmi"')
     for (const key of [
@@ -118,7 +116,7 @@ describe("versioned nutrition planning", () => {
   test("current reads stored result without loading generation inputs", async () => {
     const f = fixture()
     expect(await f.useCases.current(command)).toEqual({ ok: true, value: null })
-    expect(f.repository.loadGenerationInput).not.toHaveBeenCalled()
+    expect(vi.mocked(f.repository.loadGenerationInput)).not.toHaveBeenCalled()
   })
   test("replacement preserves six actual snapshots and binds preview/apply", async () => {
     const f = fixture()
