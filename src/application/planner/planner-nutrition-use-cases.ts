@@ -24,8 +24,12 @@ import type {
   PublicReadyPlanV2,
   PublicMealSnapshotV2
 } from "./planner-versioned-repository.js"
-function publicMeal(meal: ReadyPlanV2["selected"][number]): PublicMealSnapshotV2 {
+function publicMeal(
+  meal: ReadyPlanV2["selected"][number],
+  plannedMealSharePercent: number | null
+): PublicMealSnapshotV2 {
   return {
+    plannedMealSharePercent,
     mealOptionId: meal.mealOptionId,
     mealOptionVersionId: meal.mealOptionVersionId,
     mealOptionCode: meal.mealOptionCode,
@@ -63,7 +67,10 @@ export function publicReadyPlanV2(plan: ReadyPlanV2): PublicReadyPlanV2 {
       mealOptionVersionId: i.mealOptionVersionId,
       adultEquivalent: i.adultEquivalent,
       scaleFactor: i.scaleFactor,
-      snapshot: publicMeal(i.snapshot)
+      snapshot: publicMeal(
+        i.snapshot,
+        plan.inputBinding.nutritionSetup?.plannedMealSharePercent ?? null
+      )
     })),
     totalEstimatedCostVnd: plan.totalEstimatedCostVnd
   }
@@ -269,6 +276,7 @@ export function createVersionedPlannerUseCases(dependencies: {
       return {
         ok: true as const,
         value: {
+          engineVersion: "planner-engine-v6" as const,
           status: result.status,
           items: publicReadyPlanV2(result.plan).items,
           plan: publicReadyPlanV2(result.plan),

@@ -113,6 +113,7 @@ export interface ShoppingListRepository {
 }
 
 export interface ShoppingListItemV2 extends PurchaseBasketLineV2 {
+  readonly wholeUnit?: { readonly unitCode: string; readonly baseQuantityPerPiece: string }
   readonly shoppingListItemId: string
   readonly foodNameVi: string
   readonly groceryCategoryCode: GroceryCategoryCode
@@ -132,3 +133,9 @@ export type VersionedShoppingListReadResult = ShoppingListReadResult | ReadyShop
 export interface VersionedShoppingListRepository extends Omit<ShoppingListRepository, "load"> {
   load(planId: string, revisionId?: string | null): Promise<VersionedShoppingListReadResult | null>
 }
+
+export type AnyReadyShoppingList = Omit<ReadyShoppingList, "items"> & {
+  readonly snapshotVersion?: "shopping-list-v2"
+  readonly items: readonly AnyShoppingListItem[]
+}
+export type AnyShoppingListItem = ShoppingListItem | ShoppingListItemV2

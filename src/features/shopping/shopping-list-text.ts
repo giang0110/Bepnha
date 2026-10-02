@@ -1,6 +1,7 @@
+import { purchaseQuantityLabel } from "./purchase-quantity-label"
 import type {
-  ReadyShoppingList,
-  ShoppingListItem
+  AnyReadyShoppingList as ReadyShoppingList,
+  AnyShoppingListItem as ShoppingListItem
 } from "@/application/shopping/shopping-list-repository"
 import { GROCERY_CATEGORIES } from "@/domain/shopping/grocery-category-config"
 import {
@@ -14,26 +15,17 @@ function formatVnd(value: number): string {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)
 }
 
-function formatQuantity(value: string): string {
-  const match = /^(\d+)(?:\.(\d+))?$/.exec(value)
-  if (match === null) return value
-  const whole = BigInt(match[1]!).toLocaleString("vi-VN")
-  const fractional = match[2]?.replace(/0+$/u, "") ?? ""
-  return fractional === "" ? whole : `${whole},${fractional}`
-}
-
 function formatWeekStart(value: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
   return match === null ? value : `${match[3]}/${match[2]}/${match[1]}`
 }
 
 function line(item: ShoppingListItem, unitLabel: (baseUnitId: string) => string): string {
-  const unit = unitLabel(item.baseUnitId)
   const mark = item.checked ? "[x]" : "[ ]"
-  if (item.purchasePackageCount === "0") {
-    return `${mark} ${item.foodNameVi} — đã đủ trong tủ bếp`
+  if (("version" in item ? item.purchaseUnitCount : item.purchasePackageCount) === "0") {
+    return `${mark} ${item.foodNameVi} — ${"version" in item ? purchaseQuantityLabel(item, unitLabel) : "đã đủ trong tủ bếp"}`
   }
-  const packages = `${formatQuantity(item.purchasePackageCount)} gói × ${formatQuantity(item.packageBaseQuantity)} ${unit}`
+  const packages = purchaseQuantityLabel(item, unitLabel)
   return `${mark} ${item.foodNameVi} — ${packages} (~${formatVnd(item.lineCostVnd)} VND)`
 }
 

@@ -12,7 +12,7 @@ import { createDeferredHouseholdRepository } from "@/infrastructure/supabase/def
 import { createSupabaseMealRatingRepository } from "@/infrastructure/supabase/supabase-meal-rating-repository"
 import { createSupabasePantryFoodOptionsRepository } from "@/infrastructure/supabase/supabase-pantry-food-options-repository"
 import { createSupabasePantryRepository } from "@/infrastructure/supabase/supabase-pantry-repository"
-import { createBrowserShoppingListRepository } from "@/infrastructure/supabase/supabase-shopping-list-repository"
+import { createDeferredShoppingListRepository } from "@/infrastructure/supabase/deferred-shopping-list-repository"
 
 // Before anything else that can fail. The offline shell is most valuable exactly when the app did
 // not start — a missing environment variable, a bad client construction — and registering after
@@ -35,7 +35,7 @@ const mealRatingRepository = createSupabaseMealRatingRepository(supabase)
 const pantryFoodOptionsRepository = createSupabasePantryFoodOptionsRepository(supabase)
 const pantryRepository = createSupabasePantryRepository(supabase)
 const plannerApi = createPlannerApi()
-const shoppingListRepository = createBrowserShoppingListRepository(supabase)
+const shoppingListRepository = createDeferredShoppingListRepository(supabase)
 
 createRoot(rootElement).render(
   <StrictMode>

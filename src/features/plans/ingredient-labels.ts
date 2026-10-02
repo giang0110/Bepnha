@@ -36,6 +36,11 @@ export function describeIngredient(
   labels: IngredientLabels
 ): string {
   const name = labels.foodNames.get(ingredient.foodId)
+  if (ingredient.actualQuantity?.sourceDimension === "count") {
+    const q = ingredient.actualQuantity,
+      unit = q.unitCode === "item" ? "cái" : q.unitCode
+    return `${name ?? ingredient.foodId} — ${q.sourceQuantity.replace(".", ",")} ${unit}`
+  }
   const unit = labels.unitCodes.get(ingredient.baseUnitId)
   const quantity =
     unit === undefined ? ingredient.baseQuantity : `${ingredient.baseQuantity} ${unit}`

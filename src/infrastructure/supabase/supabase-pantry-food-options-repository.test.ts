@@ -10,12 +10,17 @@ function queryResult(data: unknown, error: unknown = null) {
     select: vi.fn(),
     eq: vi.fn(),
     not: vi.fn(),
+    order: vi.fn(),
     in: vi.fn()
   }
+  builder.order.mockReturnValue(builder)
   builder.select.mockReturnValue(builder)
   builder.eq.mockReturnValue(builder)
   builder.not.mockResolvedValue({ data, error })
-  builder.in.mockResolvedValue({ data, error })
+  builder.in.mockReturnValue(builder)
+  Object.assign(builder, {
+    then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data, error }).then(resolve)
+  })
   return builder
 }
 
@@ -53,6 +58,7 @@ describe("Supabase pantry food options repository", () => {
     })
 
     const from = vi.fn((table: string) => {
+      if (table === "food_quantity_policy_versions") return queryResult([])
       if (table === "foods") return foods
       if (table === "food_fact_unit_conversions") return conversions
       return units

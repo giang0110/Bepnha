@@ -1,7 +1,14 @@
+import type { MemberMealPortion } from "@/domain/portion/calculate-member-meal-portions"
 import type { RecipeHeatLevel } from "@/domain/recipe/recipe"
 import type { PlanTrustView } from "@/application/planner/plan-trust"
 
 export interface PlanIngredientView {
+  readonly actualQuantity?: {
+    readonly version: "food-quantity-v1"
+    readonly sourceQuantity: string
+    readonly unitCode: string
+    readonly sourceDimension: "mass" | "volume" | "count"
+  }
   readonly sourceId: string
   readonly foodId: string
   readonly foodFactVersionId: string
@@ -25,6 +32,8 @@ export interface PlanStepView {
 }
 
 export interface PlanItemView {
+  readonly memberPortions?: readonly (MemberMealPortion & { readonly actualMealKcal: string })[]
+  readonly plannedMealSharePercent?: number | null
   readonly dayIndex: number
   readonly mealSlot: "primary"
   readonly mealOptionId: string
@@ -57,6 +66,7 @@ export interface PlanItemView {
 }
 
 export interface PlannerReadyResponse {
+  readonly engineVersion?: "planner-engine-v6"
   readonly planId: string
   readonly revisionId: string
   readonly planVersion: number
@@ -73,6 +83,7 @@ export interface PlannerReadyResponse {
 }
 
 export interface PlannerPreviewResponse {
+  readonly engineVersion?: "planner-engine-v6"
   readonly status: "ready_within_budget" | "ready_over_budget"
   readonly items: readonly PlanItemView[]
   readonly weeklyEstimatedCostVnd: number
@@ -175,6 +186,81 @@ function failure(error: string, response?: FetchResponse): PlannerApiResult<neve
   return correlationId === undefined ? { ok: false, error } : { ok: false, error, correlationId }
 }
 
+const PRIVATE_PROFILE_KEYS = new Set([
+  "heightCm",
+  "weightKg",
+  "ageYears",
+  "sexForEquation",
+  "activityLevel",
+  "bmi",
+  "bmrKcal",
+  "tdeeKcal",
+  "nutritionSetup",
+  "memberProfiles",
+  "inputBinding",
+  "catalogBinding",
+  "privatePlanBinding",
+  "inputSnapshot",
+  "calculationSnapshot"
+])
+function containsBodyProfile(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(containsBodyProfile)
+  return (
+    isRecord(value) &&
+    Object.entries(value).some(([k, v]) => PRIVATE_PROFILE_KEYS.has(k) || containsBodyProfile(v))
+  )
+}
+const decimalText = (v: unknown) =>
+  typeof v === "string" && /^(0|[1-9]\d*)(?:\.\d*[1-9])?$/u.test(v)
+function validVersionedItems(value: Record<string, unknown>, items: unknown): boolean {
+  if (value.engineVersion === undefined) return true
+  if (
+    value.engineVersion !== "planner-engine-v6" ||
+    containsBodyProfile(value) ||
+    !Array.isArray(items) ||
+    items.length !== 7
+  )
+    return false
+  return items.every(
+    (i) =>
+      isRecord(i) &&
+      (i.plannedMealSharePercent === null ||
+        (typeof i.plannedMealSharePercent === "number" &&
+          Number.isInteger(i.plannedMealSharePercent) &&
+          i.plannedMealSharePercent >= 20 &&
+          i.plannedMealSharePercent <= 50)) &&
+      Array.isArray(i.memberPortions) &&
+      i.memberPortions.length > 0 &&
+      i.memberPortions.every(
+        (p) =>
+          isRecord(p) &&
+          typeof p.recipientKey === "string" &&
+          ["adult", "elderly", "child"].includes(String(p.memberKind)) &&
+          typeof p.memberCount === "number" &&
+          Number.isInteger(p.memberCount) &&
+          p.memberCount >= 1 &&
+          decimalText(p.sharePerMember) &&
+          Number(p.sharePerMember) > 0 &&
+          Number(p.sharePerMember) <= 1 &&
+          decimalText(p.actualMealKcal) &&
+          ["applied", "unapplied"].includes(String(p.energyTargetStatus)) &&
+          (p.energyTargetStatus === "applied"
+            ? decimalText(p.mealTargetKcal) && Number(p.mealTargetKcal) > 0
+            : p.mealTargetKcal === null)
+      ) &&
+      Array.isArray(i.scaledIngredients) &&
+      i.scaledIngredients.every(
+        (g) =>
+          isRecord(g) &&
+          isRecord(g.actualQuantity) &&
+          g.actualQuantity.version === "food-quantity-v1" &&
+          decimalText(g.baseQuantity) &&
+          decimalText(g.actualQuantity.sourceQuantity) &&
+          typeof g.actualQuantity.unitCode === "string" &&
+          ["count", "mass", "volume"].includes(String(g.actualQuantity.sourceDimension))
+      )
+  )
+}
 function isReady(value: unknown): value is PlannerReadyResponse {
   return (
     isRecord(value) &&
@@ -185,6 +271,7 @@ function isReady(value: unknown): value is PlannerReadyResponse {
     typeof value.budgetVnd === "number" &&
     isRecord(value.plan) &&
     Array.isArray(value.plan.items) &&
+    validVersionedItems(value, value.plan.items) &&
     typeof value.plan.totalEstimatedCostVnd === "number" &&
     Array.isArray(value.warnings) &&
     (value.trust === undefined || isTrust(value.trust))
@@ -209,6 +296,7 @@ function isPreview(value: unknown): value is PlannerPreviewResponse {
     isRecord(value) &&
     (value.status === "ready_within_budget" || value.status === "ready_over_budget") &&
     Array.isArray(value.items) &&
+    validVersionedItems(value, value.items) &&
     typeof value.weeklyEstimatedCostVnd === "number" &&
     typeof value.costDeltaVnd === "number" &&
     typeof value.previewFingerprint === "string" &&

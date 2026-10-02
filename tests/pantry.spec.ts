@@ -15,7 +15,8 @@ async function onboard(page: Page) {
   await page.getByLabel("Mật khẩu").fill("phase5-pantry-browser-password")
   await page.getByRole("button", { name: "Tạo tài khoản" }).click()
   await expect(page.getByRole("heading", { name: "Thành viên trong gia đình" })).toBeVisible()
-  await page.getByRole("spinbutton", { name: "Người lớn" }).fill("2")
+  await page.getByRole("button", { name: "Thêm người lớn" }).click()
+  await page.getByRole("button", { name: "Thêm người lớn" }).click()
   await page.getByRole("button", { name: "Tiếp tục" }).click()
   await page.getByRole("textbox", { name: "Ngân sách tuần (VND)" }).fill("900000")
   await page.getByRole("button", { name: "Tiếp tục" }).click()
@@ -168,7 +169,7 @@ test("mobile pantry CRUD persists explicit zero quantity without automatic consu
 
   await page.getByLabel("Số lượng Gạo pantry browser", { exact: true }).fill("0")
   await page.getByRole("button", { name: "Lưu Gạo pantry browser" }).click()
-  expect(pantryItem).toMatchObject({ quantity: 0, base_quantity: 0, version: 2 })
+  await expect.poll(() => pantryItem).toMatchObject({ quantity: 0, base_quantity: 0, version: 2 })
 
   await page.reload()
   await expect(page.getByLabel("Số lượng Gạo pantry browser", { exact: true })).toHaveValue("0")

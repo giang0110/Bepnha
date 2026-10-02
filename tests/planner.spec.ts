@@ -82,7 +82,8 @@ async function onboard(page: Page) {
   await page.getByLabel("Mật khẩu").fill("phase3-browser-test-password")
   await page.getByRole("button", { name: "Tạo tài khoản" }).click()
   await expect(page.getByRole("heading", { name: "Thành viên trong gia đình" })).toBeVisible()
-  await page.getByRole("spinbutton", { name: "Người lớn" }).fill("2")
+  await page.getByRole("button", { name: "Thêm người lớn" }).click()
+  await page.getByRole("button", { name: "Thêm người lớn" }).click()
   await page.getByRole("button", { name: "Tiếp tục" }).click()
   await page.getByRole("textbox", { name: "Ngân sách tuần (VND)" }).fill("1200000")
   await page.getByRole("button", { name: "Tiếp tục" }).click()
@@ -186,4 +187,74 @@ test("planner shows exact over-budget and stale-price warnings without treating 
   await expect(page.getByText(/vượt ngân sách 25.000 VND/i)).toBeVisible()
   await expect(page.getByText(/phạm vi tìm kiếm tất định/i)).toBeVisible()
   await expect(page.getByText(/giá cũ nhưng vẫn còn dùng được/i)).toBeVisible()
+})
+
+test("v6 frozen portions and whole eggs survive reload without body fields in device storage", async ({
+  page
+}) => {
+  const initial = ready()
+  const payload = {
+    ...initial,
+    engineVersion: "planner-engine-v6",
+    plan: {
+      ...initial.plan,
+      items: initial.plan.items.map((entry) => ({
+        ...entry,
+        plannedMealSharePercent: 33,
+        memberPortions: [
+          {
+            recipientKey: "stored-member",
+            memberKind: "adult",
+            ageBand: "adult",
+            label: "Khẩu phần đã lưu",
+            memberCount: 1,
+            coefficientPerMember: "1",
+            totalCoefficient: "1",
+            sharePerMember: "1",
+            mealTargetKcal: "711.253125",
+            actualMealKcal: "700",
+            energyTargetStatus: "applied",
+            unappliedReason: null
+          }
+        ],
+        components: entry.components.map((component) => ({
+          ...component,
+          mealOptionRecipeId: `component-${entry.dayIndex}`
+        })),
+        scaledIngredients: entry.scaledIngredients.map((ingredient) => ({
+          ...ingredient,
+          sourceId: `component-${entry.dayIndex}:ri-${entry.dayIndex}`,
+          baseQuantity: "150",
+          grossGrams: "150",
+          actualQuantity: {
+            version: "food-quantity-v1",
+            sourceQuantity: "3",
+            unitCode: "item",
+            sourceDimension: "count"
+          }
+        }))
+      }))
+    }
+  }
+  await page.route("**/api/plans/current*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(payload)
+    })
+  )
+  await onboard(page)
+  for (let visit = 0; visit < 2; visit++) {
+    await page.goto("/plan")
+    const monday = page.getByRole("listitem", { name: "Bữa chính Thứ Hai" })
+    await monday.getByText("Xem cách nấu và dinh dưỡng").click()
+    await expect(monday).toContainText("Khẩu phần đã lưu")
+    await expect(monday).toContainText("711 kcal/người")
+    await expect(monday).toContainText("700 kcal/người")
+    await expect(monday).toContainText("3 cái")
+    await expect(monday).not.toContainText("2,4")
+  }
+  const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))
+  for (const field of ["weightKg", "heightCm", "sexForEquation", "bmi", "bmrKcal", "tdeeKcal"])
+    expect(storage).not.toContain(field)
 })

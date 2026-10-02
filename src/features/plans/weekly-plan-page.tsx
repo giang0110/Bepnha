@@ -1,3 +1,4 @@
+import { MemberPortionsPanel } from "./member-portions-panel"
 import { Fragment, useEffect, useState, type ReactNode } from "react"
 import { Link } from "react-router"
 
@@ -147,6 +148,12 @@ function errorCopy(code: string): string {
   if (code === "STALE_PLAN_VERSION") {
     return "Kế hoạch tuần này vừa được thay đổi ở nơi khác. Hãy tải lại trang để xem bản mới nhất."
   }
+  if (code === "DEPENDENCY_SCHEMA_NOT_READY")
+    return "Máy chủ chưa sẵn sàng lập thực đơn dinh dưỡng. Hãy thử lại sau khi cập nhật. Thực đơn cũ vẫn xem được."
+  if (code === "INVALID_INDIVISIBLE_PANTRY_QUANTITY")
+    return "Tủ bếp đang có số lẻ của thực phẩm dùng nguyên đơn vị, ví dụ trứng. Hãy sửa lại lượng thực tế trong Tủ bếp rồi tạo lại tuần."
+  if (code === "PANTRY_QUANTITY_POLICY_REQUIRED")
+    return "Thực phẩm trong kho chưa có quy đổi nguyên đơn vị được xác minh. Hãy cập nhật mục kho đó hoặc dữ liệu thực phẩm trước khi lập thực đơn."
   if (code === "PLAN_INPUT_CHANGED_REGENERATION_REQUIRED") {
     return "Thông tin gia đình đã thay đổi. Vui lòng tạo lại kế hoạch tuần."
   }
@@ -300,6 +307,14 @@ function MealDetails({
           </svg>
         </span>
       </summary>
+      {item.memberPortions ? (
+        <div className="mt-4">
+          <MemberPortionsPanel
+            portions={item.memberPortions}
+            plannedMealSharePercent={item.plannedMealSharePercent ?? null}
+          />
+        </div>
+      ) : null}
       <div className="mt-4 grid gap-4">
         <section>
           <h4 className="flex items-center gap-1.5 font-bold text-ink">
@@ -698,6 +713,13 @@ export function WeeklyPlanPage({
               Thử lại
             </Button>
           ) : null}
+          {["INVALID_INDIVISIBLE_PANTRY_QUANTITY", "PANTRY_QUANTITY_POLICY_REQUIRED"].includes(
+            state.code
+          ) ? (
+            <Link className={buttonVariants({ variant: "outline" })} to="/pantry">
+              Sửa lượng trong Tủ bếp
+            </Link>
+          ) : null}
           {householdSettingsCanHelp(state.code) ? (
             <Link className={buttonVariants({ variant: "outline" })} to="/settings/household">
               Xem điều kiện gia đình
@@ -737,6 +759,12 @@ export function WeeklyPlanPage({
             })}
           </section>
 
+          {state.value.engineVersion !== "planner-engine-v6" ? (
+            <p className="rounded-2xl bg-paper-raised p-4 text-sm">
+              Thực đơn này dùng khẩu phần theo nhóm tuổi. Tạo lại tuần để áp dụng mục tiêu và cách
+              tính lượng thực phẩm mới.
+            </p>
+          ) : null}
           {state.value.trust === undefined ? null : <PlanTrustPanel trust={state.value.trust} />}
 
           {/* Not plain "Đi chợ": the navigation carries that name for the week's list in general,
@@ -979,6 +1007,13 @@ export function WeeklyPlanPage({
         <div className="grid justify-items-start gap-2" role="alert">
           <p>{errorCopy(preview.code)}</p>
           <SupportReference correlationId={preview.correlationId} />
+          {["INVALID_INDIVISIBLE_PANTRY_QUANTITY", "PANTRY_QUANTITY_POLICY_REQUIRED"].includes(
+            preview.code
+          ) ? (
+            <Link className={buttonVariants({ variant: "outline" })} to="/pantry">
+              Sửa lượng trong Tủ bếp
+            </Link>
+          ) : null}
           {householdSettingsCanHelp(preview.code) ? (
             <Link className={buttonVariants({ variant: "outline" })} to="/settings/household">
               Xem điều kiện gia đình

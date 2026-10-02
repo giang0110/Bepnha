@@ -85,3 +85,25 @@ describe("ingredient labels on the week view", () => {
     expect(labels.foodNames.size).toBe(2)
   })
 })
+
+test("v6 count ingredients display actual source pieces rather than legacy rounded grams", () => {
+  expect(
+    describeIngredient(
+      {
+        sourceId: "s",
+        foodId: GAO,
+        foodFactVersionId: "f",
+        baseUnitId: GAM,
+        baseQuantity: "150",
+        grossGrams: "150",
+        actualQuantity: {
+          version: "food-quantity-v1",
+          sourceQuantity: "3",
+          unitCode: "item",
+          sourceDimension: "count"
+        }
+      },
+      ingredientLabels(options)
+    )
+  ).toBe("Gạo tẻ — 3 cái")
+})

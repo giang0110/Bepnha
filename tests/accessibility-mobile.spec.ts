@@ -26,7 +26,8 @@ async function onboard(page: Page) {
   await page.getByRole("button", { name: "Tạo tài khoản" }).click()
 
   await expect(page.getByRole("heading", { name: "Thành viên trong gia đình" })).toBeVisible()
-  await page.getByRole("spinbutton", { name: "Người lớn" }).fill("2")
+  await page.getByRole("button", { name: "Thêm người lớn" }).click()
+  await page.getByRole("button", { name: "Thêm người lớn" }).click()
   await page.getByRole("button", { name: "Tiếp tục" }).click()
   await page.getByRole("textbox", { name: "Ngân sách tuần (VND)" }).fill("900000")
   await page.getByRole("button", { name: "Tiếp tục" }).click()

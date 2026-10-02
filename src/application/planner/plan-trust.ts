@@ -1,5 +1,6 @@
 export interface PlanTrustView {
   readonly calculationDate: string
+  readonly portionVaries?: true
   readonly adultEquivalent: string | null
   readonly priceObservedFrom: string | null
   readonly priceObservedTo: string | null
@@ -39,7 +40,13 @@ export function buildPlanTrustView(
 
   return {
     calculationDate,
-    adultEquivalent: plan.items[0]?.adultEquivalent ?? null,
+    ...(new Set(plan.items.map((i) => i.adultEquivalent)).size > 1
+      ? { portionVaries: true as const }
+      : {}),
+    adultEquivalent:
+      new Set(plan.items.map((i) => i.adultEquivalent)).size > 1
+        ? null
+        : (plan.items[0]?.adultEquivalent ?? null),
     priceObservedFrom: observedDates[0] ?? null,
     priceObservedTo: observedDates.at(-1) ?? null,
     stalePriceCount: plan.purchaseBasket.lines.filter((line) => line.freshness === "stale_usable")

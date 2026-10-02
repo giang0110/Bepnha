@@ -535,8 +535,25 @@ function parseItemV2(value: unknown): ShoppingListItemV2 {
   )
     invalidStoredData()
   if (value.freshness !== "current" && value.freshness !== "stale_usable") invalidStoredData()
+  let wholeUnit: ShoppingListItemV2["wholeUnit"]
+  if (value.wholeUnit !== undefined && value.wholeUnit !== null) {
+    if (!isRecord(value.wholeUnit)) invalidStoredData()
+    wholeUnit = {
+      unitCode: nonEmptyString(value.wholeUnit.unitCode),
+      baseQuantityPerPiece: canonicalDecimal(value.wholeUnit.baseQuantityPerPiece, false)
+    }
+    for (const amount of [
+      expected.requiredBaseQuantity,
+      expected.pantryDeductedBaseQuantity,
+      expected.purchaseBaseQuantity,
+      expected.leftoverBaseQuantity
+    ])
+      if (!new ExactDecimal(amount).div(wholeUnit.baseQuantityPerPiece).isInteger())
+        invalidStoredData()
+  }
   return {
     ...expected,
+    ...(wholeUnit ? { wholeUnit } : {}),
     freshness: value.freshness,
     shoppingListItemId: nonEmptyString(value.shoppingListItemId),
     foodNameVi: nonEmptyString(value.foodNameVi),

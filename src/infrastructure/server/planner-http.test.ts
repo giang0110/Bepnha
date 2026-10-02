@@ -432,3 +432,76 @@ describe("authoritative planner HTTP handlers", () => {
     )
   })
 })
+
+test("v6 HTTP allows only personal portion fields and actual source amounts", async () => {
+  const f = setup(),
+    { state, response } = responseDouble()
+  f.generate.mockResolvedValueOnce({
+    ok: true,
+    value: {
+      engineVersion: "planner-engine-v6",
+      planId: "p",
+      revisionId: "r",
+      planVersion: 1,
+      status: "ready_within_budget",
+      budgetVnd: 700000,
+      plan: {
+        items: [
+          {
+            dayIndex: 0,
+            snapshot: {
+              plannedMealSharePercent: 33,
+              memberPortions: [
+                {
+                  recipientKey: "p",
+                  memberKind: "adult",
+                  memberCount: 1,
+                  sharePerMember: "1",
+                  mealTargetKcal: "711",
+                  actualMealKcal: "700",
+                  energyTargetStatus: "applied",
+                  weightKg: "65",
+                  heightCm: "170",
+                  sexForEquation: "male"
+                }
+              ],
+              scaledIngredients: [
+                {
+                  sourceId: "s",
+                  foodId: "egg",
+                  baseQuantity: "150",
+                  sourceQuantity: "3",
+                  conversion: { unitCode: "item", sourceDimension: "count" }
+                }
+              ],
+              inputBinding: { weightKg: "65" }
+            }
+          }
+        ],
+        totalEstimatedCostVnd: 100
+      },
+      warnings: [],
+      nutritionSetup: { weightKg: "65" }
+    }
+  })
+  await f.handlers.generate(request(generationBody), response)
+  const body = state.body as {
+    engineVersion: string
+    plan: {
+      items: {
+        memberPortions: unknown[]
+        scaledIngredients: { actualQuantity: { sourceQuantity: string } }[]
+      }[]
+    }
+  }
+  expect(body.engineVersion).toBe("planner-engine-v6")
+  expect(body.plan.items[0]?.scaledIngredients[0]?.actualQuantity.sourceQuantity).toBe("3")
+  for (const forbidden of [
+    "weightKg",
+    "heightCm",
+    "sexForEquation",
+    "inputBinding",
+    "nutritionSetup"
+  ])
+    expect(JSON.stringify(body)).not.toContain(forbidden)
+})

@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import { createShoppingReadHttpHandler } from "./shopping-http.js"
 import type { Database } from "../supabase/database.types.js"
 import { createServerSupabaseAuthVerifier } from "../supabase/server-auth.js"
-import { createSupabaseShoppingListRepository } from "../supabase/supabase-shopping-list-repository.js"
+import { createSupabaseVersionedShoppingListRepository } from "../supabase/supabase-shopping-list-repository.js"
 
 function publicConfig() {
   const url = process.env.SUPABASE_URL
@@ -26,6 +26,6 @@ export const shoppingReadHttpHandler = createShoppingReadHttpHandler({
       auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
       global: { headers: { Authorization: `Bearer ${accessToken}` } }
     })
-    return createSupabaseShoppingListRepository(client).load(planId, revisionId)
+    return createSupabaseVersionedShoppingListRepository(client).load(planId, revisionId)
   }
 })

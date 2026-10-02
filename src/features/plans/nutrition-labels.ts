@@ -32,6 +32,14 @@ export function nutrientName(code: string): string {
   return NUTRIENT_NAMES[code] ?? code
 }
 
+export function energyReasonLabel(reason: string): string {
+  return reason === "INCOMPLETE_PROFILE"
+    ? "Chưa đủ tuổi, chiều cao, cân nặng, giới tính hoặc mức vận động để áp dụng mục tiêu; dùng khẩu phần theo nhóm tuổi."
+    : reason === "UNSUPPORTED_WEIGHT_LOSS"
+      ? "BMI dưới 18,5: mục tiêu giảm cân được lưu nhưng chưa áp dụng; dùng khẩu phần theo nhóm tuổi."
+      : "Chưa tính được mục tiêu năng lượng; kiểm tra lại thông tin."
+}
+
 export function orderedNutrients<T extends { readonly nutrientCode: string }>(
   nutrients: readonly T[]
 ): T[] {
