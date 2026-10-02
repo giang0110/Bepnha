@@ -1,5 +1,3 @@
-import type { ReadyPlan } from "../../domain/planner/search-week.js"
-
 export interface PlanTrustView {
   readonly calculationDate: string
   readonly adultEquivalent: string | null
@@ -22,7 +20,19 @@ export interface PlanTrustView {
  * nutrition, serving and price eligibility; this function reports that stored decision instead of
  * recalculating it.
  */
-export function buildPlanTrustView(plan: ReadyPlan, calculationDate: string): PlanTrustView {
+export function buildPlanTrustView(
+  plan: {
+    readonly items: readonly { readonly adultEquivalent: string }[]
+    readonly purchaseBasket: {
+      readonly lines: readonly {
+        readonly observedAt: string
+        readonly freshness: "current" | "stale_usable"
+      }[]
+    }
+    readonly score: { readonly explanations: readonly string[] }
+  },
+  calculationDate: string
+): PlanTrustView {
   const observedDates = plan.purchaseBasket.lines
     .map((line) => line.observedAt)
     .toSorted((left, right) => left.localeCompare(right))

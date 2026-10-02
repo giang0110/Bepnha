@@ -2266,6 +2266,14 @@ export type Database = {
         }
       }
       get_plan_replacement_input: { Args: { p_plan_id: string }; Returns: Json }
+      get_plan_revision_for_owner: {
+        Args: {
+          p_household_id: string
+          p_revision_id: string
+          p_week_start: string
+        }
+        Returns: Json
+      }
       get_planner_generation_input: {
         Args: {
           p_calculation_date: string

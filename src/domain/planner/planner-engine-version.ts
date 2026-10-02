@@ -1,3 +1,5 @@
+export const LEGACY_PLANNER_ENGINE_VERSION = "planner-engine-v5" as const
+export const NUTRITION_PLANNER_ENGINE_VERSION = "planner-engine-v6" as const
 export const PLANNER_ENGINE_VERSION = "planner-engine-v5" as const
 
 /**
@@ -12,4 +14,5 @@ export type PersistedPlannerEngineVersion =
   | "planner-engine-v2"
   | "planner-engine-v3"
   | "planner-engine-v4"
-  | typeof PLANNER_ENGINE_VERSION
+  | typeof LEGACY_PLANNER_ENGINE_VERSION
+  | typeof NUTRITION_PLANNER_ENGINE_VERSION

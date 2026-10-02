@@ -638,3 +638,204 @@ export function createSupabasePlannerInputLoader(
     }
   }
 }
+
+// V6 is kept beside the historical loader: reads of a saved revision do not consult live heads.
+import type { PlannerInputLoaderV2 } from "./supabase-planner-repository.js"
+import type { PlannerInputV2, ReadyPlanV2 } from "../../domain/planner/planner-v2.js"
+import type { CurrentPlanViewV2 } from "../../application/planner/planner-versioned-repository.js"
+import { publicReadyPlanV2 } from "../../application/planner/planner-nutrition-use-cases.js"
+import { buildPlanTrustView } from "../../application/planner/plan-trust.js"
+import {
+  loadFoodQuantityPolicies,
+  PlannerDependencySchemaNotReadyError
+} from "./load-food-quantity-policies.js"
+import { loadPlannerPurchaseTerms } from "./load-planner-purchase-terms.js"
+import { ExactDecimal, decimalToCanonical } from "../../domain/shared/decimal.js"
+import type { HouseholdNutritionSetupV1 } from "../../domain/household/member-profile.js"
+
+export class PlannerInputChangedError extends Error {
+  readonly code = "PLAN_INPUT_CHANGED_REGENERATION_REQUIRED"
+}
+export function readyPlanV2FromRevision(value: unknown): ReadyPlanV2 {
+  const revision = object(value),
+    calculation = object(revision.calculation_snapshot)
+  const binding = object(calculation.privatePlanBinding)
+  const items = array(calculation.items),
+    selected = array(calculation.selectedMealOptions)
+  if (
+    items.length !== 7 ||
+    selected.length !== 7 ||
+    !Array.isArray(object(calculation.purchaseBasket).lines)
+  )
+    throw new Error("INVALID_PLAN_SNAPSHOT")
+  return {
+    items: items as unknown as ReadyPlanV2["items"],
+    selected: selected as unknown as ReadyPlanV2["selected"],
+    purchaseBasket: object(calculation.purchaseBasket) as unknown as ReadyPlanV2["purchaseBasket"],
+    score: object(calculation.score) as unknown as ReadyPlanV2["score"],
+    totalEstimatedCostVnd: integer(revision.total_estimated_cost_vnd),
+    stableIdSequence: items.map((i) => string(object(i).mealOptionVersionId)).join("|"),
+    frontierMetrics: [],
+    inputBinding: object(binding.input) as unknown as ReadyPlanV2["inputBinding"],
+    catalogBinding: array(binding.catalog) as unknown as ReadyPlanV2["catalogBinding"]
+  }
+}
+export function currentPlanV2FromStored(raw: unknown): CurrentPlanViewV2 {
+  const root = object(raw),
+    row = object(root.plan),
+    revision = object(root.revision)
+  const ready = readyPlanV2FromRevision(revision),
+    status = revision.budget_status
+  if (status !== "within" && status !== "over") throw new Error("INVALID_PLAN_SNAPSHOT")
+  return {
+    engineVersion: "planner-engine-v6",
+    planId: string(row.id),
+    revisionId: string(revision.id),
+    planVersion: integer(revision.revision_number),
+    status: status === "within" ? "ready_within_budget" : "ready_over_budget",
+    budgetVnd: integer(revision.budget_vnd),
+    plan: publicReadyPlanV2(ready),
+    warnings: array(revision.warnings) as CurrentPlanViewV2["warnings"],
+    trust: buildPlanTrustView(ready, string(revision.calculation_date)),
+    catalogFingerprint: string(revision.catalog_fingerprint),
+    inputFingerprint: string(revision.input_fingerprint),
+    calculationFingerprint: string(revision.calculation_fingerprint)
+  }
+}
+async function generationV2(
+  client: SupabaseClient<Database>,
+  raw: unknown,
+  pinned?: ReadyPlanV2
+): Promise<PlannerInputV2> {
+  const root = object(raw)
+  if (root.inputVersion !== "planner-input-v2") throw new PlannerDependencySchemaNotReadyError()
+  const legacy = await generation(
+    client,
+    pinned
+      ? {
+          ...root,
+          mealOptionVersionIds: pinned.catalogBinding.map((c) => c.mealOptionVersionId),
+          priceBook: { priceBookId: pinned.catalogBinding.flatMap((c) => c.prices)[0]?.priceBookId }
+        }
+      : root
+  )
+  const factIds = [
+    ...new Set([
+      ...legacy.candidates.flatMap((c) => c.ingredientLineage.map((l) => l.foodFactVersionId)),
+      ...(legacy.pantrySnapshot?.items.map((i) => i.foodFactVersionId) ?? [])
+    ])
+  ]
+  const pins = pinned
+    ? [
+        ...new Set([
+          ...pinned.catalogBinding.flatMap((c) =>
+            c.quantityPolicies.map((p) => p.foodQuantityPolicyVersionId)
+          ),
+          ...(pinned.inputBinding.pantryQuantityPolicies?.map((p) => p.id) ?? [])
+        ])
+      ]
+    : undefined
+  const bookId = pinned
+    ? pinned.catalogBinding.flatMap((c) => c.prices)[0]?.priceBookId
+    : string(object(root.priceBook).priceBookId)
+  if (!bookId) throw new PlannerInputChangedError()
+  const [policies, prices] = await Promise.all([
+    loadFoodQuantityPolicies(client, factIds, pins),
+    loadPlannerPurchaseTerms(client, legacy.candidates, bookId)
+  ])
+  const pieceIds = policies
+    .filter((p) => p.foodForm === "whole_piece")
+    .map((p) => p.foodFactVersionId)
+  const wholePieceQuantities: Record<string, string> = {}
+  if (pieceIds.length) {
+    const [units, conversions] = await Promise.all([
+      loadUnits(client),
+      client
+        .from("food_fact_unit_conversions")
+        .select("food_fact_version_id,unit_id,base_quantity_per_unit::text")
+        .in("food_fact_version_id", pieceIds)
+    ])
+    if (conversions.error) throw new Error("INCOMPLETE_UNIT_LINEAGE")
+    for (const id of pieceIds) {
+      const measures = (conversions.data ?? [])
+        .filter((c) => c.food_fact_version_id === id && units.get(c.unit_id)?.dimension === "count")
+        .map((c) =>
+          new ExactDecimal(c.base_quantity_per_unit).div(units.get(c.unit_id)!.to_dimension_base)
+        )
+      const first = measures[0]
+      if (!first || measures.some((m) => !m.eq(first))) throw new Error("INCOMPLETE_UNIT_LINEAGE")
+      wholePieceQuantities[id] = decimalToCanonical(first)
+    }
+  }
+  const pantryFacts = new Set(legacy.pantrySnapshot?.items.map((i) => i.foodFactVersionId) ?? [])
+  const hydrated: PlannerInputV2 = {
+    ...legacy,
+    inputVersion: "planner-input-v2",
+    ...(root.nutritionSetup === undefined
+      ? {}
+      : { nutritionSetup: object(root.nutritionSetup) as unknown as HouseholdNutritionSetupV1 }),
+    pantryQuantityPolicies: policies.filter((p) => pantryFacts.has(p.foodFactVersionId)),
+    pantryWholePieceBaseQuantities: Object.fromEntries(
+      Object.entries(wholePieceQuantities).filter(([id]) => pantryFacts.has(id))
+    ),
+    candidates: legacy.candidates.map((c) => ({
+      ...c,
+      prices: c.prices.map((p) => {
+        const t = prices.get(p.foodPriceId)
+        if (!t) throw new Error("PURCHASE_TERMS_UNAVAILABLE")
+        return t
+      }),
+      quantityPolicies: policies.filter((p) =>
+        c.ingredientLineage.some((l) => l.foodFactVersionId === p.foodFactVersionId)
+      )
+    }))
+  }
+  // History and ratings are soft inputs pinned by this revision. Household and stock stay live
+  // so a change between preview and apply fails the domain binding check.
+  if (!pinned) return hydrated
+  const { recentMealOptionIds: liveRecent, mealOptionRatings: liveRatings, ...base } = hydrated
+  void liveRecent
+  void liveRatings
+  return {
+    ...base,
+    ...(pinned.inputBinding.recentMealOptionIds === undefined
+      ? {}
+      : { recentMealOptionIds: pinned.inputBinding.recentMealOptionIds }),
+    ...(pinned.inputBinding.mealOptionRatings === undefined
+      ? {}
+      : { mealOptionRatings: pinned.inputBinding.mealOptionRatings })
+  }
+}
+export function createSupabasePlannerInputLoaderV2(
+  client: SupabaseClient<Database>
+): PlannerInputLoaderV2 {
+  return {
+    hydrateGeneration: (raw) => generationV2(client, raw),
+    readStored: currentPlanV2FromStored,
+    async hydrateReplacement(raw) {
+      const root = object(raw),
+        plan = object(root.plan),
+        revision = object(root.revision)
+      if (revision.engine_version !== "planner-engine-v6") return { engineVersion: "legacy" }
+      const currentPlan = readyPlanV2FromRevision(revision)
+      const live = await rpc(client, "get_planner_generation_input", {
+        p_household_id: string(plan.household_id),
+        p_week_start: string(plan.week_start),
+        p_calculation_date: string(revision.calculation_date)
+      })
+      if (
+        integer(object(object(live).household).version) !==
+        integer(revision.household_setup_version)
+      )
+        throw new PlannerInputChangedError()
+      return {
+        engineVersion: "planner-engine-v6",
+        currentPlan,
+        input: await generationV2(client, live, currentPlan),
+        planVersion: integer(plan.version),
+        currentRevisionId: string(plan.current_revision_id),
+        householdSetupVersion: integer(revision.household_setup_version)
+      }
+    }
+  }
+}

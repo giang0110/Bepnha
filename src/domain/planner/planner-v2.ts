@@ -30,7 +30,12 @@ import {
   qualityLowerBound,
   violatesWeeklyHardRules
 } from "./search-week.js"
-import { ExactDecimal, ROUND_HALF_UP, roundDecimal } from "../shared/decimal.js"
+import {
+  ExactDecimal,
+  ROUND_HALF_UP,
+  roundDecimal,
+  parseCanonicalDecimal
+} from "../shared/decimal.js"
 import { canonicalJson } from "../shared/canonical-json.js"
 import type {
   PlannerCandidateInput,
@@ -56,6 +61,8 @@ export interface PlannerCandidateInputV2 extends Omit<PlannerCandidateInput, "pr
 export interface PlannerInputV2 extends Omit<PlannerInputV1, "candidates"> {
   readonly inputVersion: "planner-input-v2"
   readonly nutritionSetup?: HouseholdNutritionSetupV1
+  readonly pantryQuantityPolicies?: readonly FoodQuantityPolicyV1[]
+  readonly pantryWholePieceBaseQuantities?: Readonly<Record<string, string>>
   readonly candidates: readonly PlannerCandidateInputV2[]
 }
 export interface NormalizedPlannerInputV2 extends Omit<
@@ -65,6 +72,8 @@ export interface NormalizedPlannerInputV2 extends Omit<
   readonly inputVersion: "planner-input-v2"
   readonly memberGroups: readonly NormalizedPortionMemberGroup[]
   readonly nutritionSetup?: HouseholdNutritionSetupV1
+  readonly pantryQuantityPolicies?: readonly FoodQuantityPolicyV1[]
+  readonly pantryWholePieceBaseQuantities?: Readonly<Record<string, string>>
   readonly candidates: readonly PlannerCandidateInputV2[]
   readonly portionConfig: PortionConfigV2
   readonly plannerConfig: PlannerConfigV2
@@ -74,7 +83,12 @@ export type NormalizePlannerInputResultV2 =
   | { readonly ok: true; readonly value: NormalizedPlannerInputV2 }
   | {
       readonly ok: false
-      readonly error: { readonly code: PlannerFatalCode | "INVALID_INDIVISIBLE_PANTRY_QUANTITY" }
+      readonly error: {
+        readonly code:
+          | PlannerFatalCode
+          | "INVALID_INDIVISIBLE_PANTRY_QUANTITY"
+          | "PANTRY_QUANTITY_POLICY_REQUIRED"
+      }
     }
 export type QuantityAdjustmentV2 = Extract<
   CookingQuantityResult,
@@ -189,6 +203,54 @@ export function normalizePlannerInputV2(input: PlannerInputV2): NormalizePlanner
     )
   )
     return { ok: false, error: { code: "INVALID_INDIVISIBLE_PANTRY_QUANTITY" } }
+  const stockPolicies = input.pantryQuantityPolicies ?? []
+  if (
+    duplicate(stockPolicies.map((p) => p.foodFactVersionId)) ||
+    duplicate(stockPolicies.map((p) => p.id))
+  )
+    return { ok: false, error: { code: "INVALID_PLANNER_INPUT" } }
+  const pieceQuantities = input.pantryWholePieceBaseQuantities
+  if (
+    pieceQuantities !== undefined &&
+    Object.values(pieceQuantities).some(
+      (q) => !parseCanonicalDecimal(q, { allowZero: false, allowNegative: false }).ok
+    )
+  )
+    return { ok: false, error: { code: "INVALID_PLANNER_INPUT" } }
+  for (const stock of common.value.pantrySnapshot.items) {
+    const policies = [...stockPolicies, ...input.candidates.flatMap((c) => c.quantityPolicies)]
+    const policy = policies.find((p) => p.foodFactVersionId === stock.foodFactVersionId)
+    if (
+      !policy &&
+      input.candidates.some(
+        (c) =>
+          c.ingredientLineage.some((l) => l.foodId === stock.foodId) &&
+          c.quantityPolicies.some((p) => p.foodForm === "whole_piece")
+      )
+    )
+      return { ok: false, error: { code: "PANTRY_QUANTITY_POLICY_REQUIRED" } }
+    if (policy?.foodForm !== "whole_piece") continue
+    const measured = input.candidates
+      .flatMap((c) => c.mealOption.components.flatMap((component) => component.recipe.ingredients))
+      .find(
+        (i) =>
+          i.foodFactVersionId === stock.foodFactVersionId &&
+          i.conversion?.sourceDimension === "count"
+      )?.conversion
+    const quantum =
+      pieceQuantities?.[stock.foodFactVersionId] ??
+      (measured
+        ? canon(new ExactDecimal(measured.baseQuantityPerUnit).div(measured.sourceToDimensionBase))
+        : undefined)
+    if (
+      quantum === undefined ||
+      policy.baseUnitId !== stock.baseUnitId ||
+      !new ExactDecimal(policy.stepBaseQuantity).div(quantum).isInteger()
+    )
+      return { ok: false, error: { code: "PANTRY_QUANTITY_POLICY_REQUIRED" } }
+    if (!new ExactDecimal(stock.baseQuantity).div(quantum).isInteger())
+      return { ok: false, error: { code: "INVALID_INDIVISIBLE_PANTRY_QUANTITY" } }
+  }
   let nutritionSetup: HouseholdNutritionSetupV1 | undefined
   if (input.nutritionSetup !== undefined) {
     const shape = calculateMemberMealPortions(common.value.memberGroups, input.nutritionSetup, "1")
@@ -230,6 +292,20 @@ export function normalizePlannerInputV2(input: PlannerInputV2): NormalizePlanner
     value: {
       ...raw,
       memberGroups: members.value.memberGroups,
+      ...(input.pantryQuantityPolicies === undefined
+        ? {}
+        : {
+            pantryQuantityPolicies: [...stockPolicies].sort((a, b) =>
+              lexical(a.foodFactVersionId, b.foodFactVersionId)
+            )
+          }),
+      ...(pieceQuantities === undefined
+        ? {}
+        : {
+            pantryWholePieceBaseQuantities: Object.fromEntries(
+              Object.entries(pieceQuantities).sort(([a], [b]) => lexical(a, b))
+            )
+          }),
       inputVersion: "planner-input-v2",
       ...(nutritionSetup === undefined ? {} : { nutritionSetup }),
       candidates,
@@ -369,6 +445,40 @@ export function evaluatePlannerEligibilityV2(input: NormalizedPlannerInputV2): E
         )
       }
     })
+    const indivisibleMismatch = scaled.value.ingredients.some((ingredient) => {
+      const policy = candidate.quantityPolicies.find(
+        (p) => p.foodFactVersionId === ingredient.foodFactVersionId
+      )
+      if (policy?.foodForm !== "whole_piece") return false
+      const price = candidate.prices.find((p) => p.foodId === ingredient.foodId)
+      const c = ingredient.conversion
+      if (
+        !price ||
+        price.foodFactVersionId !== ingredient.foodFactVersionId ||
+        c.sourceDimension !== "count"
+      )
+        return true
+      const piece = new ExactDecimal(c.baseQuantityPerUnit).div(c.sourceToDimensionBase)
+      const quantum =
+        price.purchaseRule.mode === "fixed_pack"
+          ? new ExactDecimal(price.quoteBaseQuantity).mul(price.purchaseRule.packIncrement)
+          : new ExactDecimal(price.purchaseRule.saleStepBaseQuantity)
+      return (
+        !quantum.div(piece).isInteger() ||
+        (price.purchaseRule.mode === "fixed_pack" &&
+          !new ExactDecimal(price.quoteBaseQuantity).div(piece).isInteger()) ||
+        input.pantrySnapshot.items.some(
+          (stock) =>
+            stock.foodId === ingredient.foodId &&
+            (stock.foodFactVersionId !== ingredient.foodFactVersionId ||
+              !new ExactDecimal(stock.baseQuantity).div(piece).isInteger())
+        )
+      )
+    })
+    if (indivisibleMismatch) {
+      reject(6, "INCOMPATIBLE_WHOLE_UNIT_PRICE_OR_STOCK")
+      continue
+    }
     const bad = adjusted.find((a) => !a.result.ok)
     if (bad !== undefined && !bad.result.ok) {
       reject(6, bad.result.error.code)

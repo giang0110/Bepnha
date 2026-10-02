@@ -159,6 +159,12 @@ export function buildPlannerSnapshotPayloadsV2(source: PlannerSnapshotSourceV2) 
       priceFreshnessConfig: input.priceFreshnessConfig,
       plannerConfig: input.plannerConfig,
       pantrySnapshot: canonicalPantry(input.pantrySnapshot),
+      ...(input.pantryQuantityPolicies === undefined
+        ? {}
+        : { pantryQuantityPolicies: input.pantryQuantityPolicies }),
+      ...(input.pantryWholePieceBaseQuantities === undefined
+        ? {}
+        : { pantryWholePieceBaseQuantities: input.pantryWholePieceBaseQuantities }),
       ...(input.recentMealOptionIds === undefined
         ? {}
         : { recentMealOptionIds: [...input.recentMealOptionIds].sort() }),

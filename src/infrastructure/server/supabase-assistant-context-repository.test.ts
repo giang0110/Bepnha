@@ -172,3 +172,36 @@ describe("Supabase assistant context repository", () => {
     ).resolves.toEqual({ ok: false, error: "TRANSIENT_DEPENDENCY_FAILURE" })
   })
 })
+
+test("v6 assistant reads only saved meal evidence and never hydrates current body or catalog", async () => {
+  const old = authoritativeInput(),
+    hydrateReplacement = vi.fn()
+  const revision = {
+    id: "revision",
+    engine_version: "planner-engine-v6",
+    budget_vnd: 700000,
+    total_estimated_cost_vnd: old.currentPlan.totalEstimatedCostVnd,
+    calculation_snapshot: {
+      items: old.currentPlan.items,
+      selectedMealOptions: old.currentPlan.items.map((i) => i.snapshot),
+      purchaseBasket: old.currentPlan.purchaseBasket,
+      score: {},
+      privatePlanBinding: {
+        input: { nutritionSetup: { memberProfiles: [{ weightKg: "65", heightCm: "170" }] } },
+        catalog: []
+      }
+    }
+  }
+  const repo = createSupabaseAssistantContextRepository({
+    userClient: rpcClient({ data: { revision }, error: null }),
+    loader: { hydrateGeneration: vi.fn(), hydrateReplacement }
+  })
+  const result = await repo.loadCurrent({ actorUserId: "owner", planId: "plan" })
+  expect(result).toMatchObject({
+    ok: true,
+    value: { currentRevisionId: "revision", evidence: { meals: expect.any(Array) } }
+  })
+  expect(hydrateReplacement).not.toHaveBeenCalled()
+  for (const key of ["weightKg", "heightCm", "nutritionSetup", "memberProfiles"])
+    expect(JSON.stringify(result)).not.toContain(key)
+})

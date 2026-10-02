@@ -356,3 +356,85 @@ test("fractional existing count stock requires correction instead of discarding 
     error: { code: "INVALID_INDIVISIBLE_PANTRY_QUANTITY" }
   })
 })
+
+test("whole-piece stock in a mass base still requires whole measured pieces", () => {
+  const c = plannerCandidateV2()
+  const component = c.mealOption.components[0]!
+  const ingredient = component.recipe.ingredients[0]!
+  const piece = {
+    ...c,
+    mealOption: {
+      ...c.mealOption,
+      components: [
+        {
+          ...component,
+          recipe: {
+            ...component.recipe,
+            ingredients: [
+              {
+                ...ingredient,
+                quantity: "4.8",
+                conversion: {
+                  ...ingredient.conversion!,
+                  unitId: "unit-item",
+                  unitCode: "item",
+                  sourceDimension: "count" as const,
+                  sourceToDimensionBase: "1",
+                  baseQuantityPerUnit: "50",
+                  grossGramsPerUnit: "50"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    quantityPolicies: c.quantityPolicies.map((p) => ({
+      ...p,
+      foodForm: "whole_piece" as const,
+      rounding: "ceil" as const,
+      stepBaseQuantity: "100"
+    }))
+  }
+  const stock = (quantity: string, baseQuantity: string) => ({
+    ...plannerInputV2([piece]),
+    pantrySnapshot: {
+      version: "pantry-snapshot-v1" as const,
+      items: [
+        {
+          pantryItemId: "stock",
+          foodId: ingredient.foodId,
+          foodFactVersionId: ingredient.foodFactVersionId,
+          quantity,
+          unitId: "unit-item",
+          baseQuantity,
+          baseUnitId: "unit-g",
+          baseDimension: "mass" as const,
+          version: 1
+        }
+      ]
+    }
+  })
+  expect(normalizePlannerInputV2(stock("2.5", "125"))).toMatchObject({
+    ok: false,
+    error: { code: "INVALID_INDIVISIBLE_PANTRY_QUANTITY" }
+  })
+  expect(normalizePlannerInputV2(stock("1", "50"))).toMatchObject({ ok: true })
+  const badPrice = normalizePlannerInputV2({
+    ...stock("1", "50"),
+    candidates: [
+      {
+        ...piece,
+        prices: piece.prices.map((p) => ({
+          ...p,
+          purchaseRule: { mode: "loose_mass" as const, saleStepBaseQuantity: "55" }
+        }))
+      }
+    ]
+  })
+  if (!badPrice.ok) throw new Error(badPrice.error.code)
+  expect(evaluatePlannerEligibilityV2(badPrice.value)).toMatchObject({
+    ok: false,
+    error: { code: "INCOMPLETE_CATALOG_LINEAGE" }
+  })
+})
