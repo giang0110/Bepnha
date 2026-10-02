@@ -29,6 +29,7 @@ select is(
     where namespace.nspname = 'public'
       and function.oid in (
         'public.apply_shopping_to_pantry(uuid)'::regprocedure,
+        'public.save_household_setup_v2(integer,bigint,integer,jsonb,text[],jsonb,jsonb,integer)'::regprocedure,
         'public.delete_pantry_item(uuid,integer)'::regprocedure,
         'public.set_meal_option_rating(uuid,uuid,text)'::regprocedure,
         'public.set_shopping_item_checked(uuid,boolean)'::regprocedure,
@@ -48,6 +49,7 @@ select is(
     where namespace.nspname = 'public'
       and function.oid in (
         'public.apply_shopping_to_pantry(uuid)'::regprocedure,
+        'public.save_household_setup_v2(integer,bigint,integer,jsonb,text[],jsonb,jsonb,integer)'::regprocedure,
         'public.delete_pantry_item(uuid,integer)'::regprocedure,
         'public.set_meal_option_rating(uuid,uuid,text)'::regprocedure,
         'public.set_shopping_item_checked(uuid,boolean)'::regprocedure,
@@ -56,8 +58,8 @@ select is(
       and function.prosecdef
       and has_function_privilege('authenticated', function.oid, 'EXECUTE')
   ),
-  5,
-  'authenticated can execute exactly the five intended privileged mutation RPCs'
+  6,
+  'authenticated can execute exactly the six intended privileged mutation RPCs'
 );
 
 select is(
@@ -69,7 +71,7 @@ select is(
       and function.prosecdef
       and has_function_privilege('authenticated', function.oid, 'EXECUTE')
   ),
-  5,
+  6,
   'no additional public SECURITY DEFINER function is exposed to authenticated users'
 );
 
@@ -79,6 +81,7 @@ select is(
     from pg_proc as function
     where function.oid in (
         'public.apply_shopping_to_pantry(uuid)'::regprocedure,
+        'public.save_household_setup_v2(integer,bigint,integer,jsonb,text[],jsonb,jsonb,integer)'::regprocedure,
         'public.delete_pantry_item(uuid,integer)'::regprocedure,
         'public.set_meal_option_rating(uuid,uuid,text)'::regprocedure,
         'public.set_shopping_item_checked(uuid,boolean)'::regprocedure,
@@ -86,7 +89,7 @@ select is(
       )
       and array_position(function.proconfig, 'search_path=""') is not null
   ),
-  5,
+  6,
   'all intended privileged mutation RPCs pin an empty search_path'
 );
 

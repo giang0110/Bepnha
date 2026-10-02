@@ -67,6 +67,7 @@ select ok(
       'public.delete_pantry_item(uuid,integer)'::regprocedure,
       'public.set_shopping_item_checked(uuid,boolean)'::regprocedure,
       'public.apply_shopping_to_pantry(uuid)'::regprocedure,
+        'public.save_household_setup_v2(integer,bigint,integer,jsonb,text[],jsonb,jsonb,integer)'::regprocedure,
       'public.set_meal_option_rating(uuid,uuid,text)'::regprocedure
     )
   ),
@@ -82,12 +83,10 @@ select is(
       and function.prosecdef
       and has_function_privilege('authenticated', function.oid, 'EXECUTE')
   ),
-  -- Năm: bốn hàm trước, cộng việc đặt đánh giá cho một món. `get_meal_option_ratings` không nằm
-  -- trong số này vì nó là security invoker — RLS vẫn là thứ quyết định ai đọc được gì. Con số này
-  -- cố ý cứng: thêm một hàm security definer cho người dùng đăng nhập là một quyết định về bảo
-  -- mật, nên nó phải làm bài test này đỏ lên và buộc người thêm nói rõ vì sao.
-  5,
-  'only these five public security-definer functions are callable by authenticated users'
+  -- The sixth narrow mutation is the versioned profile transaction. It checks auth.uid(),
+  -- locks the owner's household/version and rejects foreign profile IDs; no direct profile writes.
+  6,
+  'only these six public security-definer functions are callable by authenticated users'
 );
 
 select is(

@@ -540,6 +540,56 @@ export type Database = {
           },
         ]
       }
+      household_member_profiles: {
+        Row: {
+          activity_level: string | null
+          age_years: number | null
+          goal: string
+          height_cm: number | null
+          household_id: string
+          id: string
+          label: string | null
+          member_kind: string
+          sex_for_equation: string | null
+          sort_order: number
+          weight_kg: number | null
+        }
+        Insert: {
+          activity_level?: string | null
+          age_years?: number | null
+          goal?: string
+          height_cm?: number | null
+          household_id: string
+          id: string
+          label?: string | null
+          member_kind: string
+          sex_for_equation?: string | null
+          sort_order: number
+          weight_kg?: number | null
+        }
+        Update: {
+          activity_level?: string | null
+          age_years?: number | null
+          goal?: string
+          height_cm?: number | null
+          household_id?: string
+          id?: string
+          label?: string | null
+          member_kind?: string
+          sex_for_equation?: string | null
+          sort_order?: number
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_member_profiles_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_rule_catalog_targets: {
         Row: {
           allergen_id: string | null
@@ -626,8 +676,10 @@ export type Database = {
           currency_code: string
           id: string
           max_elapsed_minutes: number
+          nutrition_setup_version: string | null
           onboarding_completed_at: string | null
           owner_user_id: string
+          planned_meal_share_percent: number
           price_region_id: string
           timezone: string
           updated_at: string
@@ -639,8 +691,10 @@ export type Database = {
           currency_code?: string
           id?: string
           max_elapsed_minutes: number
+          nutrition_setup_version?: string | null
           onboarding_completed_at?: string | null
           owner_user_id: string
+          planned_meal_share_percent?: number
           price_region_id?: string
           timezone?: string
           updated_at?: string
@@ -652,8 +706,10 @@ export type Database = {
           currency_code?: string
           id?: string
           max_elapsed_minutes?: number
+          nutrition_setup_version?: string | null
           onboarding_completed_at?: string | null
           owner_user_id?: string
+          planned_meal_share_percent?: number
           price_region_id?: string
           timezone?: string
           updated_at?: string
@@ -2018,6 +2074,7 @@ export type Database = {
         Returns: Json
       }
       get_current_price_book: { Args: { p_region_id: string }; Returns: Json }
+      get_household_setup_v2: { Args: never; Returns: Json }
       get_meal_option_aggregate_for_publication: {
         Args: { p_meal_option_version_id: string }
         Returns: Json
@@ -2255,8 +2312,43 @@ export type Database = {
           currency_code: string
           id: string
           max_elapsed_minutes: number
+          nutrition_setup_version: string | null
           onboarding_completed_at: string | null
           owner_user_id: string
+          planned_meal_share_percent: number
+          price_region_id: string
+          timezone: string
+          updated_at: string
+          version: number
+          weekly_plan_budget_vnd: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "households"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_household_setup_v2: {
+        Args: {
+          p_allergen_strictness: Json
+          p_expected_version: number
+          p_max_elapsed_minutes: number
+          p_member_groups: Json
+          p_member_profiles: Json
+          p_planned_meal_share_percent: number
+          p_rule_codes: string[]
+          p_weekly_plan_budget_vnd: number
+        }
+        Returns: {
+          created_at: string
+          currency_code: string
+          id: string
+          max_elapsed_minutes: number
+          nutrition_setup_version: string | null
+          onboarding_completed_at: string | null
+          owner_user_id: string
+          planned_meal_share_percent: number
           price_region_id: string
           timezone: string
           updated_at: string

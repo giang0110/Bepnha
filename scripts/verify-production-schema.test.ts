@@ -77,20 +77,21 @@ describe("expectedSchemaFromMigrations", () => {
     )
   })
 
-  it("matches the twenty-two migrations committed to this repository", async () => {
+  it("matches the twenty-three migrations committed to this repository", async () => {
     const repository = expectedSchemaFromMigrations(await readMigrationFiles())
 
     // These counts are meant to be edited by hand. They are what makes a migration that nobody
     // meant to add show up as a failing test rather than as a surprise in production.
-    expect(repository.migrations).toHaveLength(22)
+    expect(repository.migrations).toHaveLength(23)
     expect(repository.migrations[0]).toBe("20260825000000")
     // Two more tables and one more function for the shopping trip that stocks the pantry, then one
     // more table and two more functions for what the household thinks of individual meals. Making
     // that trip take from the pantry as well as give to it added neither: it replaced a function
     // and altered a column. P11 continuation is index-only, so it adds a migration without changing
-    // the expected public table or function counts.
-    expect(repository.tables).toHaveLength(43)
-    expect(repository.functions).toHaveLength(27)
+    // the expected public table or function counts. Household nutrition adds one private table
+    // and the two public read/save RPCs; the legacy RPC is replaced, never overloaded.
+    expect(repository.tables).toHaveLength(44)
+    expect(repository.functions).toHaveLength(29)
   })
 })
 

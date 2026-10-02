@@ -266,3 +266,153 @@ describe("local household Supabase integration", () => {
     expect(after).toEqual(before)
   })
 })
+
+function nutritionProfiles(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: crypto.randomUUID(),
+    memberKind: "adult" as const,
+    sortOrder: index + 1,
+    label: `Người ${index + 1}`,
+    heightCm: "170",
+    weightKg: "65.5",
+    ageYears: 30,
+    sexForEquation: "male" as const,
+    activityLevel: "light" as const,
+    goal: "maintain" as const
+  }))
+}
+
+describe("private nutrition profiles over real local PostgREST", () => {
+  it("keeps remaining identities through deletion, enforces stale writes and guards the old RPC", async () => {
+    const owner = await createIdentity("profiles")
+    const repository = createSupabaseHouseholdRepository(owner.client)
+    const profiles = nutritionProfiles(3)
+    const input = {
+      ...setupInput,
+      memberGroups: [{ memberKind: "adult" as const, ageBand: "adult" as const, memberCount: 3 }],
+      nutritionSetup: {
+        version: "household-nutrition-v1" as const,
+        memberProfiles: profiles,
+        plannedMealSharePercent: 40
+      }
+    }
+    const created = await repository.saveOwn(input, null)
+    expect(created.ok).toBe(true)
+    if (!created.ok) throw new Error(created.reason)
+    expect(created.household.version).toBe(1)
+    await expect(repository.loadOwn()).resolves.toEqual(created.household)
+    const reduced = {
+      ...input,
+      memberGroups: [{ ...input.memberGroups[0]!, memberCount: 2 }],
+      nutritionSetup: { ...input.nutritionSetup, memberProfiles: [profiles[0]!, profiles[2]!] }
+    }
+    const updated = await repository.saveOwn(reduced, 1)
+    expect(updated).toMatchObject({
+      ok: true,
+      household: { version: 2, nutritionSetup: reduced.nutritionSetup }
+    })
+    const saved = await repository.loadOwn()
+    expect(await repository.saveOwn(input, 1)).toEqual({
+      ok: false,
+      reason: "STALE_HOUSEHOLD_VERSION"
+    })
+    await expect(repository.loadOwn()).resolves.toEqual(saved)
+    const legacy = await owner.client.rpc("save_household_setup", {
+      p_expected_version: 2,
+      p_weekly_plan_budget_vnd: 1000000,
+      p_max_elapsed_minutes: 30,
+      p_member_groups: setupInput.memberGroups,
+      p_rule_codes: setupInput.ruleCodes
+    })
+    expect(legacy.error?.message).toContain("NUTRITION_SETUP_REQUIRES_V2")
+    await expect(repository.loadOwn()).resolves.toEqual(saved)
+  })
+  it("rejects cross-owner IDs and authenticated direct profile writes without partial changes", async () => {
+    const owner = await createIdentity("profile-owner")
+    const other = await createIdentity("profile-other")
+    const profiles = nutritionProfiles(2)
+    const input = {
+      ...setupInput,
+      nutritionSetup: {
+        version: "household-nutrition-v1" as const,
+        memberProfiles: profiles,
+        plannedMealSharePercent: 33
+      }
+    }
+    const repo = createSupabaseHouseholdRepository(owner.client)
+    const saved = await repo.saveOwn(input, null)
+    expect(saved.ok).toBe(true)
+    if (!saved.ok) throw new Error(saved.reason)
+    const otherRepo = createSupabaseHouseholdRepository(other.client)
+    const foreign = await otherRepo.saveOwn(input, null)
+    expect(foreign).toEqual({ ok: false, reason: "UNAUTHORIZED" })
+    await expect(otherRepo.loadOwn()).resolves.toBeNull()
+    await expect(repo.loadOwn()).resolves.toEqual(saved.household)
+    const direct = await owner.client
+      .from("household_member_profiles")
+      .update({ weight_kg: 70 })
+      .eq("id", profiles[0]!.id)
+    expect(direct.error?.code).toBe("42501")
+    const hidden = await other.client.from("household_member_profiles").select("id")
+    expect(hidden).toMatchObject({ data: [], error: null })
+  })
+  it("retains an explicit meal share for children without profile rows", async () => {
+    const owner = await createIdentity("child-only-share")
+    const repo = createSupabaseHouseholdRepository(owner.client)
+    const input = {
+      ...setupInput,
+      memberGroups: [{ memberKind: "child" as const, ageBand: "4_6" as const, memberCount: 2 }],
+      nutritionSetup: {
+        version: "household-nutrition-v1" as const,
+        memberProfiles: [],
+        plannedMealSharePercent: 40
+      }
+    }
+    const saved = await repo.saveOwn(input, null)
+    expect(saved).toMatchObject({
+      ok: true,
+      household: { version: 1, nutritionSetup: input.nutritionSetup }
+    })
+    expect(await repo.loadOwn()).toMatchObject({ nutritionSetup: input.nutritionSetup })
+  })
+})
+
+describe("profile transaction concurrency", () => {
+  it("allows exactly one writer for a household version", async () => {
+    const owner = await createIdentity("concurrent-profiles")
+    const repo = createSupabaseHouseholdRepository(owner.client)
+    const profiles = nutritionProfiles(2)
+    const input = {
+      ...setupInput,
+      nutritionSetup: {
+        version: "household-nutrition-v1" as const,
+        memberProfiles: profiles,
+        plannedMealSharePercent: 33
+      }
+    }
+    const created = await repo.saveOwn(input, null)
+    expect(created.ok).toBe(true)
+    const results = await Promise.all(
+      ["66", "67"].map((weightKg) =>
+        repo.saveOwn(
+          {
+            ...input,
+            nutritionSetup: {
+              ...input.nutritionSetup,
+              memberProfiles: profiles.map((profile) => ({ ...profile, weightKg }))
+            }
+          },
+          1
+        )
+      )
+    )
+    expect(results.filter((result) => result.ok)).toHaveLength(1)
+    expect(results.filter((result) => !result.ok)).toEqual([
+      { ok: false, reason: "STALE_HOUSEHOLD_VERSION" }
+    ])
+    const loaded = await repo.loadOwn()
+    expect(loaded?.version).toBe(2)
+    const weights = loaded?.nutritionSetup?.memberProfiles.map((profile) => profile.weightKg)
+    expect(weights).toEqual(weights?.[0] === "66" ? ["66", "66"] : ["67", "67"])
+  })
+})
