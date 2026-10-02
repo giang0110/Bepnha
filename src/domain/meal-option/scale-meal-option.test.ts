@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest"
 
 import { mealOptionFixture as baseMealOption } from "@/domain/meal-option/meal-option.test-fixture"
-import { scaleMealOption } from "@/domain/meal-option/scale-meal-option"
+import {
+  scaleMealOption,
+  scaleMealOptionForAdultEquivalent
+} from "@/domain/meal-option/scale-meal-option"
 
 const household = [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }] as const
 
@@ -68,5 +71,30 @@ describe("scaleMealOption", () => {
         household
       )
     ).toEqual({ ok: false, error: { code: "MISSING_UNIT_CONVERSION" } })
+  })
+})
+
+describe("explicit meal demand", () => {
+  test("keeps source quantities and conversions for physical normalization", () => {
+    const result = scaleMealOptionForAdultEquivalent(baseMealOption, "1.25")
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        adultEquivalent: "1.25",
+        mealScaleFactor: "0.3125",
+        ingredients: [
+          {
+            unitId: "unit-g",
+            sourceQuantity: "125",
+            baseQuantity: "125",
+            conversion: { unitId: "unit-g", baseQuantityPerUnit: "1" }
+          }
+        ]
+      }
+    })
+    const legacy = scaleMealOption(baseMealOption, household)
+    if (!legacy.ok) throw new Error(legacy.error.code)
+    expect(legacy.value.ingredients[0]).not.toHaveProperty("sourceQuantity")
+    expect(legacy.value.ingredients[0]).not.toHaveProperty("conversion")
   })
 })

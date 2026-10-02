@@ -142,7 +142,7 @@ expect(afterRejectedSave).toEqual(beforeRejectedSave)
 - `normalizeCookingQuantity(ingredient: ScaledRecipeIngredient, conversion: FoodFactUnitConversion, policy: FoodQuantityPolicyV1): CookingQuantityResult`. Success returns `actualIngredient` with coherent source/base/gross values, `theoreticalIngredient`, policy ID/hash and adjustment reason; failure identifies missing/mismatched policy or conversion.
 - Add `scaleRecipeForAdultEquivalent(recipe: RecipeVersionInput, adultEquivalent: string): ScaleRecipeResult` and `scaleMealOptionForAdultEquivalent(input: MealOptionVersionInput, adultEquivalent: string): ExplicitMealScaleResult`. The latter has the current meal-scale success/failure shape, with source `unitId`, `sourceQuantity` and validated `conversion` on each ingredient. Existing group-based exports become validated wrappers over the same arithmetic, projecting exactly their original v1 fields, so adding v2 source detail does not change old snapshots/hashes.
 
-- [ ] **Step 1: Write RED tests.** `whole_egg_2_4_uses_3`, `two_meals_1_2_use_4_total`, `salt_0_3_stays_0_3`, `kg_to_g_preserves_actual_mass`, `small_positive_quantity_uses_policy_minimum`, `unknown_whole_piece_weight_is_rejected`, `wrong_fact_or_base_unit_is_rejected`. Assert source/base/gross recompute consistently, policy hashes remain in output and unknown conversion is not treated as identity. Existing v1 scaling golden results must remain byte-equivalent.
+- [x] **Step 1: Write RED tests.** `whole_egg_2_4_uses_3`, `two_meals_1_2_use_4_total`, `salt_0_3_stays_0_3`, `kg_to_g_preserves_actual_mass`, `small_positive_quantity_uses_policy_minimum`, `unknown_whole_piece_weight_is_rejected`, `wrong_fact_or_base_unit_is_rejected`. Assert source/base/gross recompute consistently, policy hashes remain in output and unknown conversion is not treated as identity. Existing v1 scaling golden results must remain byte-equivalent.
 
 ```ts
 expect(eggResult).toMatchObject({
@@ -158,11 +158,11 @@ expect(eggResult).toMatchObject({
 expect(saltResult).toMatchObject({ ok: true, value: { actualIngredient: { baseQuantity: "0.3" } } })
 ```
 
-- [ ] **Step 2: Run RED.** `npm run test -- src/domain/recipe/normalize-cooking-quantity.test.ts src/domain/recipe/scale-recipe.test.ts src/domain/meal-option/scale-meal-option.test.ts`.
-- [ ] **Step 3: Implement explicit-AE scaling helpers.** Reuse current recipe/meal validation, component multipliers, canonical order and conversions. The explicit helper retains source/conversion data; the legacy wrapper strips only these newly introduced projection fields before returning the same old shape. Do not fake fractional `memberCount`, alter recipe facts or invoke the display projector for authoritative values.
-- [ ] **Step 4: Implement quantity normalization.** Apply one policy per existing unique food ingredient of each component/bữa; nearest means `ROUND_HALF_UP`, indivisible means ceil. Recompute source/gross from rounded base using the pinned conversion; record theoretical values for explanation only.
-- [ ] **Step 5: Run GREEN.** Repeat Step 2 and `npm run typecheck`; v1 and new quantity tests exit 0.
-- [ ] **Step 6: Stage the task files and commit.** `git commit -m "feat: calculate practical cooking quantities"`.
+- [x] **Step 2: Run RED.** `npm run test -- src/domain/recipe/normalize-cooking-quantity.test.ts src/domain/recipe/scale-recipe.test.ts src/domain/meal-option/scale-meal-option.test.ts`.
+- [x] **Step 3: Implement explicit-AE scaling helpers.** Reuse current recipe/meal validation, component multipliers, canonical order and conversions. The explicit helper retains source/conversion data; the legacy wrapper strips only these newly introduced projection fields before returning the same old shape. Do not fake fractional `memberCount`, alter recipe facts or invoke the display projector for authoritative values.
+- [x] **Step 4: Implement quantity normalization.** Apply one policy per existing unique food ingredient of each component/bữa; nearest means `ROUND_HALF_UP`, indivisible means ceil. Recompute source/gross from rounded base using the pinned conversion; record theoretical values for explanation only.
+- [x] **Step 5: Run GREEN.** Repeat Step 2 and `npm run typecheck`; v1 and new quantity tests exit 0.
+- [x] **Step 6: Stage the task files and commit.** `git commit -m "feat: calculate practical cooking quantities"`.
 
 ### Task 4: Hợp đồng mua lẻ/gói và bộ tính giỏ hàng v2
 
