@@ -83,6 +83,15 @@ function clientWithRpc(
 }
 
 describe("Supabase shopping-list repository read", () => {
+  it("maps incompatible physical pantry facts to an actionable regeneration error", async () => {
+    const { client } = clientWithRpc(() => ({
+      data: null,
+      error: { code: "23514", message: "PANTRY_FACT_CHANGED_REGENERATION_REQUIRED" }
+    }))
+    await expect(
+      createSupabaseShoppingListRepository(client).applyToPantry("revision-a")
+    ).rejects.toMatchObject({ code: "PANTRY_FACT_CHANGED_REGENERATION_REQUIRED" })
+  })
   it("loads and strictly maps the current ready revision including pantry deduction evidence", async () => {
     const { client, rpc } = clientWithRpc(() => ({ data: readyPayload, error: null }))
 

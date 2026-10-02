@@ -8,6 +8,11 @@ The Gemini assistant is optional and advisory. It may explain an authoritative p
 
 Production configuration, database migration, deployment, and catalog mutation are explicit operator actions. Never run a remote reset, test fixture, destructive cleanup, or guessed-target deployment.
 
+The household nutrition / planner-v6 release must follow
+[its staged rollout](household-nutrition-rollout.md). Integrate a compatible schema/admin release,
+apply the five new migrations and publish reviewed cooking policies before enabling the v6
+runtime/UI. The local feature branch verification does not authorize those production actions.
+
 ## Production bring-up sequence
 
 The repository side is done: `main` is green on `web` and `database`, and production deployments
@@ -46,7 +51,7 @@ Optional, and only once its own gate is met:
 
 ### 2. Production database schema
 
-The repository currently contains 21 ordered migrations. Do not maintain or execute a hand-copied
+This feature checkout contains 27 ordered migrations. Do not maintain or execute a hand-copied
 subset from this runbook: inspect the exact candidate checkout and the production-migration workflow
 dry run. Every unapplied migration requires explicit production authorization, including migrations
 added after the historical eight-migration bootstrap described below.

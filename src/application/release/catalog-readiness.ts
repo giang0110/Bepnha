@@ -4,6 +4,13 @@ import {
 } from "@/domain/planner/evaluate-eligibility"
 import { normalizePlannerInput } from "@/domain/planner/normalize-planner-input"
 import type { PlannerInputV1 } from "@/domain/planner/planner-input"
+import {
+  evaluatePlannerEligibilityV2,
+  normalizePlannerInputV2,
+  type PlannerInputV2
+} from "@/domain/planner/planner-v2"
+import { validateFoodQuantityPolicyDefinition } from "@/domain/recipe/food-quantity-policy"
+import { normalizeFoodPriceV2 } from "@/domain/pricing/purchasing-v2"
 
 export interface CatalogReadinessScenarioResult {
   readonly scenarioCode: string
@@ -59,7 +66,16 @@ function result(
 export function evaluateCatalogReadiness(
   input: PlannerInputV1,
   scenarioCode: string
+): CatalogReadinessScenarioResult
+export function evaluateCatalogReadiness(
+  input: PlannerInputV2,
+  scenarioCode: string
+): CatalogReadinessScenarioResult
+export function evaluateCatalogReadiness(
+  input: PlannerInputV1 | PlannerInputV2,
+  scenarioCode: string
 ): CatalogReadinessScenarioResult {
+  if ("inputVersion" in input) return evaluateNutritionReadiness(input, scenarioCode)
   const normalized = normalizePlannerInput(input)
   if (!normalized.ok) return result(scenarioCode, 0, false, false, normalized.error.code)
 
@@ -87,4 +103,63 @@ export function evaluateCatalogReadiness(
     primaryProteinGroupCount >= minimumPrimaryProteinGroupCount,
     coverageOk
   )
+}
+
+function evaluateNutritionReadiness(
+  input: PlannerInputV2,
+  scenarioCode: string
+): CatalogReadinessScenarioResult {
+  const normalized = normalizePlannerInputV2(input)
+  if (!normalized.ok) return result(scenarioCode, 0, false, false, normalized.error.code)
+  const metadataBlockers = new Set<string>()
+  for (const candidate of normalized.value.candidates) {
+    for (const ingredient of candidate.mealOption.components.flatMap((c) => c.recipe.ingredients)) {
+      const policy = candidate.quantityPolicies.find(
+        (p) => p.foodFactVersionId === ingredient.foodFactVersionId
+      )
+      if (!policy) metadataBlockers.add("MISSING_QUANTITY_POLICY")
+      else if (ingredient.conversion !== null) {
+        const checked = validateFoodQuantityPolicyDefinition(policy, ingredient.conversion)
+        if (!checked.ok) metadataBlockers.add(checked.error.code)
+      }
+    }
+    for (const price of candidate.prices) {
+      if (
+        !price.purchaseProvenance.trim() ||
+        !/^[a-f0-9]{64}$/u.test(price.purchaseTermsContentHash)
+      )
+        metadataBlockers.add("PURCHASE_TERMS_UNVERIFIED")
+      const checked = normalizeFoodPriceV2(price)
+      if (!checked.ok) metadataBlockers.add(checked.error.code)
+    }
+  }
+  const eligibility = evaluatePlannerEligibilityV2(normalized.value)
+  let base: CatalogReadinessScenarioResult
+  if (!eligibility.ok) {
+    base = result(
+      scenarioCode,
+      0,
+      false,
+      metadataBlockers.size === 0 && !isCoverageFatal(eligibility.error.code),
+      eligibility.error.code
+    )
+  } else {
+    const groups = new Set(eligibility.value.eligible.map((e) => e.primaryProteinGroup)).size
+    const minimum = normalized.value.hardRuleCodes.includes("diet_vegetarian")
+      ? VEGETARIAN_MINIMUM_PRIMARY_PROTEIN_GROUP_COUNT
+      : MINIMUM_PRIMARY_PROTEIN_GROUP_COUNT
+    for (const rejected of eligibility.value.rejected.filter(isCoverageRejection))
+      metadataBlockers.add(rejected.code)
+    base = result(
+      scenarioCode,
+      eligibility.value.eligible.length,
+      groups >= minimum,
+      metadataBlockers.size === 0
+    )
+  }
+  return {
+    ...base,
+    blockers: [...new Set([...base.blockers, ...[...metadataBlockers].sort()])],
+    ready: base.ready && metadataBlockers.size === 0
+  }
 }

@@ -54,32 +54,39 @@ test("a direct unknown deep link preserves its URL and renders not found", async
   await expect(page.getByRole("heading", { level: 1, name: "Không tìm thấy trang" })).toBeVisible()
 })
 
-test("the app shell loads without page errors or failed first-party requests", async ({ page }) => {
-  const pageHealth = observePageHealth(page)
+test.describe("asset response observer", () => {
+  // The negative probe must reach Playwright's route. A service worker can take control after
+  // navigation and bypass that route; worker/offline behavior has its own tests below.
+  test.use({ serviceWorkers: "block" })
+  test("the app shell loads without page errors or failed first-party requests", async ({
+    page
+  }) => {
+    const pageHealth = observePageHealth(page)
 
-  await page.goto("/")
-  await page.route("/page-health-probe.css", (route) => {
-    void route.fulfill({ status: 500, contentType: "text/css", body: "" })
-  })
-  await page.evaluate(`
+    await page.goto("/")
+    await page.route("/page-health-probe.css", (route) => {
+      void route.fulfill({ status: 500, contentType: "text/css", body: "" })
+    })
+    await page.evaluate(`
     const stylesheet = document.createElement("link")
     stylesheet.rel = "stylesheet"
     stylesheet.href = "/page-health-probe.css"
     document.head.append(stylesheet)
   `)
 
-  await expect
-    .poll(() => pageHealth.failedAssetResponses)
-    .toEqual(["500 http://127.0.0.1:4173/page-health-probe.css"])
+    await expect
+      .poll(() => pageHealth.failedAssetResponses)
+      .toEqual(["500 http://127.0.0.1:4173/page-health-probe.css"])
 
-  await page.unroute("/page-health-probe.css")
-  pageHealth.reset()
+    await page.unroute("/page-health-probe.css")
+    pageHealth.reset()
 
-  await page.reload()
+    await page.reload()
 
-  expect(pageHealth.pageErrors).toEqual([])
-  expect(pageHealth.failedAssetResponses).toEqual([])
-  expect(pageHealth.failedTransportRequests).toEqual([])
+    expect(pageHealth.pageErrors).toEqual([])
+    expect(pageHealth.failedAssetResponses).toEqual([])
+    expect(pageHealth.failedTransportRequests).toEqual([])
+  })
 })
 
 test("the app installs a service worker and opens again with no network", async ({

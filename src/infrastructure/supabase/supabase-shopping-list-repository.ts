@@ -31,6 +31,7 @@ type UnknownRecord = Record<string, unknown>
 
 type RpcError = {
   readonly code?: string
+  readonly message?: string
 }
 
 const CANONICAL_DECIMAL = /^(0|[1-9][0-9]*)(\.[0-9]*[1-9])?$/u
@@ -330,6 +331,8 @@ function parseTransferResult(value: unknown): PantryTransferResult {
 }
 
 function rpcFailure(error: RpcError): ShoppingListRepositoryError {
+  if (error.code === "23514" && error.message === "PANTRY_FACT_CHANGED_REGENERATION_REQUIRED")
+    return new ShoppingListRepositoryError("PANTRY_FACT_CHANGED_REGENERATION_REQUIRED")
   return new ShoppingListRepositoryError(
     error.code === "42501" ? "UNAUTHORIZED" : "DEPENDENCY_UNAVAILABLE"
   )

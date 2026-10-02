@@ -61,6 +61,39 @@ describe("member meal portion weights", () => {
         mealTargetKcal: null
       })
   })
+  test("freezes unnamed identities by stable order, including gaps after removal", () => {
+    const setup: HouseholdNutritionSetupV1 = {
+      ...nutrition,
+      memberProfiles: [
+        { ...profile, label: null },
+        { ...nutrition.memberProfiles[1]!, sortOrder: 3, label: null },
+        {
+          ...profile,
+          id: "10000000-0000-4000-8000-000000000004",
+          memberKind: "elderly",
+          sortOrder: 4,
+          label: null
+        }
+      ]
+    }
+    const result = calculateMemberMealPortions(
+      [...groups, { memberKind: "elderly", ageBand: "elderly", memberCount: 1 }],
+      setup,
+      "711.253125"
+    )
+    if (!result.ok) throw new Error(result.error.code)
+    expect(result.value.portions.map((p) => p.label)).toEqual([
+      "Người lớn 1",
+      "Người lớn 3",
+      null,
+      "Người cao tuổi 4"
+    ])
+    expect(result.value.portions.slice(0, 2).map((p) => p.coefficientPerMember)).toEqual([
+      "0.9",
+      "1.1"
+    ])
+    expect(nutrition.memberProfiles.map((p) => p.label)).toEqual(["Anh", "Chị"])
+  })
   test.each([
     ["3000", "0.5"],
     ["100", "2"]

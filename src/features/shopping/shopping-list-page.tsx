@@ -83,6 +83,8 @@ function unitLabel(baseUnitId: string): string {
 function errorCopy(error: unknown): string {
   if (error instanceof ShoppingListRepositoryError) {
     if (error.code === "UNAUTHORIZED") return "Phiên đăng nhập đã hết hạn."
+    if (error.code === "PANTRY_FACT_CHANGED_REGENERATION_REQUIRED")
+      return "Quy đổi thực phẩm trong tủ bếp đã thay đổi. Vui lòng kiểm tra tủ bếp và tạo lại kế hoạch trước khi xác nhận đi chợ."
     if (error.code === "INVALID_STORED_DATA") {
       return "Dữ liệu danh sách đi chợ không hợp lệ. Vui lòng tạo lại kế hoạch."
     }

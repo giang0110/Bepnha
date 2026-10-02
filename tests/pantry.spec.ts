@@ -26,6 +26,71 @@ async function onboard(page: Page) {
   await expect(page.getByRole("heading", { name: "Gia đình của bạn" })).toBeVisible()
 }
 
+test("whole-egg policy rejects a fraction while preserving the pantry draft", async ({ page }) => {
+  const itemUnitId = "70010000-0000-0000-0000-000000000007"
+  const fixtures = [
+    [
+      "**/rest/v1/foods*",
+      [
+        {
+          id: FOOD_ID,
+          name_vi: "Trứng nguyên quả",
+          current_fact_version_id: FACT_ID,
+          base_unit_id: itemUnitId
+        }
+      ]
+    ],
+    [
+      "**/rest/v1/food_fact_unit_conversions*",
+      [{ food_fact_version_id: FACT_ID, unit_id: itemUnitId, base_quantity_per_unit: "1" }]
+    ],
+    [
+      "**/rest/v1/units*",
+      [{ id: itemUnitId, code: "item", name_vi: "cái", dimension: "count", to_dimension_base: 1 }]
+    ],
+    [
+      "**/rest/v1/food_quantity_policy_versions*",
+      [
+        {
+          id: "10000000-0000-4000-8000-000000000001",
+          food_fact_version_id: FACT_ID,
+          version_number: 1,
+          base_unit_id: itemUnitId,
+          base_dimension: "count",
+          food_form: "whole_piece",
+          step_base_quantity: "1",
+          rounding: "ceil",
+          provenance: "Synthetic browser whole-egg policy",
+          content_hash: "e".repeat(64),
+          publication_status: "published"
+        }
+      ]
+    ],
+    ["**/rest/v1/rpc/get_pantry", []]
+  ] as const
+  for (const [pattern, data] of fixtures)
+    await page.route(pattern, (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) })
+    )
+  let writes = 0
+  await page.route("**/rest/v1/rpc/upsert_pantry_item", (route) => {
+    writes++
+    return route.fulfill({ status: 500 })
+  })
+  await onboard(page)
+  await page.goto("/pantry")
+  await page.getByLabel("Thực phẩm", { exact: true }).selectOption({ label: "Trứng nguyên quả" })
+  await page.getByLabel("Số lượng", { exact: true }).fill("2.4")
+  await expect(
+    page.getByText("Thực phẩm này phải nhập nguyên đơn vị; ví dụ 3 trứng thay vì 2,4.")
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Thêm vào tủ bếp" })).toBeDisabled()
+  await expect(page.getByLabel("Số lượng", { exact: true })).toHaveValue("2.4")
+  expect(writes).toBe(0)
+  await page.getByLabel("Số lượng", { exact: true }).fill("3")
+  await expect(page.getByRole("button", { name: "Thêm vào tủ bếp" })).toBeEnabled()
+})
+
 test("mobile pantry CRUD persists explicit zero quantity without automatic consumption", async ({
   page
 }) => {

@@ -4,7 +4,10 @@ import type { GroceryCategoryCode } from "../../domain/shopping/grocery-category
 import type { ShoppingWarning } from "../../domain/shopping/shopping-list.js"
 
 export type ShoppingListRepositoryErrorCode =
-  "UNAUTHORIZED" | "DEPENDENCY_UNAVAILABLE" | "INVALID_STORED_DATA"
+  | "UNAUTHORIZED"
+  | "DEPENDENCY_UNAVAILABLE"
+  | "INVALID_STORED_DATA"
+  | "PANTRY_FACT_CHANGED_REGENERATION_REQUIRED"
 
 export class ShoppingListRepositoryError extends Error {
   readonly code: ShoppingListRepositoryErrorCode

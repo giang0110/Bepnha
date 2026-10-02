@@ -651,6 +651,7 @@ import {
 } from "./load-food-quantity-policies.js"
 import { loadPlannerPurchaseTerms } from "./load-planner-purchase-terms.js"
 import { ExactDecimal, decimalToCanonical } from "../../domain/shared/decimal.js"
+import { canonicalJson } from "../../domain/shared/canonical-json.js"
 import type { HouseholdNutritionSetupV1 } from "../../domain/household/member-profile.js"
 
 export class PlannerInputChangedError extends Error {
@@ -719,6 +720,14 @@ async function generationV2(
         }
       : root
   )
+  // Old pantry policy pins cannot be hydrated against a different live fact set. Recognize the
+  // ordinary stock edit first so preview and apply both offer the required regeneration path.
+  if (
+    pinned &&
+    canonicalJson(legacy.pantrySnapshot ?? { version: "pantry-snapshot-v1", items: [] }) !==
+      canonicalJson(pinned.inputBinding.pantrySnapshot)
+  )
+    throw new PlannerInputChangedError()
   const factIds = [
     ...new Set([
       ...legacy.candidates.flatMap((c) => c.ingredientLineage.map((l) => l.foodFactVersionId)),

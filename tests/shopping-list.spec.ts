@@ -287,6 +287,21 @@ async function onboard(page: Page) {
 test("v2 shopping shows 600 g loose fish and a fixed ten-egg box with seven eggs left", async ({
   page
 }) => {
+  let sharedText = ""
+  await page.exposeFunction("captureShoppingText", (text: string) => {
+    sharedText = text
+  })
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { value: undefined })
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: (text: string) =>
+          (
+            window as unknown as { captureShoppingText: (value: string) => Promise<void> }
+          ).captureShoppingText(text)
+      }
+    })
+  })
   const policyRef = { id: "policy", contentHash: "e".repeat(64), versionNumber: 1 }
   const physical = (
     foodId: string,
@@ -378,6 +393,11 @@ test("v2 shopping shows 600 g loose fish and a fixed ten-egg box with seven eggs
   await page.getByText("Chi tiết và dùng cho bữa nào", { exact: true }).nth(1).click()
   await expect(page.getByText("7 cái", { exact: true })).toBeVisible()
   await expect(page.getByText("Hàng đóng gói cố định; phần dư có thể cất lại.")).toBeVisible()
+  await page.getByRole("button", { name: "Gửi cho người đi chợ", exact: true }).click()
+  await expect.poll(() => sharedText).toContain("600 g")
+  expect(sharedText).toContain("1 gói × 10 cái")
+  for (const key of ["heightCm", "weightKg", "bmi", "bmrKcal", "tdeeKcal"])
+    expect(sharedText).not.toContain(key)
 })
 
 test("shopping list stays revision-bound across check state, refresh, and one-meal replacement", async ({
