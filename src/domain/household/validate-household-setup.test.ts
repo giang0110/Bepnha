@@ -206,3 +206,56 @@ describe("HOUSEHOLD_RULE_OPTIONS", () => {
     })
   })
 })
+
+describe("household nutrition setup", () => {
+  const nutritionSetup = {
+    version: "household-nutrition-v1",
+    plannedMealSharePercent: 33,
+    memberProfiles: [1, 2].map((sortOrder) => ({
+      id: `10000000-0000-4000-8000-${String(sortOrder).padStart(12, "0")}`,
+      memberKind: "adult",
+      sortOrder,
+      label: null,
+      heightCm: null,
+      weightKg: null,
+      ageYears: null,
+      sexForEquation: null,
+      activityLevel: null,
+      goal: "maintain"
+    }))
+  }
+
+  test("saves partial adult profiles and meal share without inventing body fields", () => {
+    expect(validateHouseholdSetup({ ...validInput, nutritionSetup })).toEqual({
+      ok: true,
+      value: { ...validInput, allergenStrictness: {}, nutritionSetup }
+    })
+  })
+
+  test("keeps legacy households free of a nutrition setup", () => {
+    expect(expectValid(validInput)).not.toHaveProperty("nutritionSetup")
+  })
+
+  test.each([19, 51, 33.5, "33", null])("rejects invalid planned meal share %s", (share) => {
+    const result = validateHouseholdSetup({
+      ...validInput,
+      nutritionSetup: { ...nutritionSetup, plannedMealSharePercent: share }
+    })
+    expect(result).toMatchObject({
+      ok: false,
+      errors: [{ code: "INVALID_NUTRITION_SETUP", path: "nutritionSetup" }]
+    })
+  })
+
+  test("retains an explicit share for a household with only children", () => {
+    const result = validateHouseholdSetup({
+      ...validInput,
+      memberGroups: [{ memberKind: "child", ageBand: "4_6", memberCount: 2 }],
+      nutritionSetup: { ...nutritionSetup, memberProfiles: [], plannedMealSharePercent: 40 }
+    })
+    expect(result).toMatchObject({
+      ok: true,
+      value: { nutritionSetup: { memberProfiles: [], plannedMealSharePercent: 40 } }
+    })
+  })
+})

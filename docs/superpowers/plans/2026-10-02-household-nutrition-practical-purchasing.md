@@ -66,7 +66,7 @@ Các đoạn assertion dưới đây dùng fixture/result được chuẩn bị 
 - `calculateBmi(heightCm: string, weightKg: string): BmiResult`, result canonical decimal or validation error.
 - `calculateMemberEnergyTarget(profile: MemberProfileV1, plannedMealSharePercent: number): MemberEnergyEstimate`. Applied estimate includes `memberId`, `bmi`, `bmrKcal`, `tdeeKcal`, `dailyTargetKcal`, `mealTargetKcal`; unapplied includes `memberId`, optional BMI and reason `INCOMPLETE_PROFILE`, `UNSUPPORTED_WEIGHT_LOSS` or `INVALID_ENERGY_ESTIMATE`.
 
-- [ ] **Step 1: Write failing behavior tests.** Local `baseMember` fixture uses a valid UUID, age 30, height `"170"`, weight `"65"`, male/light/maintain. Pin numeric results below and add female/activity variants, boundary validation, invalid decimals/NaN/infinity/exponent, incomplete fields, BMI below 18.5 with lose, child counts unaffected and legacy input without `nutritionSetup` round-trips without invented fields.
+- [x] **Step 1: Write failing behavior tests.** Local `baseMember` fixture uses a valid UUID, age 30, height `"170"`, weight `"65"`, male/light/maintain. Pin numeric results below and add female/activity variants, boundary validation, invalid decimals/NaN/infinity/exponent, incomplete fields, BMI below 18.5 with lose, child counts unaffected and legacy input without `nutritionSetup` round-trips without invented fields.
 
 ```ts
 expect(calculateBmi("170", "65")).toEqual({
@@ -88,10 +88,10 @@ expect(calculateMemberEnergyTarget({ ...baseMember, goal: "gain" }, 33)).toMatch
 })
 ```
 
-- [ ] **Step 2: Run RED.** `npm run test -- src/domain/household/validate-member-profiles.test.ts src/domain/nutrition/member-energy-target.test.ts src/domain/household/validate-household-setup.test.ts`; new behavior must fail before implementation.
-- [ ] **Step 3: Implement the three new interfaces/modules and extend household validation.** Validate raw values before canonicalizing; allow null fields and partial profiles. One canonical-decimal boundary is shared by targets and later v2 scaling; do not round kcal to integers in domain.
-- [ ] **Step 4: Run GREEN.** Repeat Step 2, then `npm run typecheck`; all tests pass, exit 0. Existing household/portion tests must still pass.
-- [ ] **Step 5: Stage the task files and commit.** `git commit -m "feat: add household member energy estimates"`.
+- [x] **Step 2: Run RED.** `npm run test -- src/domain/household/validate-member-profiles.test.ts src/domain/nutrition/member-energy-target.test.ts src/domain/household/validate-household-setup.test.ts`; new behavior must fail before implementation.
+- [x] **Step 3: Implement the three new interfaces/modules and extend household validation.** Validate raw values before canonicalizing; allow null fields and partial profiles. One canonical-decimal boundary is shared by targets and later v2 scaling; do not round kcal to integers in domain.
+- [x] **Step 4: Run GREEN.** Repeat Step 2, then `npm run typecheck`; all tests pass, exit 0. Existing household/portion tests must still pass.
+- [x] **Step 5: Stage the task files and commit.** `git commit -m "feat: add household member energy estimates"`.
 
 ### Task 2: Lưu hồ sơ gia đình an toàn và chịu được schema cũ
 

@@ -1,5 +1,7 @@
 import type { AllergenStrictness } from "./allergen-strictness.js"
 
+import type { HouseholdNutritionSetupV1 } from "./member-profile.js"
+
 export const CHILD_AGE_BANDS = ["1_3", "4_6", "7_9", "10_12", "13_17"] as const
 
 export type ChildAgeBand = (typeof CHILD_AGE_BANDS)[number]
@@ -12,6 +14,7 @@ export type HouseholdMemberGroup =
 export type HouseholdRuleKind = "allergen_exclusion" | "food_exclusion" | "soft_preference"
 
 export interface HouseholdSetupInput {
+  nutritionSetup?: HouseholdNutritionSetupV1
   memberGroups: readonly HouseholdMemberGroup[]
   weeklyPlanBudgetVnd: number
   maxElapsedMinutes: number
