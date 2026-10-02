@@ -1833,6 +1833,7 @@ export type Database = {
           meal_option_recipe_id: string
           meal_plan_item_id: string
           meal_plan_revision_id: string
+          quantity_policy_ref: Json | null
           recipe_ingredient_id: string
           recipe_version_id: string
           required_base_quantity: string
@@ -1847,6 +1848,7 @@ export type Database = {
           meal_option_recipe_id: string
           meal_plan_item_id: string
           meal_plan_revision_id: string
+          quantity_policy_ref?: Json | null
           recipe_ingredient_id: string
           recipe_version_id: string
           required_base_quantity: string
@@ -1861,6 +1863,7 @@ export type Database = {
           meal_option_recipe_id?: string
           meal_plan_item_id?: string
           meal_plan_revision_id?: string
+          quantity_policy_ref?: Json | null
           recipe_ingredient_id?: string
           recipe_version_id?: string
           required_base_quantity?: string
@@ -1932,15 +1935,22 @@ export type Database = {
           line_cost_vnd: number
           meal_plan_revision_id: string
           observed_at: string
-          package_base_quantity: string
-          package_price_vnd: number
+          package_base_quantity: string | null
+          package_price_vnd: number | null
           pantry_deducted_base_quantity: string
+          policy_refs: Json | null
           price_book_id: string
           price_food_fact_version_id: string
           purchase_base_quantity: string
-          purchase_increment: string
-          purchase_package_count: string
+          purchase_contract: Json | null
+          purchase_increment: string | null
+          purchase_mode: string | null
+          purchase_package_count: string | null
           purchase_required_base_quantity: string
+          purchase_terms_content_hash: string | null
+          purchase_unit_count: string | null
+          quote_base_quantity: string | null
+          quote_price_vnd: number | null
           required_base_quantity: string
           shopping_list_id: string
         }
@@ -1956,15 +1966,22 @@ export type Database = {
           line_cost_vnd: number
           meal_plan_revision_id: string
           observed_at: string
-          package_base_quantity: string
-          package_price_vnd: number
+          package_base_quantity?: string | null
+          package_price_vnd?: number | null
           pantry_deducted_base_quantity: string
+          policy_refs?: Json | null
           price_book_id: string
           price_food_fact_version_id: string
           purchase_base_quantity: string
-          purchase_increment: string
-          purchase_package_count: string
+          purchase_contract?: Json | null
+          purchase_increment?: string | null
+          purchase_mode?: string | null
+          purchase_package_count?: string | null
           purchase_required_base_quantity: string
+          purchase_terms_content_hash?: string | null
+          purchase_unit_count?: string | null
+          quote_base_quantity?: string | null
+          quote_price_vnd?: number | null
           required_base_quantity: string
           shopping_list_id: string
         }
@@ -1980,15 +1997,22 @@ export type Database = {
           line_cost_vnd?: number
           meal_plan_revision_id?: string
           observed_at?: string
-          package_base_quantity?: string
-          package_price_vnd?: number
+          package_base_quantity?: string | null
+          package_price_vnd?: number | null
           pantry_deducted_base_quantity?: string
+          policy_refs?: Json | null
           price_book_id?: string
           price_food_fact_version_id?: string
           purchase_base_quantity?: string
-          purchase_increment?: string
-          purchase_package_count?: string
+          purchase_contract?: Json | null
+          purchase_increment?: string | null
+          purchase_mode?: string | null
+          purchase_package_count?: string | null
           purchase_required_base_quantity?: string
+          purchase_terms_content_hash?: string | null
+          purchase_unit_count?: string | null
+          quote_base_quantity?: string | null
+          quote_price_vnd?: number | null
           required_base_quantity?: string
           shopping_list_id?: string
         }

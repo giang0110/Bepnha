@@ -1,9 +1,16 @@
+import { normalizeFoodPriceV2 } from "../../domain/pricing/purchasing-v2.js"
+import { calculatePurchaseBasketV2 } from "../../domain/pricing/calculate-purchase-basket-v2.js"
+import type { ShoppingQuantityPolicyRef } from "../../domain/shopping/shopping-list.js"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import {
   ShoppingListRepositoryError,
   type LegacyShoppingListUnavailable,
   type ReadyShoppingList,
+  type ReadyShoppingListV2,
+  type ShoppingListItemV2,
+  type VersionedShoppingListReadResult,
+  type VersionedShoppingListRepository,
   type PantryTransferResult,
   type ShoppingItemCheckState,
   type ShoppingListItem,
@@ -239,7 +246,10 @@ function parseLegacy(value: UnknownRecord): LegacyShoppingListUnavailable {
   }
 }
 
-function parseReady(value: UnknownRecord): ReadyShoppingList {
+function parseReady<T extends { readonly lineCostVnd: number }>(
+  value: UnknownRecord,
+  itemParser: (value: unknown) => T[]
+): Omit<ReadyShoppingList, "items"> & { readonly items: readonly T[] } {
   const calculationFingerprint = nonEmptyString(value.calculationFingerprint)
   if (!SHA256.test(calculationFingerprint)) invalidStoredData()
   const budgetVnd = safeInteger(value.budgetVnd)
@@ -256,7 +266,7 @@ function parseReady(value: UnknownRecord): ReadyShoppingList {
   ) {
     invalidStoredData()
   }
-  const items = parseItems(value.items)
+  const items = itemParser(value.items)
   if (items.reduce((sum, item) => sum + item.lineCostVnd, 0) !== totalEstimatedCostVnd) {
     invalidStoredData()
   }
@@ -277,7 +287,7 @@ function parseReady(value: UnknownRecord): ReadyShoppingList {
 
 function parseReadResult(value: unknown): ShoppingListReadResult {
   if (!isRecord(value)) invalidStoredData()
-  if (value.status === "ready") return parseReady(value)
+  if (value.status === "ready") return parseReady(value, parseItems)
   if (value.status === "legacy_unavailable") return parseLegacy(value)
   return invalidStoredData()
 }
@@ -369,10 +379,13 @@ type ShoppingFetcher = (url: string, init: RequestInit) => Promise<ShoppingFetch
  * Uses a same-origin GET for reads so the service worker can retain an exact revision response.
  * Narrow writes remain the existing RLS-protected RPC calls on the authenticated Supabase client.
  */
-export function createBrowserShoppingListRepository(
+function browserShoppingListRepository<T extends ShoppingListReadResult | ReadyShoppingListV2>(
   client: SupabaseClient<Database>,
-  fetcher: ShoppingFetcher = fetch
-): ShoppingListRepository {
+  fetcher: ShoppingFetcher,
+  parser: (value: unknown) => T
+): Omit<ShoppingListRepository, "load"> & {
+  load(planId: string, revisionId?: string | null): Promise<T | null>
+} {
   const mutations = createSupabaseShoppingListRepository(client)
   return {
     async load(planId, revisionId) {
@@ -401,9 +414,183 @@ export function createBrowserShoppingListRepository(
       }
       const payload: unknown = await response.json()
       if (!isRecord(payload) || !Object.hasOwn(payload, "shoppingList")) invalidStoredData()
-      return payload.shoppingList === null ? null : parseReadResult(payload.shoppingList)
+      return payload.shoppingList === null ? null : parser(payload.shoppingList)
     },
     setChecked: (shoppingListItemId, checked) => mutations.setChecked(shoppingListItemId, checked),
     applyToPantry: (revisionId) => mutations.applyToPantry(revisionId)
   }
+}
+
+function parsePolicyRef(value: unknown): ShoppingQuantityPolicyRef {
+  if (!isRecord(value)) invalidStoredData()
+  const id = nonEmptyString(value.id),
+    contentHash = nonEmptyString(value.contentHash)
+  if (!SHA256.test(contentHash)) invalidStoredData()
+  return { id, contentHash, versionNumber: safeInteger(value.versionNumber, 1) }
+}
+function parseItemV2(value: unknown): ShoppingListItemV2 {
+  if (
+    !isRecord(value) ||
+    value.version !== "purchase-v2" ||
+    typeof value.checked !== "boolean" ||
+    !Array.isArray(value.policyRefs) ||
+    value.policyRefs.length === 0 ||
+    !Array.isArray(value.sources) ||
+    value.sources.length === 0
+  )
+    invalidStoredData()
+  if (
+    ["packageBaseQuantity", "purchasePackageCount", "packagePriceVnd", "purchaseIncrement"].some(
+      (k) => Object.hasOwn(value, k)
+    )
+  )
+    invalidStoredData()
+  const rule = value.purchaseRule
+  if (!isRecord(rule) || Object.keys(rule).length !== 2) invalidStoredData()
+  const purchaseRule: import("../../domain/pricing/purchasing-v2.js").PurchaseRuleV2 =
+    rule.mode === "fixed_pack"
+      ? { mode: "fixed_pack" as const, packIncrement: canonicalDecimal(rule.packIncrement, false) }
+      : rule.mode === "loose_mass" || rule.mode === "loose_count"
+        ? {
+            mode: rule.mode,
+            saleStepBaseQuantity: canonicalDecimal(rule.saleStepBaseQuantity, false)
+          }
+        : invalidStoredData()
+  const baseDimension = value.baseDimension
+  if (baseDimension !== "mass" && baseDimension !== "count" && baseDimension !== "volume")
+    invalidStoredData()
+  const price = normalizeFoodPriceV2({
+    version: "purchase-v2",
+    foodId: nonEmptyString(value.foodId),
+    foodPriceId: nonEmptyString(value.foodPriceId),
+    priceBookId: nonEmptyString(value.priceBookId),
+    foodFactVersionId: nonEmptyString(value.priceFoodFactVersionId),
+    baseUnitId: nonEmptyString(value.baseUnitId),
+    baseDimension,
+    quoteBaseQuantity: canonicalDecimal(value.quoteBaseQuantity, false),
+    quotePriceVnd: safeInteger(value.quotePriceVnd, 1),
+    purchaseRule,
+    purchaseProvenance: nonEmptyString(value.purchaseProvenance),
+    purchaseTermsContentHash: nonEmptyString(value.purchaseTermsContentHash),
+    observedAt: dateOnly(value.observedAt)
+  })
+  if (!price.ok) invalidStoredData()
+  const requiredBaseQuantity = canonicalDecimal(value.requiredBaseQuantity, false),
+    pantryDeductedBaseQuantity = canonicalDecimal(value.pantryDeductedBaseQuantity, true)
+  const result = calculatePurchaseBasketV2(
+    [
+      {
+        sourceId: "stored-line",
+        foodId: price.value.foodId,
+        foodFactVersionId: price.value.foodFactVersionId,
+        baseUnitId: price.value.baseUnitId,
+        requiredBaseQuantity
+      }
+    ],
+    [price.value],
+    price.value.observedAt,
+    undefined,
+    [
+      {
+        foodId: price.value.foodId,
+        baseUnitId: price.value.baseUnitId,
+        availableBaseQuantity: pantryDeductedBaseQuantity
+      }
+    ]
+  )
+  if (!result.ok) invalidStoredData()
+  const expected = result.value.lines[0]!
+  for (const key of [
+    "purchaseRequiredBaseQuantity",
+    "purchaseUnitCount",
+    "purchaseBaseQuantity",
+    "leftoverBaseQuantity"
+  ] as const)
+    if (canonicalDecimal(value[key], true) !== expected[key]) invalidStoredData()
+  if (safeInteger(value.lineCostVnd) !== expected.lineCostVnd) invalidStoredData()
+  const policyRefs = value.policyRefs.map(parsePolicyRef)
+  if (new Set(policyRefs.map((p) => p.id)).size !== policyRefs.length) invalidStoredData()
+  const sources = value.sources.map((s) => {
+    if (!isRecord(s)) invalidStoredData()
+    const source = parseSource(s),
+      quantityPolicyRef = parsePolicyRef(s.quantityPolicyRef)
+    if (
+      !policyRefs.some(
+        (p) =>
+          p.id === quantityPolicyRef.id &&
+          p.contentHash === quantityPolicyRef.contentHash &&
+          p.versionNumber === quantityPolicyRef.versionNumber
+      ) ||
+      source.baseUnitId !== price.value.baseUnitId
+    )
+      invalidStoredData()
+    return { ...source, quantityPolicyRef }
+  })
+  if (
+    !sources
+      .reduce((sum, s) => sum.plus(s.requiredBaseQuantity), new ExactDecimal(0))
+      .equals(requiredBaseQuantity) ||
+    (baseDimension === "count" &&
+      sources.some((s) => !new ExactDecimal(s.requiredBaseQuantity).isInteger()))
+  )
+    invalidStoredData()
+  if (value.freshness !== "current" && value.freshness !== "stale_usable") invalidStoredData()
+  return {
+    ...expected,
+    freshness: value.freshness,
+    shoppingListItemId: nonEmptyString(value.shoppingListItemId),
+    foodNameVi: nonEmptyString(value.foodNameVi),
+    groceryCategoryCode: parseGroceryCategory(value.groceryCategoryCode),
+    checked: value.checked,
+    checkedAt: parseCheckedAt(value.checked, value.checkedAt),
+    transferredToPantry: value.transferredToPantry === true,
+    policyRefs,
+    sources
+  }
+}
+export function parseVersionedShoppingListReadResult(
+  value: unknown
+): VersionedShoppingListReadResult {
+  if (!isRecord(value)) invalidStoredData()
+  if (value.snapshotVersion === undefined || value.snapshotVersion === "shopping-list-v1")
+    return parseReadResult(value)
+  if (value.snapshotVersion !== "shopping-list-v2" || value.status !== "ready") invalidStoredData()
+  const result: ReadyShoppingListV2 = {
+    ...parseReady(value, (v) => {
+      if (!Array.isArray(v)) invalidStoredData()
+      return v.map(parseItemV2)
+    }),
+    snapshotVersion: "shopping-list-v2"
+  }
+  if (new Set(result.items.map((i) => i.foodId)).size !== result.items.length) invalidStoredData()
+  return result
+}
+export function createSupabaseVersionedShoppingListRepository(
+  client: SupabaseClient<Database>
+): VersionedShoppingListRepository {
+  const mutations = createSupabaseShoppingListRepository(client)
+  return {
+    ...mutations,
+    async load(planId, revisionId) {
+      const { data, error } = await client.rpc(
+        "get_shopping_list",
+        revisionId ? { p_plan_id: planId, p_revision_id: revisionId } : { p_plan_id: planId }
+      )
+      if (error !== null) throw rpcFailure(error)
+      return data === null ? null : parseVersionedShoppingListReadResult(data)
+    }
+  }
+}
+
+export function createBrowserShoppingListRepository(
+  client: SupabaseClient<Database>,
+  fetcher: ShoppingFetcher = fetch
+): ShoppingListRepository {
+  return browserShoppingListRepository(client, fetcher, parseReadResult)
+}
+export function createBrowserVersionedShoppingListRepository(
+  client: SupabaseClient<Database>,
+  fetcher: ShoppingFetcher = fetch
+): VersionedShoppingListRepository {
+  return browserShoppingListRepository(client, fetcher, parseVersionedShoppingListReadResult)
 }
