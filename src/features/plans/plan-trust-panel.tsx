@@ -1,6 +1,9 @@
 import type { PlanTrustView } from "@/application/planner/plan-trust"
 
 const EXPLANATION_LABELS: Readonly<Record<string, string>> = {
+  ENERGY_GOAL_FIT_ACTUAL_KCAL_AND_PORTION_DEVIATION:
+    "Điều chỉnh món và khẩu phần theo mục tiêu năng lượng",
+  ENERGY_GOALS_NOT_APPLIED: "Dùng khẩu phần theo nhóm tuổi khi chưa áp dụng mục tiêu",
   DIVERSITY_PRIMARY_PROTEIN_REPETITION: "Hạn chế lặp nhóm đạm",
   DIVERSITY_COOKING_STYLE_VARIETY: "Đa dạng cách nấu",
   DIVERSITY_ADJACENT_PRIMARY_PROTEIN: "Hạn chế lặp nhóm đạm liền ngày",
@@ -35,9 +38,11 @@ export function PlanTrustPanel({ trust }: Readonly<{ trust: PlanTrustView }>) {
       <h2 className="font-bold text-ink">Vì sao kế hoạch này phù hợp</h2>
       <div className="mt-3 grid gap-2 text-sm text-ink-soft sm:grid-cols-2">
         <p>
-          {trust.adultEquivalent === null
-            ? "Khẩu phần quy đổi chưa được ghi trong bản kế hoạch này."
-            : `${displayDecimal(trust.adultEquivalent)} suất người lớn quy đổi`}
+          {trust.portionVaries
+            ? "Khẩu phần thay đổi theo từng bữa; xem cách chia cho mỗi người trong chi tiết bữa."
+            : trust.adultEquivalent === null
+              ? "Khẩu phần quy đổi chưa được ghi trong bản kế hoạch này."
+              : `${displayDecimal(trust.adultEquivalent)} suất người lớn quy đổi`}
         </p>
         <p>Tính ngày {displayDate(trust.calculationDate)}</p>
         <p>

@@ -1,3 +1,4 @@
+import { pantryQuantityIsWhole } from "./whole-unit-quantity"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
 
@@ -162,13 +163,27 @@ function PantryItemEditor({
             ))}
           </select>
         </label>
+        {!pantryQuantityIsWhole(option, quantity, unitId, item.foodFactVersionId) ? (
+          <p role="alert" className="text-sm text-chilli-700">
+            Thực phẩm này phải nhập nguyên đơn vị. Giữ đúng lượng thực tế, ví dụ 3 trứng thay vì
+            2,4.
+          </p>
+        ) : null}
         <div className="flex gap-2">
           <Button
-            disabled={pending || validQuantity(quantity) === null}
+            disabled={
+              pending ||
+              validQuantity(quantity) === null ||
+              !pantryQuantityIsWhole(option, quantity, unitId, item.foodFactVersionId)
+            }
             type="button"
             onClick={() => {
               const normalized = validQuantity(quantity)
-              if (normalized !== null) onSave(item, normalized, unitId)
+              if (
+                normalized !== null &&
+                pantryQuantityIsWhole(option, normalized, unitId, item.foodFactVersionId)
+              )
+                onSave(item, normalized, unitId)
             }}
           >
             Lưu {foodName}
@@ -428,7 +443,8 @@ export function PantryPage({
     )
       return
     const quantity = validQuantity(newQuantity)
-    if (quantity === null) return
+    if (quantity === null || !pantryQuantityIsWhole(selectedOption, quantity, selectedUnitId))
+      return
 
     setPendingKey("new")
     setMessage(null)
@@ -452,7 +468,12 @@ export function PantryPage({
       if (error instanceof PantryRepositoryError && error.code === "VERSION_CONFLICT") {
         await reloadAfterConflict(state.householdId, state.options)
       } else {
-        setMessage("Không thể thêm thực phẩm vào tủ bếp lúc này. Vui lòng thử lại.")
+        setMessage(
+          error instanceof PantryRepositoryError &&
+            error.code === "INVALID_INDIVISIBLE_PANTRY_QUANTITY"
+            ? "Lượng thực phẩm phải là nguyên đơn vị. Kiểm tra lại số lượng và đơn vị đang chọn."
+            : "Không thể thêm thực phẩm vào tủ bếp lúc này. Vui lòng thử lại."
+        )
       }
     } finally {
       setPendingKey(null)
@@ -770,12 +791,19 @@ export function PantryPage({
                 disabled={pendingKey !== null}
                 onSelect={setNewQuantity}
               />
+              {selectedOption &&
+              !pantryQuantityIsWhole(selectedOption, newQuantity, selectedUnitId) ? (
+                <p role="alert" className="text-sm text-chilli-700">
+                  Thực phẩm này phải nhập nguyên đơn vị; ví dụ 3 trứng thay vì 2,4.
+                </p>
+              ) : null}
               <Button
                 disabled={
                   pendingKey !== null ||
                   selectedOption === undefined ||
                   selectedUnitId === "" ||
-                  validQuantity(newQuantity) === null
+                  validQuantity(newQuantity) === null ||
+                  !pantryQuantityIsWhole(selectedOption, newQuantity, selectedUnitId)
                 }
                 type="button"
                 onClick={() => void addItem()}

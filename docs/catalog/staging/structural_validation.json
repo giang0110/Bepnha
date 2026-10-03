@@ -1,66 +1,18 @@
 {
-  "passed": true,
-  "checks": [
-    {
-      "check": "allergen_matrix:row_count",
-      "passed": true,
-      "detail": "450"
-    },
-    {
-      "check": "allergen_matrix:45x10",
-      "passed": true,
-      "detail": "foods=45 allergens=10"
-    },
-    {
-      "check": "allergen_matrix:status_counts",
-      "passed": true,
-      "detail": "{'unknown': 441, 'contains': 9}"
-    },
-    {
-      "check": "allergen_assessments:complete_450",
-      "passed": true,
-      "detail": "rows=450"
-    },
-    {
-      "check": "allergen_assessments:keys_unique",
-      "passed": true,
-      "detail": ""
-    },
-    {
-      "check": "allergen_assessments:all_keys_match",
-      "passed": true,
-      "detail": ""
-    },
-    {
-      "check": "allergen_assessments:contains_match_existing",
-      "passed": true,
-      "detail": ""
-    },
-    {
-      "check": "research_log:450_diagnostic_rows",
-      "passed": true,
-      "detail": "450"
-    },
-    {
-      "check": "csv:utf8_bom_all_csv",
-      "passed": true,
-      "detail": ""
-    }
-  ],
+  "schemaVersion": "1",
+  "inputSha256": "97d5d6793b510fa347d12cc71b830ba4549d6e0a090351138aeb9f8cb9c84110",
+  "catalogCode": "launch_v1",
+  "valid": true,
+  "ready": true,
   "summary": {
-    "allergen_rows": 450,
     "foods": 45,
-    "allergen_groups": 10,
-    "status_counts": {
-      "unknown": 441,
-      "contains": 9
-    },
-    "assessment_counts": {
-      "not_intrinsic_but_cross_contact_unverified": 431,
-      "formulation_or_source_dependent": 10,
-      "confirmed_contains": 9
-    },
-    "diagnosed_pairs": 450,
-    "safety_note": "unknown is retained where SKU/supplier cross-contact safety is not established"
-  }
+    "recipes": 37,
+    "priceRows": 45,
+    "mealOptions": 48,
+    "primaryProteinGroups": 7,
+    "reachableFoods": 45,
+    "pricedReachableFoods": 45
+  },
+  "blockers": [],
+  "diagnostics": []
 }

@@ -10,7 +10,7 @@ import { decimalToCanonical, parseCanonicalDecimal } from "@/domain/shared/decim
 import type { Database } from "./database.types.js"
 
 type UnknownRecord = Record<string, unknown>
-type RpcError = { readonly code?: string }
+type RpcError = { readonly message?: string; readonly code?: string }
 
 function invalidStoredData(): never {
   throw new PantryRepositoryError("INVALID_STORED_DATA")
@@ -70,6 +70,8 @@ function parseRows(value: unknown): PantryItemRecord[] {
 }
 
 function rpcFailure(error: RpcError): PantryRepositoryError {
+  if (error.code === "23514" && error.message?.includes("INVALID_INDIVISIBLE_PANTRY_QUANTITY"))
+    return new PantryRepositoryError("INVALID_INDIVISIBLE_PANTRY_QUANTITY")
   if (error.code === "42501") return new PantryRepositoryError("UNAUTHORIZED")
   if (error.code === "P0001") return new PantryRepositoryError("VERSION_CONFLICT")
   return new PantryRepositoryError("DEPENDENCY_UNAVAILABLE")

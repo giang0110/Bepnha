@@ -660,6 +660,39 @@ test("v6 stores private profiles, reads without catalog, pins historical policie
     ok: true,
     value: { revisionId: generated.value.revisionId, engineVersion: "planner-engine-v6" }
   })
+  const http = createPlannerHttpHandlers({
+    auth: createServerAuthVerifier(publicClient),
+    repositoryFor: () => legacyRepository,
+    versionedRepositoryFor: () => ({ legacyRepository, repository }),
+    hasher,
+    calculationDate: () => calculationDate
+  })
+  const currentResponse = responseDouble()
+  await http.current(
+    {
+      method: "GET",
+      headers: { authorization: `Bearer ${token}` },
+      query: { householdId, weekStart: command.weekStart }
+    } as unknown as VercelRequest,
+    currentResponse.response
+  )
+  expect(currentResponse.state.statusCode).toBe(200)
+  expect(currentResponse.state.body).toMatchObject({
+    engineVersion: "planner-engine-v6"
+  })
+  const body = currentResponse.state.body as {
+    plan: {
+      items: {
+        memberPortions: unknown[]
+        plannedMealSharePercent: number
+        scaledIngredients: unknown[]
+      }[]
+    }
+  }
+  expect(body.plan.items[0]?.memberPortions).toHaveLength(2)
+  expect(body.plan.items[0]?.plannedMealSharePercent).toBe(33)
+  for (const key of ["weightKg", "heightCm", "bmi", "privatePlanBinding"])
+    expect(JSON.stringify(body)).not.toContain(key)
   const newerPolicy = crypto.randomUUID()
   await catalog({
     action: "save_food_quantity_policy_draft",

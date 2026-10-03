@@ -273,7 +273,8 @@ async function onboard(page: Page) {
   await page.getByLabel("Mật khẩu").fill("phase4-shopping-test-password")
   await page.getByRole("button", { name: "Tạo tài khoản" }).click()
   await expect(page.getByRole("heading", { name: "Thành viên trong gia đình" })).toBeVisible()
-  await page.getByRole("spinbutton", { name: "Người lớn" }).fill("2")
+  await page.getByRole("button", { name: "Thêm người lớn" }).click()
+  await page.getByRole("button", { name: "Thêm người lớn" }).click()
   await page.getByRole("button", { name: "Tiếp tục" }).click()
   await page.getByRole("textbox", { name: "Ngân sách tuần (VND)" }).fill("1200000")
   await page.getByRole("button", { name: "Tiếp tục" }).click()
@@ -282,6 +283,122 @@ async function onboard(page: Page) {
   await page.getByRole("button", { name: "Lưu thông tin" }).click()
   await expect(page.getByRole("heading", { name: "Gia đình của bạn" })).toBeVisible()
 }
+
+test("v2 shopping shows 600 g loose fish and a fixed ten-egg box with seven eggs left", async ({
+  page
+}) => {
+  let sharedText = ""
+  await page.exposeFunction("captureShoppingText", (text: string) => {
+    sharedText = text
+  })
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { value: undefined })
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: (text: string) =>
+          (
+            window as unknown as { captureShoppingText: (value: string) => Promise<void> }
+          ).captureShoppingText(text)
+      }
+    })
+  })
+  const policyRef = { id: "policy", contentHash: "e".repeat(64), versionNumber: 1 }
+  const physical = (
+    foodId: string,
+    name: string,
+    dimension: "mass" | "count",
+    required: string,
+    quote: string,
+    buy: string,
+    units: string,
+    leftover: string,
+    price: number,
+    rule: object
+  ) => ({
+    version: "purchase-v2",
+    shoppingListItemId: `shopping-${foodId}`,
+    foodId,
+    foodNameVi: name,
+    baseUnitId: dimension === "mass" ? UNIT_G : UNIT_EACH,
+    baseDimension: dimension,
+    foodPriceId: `price-${foodId}`,
+    priceBookId: "book",
+    priceFoodFactVersionId: `fact-${foodId}`,
+    quoteBaseQuantity: quote,
+    quotePriceVnd: price,
+    purchaseRule: rule,
+    purchaseProvenance: "Synthetic browser purchase evidence",
+    purchaseTermsContentHash: "f".repeat(64),
+    requiredBaseQuantity: required,
+    pantryDeductedBaseQuantity: "0",
+    purchaseRequiredBaseQuantity: required,
+    purchaseBaseQuantity: buy,
+    purchaseUnitCount: units,
+    leftoverBaseQuantity: leftover,
+    lineCostVnd: dimension === "mass" ? 60000 : price,
+    observedAt: "2026-08-20",
+    freshness: "current",
+    groceryCategoryCode: dimension === "mass" ? "meat_seafood" : "eggs_tofu_dairy",
+    checked: false,
+    checkedAt: null,
+    policyRefs: [policyRef],
+    sources: [
+      {
+        ...source(
+          0,
+          `fact-${foodId}`,
+          dimension === "mass" ? UNIT_G : UNIT_EACH,
+          required,
+          "Bữa đã lưu"
+        ),
+        quantityPolicyRef: policyRef
+      }
+    ]
+  })
+  const payload = {
+    ...shoppingReady(
+      REVISION_V1,
+      [
+        physical("fish", "Cá bán lẻ", "mass", "600", "1000", "600", "12", "0", 100000, {
+          mode: "loose_mass",
+          saleStepBaseQuantity: "50"
+        }),
+        {
+          ...physical("eggs", "Trứng hộp 10", "count", "3", "10", "10", "1", "7", 24000, {
+            mode: "fixed_pack",
+            packIncrement: "1"
+          }),
+          wholeUnit: { unitCode: "item", baseQuantityPerPiece: "1" }
+        }
+      ],
+      84000
+    ),
+    snapshotVersion: "shopping-list-v2",
+    warnings: []
+  }
+  await page.route("**/rest/v1/rpc/get_shopping_list", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(payload) })
+  )
+  await page.route("**/api/shopping/current*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ shoppingList: payload })
+    })
+  )
+  await onboard(page)
+  await page.goto(`/shopping/${PLAN_ID}`)
+  await expect(page.getByText("Mua 600 g", { exact: true })).toBeVisible()
+  await expect(page.getByText("Mua 1 gói × 10 cái", { exact: true })).toBeVisible()
+  await page.getByText("Chi tiết và dùng cho bữa nào", { exact: true }).nth(1).click()
+  await expect(page.getByText("7 cái", { exact: true })).toBeVisible()
+  await expect(page.getByText("Hàng đóng gói cố định; phần dư có thể cất lại.")).toBeVisible()
+  await page.getByRole("button", { name: "Gửi cho người đi chợ", exact: true }).click()
+  await expect.poll(() => sharedText).toContain("600 g")
+  expect(sharedText).toContain("1 gói × 10 cái")
+  for (const key of ["heightCm", "weightKg", "bmi", "bmrKcal", "tdeeKcal"])
+    expect(sharedText).not.toContain(key)
+})
 
 test("shopping list stays revision-bound across check state, refresh, and one-meal replacement", async ({
   page

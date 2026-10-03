@@ -1,2 +1,2 @@
-﻿catalogCode,preparedAt,sourceName,sourceProvenance
-launch_v1,2026-09-17T09:51:49Z,Tavily-assisted verified web research (staging),"Verified values only; primary sources include Vietnamese Food Composition Table (FAO mirror), Dữ Liệu Pháp Luật food-composition records, and retailer pages discovered/extracted via Tavily. Unverified fields are intentionally left pending."
+﻿catalogCode,preparedAt,sourceName,sourceProvenance,schemaVersion
+launch_v1,2026-10-02T16:37:06Z,Reviewed cooking forms plus retained 2026-09-17 price evidence (staging),"Existing cited nutrient, allergen, conversion and retailer observations preserved. Cooking forms reviewed against explicit recipe preparation; conservative fixed-quote purchase semantics retained where loose steps are unverified. See PURCHASING_REVIEW.md.",2

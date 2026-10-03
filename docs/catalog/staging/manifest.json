@@ -1,16 +1,26 @@
 {
-  "generatedAt": "2026-09-18",
+  "generatedAt": "2026-10-02",
   "algorithm": "sha256",
   "files": [
     {
       "file": "CHANGES.md",
-      "sha256": "5354b17149bd65907ef371df171b207cf120884425b289a1c5692b0fec3ac1e7",
-      "bytes": 10254
+      "sha256": "93b5d0a228e0deea0d48e22c691bcbb33db4838551ed5c8068207ec088762954",
+      "bytes": 10914
     },
     {
       "file": "ENRICHMENT_STATUS.md",
-      "sha256": "44fed5cced09545a7889d7731bd455da9e433aa34ce614b3d17f8c34a4f665b1",
-      "bytes": 552
+      "sha256": "99390eba8c0348bda080d7ef3078885dfd42f1822089c7221a351ff43c2d9574",
+      "bytes": 1047
+    },
+    {
+      "file": "PURCHASING_REVIEW.md",
+      "sha256": "43e6e9cc432ef1cb8db88c85055e7db536c0662ae4b6462c8f43cfb754c35d5a",
+      "bytes": 15006
+    },
+    {
+      "file": "README.md",
+      "sha256": "2827dfedcb12fa7cba2b8cfa70eaa462e59bf2fb8575d2c36f485003b004b770",
+      "bytes": 13381
     },
     {
       "file": "allergen_assessments.csv",
@@ -38,64 +48,69 @@
       "bytes": 26060
     },
     {
+      "file": "food_quantity_policies.csv",
+      "sha256": "1edf9be0d89b0f8f11076f4404de5bf6f049cbb44d0ce578bd75a65bfb81eda1",
+      "bytes": 10095
+    },
+    {
       "file": "foods.csv",
-      "sha256": "15f690aa7caa361aab3ae38ef09cf9a4633e48e654210c5fcb2d8b4f6288868b",
-      "bytes": 6292
+      "sha256": "fae56ad3738ac389ef94d1f6daf26708dbcbd1c701a167fca2aaeeb1db8bff70",
+      "bytes": 6246
     },
     {
       "file": "meal_option_components.csv",
-      "sha256": "8703a60354d7688bcee22521785689705ba0d40fa5d8006b80bb39d5b5b7c7e4",
-      "bytes": 8579
+      "sha256": "83768d549f94328e3b8f915cc8f5ce0b8a43016065fd7c2dae1c317a61a26f8d",
+      "bytes": 8510
     },
     {
       "file": "meal_options.csv",
-      "sha256": "1030bb8b779edcffcafdf95b90cb08149c8ac9d2976df252f74569f8ab6c302c",
-      "bytes": 6156
+      "sha256": "6a5bc7193bf9c3c79a915931f0541dfb87aef07ce09456f42b334d3067c16a06",
+      "bytes": 6135
     },
     {
       "file": "pack.csv",
-      "sha256": "9956704c3085c602fb63d5a7a6a45b2e4f496c6f6073e97f90aca9b378e07766",
-      "bytes": 384
+      "sha256": "c4bcd55a7eaf67b9420821b5c88542903f72c614e1b0ad2057358e9cbb6d78f1",
+      "bytes": 432
     },
     {
       "file": "price_book.csv",
-      "sha256": "8763b578634d08c0c18698959f9ee86abb777e2bbbac010a2b017af46e48056a",
-      "bytes": 82
+      "sha256": "69b1b4be31afb5eb0da62227e1d6c0bd81293d93e88f9c75f1bd403c57f7d3e9",
+      "bytes": 80
     },
     {
       "file": "prices.csv",
-      "sha256": "9579492e768fbf3d0e87049a0eea4d88bb940854e8334dd638da9e39e4d1e169",
-      "bytes": 4631
+      "sha256": "e8309cbcf30e98ef06e569f7a8c2a7f003f8a1d1ae22815db3b7fb5971c7ab98",
+      "bytes": 13579
     },
     {
       "file": "recipe_ingredients.csv",
-      "sha256": "ab692d6f1b58ee8bcb02e5cfd846ffe414e6b6caca4d068fb3acf1f656d34ddf",
-      "bytes": 8080
+      "sha256": "b6e0710012b92d4153de9591914c572bd22e79759c4a0f9577b2ce0de0f251eb",
+      "bytes": 9398
     },
     {
       "file": "recipe_steps.csv",
-      "sha256": "3be8726ae83a55fc3902288f46df4cd03df257f1ee379a233391a980c881a31c",
-      "bytes": 10842
+      "sha256": "3b7011cd0916444ef34051ec7bc623e0faafdfe1cd085b2cf81626e5b1f26017",
+      "bytes": 12240
     },
     {
       "file": "recipes.csv",
-      "sha256": "d0fd2a870c93338fdf486a79b558634b31e08fac6d2aaca070d114f90c82ba37",
-      "bytes": 1880
+      "sha256": "1e91b41b8f3c56da5bdf84b29da00dceb1bacad1cffa53cb3402d53ff4a10585",
+      "bytes": 1842
     },
     {
       "file": "research_log.csv",
-      "sha256": "7336b812e9a68fd54db1c5f01ad49b4143b71351c491d60b4a775a7c28e948a3",
-      "bytes": 699838
+      "sha256": "379e46ca4723ca03c47331f72ad8d733e93e65f9ac5b477b37acf3ab87867086",
+      "bytes": 713939
     },
     {
       "file": "review_queue.csv",
-      "sha256": "82355cddd28533083ff30bf7bfc17ae32af98e1798f0b28be9b4eea7d7dffe7b",
-      "bytes": 81209
+      "sha256": "1f7dcc13761b88dd195901812ef235aefd43d5cab5bf7080a3073700ee34d1e8",
+      "bytes": 94876
     },
     {
       "file": "structural_validation.json",
-      "sha256": "652a576132187d90a41a19335753ebec664666968d0b332a241e4c145dc0998a",
-      "bytes": 1489
+      "sha256": "2d74be09d41f3a1228063cc4d56e075d7a41a5557b14da55962bac995c4ab4f9",
+      "bytes": 403
     }
   ]
 }

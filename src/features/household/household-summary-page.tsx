@@ -11,8 +11,10 @@ import {
   type HouseholdRuleCode
 } from "@/domain/household/household-rules"
 
+import { calculateMemberEnergyTarget } from "@/domain/nutrition/member-energy-target"
+
 import { formatVnd } from "./budget-vnd"
-import { memberGroupLabel, ruleLabel } from "./household-display"
+import { memberGroupLabel, ruleLabel, goalLabel, energyReasonLabel } from "./household-display"
 
 interface HouseholdSummaryPageProps {
   repository: HouseholdRepository
@@ -118,6 +120,43 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
               <li key={`${group.memberKind}:${group.ageBand}`}>{memberGroupLabel(group)}</li>
             ))}
           </ul>
+          {state.household.nutritionSetup ? (
+            <div className="mt-3 text-sm">
+              <p>
+                Một bữa chính: {state.household.nutritionSetup.plannedMealSharePercent}% năng lượng
+                ngày.
+              </p>
+              <ul>
+                {state.household.nutritionSetup.memberProfiles.map((p) => {
+                  const estimate = calculateMemberEnergyTarget(
+                    p,
+                    state.household!.nutritionSetup!.plannedMealSharePercent
+                  )
+                  return (
+                    <li className="mt-3" key={p.id}>
+                      <p className="font-semibold">
+                        {p.label ||
+                          `${p.memberKind === "adult" ? "Người lớn" : "Người cao tuổi"} ${p.sortOrder}`}{" "}
+                        · {goalLabel(p.goal)}
+                      </p>
+                      <p>
+                        {p.heightCm?.replace(".", ",") ?? "Chưa nhập"} cm ·{" "}
+                        {p.weightKg?.replace(".", ",") ?? "Chưa nhập"} kg
+                        {estimate.bmi
+                          ? ` · BMI ${Number(estimate.bmi).toLocaleString("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          : ""}
+                      </p>
+                      <p>
+                        {estimate.status === "applied"
+                          ? `${Math.round(Number(estimate.mealTargetKcal)).toLocaleString("vi-VN")} kcal/bữa`
+                          : energyReasonLabel(estimate.reason)}
+                      </p>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft">

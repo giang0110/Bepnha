@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest"
 
 import type { PersistPlannerRevisionCommand } from "@/application/planner/planner-use-cases"
 import type { ReplacementAuthoritativeInput } from "@/application/planner/planner-use-cases"
-import { PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
+import { LEGACY_PLANNER_ENGINE_VERSION as PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
 import { plannerInput } from "@/domain/planner/planner-test-fixture"
 
 import { createSupabasePlannerRepository } from "./supabase-planner-repository"

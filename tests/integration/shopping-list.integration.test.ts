@@ -9,7 +9,7 @@ import {
   type MealOptionAdminCommand
 } from "@/application/meal-option/execute-meal-option-admin-command.js"
 import type { ReadyShoppingList } from "@/application/shopping/shopping-list-repository.js"
-import { PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version.js"
+import { LEGACY_PLANNER_ENGINE_VERSION as PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version.js"
 import { NodeContentHasher } from "@/infrastructure/server/node-content-hasher.js"
 import { createPlannerHttpHandlers } from "@/infrastructure/server/planner-http.js"
 import { createSupabaseCatalogAdminRepository } from "@/infrastructure/server/supabase-catalog-admin-repository.js"

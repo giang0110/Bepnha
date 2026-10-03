@@ -18,7 +18,7 @@ export type PlannerRepositoryErrorV2 =
 export type PlannerRepositoryResultV2<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: { readonly code: PlannerRepositoryErrorV2 } }
-export type PublicMealSnapshotV2 = Pick<
+export type PublicMealSnapshotV2 = { readonly plannedMealSharePercent: number | null } & Pick<
   EligibleMealOptionV2,
   | "mealOptionId"
   | "mealOptionVersionId"

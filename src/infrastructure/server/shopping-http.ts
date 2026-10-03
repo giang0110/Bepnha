@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 
-import type { ShoppingListReadResult } from "../../application/shopping/shopping-list-repository.js"
+import type { VersionedShoppingListReadResult } from "../../application/shopping/shopping-list-repository.js"
 
 import { applyApiSecurityHeaders } from "./security-headers.js"
 import { parseBearerToken, type ServerAuthVerifier } from "../supabase/server-auth.js"
@@ -13,7 +13,7 @@ interface Dependencies {
     accessToken: string,
     planId: string,
     revisionId: string | null
-  ) => Promise<ShoppingListReadResult | null>
+  ) => Promise<VersionedShoppingListReadResult | null>
 }
 
 function queryReference(query: VercelRequest["query"]): {

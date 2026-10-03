@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest"
 
 import type { ContentHasher } from "@/application/shared/content-hasher"
 import type { PantrySnapshotV1 } from "@/domain/pantry/pantry"
-import { PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
+import { LEGACY_PLANNER_ENGINE_VERSION as PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
 import type { PlannerInputV1 } from "@/domain/planner/planner-input"
 import { plannerCandidate, plannerInput } from "@/domain/planner/planner-test-fixture"
 import { canonicalJson } from "@/domain/shared/canonical-json"

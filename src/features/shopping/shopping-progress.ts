@@ -1,4 +1,4 @@
-import type { ShoppingListItem } from "@/application/shopping/shopping-list-repository"
+import type { AnyShoppingListItem } from "@/application/shopping/shopping-list-repository"
 
 export interface ShoppingProgress {
   readonly checkedCount: number
@@ -21,7 +21,7 @@ export interface ShoppingProgress {
  * A line with no purchase left to make still costs 0 and still counts as an item, because the
  * shopper still has to look at it and decide it is already covered.
  */
-export function shoppingProgress(items: readonly ShoppingListItem[]): ShoppingProgress {
+export function shoppingProgress(items: readonly AnyShoppingListItem[]): ShoppingProgress {
   let checkedCount = 0
   let remainingCostVnd = 0
   let pickedUpCostVnd = 0

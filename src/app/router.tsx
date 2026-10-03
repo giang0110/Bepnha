@@ -5,7 +5,7 @@ import type { MealRatingRepository } from "@/application/meal-rating/meal-rating
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import type { PantryRepository } from "@/application/pantry/pantry-repository"
-import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
+import type { VersionedShoppingListRepository as ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
 import { useAuth } from "@/app/auth/auth-context"
 import { useDocumentTitle } from "@/app/use-document-title"
 import { RequireAuth } from "@/app/auth/require-auth"

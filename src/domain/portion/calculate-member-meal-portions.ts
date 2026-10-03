@@ -115,7 +115,10 @@ export function calculateMemberMealPortions(
         ...(profile === undefined ? {} : { memberId: profile.id }),
         memberKind: group.memberKind,
         ageBand: group.ageBand,
-        label: profile?.label ?? null,
+        // The saved allocation must identify the same card even when orders have gaps.
+        label:
+          profile?.label ??
+          `${group.memberKind === "elderly" ? "Người cao tuổi" : "Người lớn"} ${profile?.sortOrder ?? index + 1}`,
         memberCount: 1,
         coefficientPerMember: coefficient,
         totalCoefficient: coefficient,

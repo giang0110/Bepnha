@@ -2,8 +2,15 @@ import { createClient } from "@supabase/supabase-js"
 
 import { NodeContentHasher } from "./node-content-hasher.js"
 import { createPlannerHttpHandlers } from "./planner-http.js"
-import { createSupabasePlannerInputLoader } from "./supabase-planner-input-loader.js"
-import { createSupabasePlannerRepository } from "./supabase-planner-repository.js"
+import {
+  createSupabasePlannerInputLoader,
+  createSupabasePlannerInputLoaderV2
+} from "./supabase-planner-input-loader.js"
+import {
+  createSupabasePlannerRepository,
+  createSupabasePlannerRepositoryV2,
+  type PlannerRpcClient
+} from "./supabase-planner-repository.js"
 import { createUpstashRateLimiter, readUpstashRestConfig } from "./upstash-rate-limiter.js"
 import type { Database } from "../supabase/database.types.js"
 import { createServerSupabaseAuthVerifier } from "../supabase/server-auth.js"
@@ -45,39 +52,48 @@ export const plannerHttpHandlers = createPlannerHttpHandlers({
       return createServerSupabaseAuthVerifier(publicConfig()).verify(accessToken)
     }
   },
-  repositoryFor(_actorUserId, accessToken) {
-    const { url, publishableKey } = publicConfig()
-    const userClient = createClient<Database>(url, publishableKey, {
-      auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
-      global: { headers: { Authorization: `Bearer ${accessToken}` } }
-    })
-    return createSupabasePlannerRepository({
-      userClient: {
-        rpc(name, args) {
-          return userClient.rpc(
+  repositoryFor: (...args) => plannerPorts(...args).legacyRepository,
+  versionedRepositoryFor: plannerPorts,
+  hasher: new NodeContentHasher(),
+  ...(rateLimiter === undefined ? {} : { rateLimiter })
+})
+
+function plannerPorts(_actorUserId: string, accessToken: string) {
+  const { url, publishableKey } = publicConfig()
+  const userClient = createClient<Database>(url, publishableKey, {
+    auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${accessToken}` } }
+  })
+  const shared: { userClient: PlannerRpcClient; secretClientFactory: () => PlannerRpcClient } = {
+    userClient: {
+      rpc(name: string, args: Record<string, unknown>) {
+        return userClient.rpc(name as keyof Database["public"]["Functions"], args as never) as never
+      }
+    },
+    secretClientFactory() {
+      const secretKey = process.env.SUPABASE_SECRET_KEY
+      if (secretKey === undefined) throw new Error("PLANNER_WRITE_CONFIG_UNAVAILABLE")
+      const serviceClient = createClient<Database>(url, secretKey, {
+        auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false }
+      })
+      return {
+        rpc(name: string, args: Record<string, unknown>) {
+          return serviceClient.rpc(
             name as keyof Database["public"]["Functions"],
             args as never
           ) as never
         }
-      },
-      loader: createSupabasePlannerInputLoader(userClient),
-      secretClientFactory() {
-        const secretKey = process.env.SUPABASE_SECRET_KEY
-        if (secretKey === undefined) throw new Error("PLANNER_WRITE_CONFIG_UNAVAILABLE")
-        const serviceClient = createClient<Database>(url, secretKey, {
-          auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false }
-        })
-        return {
-          rpc(name, args) {
-            return serviceClient.rpc(
-              name as keyof Database["public"]["Functions"],
-              args as never
-            ) as never
-          }
-        }
       }
-    })
-  },
-  hasher: new NodeContentHasher(),
-  ...(rateLimiter === undefined ? {} : { rateLimiter })
-})
+    }
+  }
+  const legacyRepository = createSupabasePlannerRepository({
+    ...shared,
+    loader: createSupabasePlannerInputLoader(userClient)
+  })
+  const repository = createSupabasePlannerRepositoryV2({
+    ...shared,
+    legacyRepository,
+    loader: createSupabasePlannerInputLoaderV2(userClient)
+  })
+  return { legacyRepository, repository }
+}

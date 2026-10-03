@@ -1,6 +1,6 @@
 export const LEGACY_PLANNER_ENGINE_VERSION = "planner-engine-v5" as const
 export const NUTRITION_PLANNER_ENGINE_VERSION = "planner-engine-v6" as const
-export const PLANNER_ENGINE_VERSION = "planner-engine-v5" as const
+export const PLANNER_ENGINE_VERSION = "planner-engine-v6" as const
 
 /**
  * Every engine version a stored plan may carry.

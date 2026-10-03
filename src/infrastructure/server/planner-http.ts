@@ -1,3 +1,5 @@
+import { createVersionedPlannerUseCases } from "../../application/planner/planner-nutrition-use-cases.js"
+import type { PlannerRepositoryV2 } from "../../application/planner/planner-versioned-repository.js"
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 
 import {
@@ -27,6 +29,10 @@ interface PlannerOperations {
 interface PlannerHttpDependencies {
   readonly auth: ServerAuthVerifier
   readonly repositoryFor: (actorUserId: string, accessToken: string) => PlannerRepository
+  readonly versionedRepositoryFor?: (
+    actorUserId: string,
+    accessToken: string
+  ) => { readonly legacyRepository: PlannerRepository; readonly repository: PlannerRepositoryV2 }
   readonly hasher: ContentHasher
   readonly operations?: PlannerOperations
   readonly calculationDate?: () => string
@@ -183,6 +189,31 @@ function bodyIsTooLarge(body: unknown): boolean {
   }
 }
 
+function publicPortions(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.map((raw) => {
+    const p = isRecord(raw) ? raw : {}
+    return Object.fromEntries(
+      [
+        "recipientKey",
+        "memberId",
+        "memberKind",
+        "ageBand",
+        "label",
+        "memberCount",
+        "coefficientPerMember",
+        "totalCoefficient",
+        "sharePerMember",
+        "mealTargetKcal",
+        "actualMealKcal",
+        "energyTargetStatus",
+        "unappliedReason"
+      ]
+        .filter((k) => p[k] !== undefined)
+        .map((k) => [k, p[k]])
+    )
+  })
+}
 function publicItems(value: unknown): unknown[] {
   if (!Array.isArray(value)) return []
   return value.map((raw) => {
@@ -200,7 +231,33 @@ function publicItems(value: unknown): unknown[] {
       mealOptionNameVi: snapshot.mealOptionNameVi,
       elapsedMinutes: snapshot.elapsedMinutes,
       components: mealOption.components,
-      scaledIngredients: snapshot.scaledIngredients,
+      scaledIngredients:
+        Array.isArray(snapshot.memberPortions) && Array.isArray(snapshot.scaledIngredients)
+          ? snapshot.scaledIngredients.map((rawIngredient) => {
+              const i = isRecord(rawIngredient) ? rawIngredient : {},
+                c = isRecord(i.conversion) ? i.conversion : {}
+              return {
+                sourceId: i.sourceId,
+                foodId: i.foodId,
+                foodFactVersionId: i.foodFactVersionId,
+                baseUnitId: i.baseUnitId,
+                baseQuantity: i.baseQuantity,
+                grossGrams: i.grossGrams,
+                actualQuantity: {
+                  version: "food-quantity-v1",
+                  sourceQuantity: i.sourceQuantity,
+                  unitCode: c.unitCode,
+                  sourceDimension: c.sourceDimension
+                }
+              }
+            })
+          : snapshot.scaledIngredients,
+      ...(Array.isArray(snapshot.memberPortions)
+        ? {
+            memberPortions: publicPortions(snapshot.memberPortions),
+            plannedMealSharePercent: snapshot.plannedMealSharePercent ?? null
+          }
+        : {}),
       nutrition: snapshot.nutrition
     }
   })
@@ -218,6 +275,9 @@ function safeSuccess(value: unknown, kind: PlannerOperation) {
   const result = isRecord(value) ? value : {}
   if (kind === "preview") {
     return {
+      ...(result.engineVersion === "planner-engine-v6"
+        ? { engineVersion: result.engineVersion }
+        : {}),
       status: result.status,
       items: publicItems(result.items),
       weeklyEstimatedCostVnd: result.weeklyEstimatedCostVnd,
@@ -228,6 +288,9 @@ function safeSuccess(value: unknown, kind: PlannerOperation) {
     }
   }
   return {
+    ...(result.engineVersion === "planner-engine-v6"
+      ? { engineVersion: result.engineVersion }
+      : {}),
     planId: result.planId,
     revisionId: result.revisionId,
     planVersion: result.planVersion,
@@ -252,7 +315,7 @@ function failureStatus(code: string): number {
   if (code === "UNAUTHORIZED") return 403
   if (code === "STALE_PLAN_VERSION" || code === "PLAN_INPUT_CHANGED_REGENERATION_REQUIRED")
     return 409
-  if (code === "TRANSIENT_DEPENDENCY_FAILURE") return 503
+  if (code === "TRANSIENT_DEPENDENCY_FAILURE" || code === "DEPENDENCY_SCHEMA_NOT_READY") return 503
   return 422
 }
 
@@ -374,7 +437,9 @@ async function withinRateLimit(
 
 function sendResult(
   response: VercelResponse,
-  result: Awaited<ReturnType<typeof generateMealPlan>>,
+  result:
+    | { readonly ok: true; readonly value: unknown }
+    | { readonly ok: false; readonly error: { readonly code: string } },
   kind: PlannerOperation,
   finish: (httpStatus: number, outcomeCode: string) => void
 ) {
@@ -421,11 +486,21 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
         return
       }
       try {
-        const result = await operations.generate(
-          dependencies.repositoryFor(actor.userId, actor.accessToken),
-          dependencies.hasher,
-          { actorUserId: actor.userId, calculationDate: calculationDate(), ...command }
-        )
+        const ports = dependencies.versionedRepositoryFor?.(actor.userId, actor.accessToken)
+        const useCases = ports
+          ? createVersionedPlannerUseCases({ ...ports, hasher: dependencies.hasher })
+          : null
+        const result = useCases
+          ? await useCases.generate({
+              actorUserId: actor.userId,
+              calculationDate: calculationDate(),
+              ...command
+            })
+          : await operations.generate(
+              dependencies.repositoryFor(actor.userId, actor.accessToken),
+              dependencies.hasher,
+              { actorUserId: actor.userId, calculationDate: calculationDate(), ...command }
+            )
         sendResult(response, result, "generate", operational.finish)
       } catch {
         response.status(503).json({ error: "PLANNER_UNAVAILABLE" })
@@ -456,10 +531,16 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
         return
       }
       try {
-        const result = await operations.current(
-          dependencies.repositoryFor(actor.userId, actor.accessToken),
-          { actorUserId: actor.userId, ...query }
-        )
+        const ports = dependencies.versionedRepositoryFor?.(actor.userId, actor.accessToken)
+        const useCases = ports
+          ? createVersionedPlannerUseCases({ ...ports, hasher: dependencies.hasher })
+          : null
+        const result = useCases
+          ? await useCases.current({ actorUserId: actor.userId, ...query })
+          : await operations.current(dependencies.repositoryFor(actor.userId, actor.accessToken), {
+              actorUserId: actor.userId,
+              ...query
+            })
         if (!result.ok) {
           const status = failureStatus(result.error.code)
           response.status(status).json({ error: result.error.code })
@@ -489,17 +570,18 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
         return
       }
       try {
-        const result = await operations.preview(
-          dependencies.repositoryFor(actor.userId, actor.accessToken),
-          dependencies.hasher,
-          { actorUserId: actor.userId, ...command }
-        )
-        sendResult(
-          response,
-          result as Awaited<ReturnType<typeof generateMealPlan>>,
-          "preview",
-          operational.finish
-        )
+        const ports = dependencies.versionedRepositoryFor?.(actor.userId, actor.accessToken)
+        const useCases = ports
+          ? createVersionedPlannerUseCases({ ...ports, hasher: dependencies.hasher })
+          : null
+        const result = useCases
+          ? await useCases.preview({ actorUserId: actor.userId, ...command })
+          : await operations.preview(
+              dependencies.repositoryFor(actor.userId, actor.accessToken),
+              dependencies.hasher,
+              { actorUserId: actor.userId, ...command }
+            )
+        sendResult(response, result, "preview", operational.finish)
       } catch {
         response.status(503).json({ error: "PLANNER_UNAVAILABLE" })
         operational.finish(503, "PLANNER_UNAVAILABLE")
@@ -526,22 +608,28 @@ export function createPlannerHttpHandlers(dependencies: PlannerHttpDependencies)
         return
       }
       try {
-        const result = await operations.apply(
-          dependencies.repositoryFor(actor.userId, actor.accessToken),
-          dependencies.hasher,
-          {
-            actorUserId: actor.userId,
-            ...command,
-            previewFingerprint: command.previewFingerprint,
-            idempotencyKey: command.idempotencyKey
-          }
-        )
-        sendResult(
-          response,
-          result as Awaited<ReturnType<typeof generateMealPlan>>,
-          "apply",
-          operational.finish
-        )
+        const ports = dependencies.versionedRepositoryFor?.(actor.userId, actor.accessToken)
+        const useCases = ports
+          ? createVersionedPlannerUseCases({ ...ports, hasher: dependencies.hasher })
+          : null
+        const result = useCases
+          ? await useCases.apply({
+              actorUserId: actor.userId,
+              ...command,
+              previewFingerprint: command.previewFingerprint,
+              idempotencyKey: command.idempotencyKey
+            })
+          : await operations.apply(
+              dependencies.repositoryFor(actor.userId, actor.accessToken),
+              dependencies.hasher,
+              {
+                actorUserId: actor.userId,
+                ...command,
+                previewFingerprint: command.previewFingerprint,
+                idempotencyKey: command.idempotencyKey
+              }
+            )
+        sendResult(response, result, "apply", operational.finish)
       } catch {
         response.status(503).json({ error: "PLANNER_UNAVAILABLE" })
         operational.finish(503, "PLANNER_UNAVAILABLE")

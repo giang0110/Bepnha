@@ -6,7 +6,7 @@ import type { HouseholdRepository } from "@/application/household/household-repo
 import type { MealRatingRepository } from "@/application/meal-rating/meal-rating-repository"
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import type { PantryRepository } from "@/application/pantry/pantry-repository"
-import type { ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
+import type { VersionedShoppingListRepository as ShoppingListRepository } from "@/application/shopping/shopping-list-repository"
 import { AuthProvider } from "@/app/auth/auth-provider"
 import { AppRouter } from "@/app/router"
 import { ThemeProvider } from "@/app/theme/theme-context"

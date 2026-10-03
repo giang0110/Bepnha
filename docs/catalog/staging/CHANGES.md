@@ -108,3 +108,7 @@ For allergy exclusion, treat `contains` as exclude and treat `unknown` as **not 
 - Xác minh `catalog:validate`: **PASS** (`mealOptions: 48, valid: true, ready: true`).
 - Xác minh `catalog:audit`: **PASS** (`NO_BLOCKING_FINDINGS`).
 
+
+## 2026-10-02 — chuẩn bị/năng lượng và mua thực tế
+
+Authoring v2 bổ sung 45 quantity policies; giữ nguyên 45 giá/ngày khảo sát, tất cả fixed_pack theo hợp đồng cũ vì chưa có bước bán lẻ được xác minh. Fact3→4, recipe3→4, meal option2→3, price book3→4; định nghĩa sơ chế cá/gà/tôm/mực/đậu hũ thành phần chia theo khối lượng ghi rõ trong recipe mới. Không đổi lượng nguyên liệu, nutrition, allergens hay conversions. Xem PURCHASING_REVIEW.md. Các dòng needs_source_for_loose_offer là việc xác minh nguồn còn mở, không được giả lập là giá loose.

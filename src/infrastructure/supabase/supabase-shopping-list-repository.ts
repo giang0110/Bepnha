@@ -31,6 +31,7 @@ type UnknownRecord = Record<string, unknown>
 
 type RpcError = {
   readonly code?: string
+  readonly message?: string
 }
 
 const CANONICAL_DECIMAL = /^(0|[1-9][0-9]*)(\.[0-9]*[1-9])?$/u
@@ -330,6 +331,8 @@ function parseTransferResult(value: unknown): PantryTransferResult {
 }
 
 function rpcFailure(error: RpcError): ShoppingListRepositoryError {
+  if (error.code === "23514" && error.message === "PANTRY_FACT_CHANGED_REGENERATION_REQUIRED")
+    return new ShoppingListRepositoryError("PANTRY_FACT_CHANGED_REGENERATION_REQUIRED")
   return new ShoppingListRepositoryError(
     error.code === "42501" ? "UNAUTHORIZED" : "DEPENDENCY_UNAVAILABLE"
   )
@@ -535,8 +538,25 @@ function parseItemV2(value: unknown): ShoppingListItemV2 {
   )
     invalidStoredData()
   if (value.freshness !== "current" && value.freshness !== "stale_usable") invalidStoredData()
+  let wholeUnit: ShoppingListItemV2["wholeUnit"]
+  if (value.wholeUnit !== undefined && value.wholeUnit !== null) {
+    if (!isRecord(value.wholeUnit)) invalidStoredData()
+    wholeUnit = {
+      unitCode: nonEmptyString(value.wholeUnit.unitCode),
+      baseQuantityPerPiece: canonicalDecimal(value.wholeUnit.baseQuantityPerPiece, false)
+    }
+    for (const amount of [
+      expected.requiredBaseQuantity,
+      expected.pantryDeductedBaseQuantity,
+      expected.purchaseBaseQuantity,
+      expected.leftoverBaseQuantity
+    ])
+      if (!new ExactDecimal(amount).div(wholeUnit.baseQuantityPerPiece).isInteger())
+        invalidStoredData()
+  }
   return {
     ...expected,
+    ...(wholeUnit ? { wholeUnit } : {}),
     freshness: value.freshness,
     shoppingListItemId: nonEmptyString(value.shoppingListItemId),
     foodNameVi: nonEmptyString(value.foodNameVi),

@@ -88,3 +88,57 @@ describe("planner API adapter", () => {
     ).resolves.toEqual({ ok: true, value: null })
   })
 })
+
+test("v6 API rejects unknown versions, malformed portions and accidental body profiles", async () => {
+  const base = {
+    engineVersion: "planner-engine-v6",
+    status: "ready_within_budget",
+    planId: "p",
+    revisionId: "r",
+    planVersion: 1,
+    budgetVnd: 700000,
+    warnings: [],
+    plan: {
+      totalEstimatedCostVnd: 100,
+      items: Array.from({ length: 7 }, (_, dayIndex) => ({
+        dayIndex,
+        plannedMealSharePercent: 33,
+        memberPortions: [
+          {
+            recipientKey: "p",
+            memberKind: "adult",
+            memberCount: 1,
+            sharePerMember: "1",
+            actualMealKcal: "700",
+            mealTargetKcal: "711",
+            energyTargetStatus: "applied"
+          }
+        ],
+        scaledIngredients: [
+          {
+            baseQuantity: "150",
+            actualQuantity: {
+              version: "food-quantity-v1",
+              sourceQuantity: "3",
+              unitCode: "item",
+              sourceDimension: "count"
+            }
+          }
+        ]
+      }))
+    }
+  }
+  for (const payload of [
+    base,
+    { ...base, engineVersion: "planner-engine-v100" },
+    { ...base, nutritionSetup: { weightKg: "65" } },
+    { ...base, plan: { ...base.plan, items: [] } }
+  ]) {
+    const api = createPlannerApi(() =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve(payload) })
+    )
+    expect((await api.current("token", { householdId: "hh", weekStart: "2026-10-05" })).ok).toBe(
+      payload === base
+    )
+  }
+})

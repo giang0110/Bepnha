@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from "react"
+import { useEffect, useRef, useReducer, useState } from "react"
 import { Link, useNavigate } from "react-router"
 
 import { loadHousehold, type LoadHouseholdResult } from "@/application/household/load-household"
@@ -18,6 +18,7 @@ import { ReviewStep, type SaveState } from "../components/review-step"
 import {
   householdFormReducer,
   householdFormStateFromSetup,
+  nutritionSetupFromForm,
   memberGroupsFromCounts
 } from "../household-form-state"
 
@@ -53,14 +54,25 @@ function HouseholdSettingsEditor({
 }: HouseholdSettingsEditorProps) {
   const [state, dispatch] = useReducer(householdFormReducer, household, householdFormStateFromSetup)
   const [saveState, setSaveState] = useState<SaveState>("idle")
+  const nutritionValidation = nutritionSetupFromForm(state)
   const budgetVnd = parseVnd(state.budgetInput)
+  const requestEpoch = useRef(0)
+  useEffect(() => {
+    requestEpoch.current += 1
+    return () => {
+      requestEpoch.current += 1
+    }
+  }, [repository])
 
   async function save() {
-    if (budgetVnd === null) return
+    const nutrition = nutritionSetupFromForm(state)
+    if (budgetVnd === null || !nutrition.ok) return
+    const epoch = requestEpoch.current
     setSaveState("saving")
     const result = await saveHousehold(
       repository,
       {
+        nutritionSetup: nutrition.value,
         memberGroups: memberGroupsFromCounts(state.memberCounts),
         weeklyPlanBudgetVnd: budgetVnd,
         maxElapsedMinutes: state.maxElapsedMinutes,
@@ -69,6 +81,7 @@ function HouseholdSettingsEditor({
       },
       household.version
     )
+    if (epoch !== requestEpoch.current) return
     if (result.ok) {
       toast.success("Đã lưu thay đổi thông tin gia đình!")
       onSaved()
@@ -76,6 +89,7 @@ function HouseholdSettingsEditor({
     }
     if (result.reason === "STALE_HOUSEHOLD_VERSION") setSaveState("stale-error")
     else if (result.reason === "UNAUTHORIZED") setSaveState("auth-error")
+    else if (result.reason === "DEPENDENCY_SCHEMA_NOT_READY") setSaveState("schema-error")
     else setSaveState("retryable-error")
   }
 
@@ -120,6 +134,9 @@ function HouseholdSettingsEditor({
       </nav>
       {state.step === 1 ? (
         <MemberGroupsStep
+          profiles={state.memberProfiles}
+          mealShareInput={state.mealEnergyShareInput}
+          onProfileAction={dispatch}
           counts={state.memberCounts}
           heading="Chỉnh sửa thành viên"
           onChange={(key, count) => dispatch({ type: "set-member-count", key, count })}
@@ -163,6 +180,7 @@ function HouseholdSettingsEditor({
       {state.step === 5 && budgetVnd !== null ? (
         <>
           <ReviewStep
+            nutritionSetup={nutritionValidation.ok ? nutritionValidation.value : undefined}
             budgetVnd={budgetVnd}
             hardRuleCodes={state.hardRuleCodes}
             heading="Kiểm tra thay đổi"
@@ -172,6 +190,7 @@ function HouseholdSettingsEditor({
             saveLabel="Lưu thay đổi"
             saveState={saveState}
             onBack={() => dispatch({ type: "go-to-step", step: 4 })}
+            canSave={nutritionValidation.ok}
             onSave={() => void save()}
           />
           {saveState === "stale-error" ? (
@@ -246,7 +265,7 @@ export function HouseholdSettingsPage({ repository }: HouseholdSettingsPageProps
   }
   return (
     <HouseholdSettingsEditor
-      key={state.household.version}
+      key={`${state.household.householdId}:${state.household.version}`}
       household={state.household}
       repository={repository}
       onCancel={() => void navigate("/household")}

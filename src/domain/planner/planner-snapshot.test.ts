@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest"
 import type { PantrySnapshotV1 } from "@/domain/pantry/pantry"
 import { canonicalJson } from "@/domain/shared/canonical-json"
 
-import { PLANNER_ENGINE_VERSION } from "./planner-engine-version"
+import { LEGACY_PLANNER_ENGINE_VERSION, PLANNER_ENGINE_VERSION } from "./planner-engine-version"
 import { buildPlannerSnapshotPayloads, type PlannerSnapshotSource } from "./planner-snapshot"
 
 const base = {
@@ -106,7 +106,8 @@ describe("buildPlannerSnapshotPayloads", () => {
       buildPlannerSnapshotPayloads({ ...base, engineVersion: "planner-engine-v3" }).inputPayload
         .engineVersion
     ).toBe("planner-engine-v3")
-    expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v5")
+    expect(String(LEGACY_PLANNER_ENGINE_VERSION)).toBe("planner-engine-v5")
+    expect(String(PLANNER_ENGINE_VERSION)).toBe("planner-engine-v6")
   })
 
   test("includes canonical pantry evidence without changing bytes for pantry item permutations", () => {

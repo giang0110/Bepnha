@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest"
 
 import { plannerCandidate, plannerInput } from "@/domain/planner/planner-test-fixture"
+import { plannerCandidateV2, plannerInputV2 } from "@/domain/planner/planner-v2-test-fixture"
+import type { PlannerCandidateInputV2 } from "@/domain/planner/planner-v2"
 
 import { evaluateCatalogReadiness } from "./catalog-readiness"
 
@@ -201,5 +203,57 @@ describe("catalog launch readiness", () => {
     expect(result.ready).toBe(false)
     expect(result.blockers).toContain("CATALOG_COVERAGE_INCOMPLETE")
     expect(result.blockers).toContain("NO_USABLE_PRICE")
+  })
+})
+
+function diverseV2(): PlannerCandidateInputV2[] {
+  return diverseCandidates(21).map((legacy) => ({
+    ...plannerCandidateV2(legacy.mealOption.mealOptionVersionId),
+    mealOption: legacy.mealOption,
+    ingredientLineage: legacy.ingredientLineage
+  }))
+}
+describe("v6 catalog readiness", () => {
+  test("launch catalog without quantity policies is not v6 ready", () => {
+    const result = evaluateCatalogReadiness(
+      plannerInputV2(diverseV2().map((c) => ({ ...c, quantityPolicies: [] }))),
+      "missing-policy"
+    )
+    expect(result.ready).toBe(false)
+    expect(result.blockers).toContain("MISSING_QUANTITY_POLICY")
+  })
+  test("reviewed policies and explicit purchase terms enable a diverse v6 catalog", () => {
+    expect(evaluateCatalogReadiness(plannerInputV2(diverseV2()), "reviewed-v6")).toMatchObject({
+      ready: true,
+      eligibleMealOptionCount: 21,
+      minimumEligibleMealOptionCount: 21,
+      blockers: []
+    })
+  })
+  test("blank purchase evidence is a precise blocker", () => {
+    const candidates = diverseV2().map((c) => ({
+      ...c,
+      prices: c.prices.map((p) => ({ ...p, purchaseProvenance: "" }))
+    }))
+    const result = evaluateCatalogReadiness(plannerInputV2(candidates), "unverified-terms")
+    expect(result.ready).toBe(false)
+    expect(result.blockers).toContain("PURCHASE_TERMS_UNVERIFIED")
+  })
+  test("gram-only evidence cannot establish a whole fish piece", () => {
+    const candidates = diverseV2().map((c) => ({
+      ...c,
+      quantityPolicies: c.quantityPolicies.map((p) => ({
+        ...p,
+        foodForm: "whole_piece" as const,
+        rounding: "ceil" as const,
+        stepBaseQuantity: "1000"
+      }))
+    }))
+    const result = evaluateCatalogReadiness(
+      plannerInputV2(candidates),
+      "whole-fish-without-measurement"
+    )
+    expect(result.ready).toBe(false)
+    expect(result.blockers).toContain("MISSING_WHOLE_PIECE_CONVERSION")
   })
 })

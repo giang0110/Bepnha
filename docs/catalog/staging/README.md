@@ -5,7 +5,11 @@ rồi được kiểm định bằng chính công cụ của dự án. Vòng ba 
 450 cặp `(thực phẩm, dị nguyên)` và ghi lại trong `allergen_assessments.csv`. Kết luận của vòng bốn
 đã được đưa vào `food_allergens.csv` bằng `catalog:assessments`.
 
-**Bộ dữ liệu này `ready`.**
+**Bộ authoring v2 đã qua kiểm định cấu trúc; readiness cho từng hộ được đánh giá riêng.**
+
+Rà soát 02/10 bổ sung 45 policy chuẩn bị và giữ 45 báo giá theo quy cách fixed đã có. Xem
+[PURCHASING_REVIEW.md](PURCHASING_REVIEW.md) và
+[hướng dẫn phát hành](../../operations/household-nutrition-rollout.md). Chưa công bố dữ liệu mới lên production.
 
 ## Kiểm định đã chạy
 
@@ -17,11 +21,11 @@ npm run catalog:audit -- docs/catalog/staging
 
 | Kiểm định                     | Kết quả                                                                               |
 | ----------------------------- | ------------------------------------------------------------------------------------- |
-| Cấu trúc                      | 45 thực phẩm, 37 món, 24 meal option, 8 nhóm đạm, 45/45 thực phẩm dùng tới đều có giá |
+| Cấu trúc                      | 45 thực phẩm, 37 món, 48 meal option, 7 nhóm đạm, 45/45 thực phẩm dùng tới đều có giá |
 | `catalog:validate`            | **`valid: true`, `ready: true`, 0 chẩn đoán**                                         |
-| `catalog:audit`               | `NO_BLOCKING_FINDINGS` (92 cảnh báo nguồn phụ, 1 cảnh báo Atwater)                    |
+| `catalog:audit`               | `NO_BLOCKING_FINDINGS` (102 cảnh báo nguồn phụ, 1 cảnh báo Atwater)                    |
 | Ô vận hành bắt buộc còn trống | 0                                                                                     |
-| `manifest.json`               | 19/19 tệp khớp sha256 và số byte                                                      |
+| `manifest.json`               | Các tệp trong manifest khớp sha256 và số byte                                                      |
 
 ## Dị nguyên: nói đúng điều đã kiểm, và để hộ tự quyết
 

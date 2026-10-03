@@ -8,6 +8,7 @@ import type {
   ShoppingListReadResult,
   ShoppingListRepository
 } from "@/application/shopping/shopping-list-repository"
+import { ShoppingListRepositoryError } from "@/application/shopping/shopping-list-repository"
 
 import { ShoppingListPage } from "./shopping-list-page"
 
@@ -509,6 +510,25 @@ describe("ShoppingListPage", () => {
     expect(
       await screen.findByText(/Chuyến này đã được tính vào tủ bếp từ trước\./u)
     ).toBeInTheDocument()
+  })
+  test("explains a changed physical pantry fact when confirming shopping", async () => {
+    const { repo, applyToPantry } = repository({
+      ...ready(),
+      items: ready().items.map((entry) => ({
+        ...entry,
+        checked: true,
+        checkedAt: "2026-09-01T00:00:00Z"
+      }))
+    })
+    applyToPantry.mockRejectedValueOnce(
+      new ShoppingListRepositoryError("PANTRY_FACT_CHANGED_REGENERATION_REQUIRED")
+    )
+    renderPage(repo)
+    await userEvent.setup().click(await screen.findByRole("button", { name: /Đi chợ xong/u }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /quy đổi.*tủ bếp.*thay đổi.*tạo lại kế hoạch/iu
+    )
+    expect(screen.queryByText(/Đã cập nhật tủ bếp/u)).not.toBeInTheDocument()
   })
 
   test("hides the pantry offer while nothing has been ticked", async () => {

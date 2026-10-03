@@ -25,9 +25,8 @@ function renderOnboarding(repository: HouseholdRepository = householdRepository)
 
 async function reachReview() {
   const user = userEvent.setup()
-  const adults = screen.getByRole("spinbutton", { name: "Người lớn" })
-  await user.clear(adults)
-  await user.type(adults, "2")
+  await user.click(screen.getByRole("button", { name: "Thêm người lớn" }))
+  await user.click(screen.getByRole("button", { name: "Thêm người lớn" }))
   await user.click(screen.getByRole("button", { name: "Tiếp tục" }))
   await user.type(screen.getByRole("textbox", { name: "Ngân sách tuần (VND)" }), "1500000")
   await user.click(screen.getByRole("button", { name: "Tiếp tục" }))
@@ -44,16 +43,15 @@ describe("OnboardingPage member and budget flow", () => {
     const user = userEvent.setup()
     renderOnboarding()
 
-    const adults = screen.getByRole("spinbutton", { name: "Người lớn" })
-    await user.clear(adults)
-    await user.type(adults, "2")
+    await user.click(screen.getByRole("button", { name: "Thêm người lớn" }))
+    await user.click(screen.getByRole("button", { name: "Thêm người lớn" }))
     await user.click(screen.getByRole("button", { name: "Tiếp tục" }))
     expect(screen.getByRole("heading", { name: "Ngân sách cho 7 bữa chính" })).toBeInTheDocument()
     await user.type(screen.getByRole("textbox", { name: "Ngân sách tuần (VND)" }), "1500000")
 
     await user.click(screen.getByRole("button", { name: "Quay lại" }))
 
-    expect(screen.getByRole("spinbutton", { name: "Người lớn" })).toHaveValue(2)
+    expect(screen.getAllByLabelText("Cân nặng (kg)")).toHaveLength(2)
     await user.click(screen.getByRole("button", { name: "Tiếp tục" }))
     expect(screen.getByRole("textbox", { name: "Ngân sách tuần (VND)" })).toHaveValue("1.500.000")
     expect(window.localStorage).toHaveLength(0)
@@ -67,9 +65,7 @@ describe("OnboardingPage member and budget flow", () => {
       "1"
     )
 
-    const adults = screen.getByRole("spinbutton", { name: "Người lớn" })
-    await user.clear(adults)
-    await user.type(adults, "1")
+    await user.click(screen.getByRole("button", { name: "Thêm người lớn" }))
     await user.click(screen.getByRole("button", { name: "Tiếp tục" }))
     expect(screen.getByRole("progressbar", { name: "Tiến độ thiết lập" })).toHaveAttribute(
       "aria-valuenow",
@@ -98,15 +94,20 @@ describe("OnboardingPage member and budget flow", () => {
     await user.click(screen.getByRole("button", { name: "Lưu thông tin" }))
 
     expect(saveOwn).toHaveBeenCalledWith(
-      {
+      expect.objectContaining({
         memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }],
         weeklyPlanBudgetVnd: 1_500_000,
         maxElapsedMinutes: 45,
         ruleCodes: ["allergen_peanut", "prefer_soup"],
         allergenStrictness: {}
-      },
+      }),
       null
     )
+    expect(saveOwn.mock.calls[0]?.[0].nutritionSetup).toMatchObject({
+      version: "household-nutrition-v1",
+      plannedMealSharePercent: 33
+    })
+    expect(saveOwn.mock.calls[0]?.[0].nutritionSetup?.memberProfiles).toHaveLength(2)
     expect(await screen.findByRole("heading", { name: "Đã lưu gia đình" })).toBeInTheDocument()
   })
 
@@ -126,4 +127,23 @@ describe("OnboardingPage member and budget flow", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(message)
     expect(screen.getByRole("heading", { name: "Kiểm tra thông tin" })).toBeInTheDocument()
   })
+})
+
+it("ignores a late save reply after unmount and stores no private draft on the device", async () => {
+  let resolve: ((result: Awaited<ReturnType<HouseholdRepository["saveOwn"]>>) => void) | undefined
+  const saveOwn = vi.fn<HouseholdRepository["saveOwn"]>(
+    () =>
+      new Promise((r) => {
+        resolve = r
+      })
+  )
+  const view = renderOnboarding({ loadOwn: vi.fn(), saveOwn })
+  const user = await reachReview()
+  await user.click(screen.getByRole("button", { name: "Lưu thông tin" }))
+  expect(saveOwn.mock.calls[0]?.[0].nutritionSetup?.memberProfiles).toHaveLength(2)
+  view.unmount()
+  resolve?.({ ok: false, reason: "DEPENDENCY_SCHEMA_NOT_READY" })
+  await Promise.resolve()
+  expect(screen.queryByText(/Máy chủ chưa sẵn sàng/)).toBeNull()
+  expect(localStorage).toHaveLength(0)
 })

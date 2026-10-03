@@ -1,11 +1,12 @@
+import { purchaseQuantityLabel, shoppingAmountLabel } from "./purchase-quantity-label"
 import { useEffect, useMemo, useState } from "react"
 import { Link, useParams, useSearchParams } from "react-router"
 
 import type {
-  ReadyShoppingList,
-  ShoppingListItem,
-  ShoppingListReadResult,
-  ShoppingListRepository
+  AnyReadyShoppingList as ReadyShoppingList,
+  AnyShoppingListItem as ShoppingListItem,
+  VersionedShoppingListReadResult as ShoppingListReadResult,
+  VersionedShoppingListRepository as ShoppingListRepository
 } from "@/application/shopping/shopping-list-repository"
 import { ShoppingListRepositoryError } from "@/application/shopping/shopping-list-repository"
 import { AppPageShell } from "@/app/components/app-page-shell"
@@ -69,14 +70,6 @@ function formatVnd(value: number): string {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value)
 }
 
-function formatQuantity(value: string): string {
-  const match = /^(\d+)(?:\.(\d+))?$/.exec(value)
-  if (match === null) return value
-  const whole = BigInt(match[1]!).toLocaleString("vi-VN")
-  const fractional = match[2]?.replace(/0+$/u, "") ?? ""
-  return fractional === "" ? whole : `${whole},${fractional}`
-}
-
 function formatDate(value: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
   if (match === null) return value
@@ -90,6 +83,8 @@ function unitLabel(baseUnitId: string): string {
 function errorCopy(error: unknown): string {
   if (error instanceof ShoppingListRepositoryError) {
     if (error.code === "UNAUTHORIZED") return "Phiên đăng nhập đã hết hạn."
+    if (error.code === "PANTRY_FACT_CHANGED_REGENERATION_REQUIRED")
+      return "Quy đổi thực phẩm trong tủ bếp đã thay đổi. Vui lòng kiểm tra tủ bếp và tạo lại kế hoạch trước khi xác nhận đi chợ."
     if (error.code === "INVALID_STORED_DATA") {
       return "Dữ liệu danh sách đi chợ không hợp lệ. Vui lòng tạo lại kế hoạch."
     }
@@ -137,9 +132,9 @@ function ShoppingItemRow({
   oneHandMode?: boolean
   onCheckedChange: (item: ShoppingListItem, checked: boolean) => void
 }>) {
-  const unit = unitLabel(item.baseUnitId)
   const hasPantryDeduction = item.pantryDeductedBaseQuantity !== "0"
-  const needsPurchase = item.purchasePackageCount !== "0"
+  const needsPurchase =
+    ("version" in item ? item.purchaseUnitCount : item.purchasePackageCount) !== "0"
 
   const handleCheckedChange = (checked: boolean) => {
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
@@ -206,8 +201,10 @@ function ShoppingItemRow({
           </div>
           <p className={"text-ink-soft " + (oneHandMode ? "text-sm mt-0.5" : "text-sm")}>
             {needsPurchase
-              ? `Mua ${formatQuantity(item.purchasePackageCount)} gói × ${formatQuantity(item.packageBaseQuantity)} ${unit}`
-              : "Không cần mua thêm"}
+              ? `Mua ${purchaseQuantityLabel(item, unitLabel)}`
+              : "version" in item
+                ? purchaseQuantityLabel(item, unitLabel)
+                : "Không cần mua thêm"}
           </p>
           {queued ? <p className="text-xs font-medium text-broth-700">Chờ đồng bộ</p> : null}
           <details className="mt-2 rounded-2xl bg-paper-sunken px-3 py-2 text-sm" data-print="hide">
@@ -215,32 +212,39 @@ function ShoppingItemRow({
             <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-ink-soft">
               <dt>Cần</dt>
               <dd className="tabular-nums">
-                {formatQuantity(item.requiredBaseQuantity)} {unit}
+                {shoppingAmountLabel(item, item.requiredBaseQuantity, unitLabel)}
               </dd>
               {hasPantryDeduction ? (
                 <>
                   <dt className="text-herb-700">Tủ bếp đã có</dt>
                   <dd className="text-herb-700 tabular-nums">
-                    {formatQuantity(item.pantryDeductedBaseQuantity)} {unit}
+                    {shoppingAmountLabel(item, item.pantryDeductedBaseQuantity, unitLabel)}
                   </dd>
                   <dt className="text-herb-700">Còn phải mua</dt>
                   <dd className="text-herb-700 tabular-nums">
-                    {formatQuantity(item.purchaseRequiredBaseQuantity)} {unit}
+                    {shoppingAmountLabel(item, item.purchaseRequiredBaseQuantity, unitLabel)}
                   </dd>
                 </>
               ) : null}
               <dt>Dư khoảng</dt>
               <dd className="tabular-nums">
-                {formatQuantity(item.leftoverBaseQuantity)} {unit}
+                {shoppingAmountLabel(item, item.leftoverBaseQuantity, unitLabel)}
               </dd>
             </dl>
+            {"version" in item ? (
+              <p className="mt-2 text-xs text-ink-soft">
+                {item.purchaseRule.mode === "fixed_pack"
+                  ? "Hàng đóng gói cố định; phần dư có thể cất lại."
+                  : "Mua theo lượng bán lẻ đã xác minh."}
+              </p>
+            ) : null}
             <p className="mt-2 font-medium text-ink">Dùng cho bữa</p>
             <ul className="mt-1 grid gap-1">
               {item.sources.map((source) => (
                 <li key={`${source.mealPlanItemId}:${source.recipeIngredientId}`}>
                   {DAY_LABELS[source.dayIndex] ?? `Ngày ${source.dayIndex + 1}`}:{" "}
-                  {source.mealOptionNameVi} · {formatQuantity(source.requiredBaseQuantity)}{" "}
-                  {unitLabel(source.baseUnitId)}
+                  {source.mealOptionNameVi} ·{" "}
+                  {shoppingAmountLabel(item, source.requiredBaseQuantity, unitLabel)}
                 </li>
               ))}
             </ul>

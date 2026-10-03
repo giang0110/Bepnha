@@ -3,7 +3,7 @@ import { createHash } from "node:crypto"
 import { describe, expect, test, vi } from "vitest"
 
 import type { ContentHasher } from "@/application/shared/content-hasher"
-import { PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
+import { LEGACY_PLANNER_ENGINE_VERSION as PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
 import { evaluatePlannerEligibility } from "@/domain/planner/evaluate-eligibility"
 import { normalizePlannerInput } from "@/domain/planner/normalize-planner-input"
 import { plannerCandidate, plannerInput } from "@/domain/planner/planner-test-fixture"
