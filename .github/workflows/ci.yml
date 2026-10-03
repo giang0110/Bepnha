@@ -26,6 +26,9 @@ jobs:
   production_catalog_diagnostic:
     # Manual and read-only. A reviewed branch may diagnose a rollout before it is merged.
     if: github.event_name == 'workflow_dispatch' && inputs.diagnose_production
+    permissions:
+      contents: read
+      checks: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -35,6 +38,7 @@ jobs:
       - name: Inspect published planner inputs and aggregate plan versions
         env:
           BEPNHA_PRODUCTION_DB_URL: ${{ secrets.BEPNHA_PRODUCTION_DB_URL }}
+          BEPNHA_DIAGNOSTIC_CHECK_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           node --input-type=module <<'NODE'
@@ -57,8 +61,29 @@ jobs:
               stdio: ['ignore', 'pipe', 'pipe'] })
             const report = JSON.parse(result)
             console.log(JSON.stringify({ projectRef, ...report }, null, 2))
+            // Native check annotations avoid runner notice truncation and blocked log storage.
+            const encoded = Buffer.from(JSON.stringify({ projectRef, ...report })).toString('base64')
+            const chunks = encoded.match(/.{1,12000}/g) ?? []
+            if (chunks.length === 0 || chunks.length > 50) throw new Error('Report too large')
+            const response = await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/check-runs`, {
+              method: 'POST', signal: AbortSignal.timeout(15000),
+              headers: { Authorization: `Bearer ${process.env.BEPNHA_DIAGNOSTIC_CHECK_TOKEN}`,
+                Accept: 'application/vnd.github+json', 'Content-Type': 'application/json',
+                'X-GitHub-Api-Version': '2022-11-28' },
+              body: JSON.stringify({ name: 'Production catalog report', head_sha: process.env.GITHUB_SHA,
+                status: 'completed', conclusion: 'success', output: {
+                  title: 'Read-only production catalog report',
+                  summary: 'Allowlisted catalog reference metadata and aggregate rollout counts; no household identifiers or body profiles.',
+                  annotations: chunks.map((data, index) => ({ path: 'scripts/diagnose-planner-catalog.sql',
+                    start_line: 1, end_line: 1, annotation_level: 'notice',
+                    title: 'Production catalog diagnostic',
+                    message: JSON.stringify({ format: 'planner-catalog-v1',
+                      part: index + 1, parts: chunks.length, data }) }))
+                } })
+            })
+            if (!response.ok) throw new Error('Report check unavailable')
           } catch {
-            console.error('Production planner diagnostic failed. Check the database binding and schema; credentials are not logged.')
+            console.error('Production planner diagnostic failed. Check the database binding, schema and check permissions; credentials are not logged.')
             process.exitCode = 1
           }
           NODE

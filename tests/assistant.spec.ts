@@ -202,7 +202,9 @@ test("mobile assistant remains advisory and deterministic replacement requires e
 
   assistantMode = "unavailable"
   await page.getByRole("button", { name: "Giải thích kế hoạch này" }).click()
-  await expect(page.getByRole("alert")).toContainText("Trợ lý tạm thời chưa sẵn sàng.")
+  await expect(
+    page.getByRole("region", { name: "Trợ lý Bếp Nhà" }).getByRole("alert")
+  ).toContainText("Trợ lý tạm thời chưa sẵn sàng.")
   await expect(page.getByRole("button", { name: "Đổi bữa" }).first()).toBeEnabled()
 
   expect(assistantCalls).toBe(3)
