@@ -218,6 +218,7 @@ describe("Supabase planner repository", () => {
     ).resolves.toMatchObject({
       ok: true,
       value: {
+        householdSetupVersion: 1,
         trust: {
           calculationDate: "2026-08-26",
           adultEquivalent: "2.55",

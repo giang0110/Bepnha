@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { describe, expect, test, vi } from "vitest"
@@ -121,6 +121,179 @@ function renderPage(
 }
 
 describe("WeeklyPlanPage recovery UX", () => {
+  test("warns when a saved week uses an older household setup without changing its quantities", async () => {
+    renderPage(
+      {
+        current: vi.fn().mockResolvedValue({
+          ok: true,
+          value: {
+            ...ready,
+            engineVersion: "planner-engine-v6",
+            householdSetupVersion: 1,
+            plan: { ...ready.plan, items: [meal] }
+          }
+        })
+      },
+      () => "key",
+      { loadOwn: vi.fn().mockResolvedValue({ ...household, version: 2 }), saveOwn: vi.fn() }
+    )
+    expect(await screen.findByRole("alert")).toHaveTextContent(/thiết lập gia đình đã thay đổi/i)
+    expect(screen.getByText("Bữa gốc")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Tạo lại kế hoạch tuần" })).toBeEnabled()
+  })
+
+  test("warns that a legacy week has not applied the saved personal nutrition setup", async () => {
+    renderPage({ current: vi.fn().mockResolvedValue({ ok: true, value: ready }) }, () => "key", {
+      loadOwn: vi.fn().mockResolvedValue({
+        ...household,
+        nutritionSetup: {
+          version: "household-nutrition-v1",
+          plannedMealSharePercent: 33,
+          memberProfiles: [1, 2].map((sortOrder) => ({
+            id: `member-${sortOrder}`,
+            memberKind: "adult",
+            sortOrder,
+            label: null,
+            heightCm: null,
+            weightKg: null,
+            ageYears: null,
+            sexForEquation: null,
+            activityLevel: null,
+            goal: "maintain"
+          }))
+        }
+      }),
+      saveOwn: vi.fn()
+    })
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /chưa áp dụng khẩu phần theo hồ sơ thành viên/i
+    )
+  })
+
+  test("does not warn about a v6 week made with the current household setup", async () => {
+    renderPage(
+      {
+        current: vi.fn().mockResolvedValue({
+          ok: true,
+          value: {
+            ...ready,
+            engineVersion: "planner-engine-v6",
+            householdSetupVersion: household.version
+          }
+        })
+      },
+      () => "key"
+    )
+    await screen.findByRole("button", { name: "Tạo lại kế hoạch tuần" })
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  test("keeps the saved week and regeneration intent after a failed regeneration", async () => {
+    const user = userEvent.setup()
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, error: "TRANSIENT_DEPENDENCY_FAILURE" })
+      .mockResolvedValueOnce({
+        ok: true,
+        value: { ...ready, revisionId: "new-revision", planVersion: 2 }
+      })
+    const createId = vi.fn().mockReturnValueOnce("retry-1").mockReturnValueOnce("retry-2")
+    renderPage(
+      {
+        current: vi.fn().mockResolvedValue({
+          ok: true,
+          value: { ...ready, plan: { ...ready.plan, items: [meal] } }
+        }),
+        generate
+      },
+      createId
+    )
+    await user.click(await screen.findByRole("button", { name: "Tạo lại kế hoạch tuần" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(/không thể xử lý kế hoạch/i)
+    expect(screen.getByText("Bữa gốc")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Tạo lại kế hoạch tuần" }))
+    expect(generate).toHaveBeenNthCalledWith(
+      2,
+      "token",
+      expect.objectContaining({
+        expectedPlanVersion: ready.planVersion,
+        expectedCurrentRevisionId: ready.revisionId,
+        idempotencyKey: "retry-2"
+      })
+    )
+    expect(await screen.findByRole("button", { name: "Tạo lại kế hoạch tuần" })).toBeEnabled()
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  test("explains missing catalog lineage instead of offering an unexplained retry loop", async () => {
+    const user = userEvent.setup()
+    renderPage(
+      { generate: vi.fn().mockResolvedValue({ ok: false, error: "INCOMPLETE_CATALOG_LINEAGE" }) },
+      () => "key"
+    )
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /danh mục thực phẩm.*quy đổi.*khẩu phần/i
+    )
+  })
+
+  test("clears a failed regeneration notice after a successful meal replacement", async () => {
+    const user = userEvent.setup()
+    const replacement = { ...meal, mealOptionNameVi: "Bữa mới" }
+    renderPage(
+      {
+        current: vi.fn().mockResolvedValue({
+          ok: true,
+          value: { ...ready, plan: { ...ready.plan, items: [meal] } }
+        }),
+        generate: vi.fn().mockResolvedValue({ ok: false, error: "TRANSIENT_DEPENDENCY_FAILURE" }),
+        preview: vi.fn().mockResolvedValue({
+          ok: true,
+          value: {
+            status: "ready_within_budget",
+            items: [replacement],
+            weeklyEstimatedCostVnd: 0,
+            costDeltaVnd: 0,
+            warnings: [],
+            previewFingerprint: "hash"
+          }
+        }),
+        apply: vi.fn().mockResolvedValue({
+          ok: true,
+          value: {
+            ...ready,
+            planVersion: 2,
+            revisionId: "new-revision",
+            plan: { ...ready.plan, items: [replacement] }
+          }
+        })
+      },
+      () => "key"
+    )
+    await user.click(await screen.findByRole("button", { name: "Tạo lại kế hoạch tuần" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(/không thể xử lý kế hoạch/i)
+    await user.click(screen.getByRole("button", { name: "Đổi bữa" }))
+    await user.click(await screen.findByRole("button", { name: "Áp dụng bữa thay thế" }))
+    expect(await screen.findByText("Bữa mới")).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  test("keeps the selected week while generation is in flight", async () => {
+    const user = userEvent.setup()
+    let finish!: (value: { ok: true; value: PlannerReadyResponse }) => void
+    const pending = new Promise<{ ok: true; value: PlannerReadyResponse }>((resolve) => {
+      finish = resolve
+    })
+    renderPage({ generate: () => pending }, () => "key")
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    expect(screen.getByRole("button", { name: /Tuần sau/ })).toBeDisabled()
+    await act(async () => {
+      finish({ ok: true, value: ready })
+      await pending
+    })
+    expect(screen.getByRole("button", { name: /Tuần sau/ })).toBeEnabled()
+  })
+
   test("shows a safe support reference and retries only after a new click with a fresh idempotency key", async () => {
     const user = userEvent.setup()
     const generate = vi

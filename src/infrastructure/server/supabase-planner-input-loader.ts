@@ -693,6 +693,7 @@ export function currentPlanV2FromStored(raw: unknown): CurrentPlanViewV2 {
     planId: string(row.id),
     revisionId: string(revision.id),
     planVersion: integer(revision.revision_number),
+    householdSetupVersion: integer(revision.household_setup_version),
     status: status === "within" ? "ready_within_budget" : "ready_over_budget",
     budgetVnd: integer(revision.budget_vnd),
     plan: publicReadyPlanV2(ready),

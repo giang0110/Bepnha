@@ -414,17 +414,18 @@ describe("CookingPage", () => {
   })
 
   test("navigates steps using ArrowRight and ArrowLeft keyboard shortcuts", async () => {
+    const user = userEvent.setup()
     setup()
 
     await screen.findByText("Vo gạo.")
     expect(screen.getByText(/Món 1\/2/u)).toBeInTheDocument()
 
     // Press ArrowRight to go to next step
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }))
+    await user.keyboard("{ArrowRight}")
     expect(await screen.findByText("Ướp gà với gia vị.")).toBeInTheDocument()
 
     // Press ArrowLeft to go back
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }))
+    await user.keyboard("{ArrowLeft}")
     expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
   })
 

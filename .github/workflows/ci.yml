@@ -8,15 +8,61 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      diagnose_production:
+        description: "Read published production planner inputs and aggregate rollout state"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}${{ inputs.diagnose_production && '-diagnostic' || '' }}
   cancel-in-progress: true
 
 jobs:
+  production_catalog_diagnostic:
+    # Manual and read-only. A reviewed branch may diagnose a rollout before it is merged.
+    if: github.event_name == 'workflow_dispatch' && inputs.diagnose_production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Inspect published planner inputs and aggregate plan versions
+        env:
+          BEPNHA_PRODUCTION_DB_URL: ${{ secrets.BEPNHA_PRODUCTION_DB_URL }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process'
+          import { connectionEnvironment } from './scripts/verify-production-schema.mjs'
+          try {
+            const connection = connectionEnvironment(process.env.BEPNHA_PRODUCTION_DB_URL ?? '')
+            const projectRef = 'vkrqzwlpneocgjwhqbsl'
+            const direct = connection.PGHOST === `db.${projectRef}.supabase.co`
+            const pooler = connection.PGHOST.endsWith('.pooler.supabase.com') &&
+              connection.PGUSER === `postgres.${projectRef}`
+            if ((!direct && !pooler) || (connection.PGPORT ?? '5432') !== '5432' ||
+                !['require', 'verify-ca', 'verify-full'].includes(connection.PGSSLMODE)) {
+              throw new Error('Invalid production target')
+            }
+            const result = execFileSync('psql', [
+              '--no-psqlrc', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1',
+              '--file', 'scripts/diagnose-planner-catalog.sql'
+            ], { env: { ...process.env, ...connection }, encoding: 'utf8', timeout: 30000,
+              stdio: ['ignore', 'pipe', 'pipe'] })
+            const report = JSON.parse(result)
+            console.log(JSON.stringify({ projectRef, ...report }, null, 2))
+          } catch {
+            console.error('Production planner diagnostic failed. Check the database binding and schema; credentials are not logged.')
+            process.exitCode = 1
+          }
+          NODE
+
   web:
     runs-on: ubuntu-latest
     steps:

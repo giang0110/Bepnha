@@ -3,6 +3,31 @@ import { describe, expect, test, vi } from "vitest"
 import { createPlannerApi } from "./planner-api"
 
 describe("planner API adapter", () => {
+  test.each([0, -1, 1.5, "2", Number.MAX_SAFE_INTEGER + 1])(
+    "rejects an invalid household setup version %s in a saved plan",
+    async (householdSetupVersion) => {
+      const api = createPlannerApi(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              status: "ready_within_budget",
+              planId: "plan",
+              revisionId: "revision",
+              planVersion: 1,
+              householdSetupVersion,
+              budgetVnd: 1,
+              plan: { items: [], totalEstimatedCostVnd: 1 },
+              warnings: []
+            })
+        })
+      )
+      expect(
+        await api.current("token", { householdId: "household", weekStart: "2026-08-31" })
+      ).toEqual({ ok: false, error: "PLANNER_UNAVAILABLE" })
+    }
+  )
+
   test("sends only generation intent with bearer authorization", async () => {
     const fetcher = vi.fn().mockResolvedValue({
       ok: true,

@@ -37,6 +37,7 @@ export interface CurrentPlanView {
   readonly planId: string
   readonly revisionId: string
   readonly planVersion: number
+  readonly householdSetupVersion?: number
   readonly status: "ready_within_budget" | "ready_over_budget"
   readonly budgetVnd: number
   readonly plan: ReadyPlan
@@ -339,6 +340,7 @@ export async function generateMealPlan(
         ok: true as const,
         value: {
           ...persisted.value,
+          householdSetupVersion: normalized.value.householdSetupVersion,
           status: planned.status,
           budgetVnd: normalized.value.weeklyPlanBudgetVnd,
           plan: planned.plan,
@@ -480,6 +482,7 @@ export async function applyMealReplacement(
         ok: true as const,
         value: {
           ...persisted.value,
+          householdSetupVersion: normalized.householdSetupVersion,
           status: preview.value.status,
           budgetVnd: normalized.weeklyPlanBudgetVnd,
           costDeltaVnd: preview.value.weeklyCostDeltaVnd,

@@ -93,6 +93,10 @@ describe("versioned nutrition planning", () => {
     const f = fixture()
     const r = await f.useCases.generate(command)
     expect(r.ok).toBe(true)
+    expect(r).toMatchObject({
+      ok: true,
+      value: { householdSetupVersion: f.input.householdSetupVersion }
+    })
     const stored = f.persist.mock.calls[0]![0]
     expect(stored.engineVersion).toBe("planner-engine-v6")
     expect(stored.portionConfigVersion).toBe("portion-v2")

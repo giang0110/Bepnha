@@ -634,6 +634,7 @@ test("v6 stores private profiles, reads without catalog, pins historical policie
   const generated = await useCases.generate(command)
   expect(generated).toMatchObject({ ok: true })
   if (!generated.ok) throw new Error(generated.error.code)
+  expect(generated.value).toHaveProperty("householdSetupVersion", loaded.version + 1)
   const stored = await userClient
     .from("meal_plan_revisions")
     .select("engine_version,input_snapshot,calculation_snapshot")
@@ -678,7 +679,8 @@ test("v6 stores private profiles, reads without catalog, pins historical policie
   )
   expect(currentResponse.state.statusCode).toBe(200)
   expect(currentResponse.state.body).toMatchObject({
-    engineVersion: "planner-engine-v6"
+    engineVersion: "planner-engine-v6",
+    householdSetupVersion: loaded.version + 1
   })
   const body = currentResponse.state.body as {
     plan: {
@@ -759,4 +761,77 @@ test("v6 stores private profiles, reads without catalog, pins historical policie
     ok: true,
     value: { revisionId: applied.value.revisionId }
   })
+
+  // A settings save must leave historical quantities alone. Deliberate regeneration must
+  // reload all member profiles and rebuild the shopping requirement from the new portions.
+  const latest = await householdRepo.loadOwn()
+  if (!latest?.nutritionSetup) throw new Error("Missing saved nutrition setup")
+  const changedFamily = await householdRepo.saveOwn(
+    {
+      ...latest,
+      memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 3 }],
+      nutritionSetup: {
+        ...latest.nutritionSetup,
+        memberProfiles: [
+          ...latest.nutritionSetup.memberProfiles.map((profile) => ({
+            ...profile,
+            goal: "gain" as const
+          })),
+          {
+            ...latest.nutritionSetup.memberProfiles[1]!,
+            id: crypto.randomUUID(),
+            sortOrder: 3,
+            label: "Người 3",
+            goal: "gain" as const
+          }
+        ]
+      }
+    },
+    latest.version
+  )
+  expect(changedFamily.ok).toBe(true)
+  const historical = await useCases.current(command)
+  expect(historical).toMatchObject({
+    ok: true,
+    value: { householdSetupVersion: loaded.version + 1, plan: applied.value.plan }
+  })
+  const regenerated = await useCases.generate({
+    ...command,
+    idempotencyKey: crypto.randomUUID(),
+    regenerate: {
+      expectedPlanVersion: applied.value.planVersion,
+      expectedCurrentRevisionId: applied.value.revisionId
+    }
+  })
+  if (!regenerated.ok) throw new Error(`Regeneration: ${regenerated.error.code}`)
+  expect(regenerated.value.householdSetupVersion).toBe(latest.version + 1)
+  const meal = regenerated.value.plan.items[0]!.snapshot
+  if (!("memberPortions" in meal)) throw new Error("Missing regenerated member portions")
+  expect(meal.memberPortions).toHaveLength(3)
+  expect(meal.memberPortions.map((portion) => portion.mealTargetKcal)).toEqual([
+    "782.3784375",
+    "782.3784375",
+    "782.3784375"
+  ])
+  const oldQuantity = applied.value.plan.items
+    .flatMap((item) => item.snapshot.scaledIngredients)
+    .reduce((sum, ingredient) => sum + Number(ingredient.baseQuantity), 0)
+  const newQuantity = regenerated.value.plan.items
+    .flatMap((item) => item.snapshot.scaledIngredients)
+    .reduce((sum, ingredient) => sum + Number(ingredient.baseQuantity), 0)
+  expect(newQuantity).toBeGreaterThan(oldQuantity)
+  const shopping = await userClient
+    .from("shopping_lists")
+    .select("id")
+    .eq("meal_plan_revision_id", regenerated.value.revisionId)
+    .single()
+  expect(shopping.error).toBeNull()
+  const shoppingItem = await userClient
+    .from("shopping_list_items")
+    .select("required_base_quantity")
+    .eq("shopping_list_id", shopping.data!.id)
+    .eq("food_id", fixtureFoodId)
+    .single()
+  expect(shoppingItem.error).toBeNull()
+  expect(Number(shoppingItem.data!.required_base_quantity)).toBe(newQuantity)
 }, 60000)

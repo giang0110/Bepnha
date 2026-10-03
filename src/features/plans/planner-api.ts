@@ -70,6 +70,7 @@ export interface PlannerReadyResponse {
   readonly planId: string
   readonly revisionId: string
   readonly planVersion: number
+  readonly householdSetupVersion?: number
   readonly idempotent: boolean
   readonly status: "ready_within_budget" | "ready_over_budget"
   readonly budgetVnd: number
@@ -268,6 +269,10 @@ function isReady(value: unknown): value is PlannerReadyResponse {
     typeof value.planId === "string" &&
     typeof value.revisionId === "string" &&
     typeof value.planVersion === "number" &&
+    (value.householdSetupVersion === undefined ||
+      (typeof value.householdSetupVersion === "number" &&
+        Number.isSafeInteger(value.householdSetupVersion) &&
+        value.householdSetupVersion > 0)) &&
     typeof value.budgetVnd === "number" &&
     isRecord(value.plan) &&
     Array.isArray(value.plan.items) &&

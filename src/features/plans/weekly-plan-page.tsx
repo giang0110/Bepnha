@@ -150,6 +150,8 @@ function errorCopy(code: string): string {
   }
   if (code === "DEPENDENCY_SCHEMA_NOT_READY")
     return "Máy chủ chưa sẵn sàng lập thực đơn dinh dưỡng. Hãy thử lại sau khi cập nhật. Thực đơn cũ vẫn xem được."
+  if (code === "INCOMPLETE_CATALOG_LINEAGE")
+    return "Danh mục thực phẩm chưa đủ quy đổi và quy tắc khẩu phần để tạo tuần. Hãy thử lại sau khi dữ liệu được cập nhật. Kế hoạch đã lưu vẫn xem được."
   if (code === "INVALID_INDIVISIBLE_PANTRY_QUANTITY")
     return "Tủ bếp đang có số lẻ của thực phẩm dùng nguyên đơn vị, ví dụ trứng. Hãy sửa lại lượng thực tế trong Tủ bếp rồi tạo lại tuần."
   if (code === "PANTRY_QUANTITY_POLICY_REQUIRED")
@@ -400,6 +402,10 @@ export function WeeklyPlanPage({
   const [householdLoadAttempt, setHouseholdLoadAttempt] = useState(0)
   const [state, setState] = useState<ViewState>({ status: "loading_household" })
   const [preview, setPreview] = useState<PreviewState>({ status: "idle" })
+  const [regenerationError, setRegenerationError] = useState<{
+    readonly code: string
+    readonly correlationId?: string
+  } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   /**
    * Which week the page is about.
@@ -526,6 +532,7 @@ export function WeeklyPlanPage({
     // Replacing a plan the week already has is a different request from making its first one, and
     // persistence tells them apart by the version being replaced. Sending it from what is on screen
     // keeps the concurrency check honest: a plan changed in another tab still fails.
+    const previous = state.status === "ready" ? state : null
     const replacing =
       state.status === "ready"
         ? {
@@ -534,6 +541,8 @@ export function WeeklyPlanPage({
           }
         : {}
     setSubmitting(true)
+    setRegenerationError(null)
+    setPreview({ status: "idle" })
     setState({ status: "generating" })
     const result = await plannerApi.generate(accessToken, {
       householdId: household.householdId,
@@ -542,6 +551,14 @@ export function WeeklyPlanPage({
       ...replacing
     })
     setSubmitting(false)
+    if (!result.ok && previous !== null) {
+      setState(previous)
+      setRegenerationError({
+        code: result.error,
+        ...(result.correlationId === undefined ? {} : { correlationId: result.correlationId })
+      })
+      return
+    }
     setState(
       result.ok
         ? { status: "ready", value: result.value }
@@ -596,6 +613,7 @@ export function WeeklyPlanPage({
     if (result.ok) {
       setState({ status: "ready", value: result.value })
       setPreview({ status: "idle" })
+      setRegenerationError(null)
     } else {
       setPreview({
         status: "error",
@@ -612,6 +630,17 @@ export function WeeklyPlanPage({
       </AppPageShell>
     )
   }
+
+  const setupNotice =
+    state.status !== "ready" || household === null
+      ? null
+      : state.value.householdSetupVersion !== undefined &&
+          state.value.householdSetupVersion < household.version
+        ? "Thiết lập gia đình đã thay đổi. Kế hoạch và danh sách đi chợ này vẫn dùng khẩu phần lúc tạo. Hãy tạo lại kế hoạch tuần để áp dụng thiết lập mới."
+        : household.nutritionSetup !== undefined &&
+            state.value.engineVersion !== "planner-engine-v6"
+          ? "Kế hoạch này chưa áp dụng khẩu phần theo hồ sơ thành viên và cách tính lượng thực phẩm mới. Hãy tạo lại kế hoạch tuần để cập nhật cả thực đơn và danh sách đi chợ."
+          : null
 
   return (
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
@@ -642,7 +671,7 @@ export function WeeklyPlanPage({
         ).map(([label, value]) => (
           <button
             aria-pressed={weekStart === value}
-            disabled={household === null}
+            disabled={household === null || submitting}
             /* Stacked on purpose. Label and dates on one line wrapped at 320px, and only for the
                longer option, so the two choices came out different heights. */
             className={`min-h-11 flex-1 rounded-full px-3 py-1.5 leading-tight transition-colors ${
@@ -656,6 +685,7 @@ export function WeeklyPlanPage({
               if (weekStart === value) return
               setWeekStart(value)
               setPreview({ status: "idle" })
+              setRegenerationError(null)
               setState({ status: "loading_plan" })
             }}
           >
@@ -682,6 +712,21 @@ export function WeeklyPlanPage({
       ) : null}
 
       {state.status === "loading_plan" ? <p role="status">Đang tải kế hoạch tuần…</p> : null}
+
+      {setupNotice === null ? null : (
+        <p className="rounded-2xl bg-broth-50 p-4 text-sm text-broth-900" role="alert">
+          {setupNotice}
+        </p>
+      )}
+      {regenerationError === null ? null : (
+        <div className="rounded-2xl bg-broth-50 p-4 text-sm" role="alert">
+          <p>{errorCopy(regenerationError.code)}</p>
+          <SupportReference correlationId={regenerationError.correlationId} />
+          <p className="mt-1">
+            Kế hoạch cũ được giữ lại. Bạn có thể bấm Tạo lại kế hoạch tuần lần nữa.
+          </p>
+        </div>
+      )}
 
       {(state.status === "idle" ||
         state.status === "generating" ||
@@ -771,7 +816,7 @@ export function WeeklyPlanPage({
             })}
           </section>
 
-          {state.value.engineVersion !== "planner-engine-v6" ? (
+          {state.value.engineVersion !== "planner-engine-v6" && setupNotice === null ? (
             <p className="rounded-2xl bg-paper-raised p-4 text-sm">
               Thực đơn này dùng khẩu phần theo nhóm tuổi. Tạo lại tuần để áp dụng mục tiêu và cách
               tính lượng thực phẩm mới.

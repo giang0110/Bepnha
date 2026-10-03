@@ -167,6 +167,7 @@ describe("authoritative planner HTTP handlers", () => {
         planId: "40000000-0000-0000-0000-000000000001",
         revisionId: "50000000-0000-0000-0000-000000000001",
         planVersion: 1,
+        householdSetupVersion: 3,
         status: "ready_within_budget",
         budgetVnd: 700_000,
         plan: { items: [], totalEstimatedCostVnd: 650_000 },
@@ -183,7 +184,11 @@ describe("authoritative planner HTTP handlers", () => {
       found.response
     )
     expect(found.state.status).toHaveBeenCalledWith(200)
-    expect(found.state.body).toMatchObject({ planVersion: 1, status: "ready_within_budget" })
+    expect(found.state.body).toMatchObject({
+      planVersion: 1,
+      householdSetupVersion: 3,
+      status: "ready_within_budget"
+    })
     expect(withPlan.current).toHaveBeenCalledWith(
       repository,
       expect.objectContaining({ actorUserId: "user-1", weekStart: "2026-08-31" })
