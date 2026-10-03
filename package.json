@@ -71,10 +71,12 @@
     },
     "@vercel/node": {
       "path-to-regexp": "6.3.0",
+      "ts-morph": "28.0.0",
       "undici": "7.30.0"
     },
     "@vercel/static-config": {
-      "ajv": "8.18.0"
+      "ajv": "8.18.0",
+      "ts-morph": "28.0.0"
     }
   },
   "dependencies": {
