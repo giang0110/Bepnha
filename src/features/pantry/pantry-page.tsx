@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
@@ -23,6 +23,9 @@ import {
   type PantryStorageZone
 } from "@/domain/pantry/pantry-zones"
 import { findLeftoverMealSuggestions } from "@/domain/pantry/leftover-meal-matcher"
+
+import { PantryQuantityPresets } from "./pantry-quantity-presets"
+import { loadRecentPantryFoods, rememberRecentPantryFood } from "./recent-pantry-foods"
 
 interface Props {
   readonly householdRepository: HouseholdRepository
@@ -136,6 +139,13 @@ function PantryItemEditor({
             onChange={(event) => setQuantity(event.currentTarget.value)}
           />
         </label>
+        <PantryQuantityPresets
+          label={`Chọn nhanh số lượng ${foodName}`}
+          unit={option.units.find((unit) => unit.unitId === unitId)}
+          quantity={quantity}
+          disabled={pending}
+          onSelect={setQuantity}
+        />
         <label className="grid gap-1 text-sm font-medium">
           <span>Đơn vị {foodName}</span>
           <select
@@ -191,9 +201,12 @@ export function PantryPage({
   const [reloadToken, setReloadToken] = useState(0)
   const [selectedZone, setSelectedZone] = useState<PantryStorageZone | "all">("all")
   const [leftoverFilterOnlyReady, setLeftoverFilterOnlyReady] = useState(false)
+  const [recentFoodIds, setRecentFoodIds] = useState<readonly string[]>([])
+  const activeHouseholdId = useRef<string | null>(null)
 
   useEffect(() => {
     let active = true
+    activeHouseholdId.current = null
 
     async function load() {
       const householdResult = await loadHousehold(householdRepository)
@@ -213,6 +226,8 @@ export function PantryPage({
           foodOptionsRepository.load()
         ])
         if (!active) return
+        activeHouseholdId.current = householdResult.household.householdId
+        setRecentFoodIds(loadRecentPantryFoods(householdResult.household.householdId))
         setState({
           status: "ready",
           householdId: householdResult.household.householdId,
@@ -227,6 +242,7 @@ export function PantryPage({
     void load()
     return () => {
       active = false
+      activeHouseholdId.current = null
     }
   }, [foodOptionsRepository, householdRepository, pantryRepository, reloadToken])
 
@@ -258,6 +274,22 @@ export function PantryPage({
       return name.includes(query)
     })
   }, [searchQuery, state])
+
+  const recentOptions = useMemo(() => {
+    if (state.status !== "ready") return []
+    const existingFoodIds = new Set(state.items.map((item) => item.foodId))
+    return recentFoodIds.flatMap((foodId) => {
+      const option = state.options.find((candidate) => candidate.foodId === foodId)
+      return option === undefined || existingFoodIds.has(foodId) ? [] : [option]
+    })
+  }, [recentFoodIds, state])
+
+  function rememberSavedFood(householdId: string, foodId: string) {
+    // A late save must not recreate history purged while the user was signing out.
+    if (activeHouseholdId.current !== householdId) return
+    rememberRecentPantryFood(householdId, foodId)
+    setRecentFoodIds(loadRecentPantryFoods(householdId))
+  }
 
   function applyQuickPreset(keyword: string) {
     if (state.status !== "ready") return
@@ -345,6 +377,7 @@ export function PantryPage({
         quantity,
         expectedVersion: item.version
       })
+      rememberSavedFood(state.householdId, saved.foodId)
       setState({
         ...state,
         items: sortItems(
@@ -408,6 +441,7 @@ export function PantryPage({
         quantity,
         expectedVersion: 0
       })
+      rememberSavedFood(state.householdId, saved.foodId)
       setState({ ...state, items: sortItems([...state.items, saved], state.options) })
       toast.success("Đã thêm thực phẩm vào tủ bếp!")
       setSelectedFoodId("")
@@ -624,6 +658,31 @@ export function PantryPage({
           >
             <h2 className="font-bold text-ink">Thêm thực phẩm</h2>
             <div className="mt-3 grid gap-3">
+              {recentOptions.length > 0 ? (
+                <div role="group" aria-label="Thực phẩm gần đây" className="grid gap-2">
+                  <h3 className="text-sm font-semibold text-ink">Đã dùng gần đây</h3>
+                  <p className="text-xs text-ink-soft">Chỉ lưu trên thiết bị này.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {recentOptions.map((option) => (
+                      <button
+                        key={option.foodId}
+                        type="button"
+                        aria-label={`Chọn lại ${option.foodNameVi}`}
+                        className="min-h-11 rounded-xl border border-edge bg-paper-sunken px-3 text-sm font-medium text-ink transition-colors hover:border-herb-500 hover:bg-herb-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-herb-600 disabled:opacity-50"
+                        disabled={pendingKey !== null}
+                        onClick={() => {
+                          setSearchQuery("")
+                          setSelectedFoodId(option.foodId)
+                          setSelectedUnitId(option.units[0]?.unitId ?? "")
+                          setNewQuantity("0")
+                        }}
+                      >
+                        {option.foodNameVi}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <label className="grid gap-1 text-sm font-medium">
                 <span>Tìm thực phẩm</span>
                 <input
@@ -705,6 +764,12 @@ export function PantryPage({
                   onChange={(event) => setNewQuantity(event.currentTarget.value)}
                 />
               </label>
+              <PantryQuantityPresets
+                unit={selectedOption?.units.find((unit) => unit.unitId === selectedUnitId)}
+                quantity={newQuantity}
+                disabled={pendingKey !== null}
+                onSelect={setNewQuantity}
+              />
               <Button
                 disabled={
                   pendingKey !== null ||

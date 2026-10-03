@@ -1,12 +1,25 @@
-import type { MealOptionVersionInput } from "./meal-option.js"
+import type { MealOptionVersionInput, NormalizedMealOptionVersion } from "./meal-option.js"
 import { validateMealOptionVersion } from "./validate-meal-option.js"
 import {
   calculateAdultEquivalent,
   type PortionMemberGroupInput
 } from "../portion/calculate-adult-equivalent.js"
 import { PORTION_CONFIG_V1, type PortionConfigV1 } from "../portion/portion-config.js"
-import { scaleRecipe, type RecipeScaleErrorCode } from "../recipe/scale-recipe.js"
-import { ExactDecimal, decimalToCanonical } from "../shared/decimal.js"
+import type { FoodFactUnitConversion } from "../catalog/catalog.js"
+import type { RecipeVersionInput } from "../recipe/recipe.js"
+import {
+  scaleRecipe,
+  scaleRecipeForAdultEquivalent,
+  type ScaleRecipeResult,
+  type RecipeScaleErrorCode
+} from "../recipe/scale-recipe.js"
+import {
+  ExactDecimal,
+  decimalToCanonical,
+  parseCanonicalDecimal,
+  roundDecimal,
+  ROUND_HALF_UP
+} from "../shared/decimal.js"
 
 export type ScaleMealOptionResult =
   | {
@@ -64,9 +77,71 @@ export function scaleMealOption(
   const demand = calculateAdultEquivalent(memberGroups, portionConfig)
   if (!demand.ok) return { ok: false, error: { code: demand.error.code } }
 
-  const mealScaleFactor = new ExactDecimal(demand.value.adultEquivalent).div(
-    validation.value.yieldAdultEquivalent
+  const result = scaleMealWithDemand(
+    validation.value,
+    demand.value.adultEquivalent,
+    (recipe) => scaleRecipe(recipe, memberGroups, portionConfig),
+    false
   )
+  if (!result.ok) return result
+  return {
+    ok: true,
+    value: {
+      ...result.value,
+      ingredients: result.value.ingredients.map((ingredient) => ({
+        sourceId: ingredient.sourceId,
+        mealOptionRecipeId: ingredient.mealOptionRecipeId,
+        recipeIngredientId: ingredient.recipeIngredientId,
+        foodId: ingredient.foodId,
+        foodFactVersionId: ingredient.foodFactVersionId,
+        baseUnitId: ingredient.baseUnitId,
+        baseQuantity: ingredient.baseQuantity,
+        grossGrams: ingredient.grossGrams,
+        componentSortOrder: ingredient.componentSortOrder,
+        ingredientOrder: ingredient.ingredientOrder
+      }))
+    }
+  }
+}
+
+type LegacyMealValue = Extract<ScaleMealOptionResult, { ok: true }>["value"]
+export type ExplicitMealIngredient = LegacyMealValue["ingredients"][number] & {
+  readonly unitId: string
+  readonly sourceQuantity: string
+  readonly conversion: FoodFactUnitConversion
+}
+export type ExplicitMealScaleResult =
+  | {
+      readonly ok: true
+      readonly value: Omit<LegacyMealValue, "ingredients"> & {
+        readonly ingredients: readonly ExplicitMealIngredient[]
+      }
+    }
+  | Extract<ScaleMealOptionResult, { ok: false }>
+
+export function scaleMealOptionForAdultEquivalent(
+  input: MealOptionVersionInput,
+  adultEquivalent: string
+): ExplicitMealScaleResult {
+  const validation = validateMealOptionVersion(input)
+  if (!validation.ok) return { ok: false, error: { code: "INVALID_MEAL_OPTION" } }
+  const demand = parseCanonicalDecimal(adultEquivalent, { allowNegative: false, allowZero: false })
+  if (!demand.ok) return { ok: false, error: { code: "INVALID_DECIMAL" } }
+  return scaleMealWithDemand(
+    validation.value,
+    adultEquivalent,
+    (recipe) => scaleRecipeForAdultEquivalent(recipe, adultEquivalent),
+    true
+  )
+}
+
+function scaleMealWithDemand(
+  value: NormalizedMealOptionVersion,
+  demand: string,
+  scale: (recipe: RecipeVersionInput) => ScaleRecipeResult,
+  canonical: boolean
+): ExplicitMealScaleResult {
+  const mealScaleFactor = new ExactDecimal(demand).div(value.yieldAdultEquivalent)
   const components: {
     mealOptionRecipeId: string
     mealRole: string
@@ -75,21 +150,10 @@ export function scaleMealOption(
     recipeVersionId: string
     recipeScaleFactor: string
   }[] = []
-  const ingredients: {
-    sourceId: string
-    mealOptionRecipeId: string
-    recipeIngredientId: string
-    foodId: string
-    foodFactVersionId: string
-    baseUnitId: string
-    baseQuantity: string
-    grossGrams: string
-    componentSortOrder: number
-    ingredientOrder: number
-  }[] = []
+  const ingredients: ExplicitMealIngredient[] = []
 
-  for (const component of validation.value.components) {
-    const scaledRecipe = scaleRecipe(component.recipe, memberGroups, portionConfig)
+  for (const component of value.components) {
+    const scaledRecipe = scale(component.recipe)
     if (!scaledRecipe.ok) return scaledRecipe
 
     components.push({
@@ -101,8 +165,16 @@ export function scaleMealOption(
       recipeScaleFactor: scaledRecipe.value.scaleFactor
     })
     for (const ingredient of scaledRecipe.value.ingredients) {
+      const conversion = component.recipe.ingredients.find(
+        (source) => source.recipeIngredientId === ingredient.recipeIngredientId
+      )?.conversion
+      if (conversion === undefined || conversion === null)
+        return { ok: false, error: { code: "MISSING_UNIT_CONVERSION" } }
       ingredients.push({
         sourceId: `${component.mealOptionRecipeId}:${ingredient.recipeIngredientId}`,
+        unitId: ingredient.unitId,
+        sourceQuantity: ingredient.sourceQuantity,
+        conversion,
         mealOptionRecipeId: component.mealOptionRecipeId,
         recipeIngredientId: ingredient.recipeIngredientId,
         foodId: ingredient.foodId,
@@ -127,14 +199,16 @@ export function scaleMealOption(
   return {
     ok: true,
     value: {
-      mealOptionId: validation.value.mealOptionId,
-      mealOptionVersionId: validation.value.mealOptionVersionId,
-      adultEquivalent: demand.value.adultEquivalent,
-      mealScaleFactor: decimalToCanonical(mealScaleFactor),
-      elapsedMinutes: validation.value.elapsedMinutes,
-      primaryProteinGroup: validation.value.primaryProteinGroup,
-      cookingStyleCodes: validation.value.cookingStyleCodes,
-      mainRecipeVersionIds: validation.value.mainRecipeVersionIds,
+      mealOptionId: value.mealOptionId,
+      mealOptionVersionId: value.mealOptionVersionId,
+      adultEquivalent: demand,
+      mealScaleFactor: canonical
+        ? roundDecimal(mealScaleFactor, 18, ROUND_HALF_UP)
+        : decimalToCanonical(mealScaleFactor),
+      elapsedMinutes: value.elapsedMinutes,
+      primaryProteinGroup: value.primaryProteinGroup,
+      cookingStyleCodes: value.cookingStyleCodes,
+      mainRecipeVersionIds: value.mainRecipeVersionIds,
       components,
       ingredients
     }

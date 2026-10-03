@@ -54,3 +54,10 @@ export const PLANNER_CONFIG_V1 = {
 } as const
 
 export type PlannerConfigV1 = typeof PLANNER_CONFIG_V1
+
+export const PLANNER_CONFIG_V2 = {
+  ...PLANNER_CONFIG_V1,
+  version: "planner-v2",
+  scoringWeights: { ...PLANNER_CONFIG_V1.scoringWeights, energyGoalFit: 2000 }
+} as const
+export type PlannerConfigV2 = typeof PLANNER_CONFIG_V2

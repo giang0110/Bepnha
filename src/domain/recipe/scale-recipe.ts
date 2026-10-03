@@ -1,18 +1,19 @@
-import type { FoodFactUnitConversion } from "../catalog/catalog.js"
+import type { FoodFactUnitConversion } from "../catalog/catalog.ts"
 import {
   calculateAdultEquivalent,
   type PortionMemberGroupInput
-} from "../portion/calculate-adult-equivalent.js"
-import type { PortionConfigV1 } from "../portion/portion-config.js"
-import { PORTION_CONFIG_V1 } from "../portion/portion-config.js"
-import { normalizeRecipeSteps, type RecipeVersionInput } from "./recipe.js"
+} from "../portion/calculate-adult-equivalent.ts"
+import type { PortionConfigV1 } from "../portion/portion-config.ts"
+import { PORTION_CONFIG_V1 } from "../portion/portion-config.ts"
+import { normalizeRecipeSteps, type RecipeVersionInput } from "./recipe.ts"
 import {
   ExactDecimal,
   ROUND_HALF_UP,
   decimalToCanonical,
+  roundDecimal,
   parseCanonicalDecimal,
   type ExactDecimalValue
-} from "../shared/decimal.js"
+} from "../shared/decimal.ts"
 
 export type RecipeScaleErrorCode =
   | "INVALID_PORTION_CONFIG"
@@ -64,7 +65,7 @@ function parsePositive(value: string) {
   })
 }
 
-function conversionIsConsistent(conversion: FoodFactUnitConversion): boolean {
+export function conversionIsConsistent(conversion: FoodFactUnitConversion): boolean {
   const sourceFactor = parsePositive(conversion.sourceToDimensionBase)
   const baseFactor = parsePositive(conversion.foodBaseUnitToDimensionBase)
   const baseQuantity = parsePositive(conversion.baseQuantityPerUnit)
@@ -138,6 +139,25 @@ export function scaleRecipe(
     return failure(adultEquivalent.error.code)
   }
 
+  return scaleRecipeDemand(recipe, adultEquivalent.value.adultEquivalent, false)
+}
+
+export function scaleRecipeForAdultEquivalent(
+  recipe: RecipeVersionInput,
+  adultEquivalent: string
+): ScaleRecipeResult {
+  const demand = parsePositive(adultEquivalent)
+  if (!demand.ok) return failure("INVALID_DECIMAL")
+  return scaleRecipeDemand(recipe, roundDecimal(demand.value, 18, ROUND_HALF_UP), true)
+}
+
+function scaleRecipeDemand(
+  recipe: RecipeVersionInput,
+  adultEquivalent: string,
+  canonical: boolean
+): ScaleRecipeResult {
+  const output = (value: ExactDecimalValue) =>
+    canonical ? roundDecimal(value, 18, ROUND_HALF_UP) : decimalToCanonical(value)
   const recipeYield = parsePositive(recipe.yieldAdultEquivalent)
   if (!recipeYield.ok) {
     return failure("INVALID_RECIPE_YIELD")
@@ -167,8 +187,8 @@ export function scaleRecipe(
     return failure(normalizedSteps.error.code)
   }
 
-  const adultEquivalentDecimal = new ExactDecimal(adultEquivalent.value.adultEquivalent)
-  const scaleFactor = adultEquivalentDecimal.div(recipeYield.value)
+  const adultEquivalentDecimal = new ExactDecimal(adultEquivalent)
+  const scaleFactor = new ExactDecimal(output(adultEquivalentDecimal.div(recipeYield.value)))
   const ingredients: ScaledRecipeIngredient[] = []
 
   for (const ingredient of [...recipe.ingredients].sort(
@@ -185,17 +205,18 @@ export function scaleRecipe(
       return failure("INVALID_DECIMAL")
     }
 
-    const sourceQuantity = quantity.value.times(scaleFactor)
+    const sourceQuantity = new ExactDecimal(output(quantity.value.times(scaleFactor)))
+    if (!sourceQuantity.gt(0)) return failure("INVALID_DECIMAL")
     ingredients.push({
       recipeIngredientId: ingredient.recipeIngredientId,
       foodId: ingredient.foodId,
       foodFactVersionId: ingredient.foodFactVersionId,
       order: ingredient.order,
       unitId: ingredient.conversion.unitId,
-      sourceQuantity: decimalToCanonical(sourceQuantity),
+      sourceQuantity: output(sourceQuantity),
       baseUnitId: ingredient.conversion.foodBaseUnitId,
-      baseQuantity: decimalToCanonical(sourceQuantity.times(baseFactor.value)),
-      grossGrams: decimalToCanonical(sourceQuantity.times(gramsFactor.value))
+      baseQuantity: output(sourceQuantity.times(baseFactor.value)),
+      grossGrams: output(sourceQuantity.times(gramsFactor.value))
     })
   }
 
@@ -204,8 +225,8 @@ export function scaleRecipe(
     value: {
       recipeId: recipe.recipeId,
       recipeVersionId: recipe.recipeVersionId,
-      adultEquivalent: adultEquivalent.value.adultEquivalent,
-      scaleFactor: decimalToCanonical(scaleFactor),
+      adultEquivalent,
+      scaleFactor: output(scaleFactor),
       ingredients
     }
   }

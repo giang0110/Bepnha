@@ -73,18 +73,20 @@ describe("saveHousehold", () => {
     expect(saveOwn).not.toHaveBeenCalled()
   })
 
-  it.each(["STALE_HOUSEHOLD_VERSION", "UNAUTHORIZED", "DEPENDENCY_UNAVAILABLE"] as const)(
-    "preserves safe tagged repository result %s",
-    async (reason) => {
-      const repository = {
-        loadOwn: vi.fn(),
-        saveOwn: vi.fn(() => Promise.resolve({ ok: false as const, reason }))
-      } as unknown as HouseholdRepository
+  it.each([
+    "STALE_HOUSEHOLD_VERSION",
+    "UNAUTHORIZED",
+    "DEPENDENCY_UNAVAILABLE",
+    "DEPENDENCY_SCHEMA_NOT_READY"
+  ] as const)("preserves safe tagged repository result %s", async (reason) => {
+    const repository = {
+      loadOwn: vi.fn(),
+      saveOwn: vi.fn(() => Promise.resolve({ ok: false as const, reason }))
+    } as unknown as HouseholdRepository
 
-      await expect(saveHousehold(repository, unorderedInput, 2)).resolves.toEqual({
-        ok: false,
-        reason
-      })
-    }
-  )
+    await expect(saveHousehold(repository, unorderedInput, 2)).resolves.toEqual({
+      ok: false,
+      reason
+    })
+  })
 })

@@ -5,7 +5,7 @@ import type {
   CatalogPackFood,
   CatalogPackMealOption,
   CatalogPackRecipe,
-  CatalogPackV1
+  CatalogPack
 } from "./catalog-pack-types.ts"
 import type {
   CatalogProductionSnapshot,
@@ -84,7 +84,7 @@ function asReference(code: string, row: ProductionCodeRow): ResolvedReference {
   return { code, productionCode: row.code, id: row.id }
 }
 
-function requiredUnitCodes(pack: CatalogPackV1): string[] {
+function requiredUnitCodes(pack: CatalogPack): string[] {
   const codes = new Set<string>()
   for (const food of pack.foods) {
     codes.add(food.baseUnitCode)
@@ -101,7 +101,7 @@ function requiredUnitCodes(pack: CatalogPackV1): string[] {
 }
 
 function resolveUnits(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   snapshot: CatalogProductionSnapshot,
   diagnostics: CatalogResolutionDiagnostic[]
 ): ResolvedReference[] {
@@ -124,7 +124,7 @@ function resolveUnits(
   return resolved
 }
 
-function expectedCategoryChains(pack: CatalogPackV1): Map<string, readonly string[]> {
+function expectedCategoryChains(pack: CatalogPack): Map<string, readonly string[]> {
   const chains = new Map<string, readonly string[]>()
   for (const food of pack.foods) {
     food.fact.categoryAncestry.forEach((code, index) => {
@@ -156,7 +156,7 @@ function productionCategoryChain(
 }
 
 function resolveCategories(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   snapshot: CatalogProductionSnapshot,
   diagnostics: CatalogResolutionDiagnostic[]
 ): ResolvedCategoryReference[] {
@@ -199,22 +199,22 @@ function resolveSimpleCodes(
   return resolved
 }
 
-function requiredAllergenCodes(pack: CatalogPackV1): string[] {
+function requiredAllergenCodes(pack: CatalogPack): string[] {
   return pack.foods.flatMap((food) =>
     food.fact.allergenAssessments.map((item) => item.allergenCode)
   )
 }
 
-function requiredNutrientCodes(pack: CatalogPackV1): string[] {
+function requiredNutrientCodes(pack: CatalogPack): string[] {
   return pack.foods.flatMap((food) => food.fact.nutrients.map((item) => item.nutrientCode))
 }
 
-function requiredDietaryTagCodes(pack: CatalogPackV1): string[] {
+function requiredDietaryTagCodes(pack: CatalogPack): string[] {
   return pack.foods.flatMap((food) => food.fact.dietaryTagCodes)
 }
 
 function resolveNutrients(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   snapshot: CatalogProductionSnapshot,
   diagnostics: CatalogResolutionDiagnostic[]
 ): ResolvedReference[] {
@@ -313,7 +313,7 @@ function resolveSemanticRecipeTag(
 }
 
 function resolveRecipeTags(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   snapshot: CatalogProductionSnapshot,
   diagnostics: CatalogResolutionDiagnostic[]
 ): ResolvedRecipeTagReference[] {
@@ -571,7 +571,7 @@ function resolveNamedIdentityVersion(
 }
 
 function resolvePriceRegion(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   snapshot: CatalogProductionSnapshot,
   diagnostics: CatalogResolutionDiagnostic[]
 ): ResolvedReference | null {
@@ -592,7 +592,7 @@ function resolvePriceRegion(
 }
 
 function resolvePriceBookTarget(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   priceRegion: ResolvedReference | null,
   snapshot: CatalogProductionSnapshot,
   diagnostics: CatalogResolutionDiagnostic[]
@@ -648,6 +648,9 @@ function normalizedProductionSnapshot(
     recipeTags: sortByStableKey(snapshot.recipeTags, codeIdKey),
     foods: sortByStableKey(snapshot.foods, foodKey),
     foodFactVersions: sortByStableKey(snapshot.foodFactVersions, versionKey),
+    ...(snapshot.foodQuantityPolicies === undefined
+      ? {}
+      : { foodQuantityPolicies: sortByStableKey(snapshot.foodQuantityPolicies, versionKey) }),
     recipes: sortByStableKey(snapshot.recipes, identityKey),
     recipeVersions: sortByStableKey(snapshot.recipeVersions, versionKey),
     priceBooks: sortByStableKey(
@@ -660,7 +663,7 @@ function normalizedProductionSnapshot(
 }
 
 export function resolveCatalogProductionReferences(
-  pack: CatalogPackV1,
+  pack: CatalogPack,
   inputSha256: string,
   snapshot: CatalogProductionSnapshot
 ): ResolvedCatalogManifestV1 {
@@ -708,6 +711,46 @@ export function resolveCatalogProductionReferences(
       )
     )
     .sort((left, right) => left.code.localeCompare(right.code))
+  const foodQuantityPolicies =
+    pack.schemaVersion === "2"
+      ? [...pack.foodQuantityPolicies]
+          .sort((a, b) =>
+            `${a.foodCode}:${a.foodFactVersionNumber}:${a.versionNumber}`.localeCompare(
+              `${b.foodCode}:${b.foodFactVersionNumber}:${b.versionNumber}`
+            )
+          )
+          .map((policy) => {
+            const food = foods.find((f) => f.code === policy.foodCode)
+            const fact = snapshot.foodFactVersions.find(
+              (f) =>
+                f.parentId === food?.identity.id && f.versionNumber === policy.foodFactVersionNumber
+            )
+            const version =
+              fact === undefined
+                ? {
+                    state: "pending_parent_creation" as const,
+                    id: null,
+                    revision: null,
+                    publicationStatus: null
+                  }
+                : classifyVersion(
+                    fact.id,
+                    policy.versionNumber,
+                    snapshot.foodQuantityPolicies ?? []
+                  )
+            addVersionCollisionDiagnostic(
+              version,
+              `$.foodQuantityPolicies.${policy.foodCode}.${policy.foodFactVersionNumber}.${policy.versionNumber}`,
+              diagnostics
+            )
+            return {
+              foodCode: policy.foodCode,
+              foodFactVersionNumber: policy.foodFactVersionNumber,
+              requestedVersionNumber: policy.versionNumber,
+              version
+            }
+          })
+      : undefined
   const sortedDiagnostics = [...diagnostics].sort(compareDiagnostics)
 
   return {
@@ -725,6 +768,7 @@ export function resolveCatalogProductionReferences(
       priceRegion,
       recipeTags
     },
+    ...(foodQuantityPolicies === undefined ? {} : { foodQuantityPolicies }),
     foods,
     recipes,
     priceBook,

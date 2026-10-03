@@ -18,7 +18,8 @@ import { createSupabasePantryRepository } from "@/infrastructure/supabase/supaba
 import { createSupabaseShoppingListRepository } from "@/infrastructure/supabase/supabase-shopping-list-repository.js"
 
 const calculationDate = "2026-08-26"
-const assistantWeekStart = "2026-09-14"
+// The v6 planner fixture now owns Sep 14; use a distinct week for this legacy assistant flow.
+const assistantWeekStart = "2026-09-21"
 const hasher = new NodeContentHasher()
 
 let url: string

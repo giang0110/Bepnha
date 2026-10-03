@@ -1,4 +1,4 @@
-import type { CatalogPackV1 } from "./catalog-pack-types.ts"
+import type { CatalogPack } from "./catalog-pack-types.ts"
 import type {
   CatalogProductionSnapshot,
   ProductionRecipeTagRow
@@ -56,7 +56,7 @@ const nutrientCodes = [
   "sodium_mg"
 ] as const
 
-function recipeTagsFor(pack: CatalogPackV1): ProductionRecipeTagRow[] {
+function recipeTagsFor(pack: CatalogPack): ProductionRecipeTagRow[] {
   const tags = new Map<string, ProductionRecipeTagRow>()
   let index = 1
   const add = (code: string, tagKind: ProductionRecipeTagRow["tagKind"]): void => {
@@ -88,7 +88,7 @@ function recipeTagsFor(pack: CatalogPackV1): ProductionRecipeTagRow[] {
   return [...tags.values()].sort((left, right) => left.code.localeCompare(right.code))
 }
 
-export function buildResolvableProductionSnapshot(pack: CatalogPackV1): CatalogProductionSnapshot {
+export function buildResolvableProductionSnapshot(pack: CatalogPack): CatalogProductionSnapshot {
   const categoryIdByCode = new Map(
     categoryRows.map((row, index) => [row.code, id(2, index + 1)] as const)
   )

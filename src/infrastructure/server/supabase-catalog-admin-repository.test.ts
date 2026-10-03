@@ -176,3 +176,107 @@ describe("Supabase catalog admin repository", () => {
     })
   })
 })
+
+describe("versioned preparation and purchase RPCs", () => {
+  test("sends policy draft and server actor through one authorized RPC", async () => {
+    const { repository, rpc } = repositoryWithRpc({
+      data: { id: "policy", revision: 1 },
+      error: null
+    })
+    await expect(
+      repository.saveFoodQuantityPolicyDraft({
+        foodQuantityPolicyVersionId: "policy",
+        foodId: "fish",
+        foodFactVersionId: "fact",
+        expectedRevision: 1,
+        versionNumber: 1,
+        baseUnitId: "g",
+        baseDimension: "mass",
+        foodForm: "portionable_mass",
+        stepBaseQuantity: "1",
+        rounding: "half_up",
+        provenance: "Reviewed cut portions"
+      })
+    ).resolves.toMatchObject({ ok: true })
+    expect(rpc).toHaveBeenCalledWith("save_food_quantity_policy_draft", {
+      p_policy_id: "policy",
+      p_expected_revision: 1,
+      p_definition: {
+        foodId: "fish",
+        foodFactVersionId: "fact",
+        versionNumber: 1,
+        baseUnitId: "g",
+        baseDimension: "mass",
+        foodForm: "portionable_mass",
+        stepBaseQuantity: "1",
+        rounding: "half_up",
+        provenance: "Reviewed cut portions"
+      },
+      p_actor_user_id: "admin-user"
+    })
+  })
+  test("publishes policy with the server hash and exact revision", async () => {
+    const { repository, rpc } = repositoryWithRpc({
+      data: { id: "policy", revision: 2 },
+      error: null
+    })
+    await expect(
+      repository.publishFoodQuantityPolicy({
+        id: "policy",
+        expectedRevision: 1,
+        contentHash: "a".repeat(64)
+      })
+    ).resolves.toMatchObject({ ok: true })
+    expect(rpc).toHaveBeenCalledWith("publish_food_quantity_policy", {
+      p_policy_id: "policy",
+      p_expected_revision: 1,
+      p_content_hash: "a".repeat(64),
+      p_actor_user_id: "admin-user"
+    })
+  })
+  test("persists quote and explicit sale terms atomically without degrading to the old RPC", async () => {
+    const { repository, rpc } = repositoryWithRpc({
+      data: { id: "book", revision: 2 },
+      error: null
+    })
+    const price = {
+      foodPriceId: "price",
+      foodId: "fish",
+      foodFactVersionId: "fact",
+      packageQuantity: "1000",
+      packageUnitId: "g",
+      packageBaseQuantity: "1000",
+      baseUnitId: "g",
+      baseDimension: "mass" as const,
+      packagePriceVnd: 100000,
+      purchaseIncrement: "1",
+      observedAt: "2026-10-01",
+      sourceReference: "Synthetic quote",
+      purchaseRule: { mode: "loose_mass" as const, saleStepBaseQuantity: "50" },
+      purchaseProvenance: "Synthetic 50g increment offer"
+    }
+    await expect(
+      repository.savePriceBookDraft({
+        priceBookId: "book",
+        expectedRevision: 1,
+        effectiveFrom: "2026-10-01",
+        effectiveTo: null,
+        purchasingVersion: "purchase-v2",
+        prices: [price]
+      })
+    ).resolves.toMatchObject({ ok: true })
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith(
+      "save_price_book_draft_v2",
+      expect.objectContaining({
+        p_prices: [
+          expect.objectContaining({
+            purchase_rule: price.purchaseRule,
+            purchase_provenance: price.purchaseProvenance,
+            base_dimension: "mass"
+          })
+        ]
+      })
+    )
+  })
+})

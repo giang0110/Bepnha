@@ -26,6 +26,17 @@ describe("registerServiceWorker", () => {
 })
 
 describe("purgeCachedHouseholdData", () => {
+  test("removes pantry recents on sign-out while preserving unrelated device preferences", async () => {
+    localStorage.setItem("bepnha:recent-pantry-foods:v1", "private household recents")
+    localStorage.setItem("unrelated-preference", "dark")
+
+    await purgeCachedHouseholdData({}, localStorage)
+
+    expect(localStorage.getItem("bepnha:recent-pantry-foods:v1")).toBeNull()
+    expect(localStorage.getItem("unrelated-preference")).toBe("dark")
+    localStorage.clear()
+  })
+
   test("tells the controlling worker to drop the household cache", async () => {
     const postMessage = vi.fn()
     const removeItem = vi.fn()

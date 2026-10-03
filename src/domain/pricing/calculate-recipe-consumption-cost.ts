@@ -1,15 +1,17 @@
+import { normalizeFoodPriceV2, type FoodPriceInputV2 } from "./purchasing-v2.js"
 import {
   classifyPriceFreshness,
   type StalePriceWarning
-} from "@/domain/pricing/classify-price-freshness"
-import type { FoodPriceInput, RecipeCostIngredient } from "@/domain/pricing/pricing"
-import { PRICE_FRESHNESS_CONFIG_V1, type PriceFreshnessConfigV1 } from "@/domain/pricing/pricing"
+} from "../pricing/classify-price-freshness.js"
+import type { FoodPriceInput, RecipeCostIngredient } from "../pricing/pricing.js"
+import { PRICE_FRESHNESS_CONFIG_V1, type PriceFreshnessConfigV1 } from "../pricing/pricing.js"
 import {
   ExactDecimal,
   ROUND_HALF_UP,
   decimalToCanonical,
+  roundDecimal,
   parseCanonicalDecimal
-} from "@/domain/shared/decimal"
+} from "../shared/decimal.js"
 
 export type RecipeCostFatalCode =
   | "INVALID_DECIMAL"
@@ -150,6 +152,67 @@ export function calculateRecipeConsumptionCost(
       warnings,
       totalRawCostVnd: decimalToCanonical(totalRawCost),
       totalEstimatedCostVnd: roundedTotal.toNumber()
+    }
+  }
+}
+
+export function calculateRecipeConsumptionCostV2(
+  ingredients: readonly RecipeCostIngredient[],
+  prices: readonly FoodPriceInputV2[],
+  calculationDate: string,
+  freshnessConfig: PriceFreshnessConfigV1 = PRICE_FRESHNESS_CONFIG_V1
+): RecipeConsumptionCostResult {
+  const validDate = classifyPriceFreshness(calculationDate, calculationDate, freshnessConfig)
+  if (!validDate.ok) return failure(validDate.error.code, "input")
+  const quotes: FoodPriceInput[] = []
+  for (const price of prices) {
+    const validated = normalizeFoodPriceV2(price)
+    if (!validated.ok) return failure("INVALID_PRICE", price.foodId)
+    quotes.push({
+      foodId: price.foodId,
+      foodPriceId: price.foodPriceId,
+      priceBookId: price.priceBookId,
+      foodFactVersionId: price.foodFactVersionId,
+      baseUnitId: price.baseUnitId,
+      observedAt: price.observedAt,
+      packageBaseQuantity: validated.value.quoteBaseQuantity,
+      packagePriceVnd: validated.value.quotePriceVnd,
+      purchaseIncrement: "1"
+    })
+  }
+  const dimensions = new Map(prices.map((price) => [price.foodId, price.baseDimension]))
+  for (const ingredient of ingredients) {
+    const quantity = parsePositive(ingredient.baseQuantity)
+    if (
+      !quantity.ok ||
+      (dimensions.get(ingredient.foodId) === "count" && !quantity.value.isInteger())
+    )
+      return failure("INVALID_DECIMAL", ingredient.foodId)
+  }
+  const result = calculateRecipeConsumptionCost(
+    ingredients,
+    quotes,
+    calculationDate,
+    freshnessConfig
+  )
+  if (!result.ok) return result
+  const totalRawCostVnd = roundDecimal(
+    new ExactDecimal(result.value.totalRawCostVnd),
+    18,
+    ROUND_HALF_UP
+  )
+  const cost = new ExactDecimal(totalRawCostVnd).toDecimalPlaces(0, ROUND_HALF_UP)
+  if (cost.gt(Number.MAX_SAFE_INTEGER)) return failure("INVALID_PRICE", "total")
+  return {
+    ok: true,
+    value: {
+      ...result.value,
+      totalRawCostVnd,
+      totalEstimatedCostVnd: cost.toNumber(),
+      contributions: result.value.contributions.map((line) => ({
+        ...line,
+        rawCostVnd: roundDecimal(new ExactDecimal(line.rawCostVnd), 18, ROUND_HALF_UP)
+      }))
     }
   }
 }

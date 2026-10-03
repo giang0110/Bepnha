@@ -1,6 +1,6 @@
 import type { ContentHasher } from "../shared/content-hasher.js"
 import { evaluatePlannerEligibility } from "../../domain/planner/evaluate-eligibility.js"
-import { PLANNER_ENGINE_VERSION } from "../../domain/planner/planner-engine-version.js"
+import { LEGACY_PLANNER_ENGINE_VERSION as PLANNER_ENGINE_VERSION } from "../../domain/planner/planner-engine-version.js"
 import type { PlannerInputV1 } from "../../domain/planner/planner-input.js"
 import type { PlannerFatalCode } from "../../domain/planner/planner-outcome.js"
 import {

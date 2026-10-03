@@ -1,3 +1,9 @@
+import { plannerCandidateV2, plannerInputV2 } from "@/domain/planner/planner-v2-test-fixture"
+import {
+  normalizePlannerInputV2,
+  evaluatePlannerEligibilityV2,
+  searchWeekV2
+} from "@/domain/planner/planner-v2"
 import { expect, test } from "vitest"
 
 import { evaluatePlannerEligibility } from "@/domain/planner/evaluate-eligibility"
@@ -112,6 +118,74 @@ test.each(scenarios)(
         firstDurationMs: Math.round(first.durationMs),
         secondDurationMs: Math.round(second.durationMs),
         durationCeilingMs: scenario.durationCeilingMs
+      })
+    )
+  },
+  TEST_WRAPPER_TIMEOUT_MS
+)
+
+function runScenarioV2(scenario: PerformanceScenario) {
+  const input = {
+    ...plannerInputV2(
+      Array.from({ length: scenario.candidateCount }, (_, i) =>
+        plannerCandidateV2(`performance-v2-${scenario.name}-${String(i).padStart(3, "0")}-v1`)
+      )
+    ),
+    memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: scenario.adultCount }],
+    nutritionSetup: {
+      version: "household-nutrition-v1" as const,
+      plannedMealSharePercent: 33,
+      memberProfiles: Array.from({ length: scenario.adultCount }, (_, i) => ({
+        id: `10000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+        memberKind: "adult" as const,
+        sortOrder: i + 1,
+        label: null,
+        heightCm: "170",
+        weightKg: "65",
+        ageYears: 30,
+        sexForEquation: "male" as const,
+        activityLevel: "light" as const,
+        goal: "maintain" as const
+      }))
+    }
+  }
+  const normalized = normalizePlannerInputV2(input)
+  if (!normalized.ok) throw new Error(normalized.error.code)
+  const eligibility = evaluatePlannerEligibilityV2(normalized.value)
+  if (!eligibility.ok) throw new Error(eligibility.error.code)
+  const startedAt = performance.now()
+  const result = searchWeekV2(normalized.value, eligibility.value.eligible)
+  const durationMs = performance.now() - startedAt
+  if (!("plan" in result)) throw new Error(result.error.code)
+  return {
+    result,
+    durationMs,
+    maxFrontierSize: Math.max(...result.plan.frontierMetrics.map((m) => m.unionSize)),
+    exploredStates: result.plan.frontierMetrics.reduce((n, m) => n + m.expandedSize, 0)
+  }
+}
+test.each(scenarios)(
+  "guards personalized v2 planner performance for $name fixture",
+  (scenario) => {
+    const first = runScenarioV2(scenario)
+    const second = runScenarioV2(scenario)
+    expect(second.result.plan.stableIdSequence).toBe(first.result.plan.stableIdSequence)
+    expect(second.result.plan.totalEstimatedCostVnd).toBe(first.result.plan.totalEstimatedCostVnd)
+    expect(first.result.plan.items).toHaveLength(7)
+    expect(first.maxFrontierSize).toBeLessThanOrEqual(250)
+    expect(first.exploredStates).toBeLessThanOrEqual(scenario.exploredStatesCeiling)
+    expect(second.exploredStates).toBe(first.exploredStates)
+    expect(first.durationMs).toBeLessThanOrEqual(scenario.durationCeilingMs)
+    expect(second.durationMs).toBeLessThanOrEqual(scenario.durationCeilingMs)
+    console.info(
+      JSON.stringify({
+        benchmark: "planner-v2-regression-gate",
+        measurementKind: "ci_regression_guard_not_production_p95",
+        scenario: scenario.name,
+        firstDurationMs: Math.round(first.durationMs),
+        secondDurationMs: Math.round(second.durationMs),
+        maxFrontierSize: first.maxFrontierSize,
+        exploredStates: first.exploredStates
       })
     )
   },

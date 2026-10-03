@@ -666,6 +666,8 @@ describe("planCatalogMutations dependency DAG and canonical order", () => {
       create_food: 1,
       save_food_fact_draft: 2,
       publish_food_fact: 3,
+      save_food_quantity_policy_draft: 3.1,
+      publish_food_quantity_policy: 3.2,
       create_recipe: 4,
       save_recipe_version_draft: 5,
       publish_recipe: 6,
@@ -734,6 +736,7 @@ describe("planCatalogMutations determinism", () => {
 
   test("canonicalizes semantically equivalent top-level source ordering", () => {
     const fixture = buildPlanningFixture()
+    if (fixture.pack.schemaVersion !== "1") throw new Error("Expected legacy fixture")
     const shuffledPack = {
       ...fixture.pack,
       foods: [...fixture.pack.foods].reverse(),

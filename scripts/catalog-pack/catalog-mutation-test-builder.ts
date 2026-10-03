@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto"
 
 import { buildReadyCatalogPack } from "./catalog-pack-test-builder.ts"
-import type { CatalogPackV1 } from "./catalog-pack-types.ts"
+import type { CatalogPack } from "./catalog-pack-types.ts"
 import { buildResolvableProductionSnapshot } from "./catalog-production-test-builder.ts"
 import { resolveCatalogProductionReferences } from "./catalog-production-resolver.ts"
 import type { ResolvedCatalogManifestV1 } from "./catalog-production-types.ts"
 
 export interface CatalogMutationPlanningFixture {
-  readonly pack: CatalogPackV1
+  readonly pack: CatalogPack
   readonly packBytes: Uint8Array
   readonly inputSha256: string
   readonly manifest: ResolvedCatalogManifestV1

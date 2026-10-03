@@ -13,6 +13,8 @@ function repository(overrides: Partial<CatalogAdminRepository> = {}): CatalogAdm
   }
   return {
     createFood: vi.fn().mockResolvedValue(result),
+    saveFoodQuantityPolicyDraft: vi.fn().mockResolvedValue(result),
+    publishFoodQuantityPolicy: vi.fn().mockResolvedValue(result),
     saveFoodFactDraft: vi.fn().mockResolvedValue(result),
     publishFoodFact: vi.fn().mockResolvedValue(result),
     retireFood: vi.fn().mockResolvedValue(result),
@@ -323,5 +325,97 @@ describe("POST /api/admin/catalog", () => {
 
     expect(result.status).toHaveBeenCalledWith(503)
     expect(result.body).toEqual({ error: "CATALOG_UNAVAILABLE" })
+  })
+})
+
+describe("physical metadata admin authorization", () => {
+  const policy = {
+    action: "save_food_quantity_policy_draft",
+    input: {
+      foodQuantityPolicyVersionId: "policy",
+      foodId: "fish",
+      foodFactVersionId: "fact",
+      expectedRevision: 1,
+      versionNumber: 1,
+      baseUnitId: "g",
+      baseDimension: "mass",
+      foodForm: "portionable_mass",
+      stepBaseQuantity: "1",
+      rounding: "half_up",
+      provenance: "Reviewed cut portions"
+    }
+  }
+  test.each([
+    [false, 403],
+    [true, 200]
+  ] as const)("requires admin role %s for policy authoring", async (isAdmin, status) => {
+    const repo = repository()
+    const handler = createCatalogAdminHandler({
+      auth: { verify: vi.fn().mockResolvedValue({ userId: "actor", isAdmin }) },
+      repositoryFor: () => repo,
+      hasher
+    })
+    const { result, response } = responseDouble()
+    await handler(request("POST", "Bearer token", policy), response)
+    expect(result.status).toHaveBeenCalledWith(status)
+    expect(repo.saveFoodQuantityPolicyDraft).toHaveBeenCalledTimes(isAdmin ? 1 : 0)
+  })
+  test("rejects caller hashes on policy drafts", async () => {
+    const repo = repository()
+    const handler = createCatalogAdminHandler({
+      auth: { verify: vi.fn().mockResolvedValue({ userId: "actor", isAdmin: true }) },
+      repositoryFor: () => repo,
+      hasher
+    })
+    const { result, response } = responseDouble()
+    await handler(
+      request("POST", "Bearer token", {
+        ...policy,
+        input: { ...policy.input, contentHash: "f".repeat(64) }
+      }),
+      response
+    )
+    expect(result.status).toHaveBeenCalledWith(400)
+    expect(repo.saveFoodQuantityPolicyDraft).not.toHaveBeenCalled()
+  })
+  test("passes explicit v2 price fields through the existing admin action", async () => {
+    const repo = repository()
+    const handler = createCatalogAdminHandler({
+      auth: { verify: vi.fn().mockResolvedValue({ userId: "actor", isAdmin: true }) },
+      repositoryFor: () => repo,
+      hasher
+    })
+    const { result, response } = responseDouble()
+    const input = {
+      priceBookId: "book",
+      expectedRevision: 1,
+      effectiveFrom: "2026-10-01",
+      effectiveTo: null,
+      purchasingVersion: "purchase-v2",
+      prices: [
+        {
+          foodPriceId: "p",
+          foodId: "fish",
+          foodFactVersionId: "fact",
+          packageQuantity: "1000",
+          packageUnitId: "g",
+          packageBaseQuantity: "1000",
+          baseUnitId: "g",
+          baseDimension: "mass",
+          packagePriceVnd: 100000,
+          purchaseIncrement: "1",
+          observedAt: "2026-10-01",
+          sourceReference: "Synthetic quote",
+          purchaseRule: { mode: "loose_mass", saleStepBaseQuantity: "50" },
+          purchaseProvenance: "Synthetic loose offer"
+        }
+      ]
+    }
+    await handler(
+      request("POST", "Bearer token", { action: "save_price_book_draft", input }),
+      response
+    )
+    expect(result.status).toHaveBeenCalledWith(200)
+    expect(repo.savePriceBookDraft).toHaveBeenCalledWith(input)
   })
 })

@@ -16,6 +16,9 @@ import {
   type HouseholdRuleOption
 } from "@/domain/household/household-rules"
 
+import { validateMemberProfiles } from "./validate-member-profiles"
+import type { HouseholdNutritionSetupV1 } from "./member-profile"
+
 const childAgeBandSchema = z.enum(CHILD_AGE_BANDS)
 const memberGroupSchema = z.discriminatedUnion("memberKind", [
   z
@@ -43,6 +46,7 @@ const memberGroupSchema = z.discriminatedUnion("memberKind", [
 
 const inputShapeSchema = z
   .object({
+    nutritionSetup: z.unknown().optional(),
     memberGroups: z.array(z.unknown()),
     weeklyPlanBudgetVnd: z.unknown(),
     maxElapsedMinutes: z.unknown(),
@@ -71,6 +75,7 @@ export type HouseholdSetupValidationErrorCode =
   | "UNKNOWN_RULE_CODE"
   | "CONFLICTING_RULE_TARGET"
   | "INVALID_ALLERGEN_STRICTNESS"
+  | "INVALID_NUTRITION_SETUP"
 
 export interface HouseholdSetupValidationError {
   code: HouseholdSetupValidationErrorCode
@@ -81,6 +86,7 @@ export interface HouseholdSetupValidationError {
     | "maxElapsedMinutes"
     | "ruleCodes"
     | "allergenStrictness"
+    | "nutritionSetup"
 }
 
 type HouseholdSetupValidationFailure = {
@@ -214,9 +220,30 @@ export function validateHouseholdSetup(input: unknown): HouseholdSetupValidation
     return allergenStrictness
   }
 
+  let nutritionSetup: HouseholdNutritionSetupV1 | undefined
+  if (shape.data.nutritionSetup !== undefined) {
+    const nutrition = z
+      .object({
+        version: z.literal("household-nutrition-v1"),
+        memberProfiles: z.unknown(),
+        plannedMealSharePercent: z.number().int().min(20).max(50)
+      })
+      .strict()
+      .safeParse(shape.data.nutritionSetup)
+    if (!nutrition.success) return invalid("INVALID_NUTRITION_SETUP", "nutritionSetup")
+    const profiles = validateMemberProfiles(nutrition.data.memberProfiles, memberGroups)
+    if (!profiles.ok) return invalid("INVALID_NUTRITION_SETUP", "nutritionSetup")
+    nutritionSetup = {
+      version: nutrition.data.version,
+      memberProfiles: profiles.value,
+      plannedMealSharePercent: nutrition.data.plannedMealSharePercent
+    }
+  }
+
   return {
     ok: true,
     value: {
+      ...(nutritionSetup === undefined ? {} : { nutritionSetup }),
       memberGroups,
       weeklyPlanBudgetVnd: budget as number,
       maxElapsedMinutes: maxElapsedMinutes as number,

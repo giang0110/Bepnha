@@ -335,6 +335,107 @@ describe("trusted catalog administrator flow", () => {
       .update({ instruction_vi: "Không được thay đổi" })
       .eq("recipe_version_id", recipeVersionId)
     expect(immutable.error).not.toBeNull()
+    const policyId = crypto.randomUUID()
+    const policyDraft = successBody(
+      await command({
+        action: "save_food_quantity_policy_draft",
+        input: {
+          foodQuantityPolicyVersionId: policyId,
+          expectedRevision: 1,
+          foodId: food.id,
+          foodFactVersionId: factId,
+          versionNumber: 1,
+          baseUnitId: "70010000-0000-0000-0000-000000000001",
+          baseDimension: "mass",
+          foodForm: "portionable_mass",
+          stepBaseQuantity: "1",
+          rounding: "half_up",
+          provenance: "Synthetic reviewed gram portions"
+        }
+      })
+    )
+    const policyPublished = successBody(
+      await command({
+        action: "publish_food_quantity_policy",
+        input: { foodQuantityPolicyVersionId: policyId, expectedRevision: policyDraft.revision }
+      })
+    )
+    expect(policyPublished.contentHash).toMatch(/^[a-f0-9]{64}$/u)
+    const policyRead = await publicClient
+      .from("food_quantity_policy_versions")
+      .select("food_fact_version_id,step_base_quantity,content_hash")
+      .eq("id", policyId)
+      .single()
+    expect(policyRead.error).toBeNull()
+    expect(policyRead.data).toMatchObject({
+      food_fact_version_id: factId,
+      step_base_quantity: 1,
+      content_hash: policyPublished.contentHash
+    })
+    const v2Book = successBody(
+      await command({
+        action: "create_price_book",
+        input: {
+          regionId: "70060000-0000-0000-0000-000000000001",
+          versionNumber: 2,
+          effectiveFrom: calculationDate,
+          effectiveTo: null
+        }
+      })
+    )
+    const v2Draft = successBody(
+      await command({
+        action: "save_price_book_draft",
+        input: {
+          priceBookId: v2Book.id,
+          expectedRevision: v2Book.revision,
+          purchasingVersion: "purchase-v2",
+          effectiveFrom: calculationDate,
+          effectiveTo: null,
+          prices: [
+            {
+              foodPriceId: "synthetic-price",
+              foodId: food.id,
+              foodFactVersionId: factId,
+              packageQuantity: "1000",
+              packageUnitId: "70010000-0000-0000-0000-000000000001",
+              packageBaseQuantity: "1000",
+              baseUnitId: "70010000-0000-0000-0000-000000000001",
+              baseDimension: "mass",
+              packagePriceVnd: 30000,
+              purchaseIncrement: "1",
+              observedAt: calculationDate,
+              sourceReference: "Synthetic local quote",
+              purchaseRule: { mode: "loose_mass", saleStepBaseQuantity: "50" },
+              purchaseProvenance: "Synthetic supplier accepts increments of 50g"
+            }
+          ]
+        }
+      })
+    )
+    const v2Published = successBody(
+      await command({
+        action: "publish_price_book",
+        input: { priceBookId: v2Book.id, expectedRevision: v2Draft.revision }
+      })
+    )
+    expect(v2Published.contentHash).toMatch(/^[a-f0-9]{64}$/u)
+    const terms = await publicClient
+      .from("food_price_purchase_terms")
+      .select("purchase_mode,sale_step_base_quantity,content_hash")
+      .eq("price_book_id", v2Book.id)
+      .single()
+    expect(terms.error).toBeNull()
+    expect(terms.data).toMatchObject({
+      purchase_mode: "loose_mass",
+      sale_step_base_quantity: 50
+    })
+    expect(terms.data?.content_hash).toMatch(/^[a-f0-9]{64}$/u)
+    const forbiddenPolicy = await secretClient
+      .from("food_quantity_policy_versions")
+      .update({ step_base_quantity: 5 })
+      .eq("id", policyId)
+    expect(forbiddenPolicy.error).not.toBeNull()
     const audit = await publicClient.from("admin_audit_log").select("id")
     expect(audit.data).toBeNull()
     expect(audit.error).not.toBeNull()

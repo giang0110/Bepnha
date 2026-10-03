@@ -22,6 +22,7 @@ export type SaveHouseholdResult =
         | "UNAUTHORIZED"
         | "INVALID_HOUSEHOLD_STATE"
         | "DEPENDENCY_UNAVAILABLE"
+        | "DEPENDENCY_SCHEMA_NOT_READY"
     }
 
 export interface HouseholdRepository {

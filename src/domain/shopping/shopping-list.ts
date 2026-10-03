@@ -1,4 +1,5 @@
 import type { GroceryCategoryCode } from "./grocery-category-config.js"
+import type { PurchaseBasketLineV2 } from "../pricing/purchasing-v2.js"
 
 export type ShoppingProjectionFatalCode =
   | "INCOMPLETE_SHOPPING_LINEAGE"
@@ -81,6 +82,34 @@ export interface ShoppingListSnapshotV1 {
 
 export type BuildShoppingListSnapshotResult =
   | { readonly ok: true; readonly value: ShoppingListSnapshotV1 }
+  | {
+      readonly ok: false
+      readonly error: { readonly code: ShoppingProjectionFatalCode; readonly foodId?: string }
+    }
+
+export interface ShoppingQuantityPolicyRef {
+  readonly id: string
+  readonly contentHash: string
+  readonly versionNumber: number
+}
+export interface ShoppingSourceV2 extends ShoppingSourceV1 {
+  readonly quantityPolicyRef: ShoppingQuantityPolicyRef
+}
+export interface ShoppingListSnapshotLineV2 extends PurchaseBasketLineV2 {
+  readonly groceryCategoryCode: GroceryCategoryCode
+  readonly factRefs: readonly ShoppingFactRefV1[]
+  readonly policyRefs: readonly ShoppingQuantityPolicyRef[]
+  readonly sources: readonly ShoppingSourceV2[]
+}
+export interface ShoppingListSnapshotV2 {
+  readonly version: "shopping-list-v2"
+  readonly groceryCategoryConfigVersion: "grocery-category-v1"
+  readonly lines: readonly ShoppingListSnapshotLineV2[]
+  readonly totalEstimatedCostVnd: number
+  readonly warnings: readonly ShoppingWarning[]
+}
+export type BuildShoppingListSnapshotResultV2 =
+  | { readonly ok: true; readonly value: ShoppingListSnapshotV2 }
   | {
       readonly ok: false
       readonly error: { readonly code: ShoppingProjectionFatalCode; readonly foodId?: string }

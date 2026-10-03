@@ -2,21 +2,13 @@
 
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
+import ts from "typescript"
 import { describe, expect, it } from "vitest"
 
 /**
- * Vercel compiles `api/*.ts` in place instead of bundling, and TypeScript never rewrites import
- * specifiers on emit. Whatever is written here reaches Node verbatim, and Node applies ESM rules:
- * a bare specifier is an npm package, and a relative one needs a file extension.
- *
- * Both mistakes fail the same way, at module load, before a single line of a handler runs:
- *
- *   ERR_MODULE_NOT_FOUND: Cannot find package '@/infrastructure'
- *   imported from /var/task/api/health.js
- *
- * Nothing else catches this. Vitest, tsc and Vite all resolve `@/` happily, so the whole test
- * suite stayed green while every function in production returned 500. This walks the real import
- * closure from the deployed entrypoints and checks what Node will see.
+ * Vercel 14 compiles functions with rewriteRelativeImportExtensions enabled. Inspect the emitted
+ * import closure so both .js source imports and native-Node .ts imports must resolve to .js in
+ * production. Aliases and extensionless runtime imports still fail before a handler runs.
  */
 
 function sourceFiles(directory: string, found: string[] = []): string[] {
@@ -65,7 +57,14 @@ function inspectServerlessClosure(): { files: string[]; problems: Problem[] } {
     if (visited.has(file)) continue
     visited.add(file)
 
-    const source = readFileSync(file, "utf8")
+    const source = ts.transpileModule(readFileSync(file, "utf8"), {
+      fileName: file,
+      compilerOptions: {
+        target: ts.ScriptTarget.ES2024,
+        module: ts.ModuleKind.ESNext,
+        rewriteRelativeImportExtensions: true
+      }
+    }).outputText
     for (const match of source.matchAll(/\bfrom\s*"([^"]+)"/gu)) {
       const specifier = match[1] as string
 
@@ -88,6 +87,18 @@ function inspectServerlessClosure(): { files: string[]; problems: Problem[] } {
 
 describe("every module a serverless function loads", () => {
   const { files, problems } = inspectServerlessClosure()
+
+  it("rewrites native TypeScript extensions into deployable JavaScript imports", () => {
+    const result = ts.transpileModule('import { value } from "./quantity.ts"; export { value }', {
+      compilerOptions: { module: ts.ModuleKind.ESNext, rewriteRelativeImportExtensions: true }
+    })
+    expect(result.outputText).toContain('from "./quantity.js"')
+    expect(
+      JSON.parse(readFileSync("tsconfig.api.json", "utf8")) as {
+        compilerOptions: { rewriteRelativeImportExtensions: boolean }
+      }
+    ).toMatchObject({ compilerOptions: { rewriteRelativeImportExtensions: true } })
+  })
 
   it("reaches beyond api/ into the shared source tree", () => {
     // A closure of only the entrypoints would mean this test proves nothing.

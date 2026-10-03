@@ -1,3 +1,5 @@
+import { catalogBindingV2 } from "./planner-v2.js"
+import { calculateMemberEnergyTarget } from "../nutrition/member-energy-target.js"
 import type { PantrySnapshotV1 } from "../pantry/pantry.js"
 
 import type { PersistedPlannerEngineVersion } from "./planner-engine-version.js"
@@ -114,6 +116,68 @@ export function buildPlannerSnapshotPayloads(source: PlannerSnapshotSource) {
   return {
     catalogPayload,
     inputPayload,
+    calculationPayload: source.calculation
+  }
+}
+
+export interface PlannerSnapshotSourceV2 {
+  readonly input: import("./planner-v2.js").NormalizedPlannerInputV2
+  readonly calculation: unknown
+}
+export function buildPlannerSnapshotPayloadsV2(source: PlannerSnapshotSourceV2) {
+  const input = source.input
+  const candidateManifest = catalogBindingV2(input)
+  const household = {
+    householdId: input.householdId,
+    setupVersion: input.householdSetupVersion,
+    memberGroups: input.memberGroups,
+    hardRuleCodes: input.hardRuleCodes,
+    allergenStrictness: input.allergenStrictness,
+    softPreferenceCodes: input.softPreferenceCodes,
+    weeklyPlanBudgetVnd: input.weeklyPlanBudgetVnd,
+    maxElapsedMinutes: input.maxElapsedMinutes,
+    ...(input.nutritionSetup === undefined
+      ? {}
+      : {
+          nutritionSetup: input.nutritionSetup,
+          memberEnergyEstimates: input.nutritionSetup.memberProfiles.map((p) =>
+            calculateMemberEnergyTarget(p, input.nutritionSetup!.plannedMealSharePercent)
+          )
+        })
+  }
+  return {
+    catalogPayload: { candidateManifest },
+    inputPayload: {
+      engineVersion: "6" as const,
+      inputVersion: "planner-input-v2" as const,
+      household,
+      weekStart: input.weekStart,
+      timezone: input.timezone,
+      calculationDate: input.calculationDate,
+      portionConfig: input.portionConfig,
+      energyTargetConfig: input.energyTargetConfig,
+      priceFreshnessConfig: input.priceFreshnessConfig,
+      plannerConfig: input.plannerConfig,
+      pantrySnapshot: canonicalPantry(input.pantrySnapshot),
+      ...(input.pantryQuantityPolicies === undefined
+        ? {}
+        : { pantryQuantityPolicies: input.pantryQuantityPolicies }),
+      ...(input.pantryWholePieceBaseQuantities === undefined
+        ? {}
+        : { pantryWholePieceBaseQuantities: input.pantryWholePieceBaseQuantities }),
+      ...(input.recentMealOptionIds === undefined
+        ? {}
+        : { recentMealOptionIds: [...input.recentMealOptionIds].sort() }),
+      ...(input.mealOptionRatings === undefined
+        ? {}
+        : {
+            mealOptionRatings: {
+              liked: [...input.mealOptionRatings.liked].sort(),
+              disliked: [...input.mealOptionRatings.disliked].sort()
+            }
+          }),
+      candidateManifest
+    },
     calculationPayload: source.calculation
   }
 }

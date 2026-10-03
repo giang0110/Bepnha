@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest"
 
-import { calculateRecipeConsumptionCost } from "@/domain/pricing/calculate-recipe-consumption-cost"
+import {
+  calculateRecipeConsumptionCost,
+  calculateRecipeConsumptionCostV2
+} from "@/domain/pricing/calculate-recipe-consumption-cost"
 
 const ingredients = [
   {
@@ -139,4 +142,128 @@ describe("calculateRecipeConsumptionCost", () => {
       calculateRecipeConsumptionCost(secondRecipe.ingredients, [price], "2026-08-26")
     )
   })
+})
+
+describe("consumption-cost-v2", () => {
+  const v2Egg = {
+    version: "purchase-v2" as const,
+    foodPriceId: "egg-price",
+    priceBookId: "book",
+    foodId: "egg",
+    foodFactVersionId: "egg-v1",
+    baseUnitId: "item",
+    baseDimension: "count" as const,
+    quoteBaseQuantity: "10",
+    quotePriceVnd: 24000,
+    purchaseRule: { mode: "fixed_pack" as const, packIncrement: "1" },
+    purchaseProvenance: "Fixture ten whole eggs",
+    purchaseTermsContentHash: "a".repeat(64),
+    observedAt: "2026-10-01"
+  }
+  test("costs three actual eggs separately from the purchased ten-egg box", () => {
+    expect(
+      calculateRecipeConsumptionCostV2(
+        [
+          {
+            recipeIngredientId: "egg",
+            foodId: "egg",
+            foodFactVersionId: "egg-v1",
+            baseUnitId: "item",
+            baseQuantity: "3",
+            order: 1
+          }
+        ],
+        [v2Egg],
+        "2026-10-02"
+      )
+    ).toMatchObject({ ok: true, value: { totalEstimatedCostVnd: 7200 } })
+  })
+  test("costs actual mass at the declared loose quote rate", () => {
+    const price = {
+      ...v2Egg,
+      foodId: "fish",
+      foodFactVersionId: "fish-v1",
+      baseUnitId: "g",
+      baseDimension: "mass" as const,
+      quoteBaseQuantity: "1000",
+      quotePriceVnd: 100000,
+      purchaseRule: { mode: "loose_mass" as const, saleStepBaseQuantity: "50" }
+    }
+    expect(
+      calculateRecipeConsumptionCostV2(
+        [
+          {
+            recipeIngredientId: "fish",
+            foodId: "fish",
+            foodFactVersionId: "fish-v1",
+            baseUnitId: "g",
+            baseQuantity: "620",
+            order: 1
+          }
+        ],
+        [price],
+        "2026-10-02"
+      )
+    ).toMatchObject({ ok: true, value: { totalEstimatedCostVnd: 62000 } })
+  })
+  test("rounds aggregate consumption money once and exports bounded decimal costs", () => {
+    const prices = Array.from({ length: 6 }, (_, i) => ({
+      ...v2Egg,
+      foodId: `egg-${i}`,
+      foodPriceId: `price-${i}`,
+      quoteBaseQuantity: "12",
+      quotePriceVnd: 1
+    }))
+    const ingredients = prices.map((price, i) => ({
+      recipeIngredientId: `ingredient-${i}`,
+      foodId: price.foodId,
+      foodFactVersionId: "egg-v1",
+      baseUnitId: "item",
+      baseQuantity: "1",
+      order: i + 1
+    }))
+    const result = calculateRecipeConsumptionCostV2(ingredients, prices, "2026-10-02")
+    expect(result).toMatchObject({
+      ok: true,
+      value: { totalRawCostVnd: "0.5", totalEstimatedCostVnd: 1 }
+    })
+    if (!result.ok) throw new Error(result.error.code)
+    expect(
+      result.value.contributions.every((line) => (line.rawCostVnd.split(".")[1]?.length ?? 0) <= 18)
+    ).toBe(true)
+  })
+})
+
+test("consumption v2 refuses a theoretical fractional whole egg", () => {
+  const price = {
+    version: "purchase-v2" as const,
+    foodPriceId: "egg-price",
+    priceBookId: "book",
+    foodId: "egg",
+    foodFactVersionId: "egg-v1",
+    baseUnitId: "item",
+    baseDimension: "count" as const,
+    quoteBaseQuantity: "10",
+    quotePriceVnd: 24000,
+    purchaseRule: { mode: "fixed_pack" as const, packIncrement: "1" },
+    purchaseProvenance: "Fixture box of10",
+    purchaseTermsContentHash: "a".repeat(64),
+    observedAt: "2026-10-01"
+  }
+  expect(
+    calculateRecipeConsumptionCostV2(
+      [
+        {
+          recipeIngredientId: "egg",
+          foodId: "egg",
+          foodFactVersionId: "egg-v1",
+          baseUnitId: "item",
+          baseQuantity: "2.4",
+          order: 1
+        }
+      ],
+      [price],
+      "2026-10-02"
+    )
+  ).toMatchObject({ ok: false, error: { code: "INVALID_DECIMAL" } })
 })

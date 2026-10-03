@@ -1,3 +1,4 @@
+import { createVersionedPlannerUseCases } from "@/application/planner/planner-nutrition-use-cases.js"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { VercelRequest, VercelResponse } from "@vercel/node"
 import { beforeAll, describe, expect, test } from "vitest"
@@ -12,9 +13,13 @@ import { NodeContentHasher } from "@/infrastructure/server/node-content-hasher.j
 import { createPlannerHttpHandlers } from "@/infrastructure/server/planner-http.js"
 import { createSupabaseCatalogAdminRepository } from "@/infrastructure/server/supabase-catalog-admin-repository.js"
 import { createSupabaseMealOptionAdminRepository } from "@/infrastructure/server/supabase-meal-option-admin-repository.js"
-import { createSupabasePlannerInputLoader } from "@/infrastructure/server/supabase-planner-input-loader.js"
+import {
+  createSupabasePlannerInputLoader,
+  createSupabasePlannerInputLoaderV2
+} from "@/infrastructure/server/supabase-planner-input-loader.js"
 import {
   createSupabasePlannerRepository,
+  createSupabasePlannerRepositoryV2,
   type PlannerRpcClient
 } from "@/infrastructure/server/supabase-planner-repository.js"
 import type { Database } from "@/infrastructure/supabase/database.types.js"
@@ -266,7 +271,7 @@ beforeAll(async () => {
   })
 
   mealOptionIds = []
-  for (let index = 0; index < 8; index += 1) {
+  for (let index = 0; index < 9; index += 1) {
     const recipe = await catalog({
       action: "create_recipe",
       input: {
@@ -555,3 +560,170 @@ describe("authoritative planner API integration", () => {
     )
   }, 60_000)
 })
+
+test("v6 stores private profiles, reads without catalog, pins historical policies and retries generation idempotently", async () => {
+  const policyId = crypto.randomUUID()
+  await catalog({
+    action: "save_food_quantity_policy_draft",
+    input: {
+      foodQuantityPolicyVersionId: policyId,
+      expectedRevision: 1,
+      foodId: fixtureFoodId,
+      foodFactVersionId: fixtureFactId,
+      versionNumber: 1,
+      baseUnitId: "70010000-0000-0000-0000-000000000001",
+      baseDimension: "mass",
+      foodForm: "portionable_mass",
+      stepBaseQuantity: "1",
+      rounding: "half_up",
+      provenance: "Reviewed local gram fixture"
+    }
+  })
+  await catalog({
+    action: "publish_food_quantity_policy",
+    input: { foodQuantityPolicyVersionId: policyId, expectedRevision: 1 }
+  })
+  const householdRepo = createSupabaseHouseholdRepository(userClient),
+    loaded = await householdRepo.loadOwn()
+  if (!loaded) throw new Error("Missing household")
+  const saved = await householdRepo.saveOwn(
+    {
+      ...loaded,
+      nutritionSetup: {
+        version: "household-nutrition-v1",
+        plannedMealSharePercent: 33,
+        memberProfiles: Array.from({ length: 2 }, (_, i) => ({
+          id: crypto.randomUUID(),
+          memberKind: "adult" as const,
+          sortOrder: i + 1,
+          label: `Người ${i + 1}`,
+          heightCm: "170",
+          weightKg: "65",
+          ageYears: 30,
+          sexForEquation: "male" as const,
+          activityLevel: "light" as const,
+          goal: i === 0 ? ("lose" as const) : ("maintain" as const)
+        }))
+      }
+    },
+    loaded.version
+  )
+  expect(saved.ok).toBe(true)
+  const userRpc = rpcClient(userClient),
+    secretClientFactory = () => rpcClient(secretClient),
+    legacyRepository = createSupabasePlannerRepository({
+      userClient: userRpc,
+      secretClientFactory,
+      loader: createSupabasePlannerInputLoader(userClient)
+    })
+  const loader = createSupabasePlannerInputLoaderV2(userClient),
+    repository = createSupabasePlannerRepositoryV2({
+      userClient: userRpc,
+      secretClientFactory,
+      loader,
+      legacyRepository
+    })
+  const useCases = createVersionedPlannerUseCases({ legacyRepository, repository, hasher })
+  const command = {
+    actorUserId: userId,
+    householdId,
+    weekStart: "2026-09-14",
+    calculationDate,
+    idempotencyKey: crypto.randomUUID()
+  }
+  const generated = await useCases.generate(command)
+  expect(generated).toMatchObject({ ok: true })
+  if (!generated.ok) throw new Error(generated.error.code)
+  const stored = await userClient
+    .from("meal_plan_revisions")
+    .select("engine_version,input_snapshot,calculation_snapshot")
+    .eq("id", generated.value.revisionId)
+    .single()
+  expect(stored.data?.engine_version).toBe("planner-engine-v6")
+  expect(JSON.stringify(stored.data?.input_snapshot)).toContain('"weightKg":"65"')
+  for (const key of [
+    "weightKg",
+    "heightCm",
+    "sexForEquation",
+    "bmi",
+    "bmrKcal",
+    "tdeeKcal",
+    "privatePlanBinding"
+  ])
+    expect(JSON.stringify(generated)).not.toContain(key)
+  expect(await useCases.generate(command)).toEqual({
+    ok: true,
+    value: { ...generated.value, idempotent: true }
+  })
+  const current = await useCases.current(command)
+  expect(current).toMatchObject({
+    ok: true,
+    value: { revisionId: generated.value.revisionId, engineVersion: "planner-engine-v6" }
+  })
+  const newerPolicy = crypto.randomUUID()
+  await catalog({
+    action: "save_food_quantity_policy_draft",
+    input: {
+      foodQuantityPolicyVersionId: newerPolicy,
+      expectedRevision: 1,
+      foodId: fixtureFoodId,
+      foodFactVersionId: fixtureFactId,
+      versionNumber: 2,
+      baseUnitId: "70010000-0000-0000-0000-000000000001",
+      baseDimension: "mass",
+      foodForm: "portionable_mass",
+      stepBaseQuantity: "1",
+      rounding: "half_up",
+      provenance: "Later reviewed gram fixture"
+    }
+  })
+  await catalog({
+    action: "publish_food_quantity_policy",
+    input: { foodQuantityPolicyVersionId: newerPolicy, expectedRevision: 1 }
+  })
+  const replacement = {
+    actorUserId: userId,
+    planId: generated.value.planId,
+    expectedPlanVersion: generated.value.planVersion,
+    expectedCurrentRevisionId: generated.value.revisionId,
+    targetDayIndex: 2
+  }
+  const preview = await useCases.preview(replacement)
+  if (!preview.ok) throw new Error(`V6 preview: ${preview.error.code}`)
+  expect(preview).toMatchObject({ ok: true })
+  const count = await userClient
+    .from("meal_plan_revisions")
+    .select("id", { count: "exact", head: true })
+    .eq("meal_plan_id", generated.value.planId)
+  expect(count.count).toBe(1)
+  const applied = await useCases.apply({
+    ...replacement,
+    previewFingerprint: preview.value.previewFingerprint,
+    idempotencyKey: crypto.randomUUID()
+  })
+  expect(applied).toMatchObject({ ok: true })
+  if (!applied.ok) throw new Error(applied.error.code)
+  for (const original of generated.value.plan.items.filter((i) => i.dayIndex !== 2))
+    expect(applied.value.plan.items.find((i) => i.dayIndex === original.dayIndex)).toEqual(original)
+  const changed = await householdRepo.loadOwn()
+  if (!changed) throw new Error("Missing household")
+  expect(
+    (
+      await householdRepo.saveOwn(
+        { ...changed, maxElapsedMinutes: changed.maxElapsedMinutes + 1 },
+        changed.version
+      )
+    ).ok
+  ).toBe(true)
+  expect(
+    await useCases.preview({
+      ...replacement,
+      expectedPlanVersion: applied.value.planVersion,
+      expectedCurrentRevisionId: applied.value.revisionId
+    })
+  ).toMatchObject({ ok: false, error: { code: "PLAN_INPUT_CHANGED_REGENERATION_REQUIRED" } })
+  expect(await useCases.current(command)).toMatchObject({
+    ok: true,
+    value: { revisionId: applied.value.revisionId }
+  })
+}, 60000)

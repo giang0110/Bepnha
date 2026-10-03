@@ -1,3 +1,5 @@
+import type { PurchaseBasketLineV2 } from "../../domain/pricing/purchasing-v2.js"
+import type { ShoppingQuantityPolicyRef } from "../../domain/shopping/shopping-list.js"
 import type { GroceryCategoryCode } from "../../domain/shopping/grocery-category-config.js"
 import type { ShoppingWarning } from "../../domain/shopping/shopping-list.js"
 
@@ -108,4 +110,25 @@ export interface ShoppingListRepository {
   load(planId: string, revisionId?: string | null): Promise<ShoppingListReadResult | null>
   setChecked(shoppingListItemId: string, checked: boolean): Promise<ShoppingItemCheckState>
   applyToPantry(revisionId: string): Promise<PantryTransferResult>
+}
+
+export interface ShoppingListItemV2 extends PurchaseBasketLineV2 {
+  readonly shoppingListItemId: string
+  readonly foodNameVi: string
+  readonly groceryCategoryCode: GroceryCategoryCode
+  readonly checked: boolean
+  readonly checkedAt: string | null
+  readonly transferredToPantry: boolean
+  readonly policyRefs: readonly ShoppingQuantityPolicyRef[]
+  readonly sources: readonly (ShoppingListSource & {
+    readonly quantityPolicyRef: ShoppingQuantityPolicyRef
+  })[]
+}
+export interface ReadyShoppingListV2 extends Omit<ReadyShoppingList, "items"> {
+  readonly snapshotVersion: "shopping-list-v2"
+  readonly items: readonly ShoppingListItemV2[]
+}
+export type VersionedShoppingListReadResult = ShoppingListReadResult | ReadyShoppingListV2
+export interface VersionedShoppingListRepository extends Omit<ShoppingListRepository, "load"> {
+  load(planId: string, revisionId?: string | null): Promise<VersionedShoppingListReadResult | null>
 }

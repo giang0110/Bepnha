@@ -1,6 +1,9 @@
+import { validateFoodQuantityPolicyDefinition } from "../../domain/recipe/food-quantity-policy.ts"
+import { normalizePurchaseTermsV2 } from "../../domain/pricing/purchasing-v2.ts"
 import type {
   CatalogAdminCommand,
   FoodFactDraftInput,
+  FoodQuantityPolicyDraftInput,
   PriceBookDraftInput,
   RecipeVersionDraftInput
 } from "./catalog-admin-command.js"
@@ -120,6 +123,36 @@ function dateIsValid(value: string): boolean {
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value
 }
 
+function verifiedSource(value: string): boolean {
+  return (
+    typeof value === "string" &&
+    validLabel(value, 500) &&
+    !/^(?:unknown|unverified|todo|pending|tbd|n\/a|not stated)$/iu.test(value)
+  )
+}
+function validatePolicyDraft(input: FoodQuantityPolicyDraftInput): boolean {
+  return (
+    validRevision(input.expectedRevision) &&
+    validRevision(input.versionNumber) &&
+    [
+      input.foodQuantityPolicyVersionId,
+      input.foodId,
+      input.foodFactVersionId,
+      input.baseUnitId
+    ].every((id) => typeof id === "string" && id.length > 0) &&
+    ["mass", "volume", "count"].includes(input.baseDimension) &&
+    [
+      "portionable_mass",
+      "seasoning_mass",
+      "divisible_volume",
+      "whole_count",
+      "whole_piece"
+    ].includes(input.foodForm) &&
+    ["half_up", "ceil"].includes(input.rounding) &&
+    validPositiveDecimal(input.stepBaseQuantity) &&
+    verifiedSource(input.provenance)
+  )
+}
 function validatePriceBookDraft(input: PriceBookDraftInput): boolean {
   if (
     !validRevision(input.expectedRevision) ||
@@ -131,6 +164,26 @@ function validatePriceBookDraft(input: PriceBookDraftInput): boolean {
   ) {
     return false
   }
+  if (
+    input.purchasingVersion === "purchase-v2" &&
+    input.prices.some((price) => {
+      if (
+        !verifiedSource(price.purchaseProvenance) ||
+        !normalizePurchaseTermsV2({
+          baseDimension: price.baseDimension,
+          quoteBaseQuantity: price.packageBaseQuantity,
+          purchaseRule: price.purchaseRule,
+          purchaseProvenance: price.purchaseProvenance
+        }).ok
+      )
+        return true
+      return (
+        price.purchaseRule.mode === "fixed_pack" &&
+        price.purchaseRule.packIncrement !== price.purchaseIncrement
+      )
+    })
+  )
+    return false
   return input.prices.every(
     (price) =>
       validPositiveDecimal(price.packageQuantity) &&
@@ -201,6 +254,19 @@ function foodAggregateIsComplete(aggregate: FoodFactPublicationAggregate): boole
 }
 
 function aggregateIsComplete(aggregate: CatalogPublicationAggregate): boolean {
+  if (aggregate.aggregateType === "food_quantity_policy_version") {
+    const policy = aggregate.policy
+    return (
+      policy.publicationStatus === "draft" &&
+      policy.contentHash === null &&
+      aggregate.foodFactPublicationStatus === "published" &&
+      HASH_PATTERN.test(aggregate.foodFactContentHash) &&
+      validatePolicyDraft({ ...policy, expectedRevision: policy.revision }) &&
+      aggregate.conversions.some(
+        (conversion) => validateFoodQuantityPolicyDefinition(policy, conversion).ok
+      )
+    )
+  }
   if (aggregate.aggregateType === "food_fact_version") return foodAggregateIsComplete(aggregate)
   if (aggregate.aggregateType === "recipe_version") {
     return (
@@ -228,24 +294,32 @@ function aggregateIsComplete(aggregate: CatalogPublicationAggregate): boolean {
       expectedRevision: aggregate.book.revision,
       effectiveFrom: aggregate.book.effectiveFrom,
       effectiveTo: aggregate.book.effectiveTo,
-      prices: aggregate.prices.map((price) => ({
-        foodPriceId: price.foodPriceId,
-        foodId: price.foodId,
-        foodFactVersionId: price.foodFactVersionId,
-        packageQuantity: price.packageQuantity,
-        packageUnitId: price.packageUnitId,
-        packageBaseQuantity: price.packageBaseQuantity,
-        baseUnitId: price.baseUnitId,
-        packagePriceVnd: price.packagePriceVnd,
-        purchaseIncrement: price.purchaseIncrement,
-        observedAt: price.observedAt,
-        sourceReference: price.sourceReference
-      }))
-    })
+      ...(aggregate.book.purchasingVersion === "purchase-v2"
+        ? { purchasingVersion: "purchase-v2" as const }
+        : {}),
+      prices: aggregate.prices
+    } as PriceBookDraftInput)
   )
 }
 
 function normalizeAggregateForHash(aggregate: CatalogPublicationAggregate): unknown {
+  if (aggregate.aggregateType === "food_quantity_policy_version") {
+    const p = aggregate.policy
+    return {
+      aggregateType: aggregate.aggregateType,
+      foodQuantityPolicyVersionId: p.foodQuantityPolicyVersionId,
+      foodId: p.foodId,
+      foodFactVersionId: p.foodFactVersionId,
+      foodFactContentHash: aggregate.foodFactContentHash,
+      versionNumber: p.versionNumber,
+      baseUnitId: p.baseUnitId,
+      baseDimension: p.baseDimension,
+      foodForm: p.foodForm,
+      stepBaseQuantity: p.stepBaseQuantity,
+      rounding: p.rounding,
+      provenance: p.provenance
+    }
+  }
   if (aggregate.aggregateType === "food_fact_version") {
     return {
       aggregateType: aggregate.aggregateType,
@@ -358,6 +432,9 @@ function normalizeAggregateForHash(aggregate: CatalogPublicationAggregate): unkn
   return {
     aggregateType: aggregate.aggregateType,
     book: {
+      ...(aggregate.book.purchasingVersion === "purchase-v2"
+        ? { purchasingVersion: "purchase-v2" }
+        : {}),
       priceBookId: aggregate.book.priceBookId,
       regionId: aggregate.book.regionId,
       versionNumber: aggregate.book.versionNumber,
@@ -381,7 +458,14 @@ function normalizeAggregateForHash(aggregate: CatalogPublicationAggregate): unkn
         packagePriceVnd: price.packagePriceVnd,
         purchaseIncrement: price.purchaseIncrement,
         observedAt: price.observedAt,
-        sourceReference: price.sourceReference
+        sourceReference: price.sourceReference,
+        ...(aggregate.book.purchasingVersion === "purchase-v2" && "purchaseRule" in price
+          ? {
+              baseDimension: price.baseDimension,
+              purchaseRule: price.purchaseRule,
+              purchaseProvenance: price.purchaseProvenance
+            }
+          : {})
       }))
   }
 }
@@ -398,17 +482,21 @@ async function publishAggregate(
   if (!loaded.ok) return loaded
   const aggregate = loaded.value
   const aggregateId =
-    aggregate.aggregateType === "food_fact_version"
-      ? aggregate.fact.foodFactVersionId
-      : aggregate.aggregateType === "recipe_version"
-        ? aggregate.version.recipeVersionId
-        : aggregate.book.priceBookId
+    aggregate.aggregateType === "food_quantity_policy_version"
+      ? aggregate.policy.foodQuantityPolicyVersionId
+      : aggregate.aggregateType === "food_fact_version"
+        ? aggregate.fact.foodFactVersionId
+        : aggregate.aggregateType === "recipe_version"
+          ? aggregate.version.recipeVersionId
+          : aggregate.book.priceBookId
   const aggregateRevision =
-    aggregate.aggregateType === "food_fact_version"
-      ? aggregate.fact.revision
-      : aggregate.aggregateType === "recipe_version"
-        ? aggregate.version.revision
-        : aggregate.book.revision
+    aggregate.aggregateType === "food_quantity_policy_version"
+      ? aggregate.policy.revision
+      : aggregate.aggregateType === "food_fact_version"
+        ? aggregate.fact.revision
+        : aggregate.aggregateType === "recipe_version"
+          ? aggregate.version.revision
+          : aggregate.book.revision
   if (
     aggregate.aggregateType !== aggregateType ||
     aggregateId !== id ||
@@ -422,6 +510,8 @@ async function publishAggregate(
   const contentHash = await hasher.sha256(canonicalUtf8(normalizeAggregateForHash(aggregate)))
   if (!HASH_PATTERN.test(contentHash)) return { ok: false, reason: "DEPENDENCY_UNAVAILABLE" }
   const publicationInput = { id, expectedRevision, contentHash }
+  if (aggregateType === "food_quantity_policy_version")
+    return repository.publishFoodQuantityPolicy(publicationInput)
   if (aggregateType === "food_fact_version") return repository.publishFoodFact(publicationInput)
   if (aggregateType === "recipe_version") return repository.publishRecipe(publicationInput)
   return repository.publishPriceBook(publicationInput)
@@ -441,6 +531,18 @@ export async function executeCatalogAdminCommand(
       )
         return validationFailure()
       return repository.createFood(command.input)
+    case "save_food_quantity_policy_draft":
+      return validatePolicyDraft(command.input)
+        ? repository.saveFoodQuantityPolicyDraft(command.input)
+        : validationFailure()
+    case "publish_food_quantity_policy":
+      return publishAggregate(
+        repository,
+        hasher,
+        "food_quantity_policy_version",
+        command.input.foodQuantityPolicyVersionId,
+        command.input.expectedRevision
+      )
     case "save_food_fact_draft":
       return validateFoodFactDraft(command.input)
         ? repository.saveFoodFactDraft(command.input)

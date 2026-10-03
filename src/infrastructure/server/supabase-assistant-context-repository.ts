@@ -5,6 +5,8 @@ import type {
 import type { AssistantPlanEvidence } from "../../application/assistant/meal-assistant.js"
 import type { PlannerInputLoader, PlannerRpcClient } from "./supabase-planner-repository.js"
 
+import { readyPlanV2FromRevision } from "./supabase-planner-input-loader.js"
+
 const DAY_LABELS = [
   "Thứ Hai",
   "Thứ Ba",
@@ -25,9 +27,17 @@ const transientFailure: AssistantContextLoadResult = {
   error: "TRANSIENT_DEPENDENCY_FAILURE"
 }
 
-function buildEvidence(
-  value: Awaited<ReturnType<PlannerInputLoader["hydrateReplacement"]>>
-): AssistantPlanEvidence {
+function buildEvidence(value: {
+  readonly input: { readonly weeklyPlanBudgetVnd: number }
+  readonly currentPlan: {
+    readonly totalEstimatedCostVnd: number
+    readonly items: readonly {
+      readonly dayIndex: number
+      readonly snapshot: { readonly mealOptionNameVi: string; readonly elapsedMinutes: number }
+    }[]
+    readonly purchaseBasket: { readonly warnings: readonly { readonly code: string }[] }
+  }
+}): AssistantPlanEvidence {
   const totalEstimatedCostVnd = value.currentPlan.totalEstimatedCostVnd
   const budgetVnd = value.input.weeklyPlanBudgetVnd
   const warningCodes = new Set<string>()
@@ -62,6 +72,22 @@ export function createSupabaseAssistantContextRepository(
       if (data === null) return { ok: false, error: "UNAUTHORIZED" }
 
       try {
+        if (typeof data === "object" && data !== null && "revision" in data) {
+          const revision = data.revision as Record<string, unknown>
+          if (revision.engine_version === "planner-engine-v6") {
+            const ready = readyPlanV2FromRevision(revision)
+            return {
+              ok: true,
+              value: {
+                currentRevisionId: String(revision.id),
+                evidence: buildEvidence({
+                  input: { weeklyPlanBudgetVnd: Number(revision.budget_vnd) },
+                  currentPlan: ready
+                })
+              }
+            }
+          }
+        }
         const authoritative = await dependencies.loader.hydrateReplacement(
           data,
           dependencies.userClient

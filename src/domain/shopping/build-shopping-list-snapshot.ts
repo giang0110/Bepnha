@@ -40,7 +40,7 @@ function failure(
   return { ok: false, error: foodId === undefined ? { code } : { code, foodId } }
 }
 
-function sourceOrder(left: ShoppingSourceV1, right: ShoppingSourceV1): number {
+export function sourceOrder(left: ShoppingSourceV1, right: ShoppingSourceV1): number {
   return (
     left.dayIndex - right.dayIndex ||
     compareText(left.mealOptionVersionId, right.mealOptionVersionId) ||
@@ -50,7 +50,7 @@ function sourceOrder(left: ShoppingSourceV1, right: ShoppingSourceV1): number {
   )
 }
 
-function categoryFor(aggregate: Aggregate): {
+export function categoryFor(aggregate: Pick<Aggregate, "foodId" | "categoryEvidence">): {
   readonly category: GroceryCategoryCode
   readonly warning?: ShoppingWarning
 } {

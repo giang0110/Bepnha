@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises"
 
 import { describe, expect, test } from "vitest"
 
-import { buildReadyCatalogPack } from "./catalog-pack-test-builder.ts"
+import { buildReadyCatalogPack, purchasingPackFixture } from "./catalog-pack-test-builder.ts"
 import {
   CATALOG_PRODUCTION_TABLES,
   createCatalogProductionReader,
@@ -25,10 +25,14 @@ const EXPECTED_COLUMNS = {
   recipe_versions: "id,recipe_id,version_number,revision,publication_status",
   price_books: "id,region_id,version_number,revision,publication_status",
   meal_options: "id,code,name_vi,status,revision",
-  meal_option_versions: "id,meal_option_id,version_number,revision,publication_status"
+  meal_option_versions: "id,meal_option_id,version_number,revision,publication_status",
+  food_quantity_policy_versions:
+    "id,food_fact_version_id,version_number,revision,publication_status"
 } as const
 
-const EXPECTED_TABLES = new Set(Object.keys(EXPECTED_COLUMNS))
+const EXPECTED_TABLES = new Set(
+  Object.keys(EXPECTED_COLUMNS).filter((table) => table !== "food_quantity_policy_versions")
+)
 
 const id = (group: number, index: number): string =>
   `910${group}0000-0000-0000-0000-${String(index).padStart(12, "0")}`
@@ -40,6 +44,8 @@ function rowsForRequest(request: CatalogSelectRequest): readonly unknown[] {
   if (baseUnitId === undefined) throw new Error("Synthetic g unit is required")
 
   switch (request.table) {
+    case "food_quantity_policy_versions":
+      return []
     case "units":
       return snapshot.units
     case "food_categories":
@@ -193,4 +199,63 @@ describe("CatalogReferenceReader", () => {
       expect(source).not.toContain(forbidden)
     }
   })
+})
+
+test("v2 reader includes exact fact policy heads and preserves v1 read shape", async () => {
+  const requests: CatalogSelectRequest[] = []
+  const gateway: CatalogSelectGateway = {
+    select: (request) => {
+      requests.push(request)
+      return Promise.resolve({
+        ok: true,
+        rows:
+          request.table === "food_fact_versions"
+            ? [
+                {
+                  id: id(2, 1),
+                  food_id: id(1, 1),
+                  version_number: 1,
+                  revision: 2,
+                  publication_status: "published"
+                }
+              ]
+            : request.table === "food_quantity_policy_versions"
+              ? [
+                  {
+                    id: id(9, 1),
+                    food_fact_version_id: id(2, 1),
+                    version_number: 1,
+                    revision: 2,
+                    publication_status: "published"
+                  }
+                ]
+              : rowsForRequest(request)
+      })
+    }
+  }
+  const reader = createCatalogProductionReader(gateway)
+  const result = await reader.loadSnapshot(purchasingPackFixture())
+  expect(result.ok).toBe(true)
+  if (result.ok)
+    expect(result.value.foodQuantityPolicies).toEqual([
+      {
+        id: id(9, 1),
+        parentId: id(2, 1),
+        versionNumber: 1,
+        revision: 2,
+        publicationStatus: "published"
+      }
+    ])
+  expect(requests).toContainEqual(
+    expect.objectContaining({
+      table: "food_quantity_policy_versions",
+      columns: EXPECTED_COLUMNS.food_quantity_policy_versions,
+      filters: [expect.objectContaining({ column: "food_fact_version_id", operation: "in" })]
+    })
+  )
+  requests.length = 0
+  const legacy = await reader.loadSnapshot(buildReadyCatalogPack())
+  expect(legacy.ok).toBe(true)
+  if (legacy.ok) expect(legacy.value).not.toHaveProperty("foodQuantityPolicies")
+  expect(requests.some((r) => r.table === "food_quantity_policy_versions")).toBe(false)
 })

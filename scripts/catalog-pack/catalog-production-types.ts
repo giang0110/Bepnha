@@ -95,6 +95,7 @@ export interface CatalogProductionSnapshot {
   readonly recipeVersions: readonly ProductionVersionRow[]
   readonly priceBooks: readonly ProductionPriceBookRow[]
   readonly mealOptions: readonly ProductionIdentityRow[]
+  readonly foodQuantityPolicies?: readonly ProductionVersionRow[]
   readonly mealOptionVersions: readonly ProductionVersionRow[]
 }
 
@@ -136,6 +137,13 @@ export interface ResolvedPriceBookTarget {
   readonly version: ResolvedIdentityVersion["version"]
 }
 
+export interface ResolvedQuantityPolicyTarget {
+  readonly foodCode: string
+  readonly foodFactVersionNumber: number
+  readonly requestedVersionNumber: number
+  readonly version: ResolvedIdentityVersion["version"]
+}
+
 export interface ResolvedCatalogManifestV1 {
   readonly schemaVersion: "1"
   readonly catalogCode: string
@@ -151,6 +159,7 @@ export interface ResolvedCatalogManifestV1 {
     readonly priceRegion: ResolvedReference | null
     readonly recipeTags: readonly ResolvedRecipeTagReference[]
   }
+  readonly foodQuantityPolicies?: readonly ResolvedQuantityPolicyTarget[]
   readonly foods: readonly ResolvedIdentityVersion[]
   readonly recipes: readonly ResolvedIdentityVersion[]
   readonly priceBook: ResolvedPriceBookTarget | null

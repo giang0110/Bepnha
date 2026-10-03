@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest"
 
 import { normalizeRecipeSteps } from "@/domain/recipe/recipe"
-import { projectIngredientDisplayQuantity, scaleRecipe } from "@/domain/recipe/scale-recipe"
+import {
+  projectIngredientDisplayQuantity,
+  scaleRecipe,
+  scaleRecipeForAdultEquivalent
+} from "@/domain/recipe/scale-recipe"
 
 const household = [
   { memberKind: "adult", ageBand: "adult", memberCount: 2 },
@@ -370,4 +374,26 @@ describe("normalizeRecipeSteps", () => {
       error: { code: "INVALID_RECIPE_STEPS" }
     })
   })
+})
+
+describe("explicit adult equivalent", () => {
+  test("scales fractional demand directly while preserving the v1 golden result", () => {
+    expect(scaleRecipeForAdultEquivalent(baseRecipe, "1.25")).toMatchObject({
+      ok: true,
+      value: {
+        adultEquivalent: "1.25",
+        scaleFactor: "0.3125",
+        ingredients: [{ sourceQuantity: "156.25", baseQuantity: "156.25", grossGrams: "156.25" }]
+      }
+    })
+    expect(scaleRecipeForAdultEquivalent(baseRecipe, "3.4")).toEqual(
+      scaleRecipe(baseRecipe, household)
+    )
+  })
+  test.each(["0", "-1", "NaN", "Infinity", "1e2"])(
+    "rejects invalid explicit demand %s",
+    (demand) => {
+      expect(scaleRecipeForAdultEquivalent(baseRecipe, demand)).toMatchObject({ ok: false })
+    }
+  )
 })

@@ -124,6 +124,7 @@ function mapStoredHousehold(value: unknown): HouseholdSetup {
   }
 
   const validation = validateHouseholdSetup({
+    ...(value.nutritionSetup === undefined ? {} : { nutritionSetup: value.nutritionSetup }),
     memberGroups,
     weeklyPlanBudgetVnd,
     maxElapsedMinutes,
@@ -166,6 +167,8 @@ function loadFailure(error: { code?: string }): HouseholdRepositoryError {
   )
 }
 
+const SCHEMA_GAP_CODES = new Set(["42703", "42P01", "42883", "PGRST202"])
+
 function saveFailure(error: { code?: string; message?: string }): SaveHouseholdResult {
   if (error.code === "P0001" && error.message?.includes("STALE_HOUSEHOLD_VERSION") === true) {
     return { ok: false, reason: "STALE_HOUSEHOLD_VERSION" }
@@ -173,7 +176,7 @@ function saveFailure(error: { code?: string; message?: string }): SaveHouseholdR
   if (error.code === "42501") {
     return { ok: false, reason: "UNAUTHORIZED" }
   }
-  if (error.code?.startsWith("23") === true || error.code === "22P02") {
+  if (error.code?.startsWith("23") === true || error.code?.startsWith("22") === true) {
     return { ok: false, reason: "INVALID_HOUSEHOLD_STATE" }
   }
   return { ok: false, reason: "DEPENDENCY_UNAVAILABLE" }
@@ -184,6 +187,10 @@ export function createSupabaseHouseholdRepository(
 ): HouseholdRepository {
   return {
     async loadOwn() {
+      const snapshot = await client.rpc("get_household_setup_v2")
+      if (snapshot.error === null)
+        return snapshot.data === null ? null : mapStoredHousehold(snapshot.data)
+      if (!SCHEMA_GAP_CODES.has(snapshot.error.code)) throw loadFailure(snapshot.error)
       const { data, error } = await client.from("households").select(HOUSEHOLD_SELECT).maybeSingle()
       if (error !== null) {
         throw loadFailure(error)
@@ -191,7 +198,7 @@ export function createSupabaseHouseholdRepository(
       return data === null ? null : mapStoredHousehold(data)
     },
     async saveOwn(input, expectedVersion) {
-      const { data, error } = await client.rpc("save_household_setup", {
+      const args = {
         p_expected_version: expectedVersion as number,
         p_weekly_plan_budget_vnd: input.weeklyPlanBudgetVnd,
         p_max_elapsed_minutes: input.maxElapsedMinutes,
@@ -202,8 +209,21 @@ export function createSupabaseHouseholdRepository(
         })),
         p_rule_codes: [...input.ruleCodes],
         p_allergen_strictness: { ...input.allergenStrictness }
-      })
+      }
+      const response =
+        input.nutritionSetup === undefined
+          ? await client.rpc("save_household_setup", args)
+          : await client.rpc("save_household_setup_v2", {
+              ...args,
+              p_member_profiles: input.nutritionSetup.memberProfiles.map((profile) => ({
+                ...profile
+              })),
+              p_planned_meal_share_percent: input.nutritionSetup.plannedMealSharePercent
+            })
+      const { data, error } = response
       if (error !== null) {
+        if (input.nutritionSetup !== undefined && SCHEMA_GAP_CODES.has(error.code))
+          return { ok: false, reason: "DEPENDENCY_SCHEMA_NOT_READY" }
         return saveFailure(error)
       }
       if (data === null) {
@@ -214,6 +234,7 @@ export function createSupabaseHouseholdRepository(
         ok: true,
         household: mapStoredHousehold({
           ...parent,
+          ...(input.nutritionSetup === undefined ? {} : { nutritionSetup: input.nutritionSetup }),
           household_member_groups: input.memberGroups.map((group) => ({
             member_kind: group.memberKind,
             age_band: group.ageBand,
