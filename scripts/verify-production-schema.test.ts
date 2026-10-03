@@ -67,6 +67,56 @@ describe("expectedSchemaFromMigrations", () => {
     expect(expected.functions).toEqual(["save_household_setup"])
   })
 
+  it("preserves digits in public table names", () => {
+    const schema = expectedSchemaFromMigrations([
+      {
+        name: "20261002010000_versioned_table.sql",
+        sql: "create table public.member_profiles_v2 (id uuid primary key);"
+      }
+    ])
+
+    expect(schema.tables).toEqual(["member_profiles_v2"])
+  })
+
+  it("keeps versioned public RPC names distinct", () => {
+    const schema = expectedSchemaFromMigrations([
+      {
+        name: "20261002010000_versioned_functions.sql",
+        sql: [
+          "create function public.get_household_setup_v2() returns void as $$ $$ language sql;",
+          "create function public.get_household_setup_v10() returns void as $$ $$ language sql;",
+          "create or replace function public.get_household_setup_v2() returns void as $$ $$ language sql;"
+        ].join("\n")
+      }
+    ])
+
+    expect(schema.functions).toEqual(["get_household_setup_v10", "get_household_setup_v2"])
+  })
+
+  it("accepts the household nutrition RPCs under their complete migration names", async () => {
+    const schema = expectedSchemaFromMigrations(await readMigrationFiles())
+    const versionedNames = [
+      "get_household_setup_v2",
+      "save_household_setup_v2",
+      "save_price_book_draft_v2"
+    ]
+    const result = verifyProductionSchema({
+      expected: schema,
+      observed: {
+        migrations: schema.migrations.map((version) => ({ version })),
+        tables: schema.tables.map((name) => ({ name, rls: true, policies: 1 })),
+        functions: [
+          ...schema.functions.filter(
+            (name) => !name.endsWith("_v") && !versionedNames.includes(name)
+          ),
+          ...versionedNames
+        ].map((name) => ({ name }))
+      }
+    })
+
+    expect(result).toEqual({ ok: true, findings: [], notes: [] })
+  })
+
   it("refuses an empty migration set instead of trivially passing", () => {
     expect(() => expectedSchemaFromMigrations([])).toThrow(/empty expectation/iu)
   })
