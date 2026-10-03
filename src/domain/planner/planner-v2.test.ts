@@ -357,6 +357,90 @@ test("fractional existing count stock requires correction instead of discarding 
   })
 })
 
+test("legacy divisible stock remains usable in a meal that also contains whole pieces", () => {
+  const rice = plannerCandidateV2("rice-v1")
+  const eggs = plannerCandidateV2("eggs-v1")
+  const eggComponent = eggs.mealOption.components[0]!
+  const mixed = {
+    ...rice,
+    mealOption: {
+      ...rice.mealOption,
+      components: [
+        ...rice.mealOption.components,
+        {
+          ...eggComponent,
+          sortOrder: 2,
+          recipe: {
+            ...eggComponent.recipe,
+            ingredients: eggComponent.recipe.ingredients.map((ingredient) => ({
+              ...ingredient,
+              quantity: "2",
+              conversion: {
+                ...ingredient.conversion!,
+                unitId: "unit-item",
+                unitCode: "item",
+                sourceDimension: "count" as const,
+                baseQuantityPerUnit: "50",
+                grossGramsPerUnit: "50"
+              }
+            }))
+          }
+        }
+      ]
+    },
+    ingredientLineage: [...rice.ingredientLineage, ...eggs.ingredientLineage],
+    quantityPolicies: [
+      ...rice.quantityPolicies,
+      ...eggs.quantityPolicies.map((policy) => ({
+        ...policy,
+        foodForm: "whole_piece" as const,
+        rounding: "ceil" as const,
+        stepBaseQuantity: "50"
+      }))
+    ],
+    prices: [...rice.prices, ...eggs.prices]
+  }
+  const stock = rice.ingredientLineage[0]!
+  const input = {
+    ...plannerInputV2([mixed]),
+    pantrySnapshot: {
+      version: "pantry-snapshot-v1" as const,
+      items: [
+        {
+          pantryItemId: "legacy-rice-stock",
+          foodId: stock.foodId,
+          foodFactVersionId: "rice-old-fact",
+          quantity: "500",
+          unitId: "unit-g",
+          baseQuantity: "500",
+          baseUnitId: "unit-g",
+          baseDimension: "mass" as const,
+          version: 1
+        }
+      ]
+    }
+  }
+  const result = eligible(input)
+  expect(result.eligible).toHaveLength(1)
+  expect(result.input.pantrySnapshot).toEqual(input.pantrySnapshot)
+
+  const oldEggStock = {
+    ...input,
+    pantrySnapshot: {
+      ...input.pantrySnapshot,
+      items: input.pantrySnapshot.items.map((item) => ({
+        ...item,
+        foodId: eggs.ingredientLineage[0]!.foodId,
+        foodFactVersionId: "egg-old-fact"
+      }))
+    }
+  }
+  expect(normalizePlannerInputV2(oldEggStock)).toEqual({
+    ok: false,
+    error: { code: "PANTRY_QUANTITY_POLICY_REQUIRED" }
+  })
+})
+
 test("whole-piece stock in a mass base still requires whole measured pieces", () => {
   const c = plannerCandidateV2()
   const component = c.mealOption.components[0]!
