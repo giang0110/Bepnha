@@ -1,4 +1,8 @@
-import { purchaseQuantityLabel, shoppingAmountLabel } from "./purchase-quantity-label"
+import {
+  purchaseQuantityLabel,
+  purchaseRemainderLabel,
+  shoppingAmountLabel
+} from "./purchase-quantity-label"
 import { useEffect, useMemo, useState } from "react"
 import { Link, useParams, useSearchParams } from "react-router"
 
@@ -135,6 +139,7 @@ function ShoppingItemRow({
   const hasPantryDeduction = item.pantryDeductedBaseQuantity !== "0"
   const needsPurchase =
     ("version" in item ? item.purchaseUnitCount : item.purchasePackageCount) !== "0"
+  const purchaseRemainder = purchaseRemainderLabel(item, unitLabel)
 
   const handleCheckedChange = (checked: boolean) => {
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
@@ -206,6 +211,9 @@ function ShoppingItemRow({
                 ? purchaseQuantityLabel(item, unitLabel)
                 : "Không cần mua thêm"}
           </p>
+          {purchaseRemainder === null ? null : (
+            <p className="text-xs text-ink-soft">{purchaseRemainder}</p>
+          )}
           {queued ? <p className="text-xs font-medium text-broth-700">Chờ đồng bộ</p> : null}
           <details className="mt-2 rounded-2xl bg-paper-sunken px-3 py-2 text-sm" data-print="hide">
             <summary className="cursor-pointer font-medium">Chi tiết và dùng cho bữa nào</summary>
@@ -234,7 +242,7 @@ function ShoppingItemRow({
             {"version" in item ? (
               <p className="mt-2 text-xs text-ink-soft">
                 {item.purchaseRule.mode === "fixed_pack"
-                  ? "Hàng đóng gói cố định; phần dư có thể cất lại."
+                  ? "Lượng mua làm tròn theo quy cách của báo giá đã chọn; phần dư đã tính riêng."
                   : "Mua theo lượng bán lẻ đã xác minh."}
               </p>
             ) : null}

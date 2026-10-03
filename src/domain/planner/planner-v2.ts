@@ -222,10 +222,14 @@ export function normalizePlannerInputV2(input: PlannerInputV2): NormalizePlanner
     const policy = policies.find((p) => p.foodFactVersionId === stock.foodFactVersionId)
     if (
       !policy &&
-      input.candidates.some(
-        (c) =>
-          c.ingredientLineage.some((l) => l.foodId === stock.foodId) &&
-          c.quantityPolicies.some((p) => p.foodForm === "whole_piece")
+      input.candidates.some((c) =>
+        c.ingredientLineage.some(
+          (l) =>
+            l.foodId === stock.foodId &&
+            c.quantityPolicies.some(
+              (p) => p.foodFactVersionId === l.foodFactVersionId && p.foodForm === "whole_piece"
+            )
+        )
       )
     )
       return { ok: false, error: { code: "PANTRY_QUANTITY_POLICY_REQUIRED" } }

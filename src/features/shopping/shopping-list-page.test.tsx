@@ -153,6 +153,8 @@ describe("ShoppingListPage", () => {
     const rice = screen.getByTestId("shopping-item-rice")
     // The row itself carries what a person in an aisle needs: what it is, how much, what it costs.
     expect(within(rice).getByText(/mua 1 gói × 1.000 g/i)).toBeInTheDocument()
+    const remainder = within(rice).getByText("Còn cần mua 700 g · Dư dự kiến 300 g")
+    expect(remainder.closest("details")).toBeNull()
     expect(screen.getByRole("alert")).toHaveTextContent(/giá ước tính.*15\/07\/2026/i)
 
     // The evidence is still there, in the panel it belongs to, still closed on arrival.

@@ -257,6 +257,7 @@ export function createVersionedPlannerUseCases(dependencies: {
         value: {
           ...persisted.value,
           engineVersion: "planner-engine-v6" as const,
+          householdSetupVersion: normalized.value.householdSetupVersion,
           status: result.status,
           budgetVnd: normalized.value.weeklyPlanBudgetVnd,
           plan: publicReadyPlanV2(result.plan),
@@ -319,6 +320,7 @@ export function createVersionedPlannerUseCases(dependencies: {
         value: {
           ...persisted.value,
           engineVersion: "planner-engine-v6" as const,
+          householdSetupVersion: normalized.householdSetupVersion,
           status: result.status,
           budgetVnd: normalized.weeklyPlanBudgetVnd,
           plan: publicReadyPlanV2(result.plan),

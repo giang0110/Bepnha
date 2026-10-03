@@ -6,6 +6,36 @@ authorize those actions. New generation uses planner-engine-v6; old revisions re
 engine and immutable quantities. One planned primary meal per day is 33% of daily target by default,
 configurable from 20% to 50%; this is not a full-day diet.
 
+## Diagnose settings and purchasing after rollout
+
+A saved revision keeps the household setup version and quantities used when it was created.
+Changing settings does not rewrite that history. The week view warns when the saved setup version
+is older, or a legacy week has not applied the saved nutrition setup. Use **Tạo lại kế hoạch tuần**
+to generate a new revision from current settings and update its shopping list. A failed regeneration
+keeps the previous week and its concurrency version so retry remains a regeneration.
+
+Shopping shows the amount still needed after pantry deduction and the expected excess when the
+chosen quote requires rounding up. Shared text uses the same amounts. A quote for 1 kg and a verified
+loose sale are distinct inputs: UI labels must not claim that a legacy quote proves a vendor only
+sells fixed packaging.
+
+Schema verification alone does not establish catalog readiness. To read published policy coverage,
+current price book purchase modes and aggregate rollout state with the existing GitHub database
+binding, run the optional diagnostic from reviewed source:
+
+```sh
+gh workflow run ci.yml --ref main -f diagnose_production=true
+```
+
+Diagnostic mode adds a read-only job to normal CI. All required checks still run; a separate
+concurrency group prevents a diagnostic dispatch from cancelling normal verification.
+The diagnostic uses a read-only database session and a read-only transaction, checks the exact
+production target and TLS, and selects no household/user identifiers or body profile values into
+its report. It can also be dispatched from a reviewed work branch before release. Missing exact
+fact policies explain a v6 generation failure; zero loose sale prices explain why new purchasing
+support still rounds according to fixed quotes. Resolve and review the required catalog publication
+separately; the diagnostic never migrates, publishes data or changes saved plans.
+
 ## Release in dependency order
 
 The production migration workflow accepts only `refs/heads/main`

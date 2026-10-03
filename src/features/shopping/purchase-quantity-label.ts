@@ -32,3 +32,15 @@ export function purchaseQuantityLabel(item: Item, unitLabel: (id: string) => str
   }
   return `${displayQuantity(item.purchasePackageCount)} gói × ${shoppingAmountLabel(item, item.packageBaseQuantity, unitLabel)}`
 }
+
+export function purchaseRemainderLabel(
+  item: Item,
+  unitLabel: (id: string) => string
+): string | null {
+  if (
+    new ExactDecimal(item.purchaseBaseQuantity).isZero() ||
+    new ExactDecimal(item.leftoverBaseQuantity).isZero()
+  )
+    return null
+  return `Còn cần mua ${shoppingAmountLabel(item, item.purchaseRequiredBaseQuantity, unitLabel)} · Dư dự kiến ${shoppingAmountLabel(item, item.leftoverBaseQuantity, unitLabel)}`
+}

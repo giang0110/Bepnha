@@ -1,4 +1,4 @@
-import { purchaseQuantityLabel } from "./purchase-quantity-label"
+import { purchaseQuantityLabel, purchaseRemainderLabel } from "./purchase-quantity-label"
 import type {
   AnyReadyShoppingList as ReadyShoppingList,
   AnyShoppingListItem as ShoppingListItem
@@ -26,7 +26,8 @@ function line(item: ShoppingListItem, unitLabel: (baseUnitId: string) => string)
     return `${mark} ${item.foodNameVi} — ${"version" in item ? purchaseQuantityLabel(item, unitLabel) : "đã đủ trong tủ bếp"}`
   }
   const packages = purchaseQuantityLabel(item, unitLabel)
-  return `${mark} ${item.foodNameVi} — ${packages} (~${formatVnd(item.lineCostVnd)} VND)`
+  const remainder = purchaseRemainderLabel(item, unitLabel)
+  return `${mark} ${item.foodNameVi} — ${packages} (~${formatVnd(item.lineCostVnd)} VND)${remainder === null ? "" : `\n  ${remainder}`}`
 }
 
 /**

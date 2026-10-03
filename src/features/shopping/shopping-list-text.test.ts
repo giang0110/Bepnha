@@ -89,6 +89,9 @@ describe("shoppingListText", () => {
     expect(shoppingListText(list([item({ foodNameVi: "Gạo tẻ" })]), unitLabel)).toContain(
       "[ ] Gạo tẻ — 1 gói × 500 g (~30.000 VND)"
     )
+    expect(shoppingListText(list([item({ foodNameVi: "Gạo tẻ" })]), unitLabel)).toContain(
+      "Còn cần mua 100 g · Dư dự kiến 400 g"
+    )
   })
 
   test("keeps a ticked item, marked, rather than dropping it", () => {

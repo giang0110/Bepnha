@@ -294,6 +294,7 @@ function safeSuccess(value: unknown, kind: PlannerOperation) {
     planId: result.planId,
     revisionId: result.revisionId,
     planVersion: result.planVersion,
+    householdSetupVersion: result.householdSetupVersion,
     idempotent: result.idempotent,
     status: result.status,
     budgetVnd: result.budgetVnd,

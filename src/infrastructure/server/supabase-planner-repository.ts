@@ -82,6 +82,7 @@ function currentPlanFrom(
     planId,
     revisionId,
     planVersion: plan.planVersion,
+    householdSetupVersion: plan.householdSetupVersion,
     status: budgetStatus === "within" ? "ready_within_budget" : "ready_over_budget",
     budgetVnd,
     plan: plan.currentPlan,
