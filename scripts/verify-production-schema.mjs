@@ -59,6 +59,7 @@ export function expectedSchemaFromMigrations(files) {
 
   /** @param {RegExp} pattern */
   function namesMatching(pattern) {
+    /** @type {Set<string>} */
     const names = new Set()
     for (const file of files) {
       for (const match of file.sql.matchAll(pattern)) {
@@ -71,8 +72,8 @@ export function expectedSchemaFromMigrations(files) {
 
   return {
     migrations: [...migrations].sort(),
-    tables: namesMatching(/^create table public\.([a-z_]+)/gimu),
-    functions: namesMatching(/^create (?:or replace )?function public\.([a-z_]+)/gimu)
+    tables: namesMatching(/^create table public\.([a-z_][a-z0-9_]*)/gimu),
+    functions: namesMatching(/^create (?:or replace )?function public\.([a-z_][a-z0-9_]*)/gimu)
   }
 }
 
@@ -201,7 +202,7 @@ export function standaloneSql(expected) {
   /** @param {readonly string[]} values */
   function literals(values) {
     for (const value of values) {
-      // Every name reaching here came from `^[a-z_]+` or `^\d{14}$`. Refuse anything else rather
+      // Every name reaching here came from `^[a-z_][a-z0-9_]*` or `^\d{14}$`. Refuse anything else rather
       // than interpolate it, so this can never become a place where a string is injected.
       if (!/^[a-z0-9_]+$/u.test(value)) {
         throw new Error(`Refusing to inline an unexpected identifier: ${value}`)
