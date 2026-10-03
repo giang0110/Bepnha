@@ -47,6 +47,24 @@ test("the health endpoint answers", async ({ request }) => {
   expect(await response.json()).toMatchObject({ status: "ok" })
 })
 
+test.describe("planner API functions start before enforcing their request boundary", () => {
+  for (const [path, status, error] of [
+    ["/api/plans/current", 401, "UNAUTHORIZED"],
+    ["/api/plans/generate", 405, "METHOD_NOT_ALLOWED"],
+    ["/api/plans/replacements-preview", 405, "METHOD_NOT_ALLOWED"],
+    ["/api/plans/replacements-apply", 405, "METHOD_NOT_ALLOWED"]
+  ] as const) {
+    test(`${path} answers a signed-out GET with JSON`, async ({ request }) => {
+      // No credentials or writes: even a healthy generation handler rejects this GET.
+      const response = await request.get(path)
+      expect(response.status()).toBe(status)
+      expect(response.headers()["content-type"]).toContain("application/json")
+      expect(await response.json()).toMatchObject({ error })
+      expect(response.headers()["x-correlation-id"]).toMatch(/^[a-zA-Z0-9._-]{1,128}$/u)
+    })
+  }
+})
+
 test("the deployed site serves every security header vercel.json declares", async ({ request }) => {
   const response = await request.get("/")
   const headers = response.headers()

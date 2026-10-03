@@ -471,7 +471,7 @@ Never deploy BepNha into a project linked to `nuoidaycon` or another repository.
 
 ### Module resolution inside a function
 
-Vercel compiles `api/*.ts` in place rather than bundling it, and TypeScript never rewrites import specifiers on emit. Whatever is written in the source reaches Node verbatim, and Node applies ESM rules: a bare specifier is an npm package name, and a relative one needs a file extension.
+Vercel compiles `api/*.ts` in place rather than bundling it. Node applies ESM rules to the emitted imports: a bare specifier is an npm package name, and a relative one needs a file extension.
 
 Both mistakes fail identically, at module load, before a handler runs a single line:
 
@@ -480,9 +480,11 @@ ERR_MODULE_NOT_FOUND: Cannot find package '@/infrastructure'
 imported from /var/task/api/health.js
 ```
 
-So no module reachable from `api/**` may use the `@/` alias, and every relative import in that closure must end in `.js`. `api/serverless-module-resolution.test.ts` walks the real closure from the deployed entrypoints and fails on either.
+No module reachable from `api/**` may use the `@/` alias. Relative imports must resolve to `.js` after compilation. Shared modules used by native TypeScript catalog scripts retain `.ts` source imports; `rewriteRelativeImportExtensions` rewrites these for deployment. The flag must exist in the root `tsconfig.json` that Vercel discovers. Setting it only in the separately named `tsconfig.api.json` leaves Vercel's legacy compiler path without it and causes `ERR_MODULE_NOT_FOUND` before a handler runs.
 
-Nothing else catches this. Vitest, `tsc` and Vite all resolve `@/` happily, which is why the entire suite stayed green while every function in production returned 500 from the first deployment onwards. There is no configuration lever either: the builder's bundling path is gated behind the internal `VERCEL_API_FUNCTION_BUNDLING=1`, and it does not read tsconfig `paths`. Browser code under `src/app` and `src/features` is unaffected and still uses the alias.
+`api/serverless-module-resolution.test.ts` discovers the same configuration, inspects the emitted import closure and boots a compiled current-plan handler in plain Node. The production canary also reads each planner route without credentials and requires its expected JSON rejection, so a working `/api/health` cannot hide a planner startup failure.
+
+Vitest, `tsc` and Vite resolve `@/` happily, which is why source tests alone missed earlier function startup failures. The builder's bundling path is gated behind the internal `VERCEL_API_FUNCTION_BUNDLING=1`, and it does not rewrite tsconfig `paths`. Browser code under `src/app` and `src/features` still uses the alias.
 
 ### Serverless function budget
 

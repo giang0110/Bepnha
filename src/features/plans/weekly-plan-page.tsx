@@ -397,6 +397,7 @@ export function WeeklyPlanPage({
   const auth = useAuth()
   const [labels, setLabels] = useState<IngredientLabels>(EMPTY_INGREDIENT_LABELS)
   const [household, setHousehold] = useState<HouseholdSetup | null>(null)
+  const [householdLoadAttempt, setHouseholdLoadAttempt] = useState(0)
   const [state, setState] = useState<ViewState>({ status: "loading_household" })
   const [preview, setPreview] = useState<PreviewState>({ status: "idle" })
   const [submitting, setSubmitting] = useState(false)
@@ -430,7 +431,7 @@ export function WeeklyPlanPage({
     return () => {
       active = false
     }
-  }, [householdRepository])
+  }, [householdRepository, householdLoadAttempt])
 
   useEffect(() => {
     if (mealRatingRepository === undefined || household === null) return
@@ -641,6 +642,7 @@ export function WeeklyPlanPage({
         ).map(([label, value]) => (
           <button
             aria-pressed={weekStart === value}
+            disabled={household === null}
             /* Stacked on purpose. Label and dates on one line wrapped at 320px, and only for the
                longer option, so the two choices came out different heights. */
             className={`min-h-11 flex-1 rounded-full px-3 py-1.5 leading-tight transition-colors ${
@@ -709,7 +711,17 @@ export function WeeklyPlanPage({
               persistence refuses a second plan for a week that already has one, so the button that
               used to be here could not do what the message asked for. */}
           {state.origin === "load" ? (
-            <Button type="button" onClick={() => setState({ status: "loading_plan" })}>
+            <Button
+              type="button"
+              onClick={() => {
+                if (household === null) {
+                  setState({ status: "loading_household" })
+                  setHouseholdLoadAttempt((attempt) => attempt + 1)
+                } else {
+                  setState({ status: "loading_plan" })
+                }
+              }}
+            >
               Thử lại
             </Button>
           ) : null}

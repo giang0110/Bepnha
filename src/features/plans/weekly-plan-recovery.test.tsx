@@ -77,11 +77,14 @@ const ready: PlannerReadyResponse = {
   warnings: []
 }
 
-function renderPage(apiOverrides: Partial<PlannerApi>, createId: () => string) {
-  const repository: HouseholdRepository = {
+function renderPage(
+  apiOverrides: Partial<PlannerApi>,
+  createId: () => string,
+  repository: HouseholdRepository = {
     loadOwn: vi.fn().mockResolvedValue(household),
     saveOwn: vi.fn()
   }
+) {
   const api: PlannerApi = {
     generate: vi.fn().mockResolvedValue({ ok: true, value: ready }),
     current: vi.fn().mockResolvedValue({ ok: true, value: null }),
@@ -240,6 +243,53 @@ describe("WeeklyPlanPage recovery UX", () => {
 })
 
 describe("WeeklyPlanPage and a failed read of the week", () => {
+  test("retries a failed household read before offering generation for an empty week", async () => {
+    const user = userEvent.setup()
+    const loadOwn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network unavailable"))
+      .mockResolvedValue(household)
+    const current = vi.fn().mockResolvedValue({ ok: true, value: null })
+    const generate = vi.fn()
+    renderPage({ current, generate }, () => "id-1", { loadOwn, saveOwn: vi.fn() })
+
+    await screen.findByRole("alert")
+    expect(screen.queryByText(/mã hỗ trợ/iu)).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Thử lại" }))
+
+    expect(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" })).toBeEnabled()
+    expect(
+      screen.queryByRole("link", { name: "Hoàn tất thông tin gia đình" })
+    ).not.toBeInTheDocument()
+    expect(current).toHaveBeenCalledWith("token", {
+      householdId: household.householdId,
+      weekStart: "2026-08-24"
+    })
+    expect(generate).not.toHaveBeenCalled()
+  })
+
+  test("keeps a failed household retry recoverable without treating it as missing setup", async () => {
+    const user = userEvent.setup()
+    const loadOwn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockRejectedValueOnce(new Error("still offline"))
+      .mockResolvedValue(null)
+    renderPage({}, () => "id-1", { loadOwn, saveOwn: vi.fn() })
+
+    await screen.findByRole("alert")
+    await user.click(screen.getByRole("button", { name: "Thử lại" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(/không thể xử lý kế hoạch/iu)
+    expect(
+      screen.queryByRole("link", { name: "Hoàn tất thông tin gia đình" })
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Thử lại" }))
+    expect(
+      await screen.findByRole("link", { name: "Hoàn tất thông tin gia đình" })
+    ).toHaveAttribute("href", "/onboarding")
+  })
+
   test("offers a retry that re-reads, not the one button persistence would refuse", async () => {
     const user = userEvent.setup()
     const current = vi
