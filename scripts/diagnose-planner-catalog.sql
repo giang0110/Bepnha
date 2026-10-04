@@ -39,6 +39,15 @@ with active_meals as (
   join public.households as household on household.id = plan.household_id
 )
 select jsonb_pretty(jsonb_build_object(
+  'catalogServicePrivileges', (
+    select jsonb_object_agg(table_name, jsonb_build_object(
+      'select', has_table_privilege('service_role', 'public.' || table_name, 'SELECT'),
+      'insert', has_table_privilege('service_role', 'public.' || table_name, 'INSERT')
+    )) from unnest(array[
+      'allergens', 'nutrients', 'food_fact_versions', 'food_fact_unit_conversions',
+      'food_fact_allergen_assessments', 'food_fact_nutrients', 'food_fact_dietary_tags'
+    ]) as table_name
+  ),
   -- These are the same non-body metadata columns used by catalog:resolve. They allow a
   -- publication plan to be reviewed offline without exporting the database credential.
   'catalogReferenceRows', jsonb_build_object(

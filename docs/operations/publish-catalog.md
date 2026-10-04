@@ -15,7 +15,10 @@ Workflow cũng đọc `BEPNHA_PRODUCTION_DB_URL` hiện có trong session chỉ 
 Các thao tác ghi gọi API admin của ứng dụng, lưu audit với tài khoản quản trị.
 
 Vào Actions → Publish approved production catalog → Run workflow, chọn `main`.
-`publish=false` chỉ kiểm tra token, resolve và lưu plan/journal; `publish=true` thực thi.
+`publish=false` chỉ kiểm tra token, quyền đọc catalog của kết nối server, resolve và lưu plan/journal;
+`publish=true` thực thi. Preflight gọi `check_catalog_readiness` sau khi xác thực admin và chỉ gửi
+SELECT có giới hạn vào allergens, nutrients và food_fact_versions. Lỗi phụ thuộc chỉ trả stage,
+HTTP status và mã SQL/PostgREST đúng định dạng; không trả driver message hoặc thông tin kết nối.
 Lần đầu để `resume_check_id` trống. Sau khi đã có journal, điền ID của check
 `Approved catalog publication journal` để tiếp tục, kể cả sau lần chuẩn bị không ghi dữ liệu.
 
@@ -26,6 +29,12 @@ kết thúc. Journal local được lưu sau mỗi thay đổi. Cách này giữ
 lưu thành artifact 90 ngày, ở ngoài repo. Mất checkpoint storage làm workflow dừng trước thao tác
 kế tiếp. Mất câu trả lời từ API hoặc lỗi server giữ thao tác ở trạng thái chưa chắc chắn;
 workflow từ chối tự gửi lại và cần kiểm tra production trước. Không bắt đầu lại với journal mới.
+Riêng lỗi 503 CATALOG_UNAVAILABLE ở thao tác lưu food fact đầu tiên, workflow có thể tiếp tục với
+journal gốc nếu native check của đúng lần chạy đã kết thúc xác nhận API đã trả lỗi đó, chưa có
+thao tác hoàn tất, toàn bộ snapshot đọc lại vẫn đúng SHA256 đã duyệt, và UUID bản nháp đã cấp chưa
+tồn tại. Timeout hoặc mất phản hồi vẫn dừng. Workflow checkpoint trạng thái đối chiếu trước khi
+gửi lại và giữ nguyên UUID. Có bản nháp,
+snapshot thay đổi, hoặc lỗi ở thao tác sau thì vẫn dừng; không tự xóa hay ghi đè dữ liệu đang dở.
 Token hết hạn hoặc chưa có quyền admin được báo ở preflight trước khi ghi dữ liệu.
 
 Sau thực thi, workflow kiểm tra đủ 377 thao tác, 48 thực đơn, 45 policy, không còn fact được dùng
