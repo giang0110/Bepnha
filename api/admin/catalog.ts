@@ -19,7 +19,17 @@ interface CatalogAdminHandlerDependencies {
   readonly auth: ServerAdminAuthVerifier
   readonly repositoryFor: (actorUserId: string) => CatalogAdminRepository
   readonly hasher: ContentHasher
+  readonly inspectReadiness?: () => Promise<CatalogReadinessResult>
 }
+
+type CatalogReadinessResult =
+  | { readonly ready: true }
+  | {
+      readonly error: "CATALOG_UNAVAILABLE"
+      readonly stage: "configuration" | "allergens" | "nutrients" | "food_fact_versions"
+      readonly dependencyStatus?: number
+      readonly dependencyCode?: string
+    }
 
 type UnknownRecord = Record<string, unknown>
 
@@ -284,6 +294,24 @@ export function createCatalogAdminHandler(dependencies: CatalogAdminHandlerDepen
       response.status(403).json({ error: "ADMIN_REQUIRED" })
       return
     }
+    if (isRecord(request.body) && request.body.action === "check_catalog_readiness") {
+      if (
+        !hasExactKeys(request.body, ["action", "input"]) ||
+        !isRecord(request.body.input) ||
+        !hasExactKeys(request.body.input, [])
+      ) {
+        response.status(400).json({ error: "VALIDATION_FAILED" })
+        return
+      }
+      try {
+        const result = await dependencies.inspectReadiness?.()
+        if (result === undefined) throw new Error("READINESS_CONFIG_UNAVAILABLE")
+        response.status("ready" in result ? 200 : 503).json(result)
+      } catch {
+        response.status(503).json({ error: "CATALOG_UNAVAILABLE", stage: "configuration" })
+      }
+      return
+    }
     const command = parseCommand(request.body)
     if (command === null) {
       response.status(400).json({ error: "VALIDATION_FAILED" })
@@ -312,6 +340,15 @@ export function createCatalogAdminHandler(dependencies: CatalogAdminHandlerDepen
   }
 }
 
+function runtimeCatalogClient() {
+  const url = process.env.SUPABASE_URL
+  const secretKey = process.env.SUPABASE_SECRET_KEY
+  if (url === undefined || secretKey === undefined) throw new Error("CATALOG_CONFIG_UNAVAILABLE")
+  return createClient<Database>(url, secretKey, {
+    auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false }
+  })
+}
+
 const runtimeDependencies: CatalogAdminHandlerDependencies = {
   auth: {
     async verify(accessToken) {
@@ -323,13 +360,31 @@ const runtimeDependencies: CatalogAdminHandlerDependencies = {
     }
   },
   repositoryFor(actorUserId) {
-    const url = process.env.SUPABASE_URL
-    const secretKey = process.env.SUPABASE_SECRET_KEY
-    if (url === undefined || secretKey === undefined) throw new Error("CATALOG_CONFIG_UNAVAILABLE")
-    const client = createClient<Database>(url, secretKey, {
-      auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false }
-    })
-    return createSupabaseCatalogAdminRepository(client, actorUserId)
+    return createSupabaseCatalogAdminRepository(runtimeCatalogClient(), actorUserId)
+  },
+  async inspectReadiness() {
+    const client = runtimeCatalogClient()
+    for (const table of ["allergens", "nutrients", "food_fact_versions"] as const) {
+      const result = await client
+        .from(table)
+        .select("id")
+        .limit(1)
+        .abortSignal(AbortSignal.timeout(5_000))
+      if (result.error !== null || result.data?.length !== 1) {
+        const code = result.error?.code
+        return {
+          error: "CATALOG_UNAVAILABLE",
+          stage: table,
+          ...(result.status >= 100 && result.status <= 599
+            ? { dependencyStatus: result.status }
+            : {}),
+          ...(code !== undefined && /^(?:[0-9A-Z]{5}|PGRST[0-9]{3})$/u.test(code)
+            ? { dependencyCode: code }
+            : {})
+        }
+      }
+    }
+    return { ready: true }
   },
   hasher: new NodeContentHasher()
 }

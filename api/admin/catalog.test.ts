@@ -61,6 +61,35 @@ function request(
 const hasher: ContentHasher = { sha256: vi.fn().mockResolvedValue("a".repeat(64)) }
 
 describe("POST /api/admin/catalog", () => {
+  test("checks repository construction with an invalid food command without writing", async () => {
+    let constructed = false
+    const handler = createCatalogAdminHandler({
+      auth: { verify: vi.fn().mockResolvedValue({ userId: "admin", isAdmin: true }) },
+      repositoryFor: () => {
+        constructed = true
+        return new Proxy({} as CatalogAdminRepository, {
+          get() {
+            throw new Error("Diagnostic must not invoke a repository method")
+          }
+        })
+      },
+      hasher
+    })
+    const { result, response } = responseDouble()
+
+    await handler(
+      request("POST", "Bearer signed", {
+        action: "create_food",
+        input: { code: "", nameVi: "", baseDimension: "mass", baseUnitId: "" }
+      }),
+      response
+    )
+
+    expect(constructed).toBe(true)
+    expect(result.status).toHaveBeenCalledWith(400)
+    expect(result.body).toEqual({ error: "VALIDATION_FAILED" })
+  })
+
   test.each([
     [undefined, null, 401, "UNAUTHORIZED"],
     ["Bearer forged", null, 401, "UNAUTHORIZED"],

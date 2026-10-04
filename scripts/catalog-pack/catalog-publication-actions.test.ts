@@ -120,6 +120,78 @@ describe("GitHub catalog publication checkpoints", () => {
     ).rejects.toThrow("UNCERTAIN_OPERATION")
   })
 
+  test("reconciles an initial save only after the exact snapshot proves its allocated draft absent", async () => {
+    const allocated = "d6f6ce4f-367a-42a8-a310-babbe10a271d"
+    let requests = 0
+    const checkpoints: (string | null)[] = []
+    const result = await executeWithCheckpoints({
+      plan,
+      journal: { ...EMPTY_JOURNAL(plan.inputSha256), allocations: { version: allocated } },
+      pendingOperationId: plan.operations[0]!.operationId,
+      reconciliationProof: {
+        productionSnapshotSha256: plan.productionSnapshotSha256,
+        foodFactVersionIds: [],
+        settledFailure: "503 CATALOG_UNAVAILABLE"
+      },
+      allocateUuid: () => {
+        throw new Error("Must retain the original allocated UUID")
+      },
+      checkpoint: (value) => {
+        checkpoints.push(value.pendingOperationId)
+        return Promise.resolve()
+      },
+      runOperation: (_operation, input) => {
+        requests++
+        expect(input).toEqual({ foodFactVersionId: allocated })
+        return Promise.resolve({ ok: true as const, outputs: { id: allocated } })
+      }
+    })
+    expect(result.ok).toBe(true)
+    expect(requests).toBe(1)
+    expect(checkpoints).toEqual([null, plan.operations[0]!.operationId, null])
+  })
+
+  test.each([
+    "draft_exists",
+    "snapshot_changed",
+    "already_completed",
+    "different_operation",
+    "unsettled"
+  ])("keeps pending intent when reconciliation cannot prove absence: %s", async (scenario) => {
+    const allocated = "d6f6ce4f-367a-42a8-a310-babbe10a271d"
+    let requests = 0
+    await expect(
+      executeWithCheckpoints({
+        plan,
+        journal: {
+          ...EMPTY_JOURNAL(plan.inputSha256),
+          allocations: { version: allocated },
+          completed:
+            scenario === "already_completed"
+              ? [{ operationId: "previous", outputs: { id: "previous" } }]
+              : []
+        },
+        pendingOperationId:
+          scenario === "different_operation" ? "publish:test:4" : plan.operations[0]!.operationId,
+        reconciliationProof: {
+          productionSnapshotSha256:
+            scenario === "snapshot_changed" ? "changed" : plan.productionSnapshotSha256,
+          foodFactVersionIds: scenario === "draft_exists" ? [allocated] : [],
+          ...(scenario === "unsettled"
+            ? {}
+            : { settledFailure: "503 CATALOG_UNAVAILABLE" as const })
+        },
+        allocateUuid: () => allocated,
+        checkpoint: async () => {},
+        runOperation: () => {
+          requests++
+          return Promise.resolve({ ok: true as const, outputs: { id: allocated } })
+        }
+      })
+    ).rejects.toThrow("UNCERTAIN_OPERATION")
+    expect(requests).toBe(0)
+  })
+
   test("resumes completed operations without creating another version", async () => {
     let writes = 0
     const result = await executeWithCheckpoints({

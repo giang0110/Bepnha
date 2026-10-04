@@ -88,6 +88,64 @@ jobs:
           }
           NODE
 
+      - name: Check admin API configuration without catalog writes
+        env:
+          BEPNHA_ADMIN_ACCESS_TOKEN: ${{ secrets.BEPNHA_ADMIN_ACCESS_TOKEN }}
+          BEPNHA_DIAGNOSTIC_CHECK_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          try {
+            const token = process.env.BEPNHA_ADMIN_ACCESS_TOKEN
+            if (!token) throw new Error('ADMIN_DIAGNOSTIC_TOKEN_MISSING')
+            const results = []
+            for (const [stage, command] of [
+              ['authentication', { action: 'check_admin_token', input: {} }],
+              // Parsed by the handler, but rejected by application validation before any repository method.
+              ['repository_construction', { action: 'create_food',
+                input: { code: '', nameVi: '', baseDimension: 'mass', baseUnitId: '' } }],
+              ['database_readiness', { action: 'check_catalog_readiness', input: {} }]
+            ]) {
+              const response = await fetch('https://bepnhatoi.vercel.app/api/admin/catalog', {
+                method: 'POST', redirect: 'error', signal: AbortSignal.timeout(30000),
+                headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+                body: JSON.stringify(command)
+              })
+              const body = await response.json()
+              const allowed = ['VALIDATION_FAILED', 'CATALOG_UNAVAILABLE', 'UNAUTHORIZED', 'ADMIN_REQUIRED']
+              results.push({ stage, status: response.status,
+                error: allowed.includes(body.error) ? body.error :
+                  response.status === 200 && body.ready === true ? 'READY' : 'UNEXPECTED_RESPONSE',
+                ...(['configuration', 'allergens', 'nutrients', 'food_fact_versions'].includes(body.stage)
+                  ? { dependencyStage: body.stage } : {}),
+                ...(Number.isInteger(body.dependencyStatus) && body.dependencyStatus >= 100 &&
+                    body.dependencyStatus <= 599 ? { dependencyStatus: body.dependencyStatus } : {}),
+                ...(typeof body.dependencyCode === 'string' &&
+                    /^(?:[0-9A-Z]{5}|PGRST[0-9]{3})$/.test(body.dependencyCode)
+                  ? { dependencyCode: body.dependencyCode } : {}) })
+            }
+            const exp = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')).exp
+            const tokenRemainingMinutes = typeof exp === 'number' && Number.isFinite(exp)
+              ? Math.floor((exp - Date.now() / 1000) / 60) : null
+            const response = await fetch('https://api.github.com/repos/giang0110/Bepnha/check-runs', {
+              method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15000),
+              headers: { Authorization: `Bearer ${process.env.BEPNHA_DIAGNOSTIC_CHECK_TOKEN}`,
+                Accept: 'application/vnd.github+json', 'Content-Type': 'application/json',
+                'X-GitHub-Api-Version': '2022-11-28' },
+              body: JSON.stringify({ name: 'Production admin configuration diagnostic',
+                head_sha: process.env.GITHUB_SHA, status: 'completed', conclusion: 'neutral',
+                output: { title: 'Admin API configuration without catalog writes',
+                  summary: 'Only sanitized status codes; no credentials or user data.',
+                  text: JSON.stringify({ format: 'admin-config-diagnostic-v1', tokenRemainingMinutes,
+                    results }) } })
+            })
+            if (!response.ok) throw new Error('ADMIN_DIAGNOSTIC_CHECK_FAILED')
+          } catch {
+            console.error('::error::ADMIN_CONFIGURATION_DIAGNOSTIC_FAILED')
+            process.exitCode = 1
+          }
+          NODE
+
   web:
     runs-on: ubuntu-latest
     steps:

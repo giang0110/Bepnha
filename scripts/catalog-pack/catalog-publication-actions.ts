@@ -64,16 +64,56 @@ export interface PublicationCheckpoint {
   readonly pendingOperationId: string | null
 }
 
+export interface PublicationReconciliationProof {
+  readonly productionSnapshotSha256: string
+  readonly foodFactVersionIds: readonly string[]
+  readonly settledFailure?: "503 CATALOG_UNAVAILABLE"
+}
+
 /** The write intent includes every UUID allocation and is durable before its HTTP request. */
 export async function executeWithCheckpoints(
   options: ExecuteMutationPlanOptions & {
     readonly pendingOperationId?: string | null
+    readonly reconciliationProof?: PublicationReconciliationProof
     readonly checkpoint: (value: PublicationCheckpoint) => Promise<void>
   }
 ) {
   let journal = options.journal ?? EMPTY_JOURNAL(options.plan.inputSha256)
   let pendingOperationId = options.pendingOperationId ?? null
-  if (pendingOperationId !== null) throw new Error(`UNCERTAIN_OPERATION ${pendingOperationId}`)
+  if (pendingOperationId !== null) {
+    // Only the very first insert can be proved untouched by the complete read-only snapshot:
+    // a fact's child rows cannot exist without its parent. Every later uncertain write stays blocked.
+    const first = options.plan.operations[0]
+    const firstInput = first?.input
+    const reference =
+      typeof firstInput === "object" && firstInput !== null && "foodFactVersionId" in firstInput
+        ? firstInput.foodFactVersionId
+        : undefined
+    const handle =
+      typeof reference === "object" && reference !== null && "$binding" in reference
+        ? reference.$binding
+        : undefined
+    const allocated = typeof handle === "string" ? journal.allocations[handle] : undefined
+    const proof = options.reconciliationProof
+    if (
+      first?.kind !== "save_food_fact_draft" ||
+      first.operationId !== pendingOperationId ||
+      first.dependsOn.length !== 0 ||
+      journal.completed.length !== 0 ||
+      journal.planInputSha256 !== options.plan.inputSha256 ||
+      Object.keys(journal.allocations).length !== 1 ||
+      proof?.settledFailure !== "503 CATALOG_UNAVAILABLE" ||
+      typeof allocated !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(allocated) ||
+      proof?.productionSnapshotSha256 !== options.plan.productionSnapshotSha256 ||
+      !Array.isArray(proof.foodFactVersionIds) ||
+      !proof.foodFactVersionIds.every((id) => typeof id === "string") ||
+      proof.foodFactVersionIds.some((id) => id.toLowerCase() === allocated.toLowerCase())
+    )
+      throw new Error(`UNCERTAIN_OPERATION ${pendingOperationId}`)
+    pendingOperationId = null
+    await options.checkpoint({ journal, pendingOperationId })
+  }
   const result = await executeMutationPlan({
     plan: options.plan,
     journal,
