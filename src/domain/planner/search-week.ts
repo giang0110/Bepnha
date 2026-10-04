@@ -230,6 +230,10 @@ function stableSequence(selected: readonly SearchMealIdentity[]): string {
   return selected.map((option) => option.mealOptionVersionId).join("|")
 }
 
+export function mealSetKey(selected: readonly SearchMealIdentity[]): string {
+  return JSON.stringify(selected.map((meal) => meal.mealOptionVersionId).sort(compareText))
+}
+
 function qualityOrder<M extends SearchMealIdentity, B extends SearchBasket>(
   left: SearchState<M, B>,
   right: SearchState<M, B>
@@ -312,12 +316,17 @@ export function searchBoundedWeek<
   readonly config: Pick<PlannerConfigV1, "dayCount" | "frontier">
   readonly emptyBasket: B
   readonly basketFor: (selected: readonly M[]) => B | null
+  /** Opt in only when the basket depends on the meal set, independently of day order. */
+  readonly basketCacheKey?: (selected: readonly M[]) => string
   readonly qualityLowerBound: (selected: readonly M[]) => number
   readonly complete: (selected: readonly M[]) => C | null
 }): { readonly complete: readonly C[]; readonly frontierMetrics: readonly FrontierMetric[] } {
   const eligible = [...options.eligible].sort((left, right) =>
     compareText(left.mealOptionVersionId, right.mealOptionVersionId)
   )
+  // Avoid bookkeeping when one prefix can cycle through more baskets than the cache retains.
+  const basketCacheKey =
+    eligible.length > options.config.frontier.maxSize ? undefined : options.basketCacheKey
   let frontier: SearchState<M, B>[] = [
     {
       selected: [],
@@ -328,6 +337,9 @@ export function searchBoundedWeek<
   ]
   const frontierMetrics: FrontierMetric[] = []
   for (let depth = 1; depth <= options.config.dayCount; depth += 1) {
+    // Prices, scaled quantities and pantry belong to this search invocation. Limit retained
+    // baskets to the frontier's memory budget and discard them before the next search depth.
+    const baskets = new Map<string, B | null>()
     const expanded: SearchState<M, B>[] = []
     for (const state of [...frontier].sort((left, right) =>
       compareText(left.stableIdSequence, right.stableIdSequence)
@@ -335,7 +347,18 @@ export function searchBoundedWeek<
       for (const candidate of eligible) {
         const selected = [...state.selected, candidate]
         if (violatesWeeklyHardRules(selected)) continue
-        const basket = options.basketFor(selected)
+        const basketKey = basketCacheKey?.(selected)
+        let basket = basketKey === undefined ? undefined : baskets.get(basketKey)
+        if (basket === undefined) {
+          basket = options.basketFor(selected)
+          if (basketKey !== undefined) {
+            if (baskets.size >= options.config.frontier.maxSize) {
+              const oldestKey = baskets.keys().next().value
+              if (oldestKey !== undefined) baskets.delete(oldestKey)
+            }
+            baskets.set(basketKey, basket)
+          }
+        }
         if (basket === null) continue
         expanded.push({
           selected,
@@ -384,6 +407,7 @@ export function searchWeek(
     config,
     emptyBasket: { lines: [], warnings: [], totalEstimatedCostVnd: 0 },
     basketFor: (selected) => basketFor(selected, calculationDate, freshnessConfig, deductionsInput),
+    basketCacheKey: mealSetKey,
     qualityLowerBound: (selected) =>
       qualityLowerBound(selected, softPreferenceCodes, config, recentMealOptionIds, ratings),
     complete: (selected) =>
