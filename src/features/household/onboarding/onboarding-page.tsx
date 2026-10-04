@@ -67,19 +67,26 @@ export function OnboardingPage({ repository }: OnboardingPageProps) {
     <main
       id="main-content"
       tabIndex={-1}
-      className="mx-auto min-h-screen w-full max-w-md overflow-x-hidden px-4 py-6"
+      className="mx-auto min-h-screen w-full max-w-2xl px-4 py-6 sm:px-6 lg:py-8"
     >
-      <div className="mb-6 flex items-center gap-3">
-        <progress
+      <div className="mb-6 rounded-2xl border border-edge bg-paper-raised p-4">
+        <p className="mb-3 flex items-center justify-between gap-3 text-sm font-semibold text-ink-soft">
+          Thiết lập gia đình
+          <span className="tabular-nums">{state.step}/5</span>
+        </p>
+        <div
           aria-label="Tiến độ thiết lập"
           aria-valuemax={5}
           aria-valuemin={1}
           aria-valuenow={state.step}
-          className="h-2 w-full"
-          max={5}
-          value={state.step}
-        />
-        <span className="shrink-0 text-sm">{state.step}/5</span>
+          className="h-1.5 overflow-hidden rounded-full bg-paper-sunken"
+          role="progressbar"
+        >
+          <div
+            className="h-full rounded-full bg-herb-600 transition-[width]"
+            style={{ width: `${state.step * 20}%` }}
+          />
+        </div>
       </div>
       {state.step === 1 ? (
         <MemberGroupsStep

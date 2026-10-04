@@ -96,7 +96,13 @@ describe("WeeklyRotationBalanceCard", () => {
 
     // Test clicking cold weather toggle button
     const coldBtn = screen.getByRole("button", { name: /Mưa rét/i })
+    expect(coldBtn).toHaveAttribute("aria-pressed", "false")
     await user.click(coldBtn)
+    expect(coldBtn).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: /Nắng nóng/i })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    )
 
     expect(screen.getByText(/Tuần này có nhiều món thanh mát/i)).toBeInTheDocument()
   })

@@ -437,7 +437,7 @@ describe("WeeklyPlanPage", () => {
     await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
     const before = (await screen.findAllByTestId("meal-name")).map((node) => node.textContent)
     await user.click(screen.getAllByRole("button", { name: "Đổi bữa" })[2]!)
-    const comparison = await screen.findByRole("region", { name: "Xem trước bữa thay thế" })
+    const comparison = await screen.findByRole("dialog", { name: "Xem trước bữa thay thế" })
     expect(within(comparison).getByText("Bữa thay thế")).toBeInTheDocument()
     expect(within(comparison).getByText("Bữa 3")).toBeInTheDocument()
     expect(within(comparison).getByText(/tăng 10.000 VND/i)).toBeInTheDocument()
@@ -450,6 +450,24 @@ describe("WeeklyPlanPage", () => {
     const after = (await screen.findAllByTestId("meal-name")).map((node) => node.textContent)
     expect(after.filter((name, index) => name !== before[index])).toEqual(["Bữa thay thế"])
     expect(api.apply).toHaveBeenCalledOnce()
+  })
+
+  test("moves keyboard focus into replacement preview and returns to the initiating meal on cancel", async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    const trigger = screen.getAllByRole("button", { name: "Đổi bữa" })[2]!
+    trigger.focus()
+    await user.keyboard("{Enter}")
+    const dialog = await screen.findByRole("dialog", { name: "Xem trước bữa thay thế" })
+    expect(within(dialog).getByRole("heading", { name: "Xem trước thay đổi" })).toHaveFocus()
+    await user.tab()
+    expect(within(dialog).getByRole("button", { name: "Áp dụng bữa thay thế" })).toHaveFocus()
+    await user.tab()
+    expect(within(dialog).getByRole("button", { name: "Hủy thay đổi" })).toHaveFocus()
+    await user.keyboard("{Enter}")
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
 
   test("assistant slot can only start deterministic preview and never applies directly", async () => {
@@ -506,6 +524,33 @@ describe("WeeklyPlanPage", () => {
     })
     expect(newState).toHaveValue("")
     expect(newState).not.toBe(oldState)
+  })
+
+  test("restores the assistant preview opener after a meal preview and uses its summary after applying", async () => {
+    const user = userEvent.setup()
+    const renderAssistant: WeeklyPlanAssistantRenderer = ({ onPreviewDay }) => (
+      <button type="button" onClick={() => onPreviewDay(2)}>
+        Xem bữa thay thế cho Thứ Tư
+      </button>
+    )
+    setup({}, renderAssistant)
+    await user.click(await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }))
+    await user.click(screen.getAllByRole("button", { name: "Đổi bữa" })[2]!)
+    await user.click(await screen.findByRole("button", { name: "Hủy thay đổi" }))
+
+    const summary = screen.getByText("Hỏi trợ lý về kế hoạch")
+    await user.click(summary)
+    const assistantTrigger = screen.getByRole("button", {
+      name: "Xem bữa thay thế cho Thứ Tư"
+    })
+    await user.click(assistantTrigger)
+    await user.click(await screen.findByRole("button", { name: "Hủy thay đổi" }))
+    expect(assistantTrigger).toHaveFocus()
+
+    await user.keyboard("{Enter}")
+    await user.click(await screen.findByRole("button", { name: "Áp dụng bữa thay thế" }))
+    expect(assistantTrigger.isConnected).toBe(false)
+    expect(summary).toHaveFocus()
   })
 
   test("renders typed empty/failure states and asks for reload on stale version", async () => {

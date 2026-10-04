@@ -14,6 +14,7 @@ import {
   type PantryRepository
 } from "@/application/pantry/pantry-repository"
 import { AppPageShell } from "@/app/components/app-page-shell"
+import { PageHeader } from "@/app/components/page-header"
 import { Button } from "@/app/components/ui/button"
 import { Icon } from "@/app/components/ui/icon"
 import { toast } from "@/app/components/ui/toast"
@@ -490,20 +491,14 @@ export function PantryPage({
 
   return (
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
-      <header className="grid gap-2">
-        <p className="flex items-center gap-1.5 text-sm font-extrabold text-herb-700">
-          <Icon name="bowl" className="size-4" />
-          Bếp Nhà
-        </p>
-        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Tủ bếp</h1>
-        <p className="text-sm text-ink-soft">
-          Ghi số lượng hiện có. Mỗi lần tạo hoặc đổi kế hoạch, Bếp Nhà lưu riêng ảnh chụp tủ bếp đã
-          dùng để tính.
-        </p>
+      <PageHeader
+        title="Tủ bếp"
+        description="Ghi số lượng hiện có. Mỗi lần tạo hoặc đổi kế hoạch, Bếp Nhà lưu riêng ảnh chụp tủ bếp đã dùng để tính."
+      >
         <Link className="text-sm font-medium text-herb-700 underline" to="/plan">
           Quay lại kế hoạch tuần
         </Link>
-      </header>
+      </PageHeader>
 
       {state.status === "missing_household" ? (
         <p role="alert">Hãy hoàn tất thông tin gia đình trước khi quản lý tủ bếp.</p>
@@ -559,17 +554,17 @@ export function PantryPage({
                     key={zone.id}
                     type="button"
                     aria-pressed={isSelected}
-                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+                    className={`flex min-h-11 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-colors ${
                       isSelected
-                        ? "bg-herb-700 text-white shadow-xs"
+                        ? "bg-herb-700 text-on-herb shadow-xs"
                         : "border border-edge bg-paper-raised text-ink-soft hover:bg-paper-sunken"
                     }`}
                     onClick={() => setSelectedZone(zone.id)}
                   >
                     {zone.shortLabelVi}
                     <span
-                      className={`rounded-full px-1.5 py-0.2 text-[10px] ${
-                        isSelected ? "bg-herb-900/40 text-white" : "bg-paper-sunken text-ink"
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                        isSelected ? "bg-herb-50 text-herb-900" : "bg-paper-sunken text-ink"
                       }`}
                     >
                       {count}
@@ -588,7 +583,7 @@ export function PantryPage({
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="flex size-9 items-center justify-center rounded-2xl bg-herb-600 text-white shadow-xs">
+                  <span className="flex size-9 items-center justify-center rounded-2xl bg-herb-600 text-on-herb shadow-xs">
                     <Icon name="pan" className="size-4" />
                   </span>
                   <div>
@@ -601,9 +596,9 @@ export function PantryPage({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${
+                    className={`min-h-11 rounded-full px-3 py-2 text-xs font-bold transition-colors ${
                       !leftoverFilterOnlyReady
-                        ? "bg-herb-700 text-white"
+                        ? "bg-herb-700 text-on-herb"
                         : "border border-edge bg-paper-raised text-ink-soft hover:bg-paper-sunken"
                     }`}
                     onClick={() => setLeftoverFilterOnlyReady(false)}
@@ -612,9 +607,9 @@ export function PantryPage({
                   </button>
                   <button
                     type="button"
-                    className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${
+                    className={`min-h-11 rounded-full px-3 py-2 text-xs font-bold transition-colors ${
                       leftoverFilterOnlyReady
-                        ? "bg-herb-700 text-white"
+                        ? "bg-herb-700 text-on-herb"
                         : "border border-edge bg-paper-raised text-ink-soft hover:bg-paper-sunken"
                     }`}
                     onClick={() => setLeftoverFilterOnlyReady(true)}
@@ -638,7 +633,7 @@ export function PantryPage({
                           {suggestion.dishNameVi}
                         </h3>
                         {suggestion.status === "ready_to_cook" ? (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-herb-100 px-2 py-0.5 text-xs font-bold text-herb-800">
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-herb-100 px-2 py-0.5 text-xs font-bold text-herb-900">
                             <Icon name="check" className="size-3" />
                             Đủ đồ
                           </span>
@@ -724,7 +719,7 @@ export function PantryPage({
                   <button
                     key={preset.label}
                     type="button"
-                    className="rounded-lg border border-edge bg-paper-sunken px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:border-herb-500 hover:bg-herb-50"
+                    className="min-h-11 rounded-xl border border-edge bg-paper-sunken px-3 py-2 text-xs font-medium text-ink transition-colors hover:border-herb-500 hover:bg-herb-50"
                     disabled={pendingKey !== null}
                     onClick={() => applyQuickPreset(preset.searchKeyword)}
                   >

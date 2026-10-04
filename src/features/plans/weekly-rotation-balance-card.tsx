@@ -35,7 +35,7 @@ export function WeeklyRotationBalanceCard({ items, weekStart, availableFoodNames
   return (
     <section
       aria-label="Cân bằng thực đơn và phong tục Việt"
-      className="grid gap-4 rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft"
+      className="grid gap-4 rounded-3xl border border-edge bg-paper-raised p-5 sm:p-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-edge/60 pb-3">
         <div className="flex items-center gap-2">
@@ -60,10 +60,10 @@ export function WeeklyRotationBalanceCard({ items, weekStart, availableFoodNames
       </div>
 
       {/* Seasonal & Weather Dining Balance (New Feature) */}
-      <div className="rounded-2xl border border-sky-100 bg-sky-50/50 p-3.5 text-xs text-sky-950">
+      <div className="rounded-2xl border border-edge bg-paper-sunken p-4 text-sm text-ink">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Icon name="sun" className="size-4 shrink-0 text-amber-600" />
+            <Icon name="sun" className="size-4 shrink-0 text-clay-700" />
             <span className="font-bold text-ink">
               Tiết trời & Cân bằng theo mùa:{" "}
               <span className="text-clay-700">{seasonalReport.seasonLabel}</span>
@@ -71,35 +71,41 @@ export function WeeklyRotationBalanceCard({ items, weekStart, availableFoodNames
           </div>
 
           {/* Interactive weather tendency toggle */}
-          <div className="flex items-center gap-1 rounded-full bg-paper-sunken p-0.5">
+          <div
+            className="flex flex-wrap items-center gap-1 rounded-2xl bg-paper-raised p-1"
+            role="group"
+            aria-label="Tiết trời để xem gợi ý"
+          >
             <button
               type="button"
-              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
+              aria-pressed={seasonalReport.weatherTendency === "hot"}
+              className={`min-h-11 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
                 seasonalReport.weatherTendency === "hot"
-                  ? "bg-amber-500 text-white shadow-sm"
+                  ? "bg-clay-700 text-on-clay"
                   : "text-ink-soft hover:text-ink"
               }`}
               onClick={() => setWeatherOverride("hot")}
               title="Xem gợi ý khi thời tiết nắng nóng, oi bức"
             >
-              Nắng nóng ☀️
+              Nắng nóng
             </button>
             <button
               type="button"
-              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
+              aria-pressed={seasonalReport.weatherTendency === "cold_rainy"}
+              className={`min-h-11 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
                 seasonalReport.weatherTendency === "cold_rainy"
-                  ? "bg-blue-600 text-white shadow-sm"
+                  ? "bg-herb-700 text-on-herb"
                   : "text-ink-soft hover:text-ink"
               }`}
               onClick={() => setWeatherOverride("cold_rainy")}
               title="Xem gợi ý khi thời tiết se lạnh, mưa rét"
             >
-              Mưa rét 🌧️
+              Mưa rét
             </button>
             {weatherOverride !== undefined && (
               <button
                 type="button"
-                className="rounded-full px-2 py-0.5 text-[10px] text-ink-soft underline hover:text-ink"
+                className="min-h-11 rounded-xl px-3 py-2 text-xs text-ink-soft underline hover:text-ink"
                 onClick={() => setWeatherOverride(undefined)}
               >
                 Mặc định
@@ -124,10 +130,10 @@ export function WeeklyRotationBalanceCard({ items, weekStart, availableFoodNames
         </div>
 
         {/* Seasonal Advisory */}
-        <p className="mt-2 leading-relaxed text-ink font-medium">💡 {seasonalReport.advisoryVi}</p>
+        <p className="mt-3 leading-6 text-ink font-medium">{seasonalReport.advisoryVi}</p>
 
         {seasonalReport.seasonalRecommendations.length > 0 && (
-          <ul className="mt-1.5 list-inside list-disc text-[11px] text-ink-soft">
+          <ul className="mt-2 list-outside list-disc space-y-1 pl-4 text-xs leading-5 text-ink-soft">
             {seasonalReport.seasonalRecommendations.map((rec, idx) => (
               <li key={idx}>{rec}</li>
             ))}
@@ -138,11 +144,11 @@ export function WeeklyRotationBalanceCard({ items, weekStart, availableFoodNames
       {/* Leftover Pantry Reuse (If available pantry items are present) */}
       {leftoverReport !== null &&
         (leftoverReport.readyToCookCount > 0 || leftoverReport.almostReadyCount > 0) && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-emerald-950">
+          <div className="rounded-2xl border border-herb-200 bg-herb-50 p-4 text-sm text-herb-900">
             <div className="flex items-start gap-2">
-              <Icon name="basket" className="mt-0.5 size-4 shrink-0 text-emerald-700" />
+              <Icon name="basket" className="mt-0.5 size-4 shrink-0 text-herb-700" />
               <div>
-                <p className="font-bold text-emerald-900">Tủ bếp & Tận dụng nguyên liệu tồn kho</p>
+                <p className="font-bold text-herb-900">Tủ bếp & Tận dụng nguyên liệu tồn kho</p>
                 <p className="mt-1 leading-relaxed text-ink">{leftoverReport.adviceVi}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {leftoverReport.suggestedDishes.map((dish) => (
@@ -150,8 +156,8 @@ export function WeeklyRotationBalanceCard({ items, weekStart, availableFoodNames
                       key={dish.dishId}
                       className={`rounded-full px-2.5 py-0.5 font-semibold text-[11px] ${
                         dish.status === "ready_to_cook"
-                          ? "bg-emerald-600 text-white"
-                          : "bg-emerald-100 text-emerald-900"
+                          ? "bg-herb-600 text-on-herb"
+                          : "bg-herb-100 text-herb-900"
                       }`}
                     >
                       {dish.dishNameVi} (
@@ -186,7 +192,7 @@ export function WeeklyRotationBalanceCard({ items, weekStart, availableFoodNames
 
       {/* Consecutive Protein Repeats Advisory (Anti-boredom) */}
       {report.consecutiveRepeats.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-900">
+        <div className="rounded-2xl border border-broth-200 bg-broth-50 p-4 text-sm leading-6 text-broth-900">
           <div className="flex items-start gap-2">
             <Icon name="flame" className="mt-0.5 size-4 shrink-0 text-amber-600" />
             <div>
@@ -204,7 +210,7 @@ export function WeeklyRotationBalanceCard({ items, weekStart, availableFoodNames
       {/* Weekend meal highlights */}
       {report.weekendMeals.some((w) => w.isCelebratory) && (
         <p className="text-xs text-ink-soft">
-          🍲 <strong>Cuối tuần sum họp:</strong>{" "}
+          <strong>Cuối tuần sum họp:</strong>{" "}
           {report.weekendMeals
             .filter((w) => w.isCelebratory)
             .map((w) => `${w.dayName} (${w.mealName})`)

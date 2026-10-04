@@ -102,3 +102,20 @@ test("signed-in screens have no WCAG A/AA violations at 320px", async ({ page })
   await page.goto("/settings/household")
   await expectNoAccessibilityViolations(page)
 })
+
+test("family profile fields and actions remain readable in dark mode at 320px", async ({
+  page
+}) => {
+  await onboard(page)
+  await page.goto("/settings/household")
+  await expect(page.getByRole("heading", { name: "Chỉnh sửa thành viên" })).toBeVisible()
+  await page.getByRole("button", { name: "Chuyển sang chế độ ban đêm" }).last().click()
+  await expect(page.locator("html")).toHaveClass(/dark/u)
+  const height = page.getByLabel("Chiều cao (cm)").first()
+  const weight = page.getByLabel("Cân nặng (kg)").first()
+  await height.fill("165")
+  await weight.fill("60")
+  await expect(page.getByText("BMI:", { exact: false }).first()).toContainText("22,04")
+  await expectNoHorizontalOverflow(page)
+  await expectNoAccessibilityViolations(page)
+})

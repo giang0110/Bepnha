@@ -23,7 +23,7 @@ export function MemberCountStepper({ label, value, onChange }: MemberCountSteppe
       <div className="flex shrink-0 items-center gap-2">
         <Button
           aria-label={`Giảm ${label}`}
-          className="size-10 px-0 text-lg"
+          className="size-11 px-0 text-lg"
           disabled={value <= MIN_COUNT}
           type="button"
           variant="outline"
@@ -33,7 +33,7 @@ export function MemberCountStepper({ label, value, onChange }: MemberCountSteppe
         </Button>
         <input
           aria-label={label}
-          className="h-10 w-12 rounded-xl border border-edge-strong bg-white px-1 text-center font-semibold tabular-nums"
+          className="h-11 w-12 rounded-xl border border-edge-strong bg-paper px-1 text-center font-semibold text-ink tabular-nums"
           id={`member-count-${label}`}
           inputMode="numeric"
           max={MAX_COUNT}
@@ -44,7 +44,7 @@ export function MemberCountStepper({ label, value, onChange }: MemberCountSteppe
         />
         <Button
           aria-label={`Tăng ${label}`}
-          className="size-10 px-0 text-lg"
+          className="size-11 px-0 text-lg"
           disabled={value >= MAX_COUNT}
           type="button"
           variant="outline"

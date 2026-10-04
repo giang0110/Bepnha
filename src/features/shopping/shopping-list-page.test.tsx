@@ -569,14 +569,44 @@ describe("ShoppingListPage", () => {
 
     const toggleBtn = await screen.findByTestId("toggle-one-hand-mode")
     expect(toggleBtn).toHaveTextContent("Chế độ Đi chợ 1 tay: Tắt")
+    expect(toggleBtn).toHaveAttribute("aria-pressed", "false")
 
     await user.click(toggleBtn)
     expect(toggleBtn).toHaveTextContent("Chế độ Đi chợ 1 tay: BẬT")
+    expect(toggleBtn).toHaveAttribute("aria-pressed", "true")
     expect(window.localStorage.getItem("bepnha_shopping_one_hand_mode")).toBe("true")
 
     await user.click(toggleBtn)
     expect(toggleBtn).toHaveTextContent("Chế độ Đi chợ 1 tay: Tắt")
     expect(window.localStorage.getItem("bepnha_shopping_one_hand_mode")).toBe("false")
+  })
+
+  test("announces independent destination and purchase-status filters as pressed buttons", async () => {
+    const user = userEvent.setup()
+    const { repo } = repository()
+    renderPage(repo)
+
+    const destinations = await screen.findByRole("group", { name: "Điểm mua" })
+    const wetMarket = within(destinations).getByRole("button", { name: /Chợ dân sinh/u })
+    expect(wetMarket).toHaveAttribute("aria-pressed", "false")
+    wetMarket.focus()
+    await user.keyboard("{Enter}")
+    expect(wetMarket).toHaveAttribute("aria-pressed", "true")
+    expect(within(destinations).getByRole("button", { name: /Tất cả/u })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    )
+    expect(screen.queryByRole("heading", { name: "Lương thực chính" })).not.toBeInTheDocument()
+
+    const statuses = screen.getByRole("group", { name: "Lọc trạng thái mua" })
+    const remaining = within(statuses).getByRole("button", { name: /Chưa lấy/u })
+    await user.click(remaining)
+    expect(remaining).toHaveAttribute("aria-pressed", "true")
+    expect(within(statuses).getByRole("button", { name: "Toàn bộ" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    )
+    expect(wetMarket).toHaveAttribute("aria-pressed", "true")
   })
 
   test("filters displayed categories by destination (wet market vs supermarket)", async () => {

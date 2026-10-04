@@ -4,19 +4,21 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/app/lib/utils"
 
 const buttonVariants = cva(
-  'group/button inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all outline-none select-none focus-visible:border-herb-700 focus-visible:ring-3 focus-visible:ring-herb-500/40 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-chilli-600 aria-invalid:ring-3 aria-invalid:ring-chilli-600/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
+  'group/button inline-flex shrink-0 items-center justify-center rounded-full border bg-clip-padding text-sm font-semibold whitespace-nowrap transition-all outline-none select-none focus-visible:border-herb-700 focus-visible:ring-3 focus-visible:ring-herb-500/40 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-chilli-600 aria-invalid:ring-3 aria-invalid:ring-chilli-600/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
   {
     variants: {
       variant: {
-        default: "bg-herb-600 text-white shadow-soft hover:bg-herb-700 hover:shadow-lift",
+        default:
+          "border-transparent bg-herb-600 text-on-herb shadow-soft hover:bg-herb-700 hover:shadow-lift",
         outline:
           "border-edge-strong bg-paper-raised text-ink hover:bg-herb-50 hover:text-herb-900 aria-expanded:bg-herb-50 aria-expanded:text-herb-900",
         secondary:
-          "bg-clay-50 text-clay-900 hover:bg-clay-100 aria-expanded:bg-clay-100 aria-expanded:text-clay-900",
-        ghost: "text-ink hover:bg-paper-sunken hover:text-ink aria-expanded:bg-paper-sunken",
+          "border-transparent bg-clay-50 text-clay-900 hover:bg-clay-100 aria-expanded:bg-clay-100 aria-expanded:text-clay-900",
+        ghost:
+          "border-transparent text-ink hover:bg-paper-sunken hover:text-ink aria-expanded:bg-paper-sunken",
         destructive:
-          "bg-chilli-50 text-chilli-700 hover:bg-chilli-200/60 focus-visible:border-chilli-600 focus-visible:ring-chilli-600/25",
-        link: "text-herb-700 underline-offset-4 hover:underline"
+          "border-transparent bg-chilli-50 text-chilli-700 hover:bg-chilli-200/60 focus-visible:border-chilli-600 focus-visible:ring-chilli-600/25",
+        link: "border-transparent text-herb-700 underline-offset-4 hover:underline"
       },
       size: {
         default:

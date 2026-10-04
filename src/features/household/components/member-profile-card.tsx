@@ -11,17 +11,18 @@ interface Props {
   ) => void
   readonly onRemove: () => void
 }
-const inputClass = "h-11 w-full rounded-xl border border-edge-strong bg-white px-3"
+const inputClass =
+  "h-11 w-full min-w-0 rounded-xl border border-edge-strong bg-paper px-3 text-base text-ink transition-colors focus:border-herb-600"
 export function MemberProfileCard({ profile, mealSharePercent, onChange, onRemove }: Props) {
   const person = memberProfileFromDraft(profile),
     energy = person ? calculateMemberEnergyTarget(person, mealSharePercent) : null
   const title = `${profile.memberKind === "adult" ? "Người lớn" : "Người cao tuổi"} ${profile.sortOrder}`
   const fieldId = (key: string) => `profile-${profile.id}-${key}`
   return (
-    <fieldset className="min-w-0 rounded-2xl border border-edge bg-paper-raised p-4">
-      <legend className="px-1 font-bold">{title}</legend>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label htmlFor={fieldId("label")}>
+    <fieldset className="min-w-0 rounded-2xl border border-edge bg-paper-raised p-4 sm:p-5">
+      <legend className="px-2 text-sm font-extrabold text-herb-700">{title}</legend>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-4 text-sm font-semibold">
+        <label className="col-span-2 grid gap-1.5" htmlFor={fieldId("label")}>
           Tên gọi (không bắt buộc)
           <input
             className={inputClass}
@@ -38,7 +39,11 @@ export function MemberProfileCard({ profile, mealSharePercent, onChange, onRemov
             ["ageInput", "Tuổi"]
           ] as const
         ).map(([key, label]) => (
-          <label key={key} htmlFor={fieldId(key)}>
+          <label
+            className="flex min-w-0 flex-col justify-between gap-1.5"
+            key={key}
+            htmlFor={fieldId(key)}
+          >
             {label}
             <input
               className={inputClass}
@@ -50,7 +55,7 @@ export function MemberProfileCard({ profile, mealSharePercent, onChange, onRemov
             />
           </label>
         ))}
-        <label htmlFor={fieldId("sex")}>
+        <label className="flex min-w-0 flex-col justify-between gap-1.5" htmlFor={fieldId("sex")}>
           Giới tính dùng tính năng lượng
           <select
             className={inputClass}
@@ -67,7 +72,7 @@ export function MemberProfileCard({ profile, mealSharePercent, onChange, onRemov
             <option value="female">Nữ</option>
           </select>
         </label>
-        <label htmlFor={fieldId("activity")}>
+        <label className="col-span-2 grid gap-1.5 sm:col-span-1" htmlFor={fieldId("activity")}>
           Mức vận động
           <select
             className={inputClass}
@@ -93,7 +98,7 @@ export function MemberProfileCard({ profile, mealSharePercent, onChange, onRemov
             ))}
           </select>
         </label>
-        <label htmlFor={fieldId("goal")}>
+        <label className="col-span-2 grid gap-1.5 sm:col-span-1" htmlFor={fieldId("goal")}>
           Mục tiêu ăn uống
           <select
             className={inputClass}
@@ -109,11 +114,14 @@ export function MemberProfileCard({ profile, mealSharePercent, onChange, onRemov
           </select>
         </label>
       </div>
-      <div className="mt-3 text-sm" aria-live="polite">
+      <div
+        className="mt-4 grid gap-1 rounded-xl bg-paper-sunken p-3 text-sm leading-6 text-ink-soft"
+        aria-live="polite"
+      >
         {energy?.bmi ? (
           <p>
             BMI:{" "}
-            <strong>
+            <strong className="text-ink tabular-nums">
               {Number(energy.bmi).toLocaleString("vi-VN", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
@@ -138,7 +146,7 @@ export function MemberProfileCard({ profile, mealSharePercent, onChange, onRemov
       </div>
       <Button
         className="mt-3"
-        variant="outline"
+        variant="destructive"
         type="button"
         aria-label={`Xóa ${title}`}
         onClick={onRemove}

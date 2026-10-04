@@ -38,7 +38,7 @@ export function AppNav() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-edge bg-paper-raised/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_28px_rgb(107_93_84_/_0.1)] backdrop-blur lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-t-0 lg:pb-0 lg:shadow-none"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-edge bg-paper-raised/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgb(107_93_84_/_0.04)] backdrop-blur lg:sticky lg:top-0 lg:h-svh lg:border-r lg:border-t-0 lg:pb-0 lg:shadow-none"
     >
       <div className="hidden px-5 pb-5 pt-7 lg:block">
         <div className="flex items-center justify-between">
@@ -63,10 +63,10 @@ export function AppNav() {
               to={link.to}
               className={({ isActive }) =>
                 [
-                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-[11px] font-semibold transition-all sm:text-xs",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-xs font-semibold transition-colors",
                   "lg:min-h-12 lg:flex-row lg:justify-start lg:gap-3 lg:px-3 lg:text-sm",
                   isActive
-                    ? "bg-herb-100 text-herb-900 shadow-soft ring-1 ring-inset ring-herb-200"
+                    ? "bg-herb-50 text-herb-900 ring-1 ring-inset ring-herb-200"
                     : "text-ink-soft hover:bg-paper-sunken hover:text-ink"
                 ].join(" ")
               }
