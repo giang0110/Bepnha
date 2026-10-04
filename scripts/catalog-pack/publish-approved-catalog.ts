@@ -406,7 +406,11 @@ if (import.meta.main) {
   try {
     await main()
   } catch (error) {
-    console.error(error instanceof Error ? error.message : "CATALOG_PUBLICATION_FAILED")
+    const message = error instanceof Error ? error.message : "CATALOG_PUBLICATION_FAILED"
+    // Native annotations stay accessible when the runner log storage is unavailable to the agent.
+    console.error(
+      `::error::${message.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")}`
+    )
     process.exitCode = 1
   }
 }
