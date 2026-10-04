@@ -1,5 +1,41 @@
 # Xuất bản catalog lên production
 
+## Công bố bộ đã duyệt qua GitHub Actions
+
+Bộ nâng cấp khẩu phần đã duyệt gồm 377 thao tác: 45 food fact v4, 45 quantity policy v1,
+37 recipe v4, 48 meal option v3 (24 định danh mới), price book v4 với 45 báo giá fixed.
+Workflow `Publish approved production catalog` chỉ nhận đúng pack, snapshot và toàn bộ plan
+được ghim bằng SHA256 trong `catalog-publication-actions.ts`; không thay đổi dữ liệu dinh dưỡng,
+báo giá hoặc số lượng của bộ đã duyệt.
+
+Thêm repository secret `BEPNHA_ADMIN_ACCESS_TOKEN` tại Settings → Secrets and variables → Actions.
+Dùng access token của tài khoản có `app_metadata.role = admin`, lấy ngay trước khi chạy.
+Token cần còn ít nhất 25 phút để bao phủ giới hạn thời gian của job.
+Workflow cũng đọc `BEPNHA_PRODUCTION_DB_URL` hiện có trong session chỉ đọc để đối chiếu danh mục.
+Các thao tác ghi gọi API admin của ứng dụng, lưu audit với tài khoản quản trị.
+
+Vào Actions → Publish approved production catalog → Run workflow, chọn `main`.
+`publish=false` chỉ kiểm tra token, resolve và lưu plan/journal; `publish=true` thực thi.
+Lần đầu để `resume_check_id` trống. Sau khi đã có journal, điền ID của check
+`Approved catalog publication journal` để tiếp tục, kể cả sau lần chuẩn bị không ghi dữ liệu.
+
+Plan gốc được giữ trong một native GitHub check; checkpoint journal được cập nhật trên GitHub
+trước mỗi request (gồm UUID, thao tác đang gửi và các thao tác đã hoàn tất), và một lần cuối khi
+kết thúc. Journal local được lưu sau mỗi thay đổi. Cách này giữ số lần ghi GitHub dưới giới hạn
+500 lần/giờ. Các tệp cũng được
+lưu thành artifact 90 ngày, ở ngoài repo. Mất checkpoint storage làm workflow dừng trước thao tác
+kế tiếp. Mất câu trả lời từ API hoặc lỗi server giữ thao tác ở trạng thái chưa chắc chắn;
+workflow từ chối tự gửi lại và cần kiểm tra production trước. Không bắt đầu lại với journal mới.
+Token hết hạn hoặc chưa có quyền admin được báo ở preflight trước khi ghi dữ liệu.
+
+Sau thực thi, workflow kiểm tra đủ 377 thao tác, 48 thực đơn, 45 policy, không còn fact được dùng
+thiếu policy, price book v4/purchase-v2 với đủ 45 báo giá fixed và các điều khoản mua.
+Kế hoạch tuần cũ giữ lịch sử; chủ hộ tạo lại tuần để áp dụng danh mục mới. Kho trứng ghim vào fact
+cũ có thể cần chủ hộ lưu lại số quả thực tế. Bộ này vẫn dùng giá fixed; mua đúng lượng cân lẻ còn
+cần nguồn và quy cách bán lẻ được xác nhận.
+
+## Công bố catalog trên máy của người vận hành
+
 Chuỗi này chạy **trên máy của bạn**, không chạy trong phiên Claude. Hai lý do: bước 9B cần khoá
 service-role của production để đọc, và khoá đó phải ở lại chỗ bạn kiểm soát; ngoài ra mạng ra ngoài
 trong phiên agent bị chặn.
@@ -163,21 +199,21 @@ Lúc đó phải làm lại từ Bước 1 với pack mới. Nhưng chạy `cata
 VERSION_ALREADY_EXISTS  identity:food_fact:bap_cai:1
 ```
 
-Vì bước 9B phân loại mọi cặp (bản ghi cha, `versionNumber`) đã tồn tại trong production là *collision*
+Vì bước 9B phân loại mọi cặp (bản ghi cha, `versionNumber`) đã tồn tại trong production là _collision_
 — nó cố tình không cho ghi đè một phiên bản đã xuất bản. Những gì lần chạy trước đã tạo vẫn còn đó.
 
 Cách xử lý đúng là **nâng số phiên bản**, không phải xoá dữ liệu production. Catalog vốn được thiết
 kế để thay đổi một thứ đã xuất bản bằng cách xuất bản phiên bản kế tiếp; phiên bản cũ ở lại để các
 thực đơn đã sinh trước đó vẫn giải thích được. Tăng `1` → `2` ở các cột phiên bản trong staging:
 
-| Tệp                         | Cột                     |
-| --------------------------- | ----------------------- |
-| `foods.csv`                 | `factVersionNumber`     |
-| `prices.csv`                | `foodFactVersionNumber` |
-| `recipe_ingredients.csv`    | `foodFactVersionNumber` |
-| `recipes.csv`               | `versionNumber`         |
-| `meal_option_components.csv`| `recipeVersionNumber`   |
-| `price_book.csv`            | `versionNumber`         |
+| Tệp                          | Cột                     |
+| ---------------------------- | ----------------------- |
+| `foods.csv`                  | `factVersionNumber`     |
+| `prices.csv`                 | `foodFactVersionNumber` |
+| `recipe_ingredients.csv`     | `foodFactVersionNumber` |
+| `recipes.csv`                | `versionNumber`         |
+| `meal_option_components.csv` | `recipeVersionNumber`   |
+| `price_book.csv`             | `versionNumber`         |
 
 Chỉ nâng những loại bản ghi mà lần chạy trước **đã thực sự tạo** trong production. Loại nào chưa có
 bản ghi nào thì giữ nguyên `1` — nâng thừa sẽ tạo ra một phiên bản 2 mà không có phiên bản 1, hợp lệ
@@ -219,8 +255,8 @@ FAILED OPERATION_FAILED at save_price_book_draft:vn_baseline:2:
 Trước đây dòng này chỉ có `400 VALIDATION_FAILED`, và mọi lần hỏng đều phải truy ngược thủ công
 bằng cách truy vấn production. Vài tên hay gặp nhất khi xuất bản:
 
-| Tên                                        | Nghĩa                                                                  |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
+| Tên                                        | Nghĩa                                                                   |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
 | `PRICE_REQUIRES_PUBLISHED_FACT_CONVERSION` | giá niêm yết theo đơn vị mà food fact **đã publish** không khai quy đổi |
 | `PRICE_PACKAGE_NORMALIZATION_MISMATCH`     | `packageBaseQuantity` ≠ `packageQuantity` × hệ số quy đổi               |
 | `PRICE_BASE_UNIT_MISMATCH`                 | `baseUnitCode` của dòng giá khác đơn vị cơ sở của thực phẩm             |

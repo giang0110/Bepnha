@@ -1,0 +1,59 @@
+name: Publish approved production catalog
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Execute the approved 377 operations (false only prepares the plan)"
+        type: boolean
+        required: true
+        default: false
+      resume_check_id:
+        description: "Journal check ID from an interrupted run; leave empty for first preparation"
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  checks: write
+  actions: read
+
+concurrency:
+  group: production-catalog-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Import the approved authoring data
+        run: |
+          mkdir -p "$RUNNER_TEMP/catalog-publication"
+          npm run catalog:sheet -- import --dir docs/catalog/staging --out "$RUNNER_TEMP/catalog-publication/pack.json"
+          npm run catalog:validate -- --input "$RUNNER_TEMP/catalog-publication/pack.json"
+      - name: Prepare or publish through the deployed admin API
+        env:
+          BEPNHA_PRODUCTION_DB_URL: ${{ secrets.BEPNHA_PRODUCTION_DB_URL }}
+          BEPNHA_ADMIN_ACCESS_TOKEN: ${{ secrets.BEPNHA_ADMIN_ACCESS_TOKEN }}
+          PUBLICATION_CHECK_TOKEN: ${{ github.token }}
+          PUBLICATION_DIRECTORY: ${{ runner.temp }}/catalog-publication
+          PUBLICATION_PUBLISH: ${{ inputs.publish }}
+          PUBLICATION_RESUME_CHECK_ID: ${{ inputs.resume_check_id }}
+        run: node scripts/catalog-pack/publish-approved-catalog.ts
+      - name: Preserve the plan and local journal on success or failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: approved-catalog-publication-${{ github.run_id }}
+          path: ${{ runner.temp }}/catalog-publication
+          if-no-files-found: ignore
+          retention-days: 90
