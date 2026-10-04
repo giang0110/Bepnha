@@ -152,9 +152,52 @@ test("mobile planner generates, shows details, and applies a one-day replacement
   await expect(monday).toContainText("Lửa lớn")
   await expect(monday).toContainText("170°C")
 
-  await page.getByRole("button", { name: "Đổi bữa" }).nth(2).click()
+  await page.setViewportSize({ width: 320, height: 720 })
+  const trigger = page
+    .getByRole("listitem", { name: "Bữa chính Thứ Tư" })
+    .getByRole("button", { name: "Đổi bữa" })
+  await trigger.focus()
+  await page.keyboard.press("Enter")
+  const dialog = page.getByRole("dialog", { name: "Xem trước bữa thay thế" })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole("heading", { name: "Xem trước thay đổi" })).toBeFocused()
+  const apply = page.getByRole("button", { name: "Áp dụng bữa thay thế" })
+  await page.keyboard.press("Tab")
+  await expect(apply).toBeFocused()
+  await page.keyboard.press("Tab")
+  await expect(page.getByRole("button", { name: "Hủy thay đổi" })).toBeFocused()
+  await page.keyboard.press("Tab")
+  // Chromium may insert a browser-chrome Tab stop. Page controls behind the modal stay inert.
+  expect(
+    await dialog.evaluate(
+      (element) =>
+        (document.activeElement === document.body && !document.hasFocus()) ||
+        element.contains(document.activeElement)
+    )
+  ).toBe(true)
+  if (!(await apply.evaluate((element) => element === document.activeElement))) {
+    await page.keyboard.press("Tab")
+  }
+  await expect(apply).toBeFocused()
+  await page.keyboard.press("Escape")
+  await expect(dialog).not.toBeVisible()
+  await expect(trigger).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(dialog).toBeVisible()
   await expect(page.getByText("Bữa thay thế", { exact: true })).toBeVisible()
+  // The native modal must also keep confirmation clear of the persistent mobile bar.
+  await apply.scrollIntoViewIfNeeded()
+  const applyBounds = await apply.boundingBox()
+  const navBounds = await page
+    .getByRole("navigation", { name: "Điều hướng chính", includeHidden: true })
+    .boundingBox()
+  expect(applyBounds).not.toBeNull()
+  expect(navBounds).not.toBeNull()
+  expect(applyBounds!.y + applyBounds!.height).toBeLessThanOrEqual(navBounds!.y)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
   await page.getByRole("button", { name: "Áp dụng bữa thay thế" }).click()
+  await expect(trigger).toBeFocused()
+  await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.getByTestId("meal-name").nth(2)).toHaveText("Bữa thay thế")
   const namesAfter = await page.getByTestId("meal-name").allTextContents()
   expect(namesAfter.filter((name, index) => name !== namesBefore[index])).toEqual(["Bữa thay thế"])

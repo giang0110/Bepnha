@@ -1,5 +1,5 @@
 import { MemberPortionsPanel } from "./member-portions-panel"
-import { Fragment, useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Link } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
@@ -12,6 +12,7 @@ import type {
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
 import { useAuth } from "@/app/auth/auth-context"
 import { AppPageShell } from "@/app/components/app-page-shell"
+import { PageHeader } from "@/app/components/page-header"
 import { Button, buttonVariants } from "@/app/components/ui/button"
 import { Icon } from "@/app/components/ui/icon"
 import type { HouseholdSetup } from "@/domain/household/household"
@@ -96,6 +97,13 @@ export interface WeeklyPlanAssistantSlotProps {
 }
 
 export type WeeklyPlanAssistantRenderer = (props: WeeklyPlanAssistantSlotProps) => ReactNode
+
+function AssistantSlot({
+  renderer,
+  ...props
+}: WeeklyPlanAssistantSlotProps & Readonly<{ renderer: WeeklyPlanAssistantRenderer }>) {
+  return <>{renderer(props)}</>
+}
 
 interface Props {
   readonly householdRepository: HouseholdRepository
@@ -402,6 +410,10 @@ export function WeeklyPlanPage({
   const [householdLoadAttempt, setHouseholdLoadAttempt] = useState(0)
   const [state, setState] = useState<ViewState>({ status: "loading_household" })
   const [preview, setPreview] = useState<PreviewState>({ status: "idle" })
+  const previewDialogRef = useRef<HTMLDialogElement>(null)
+  const previewHeadingRef = useRef<HTMLHeadingElement>(null)
+  const previewTriggerRef = useRef<HTMLElement | null>(null)
+  const assistantSummaryRef = useRef<HTMLElement>(null)
   const [regenerationError, setRegenerationError] = useState<{
     readonly code: string
     readonly correlationId?: string
@@ -418,6 +430,21 @@ export function WeeklyPlanPage({
   const [ratings, setRatings] = useState<MealRatings>({ liked: [], disliked: [] })
   const [showFamilyModal, setShowFamilyModal] = useState(false)
   const familyWishes = useFamilyWishlist(household?.householdId ?? null)
+
+  useEffect(() => {
+    if (preview.status !== "ready") return
+    const dialog = previewDialogRef.current
+    const trigger = previewTriggerRef.current
+    const assistantSummary = assistantSummaryRef.current
+    if (dialog === null) return
+    if (!dialog.open) dialog.showModal()
+    previewHeadingRef.current?.focus()
+    return () => {
+      if (dialog.open) dialog.close()
+      if (trigger?.isConnected) trigger.focus()
+      else if (assistantSummary?.isConnected) assistantSummary.focus()
+    }
+  }, [preview.status])
 
   useEffect(() => {
     let active = true
@@ -571,8 +598,13 @@ export function WeeklyPlanPage({
     )
   }
 
-  async function previewDay(dayIndex: number) {
+  async function previewDay(dayIndex: number, trigger?: HTMLElement) {
     if (state.status !== "ready" || accessToken === undefined || submitting) return
+    previewTriggerRef.current =
+      trigger ??
+      (document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+        ? document.activeElement
+        : null)
     setSubmitting(true)
     setPreview({ status: "loading", dayIndex })
     const result = await plannerApi.preview(accessToken, {
@@ -644,23 +676,17 @@ export function WeeklyPlanPage({
 
   return (
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
-      <header className="grid gap-2">
-        <p className="flex items-center gap-1.5 text-sm font-extrabold text-herb-700">
-          <Icon name="bowl" className="size-4" />
-          Bếp Nhà
-        </p>
-        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Kế hoạch tuần</h1>
-        <p className="text-sm text-ink-soft">
-          Ngân sách chỉ áp dụng cho 7 bữa chính nấu cho cả gia đình.
-        </p>
-      </header>
+      <PageHeader
+        title="Kế hoạch tuần"
+        description="Ngân sách chỉ áp dụng cho 7 bữa chính nấu cho cả gia đình."
+      />
 
       {/* Which week, said out loud. The page used to answer for the Monday ahead without ever
           naming it, so a household mid-week was looking at a different week from the one they
           thought they were looking at. */}
       <div
         aria-label="Tuần đang xem"
-        className="flex items-center gap-1 rounded-full bg-paper-sunken p-1 text-sm"
+        className="flex w-full max-w-lg items-center gap-1 rounded-2xl border border-edge bg-paper-sunken p-1 text-sm"
         role="group"
       >
         {(
@@ -674,9 +700,9 @@ export function WeeklyPlanPage({
             disabled={household === null || submitting}
             /* Stacked on purpose. Label and dates on one line wrapped at 320px, and only for the
                longer option, so the two choices came out different heights. */
-            className={`min-h-11 flex-1 rounded-full px-3 py-1.5 leading-tight transition-colors ${
+            className={`min-h-14 flex-1 rounded-xl px-3 py-2 leading-tight transition-colors ${
               weekStart === value
-                ? "bg-paper-raised text-ink shadow-soft"
+                ? "bg-paper-raised text-herb-700 shadow-soft"
                 : "text-ink-soft hover:text-ink"
             }`}
             key={value}
@@ -703,7 +729,7 @@ export function WeeklyPlanPage({
           <p>Hãy hoàn tất thông tin gia đình trước khi tạo kế hoạch.</p>
           {/* The sentence alone named the obstacle and left the person to find the way round it. */}
           <Link
-            className="inline-flex min-h-11 items-center rounded-full bg-clay-700 px-5 text-sm font-bold text-white shadow-soft transition-colors hover:bg-clay-900"
+            className="inline-flex min-h-11 items-center rounded-full bg-clay-700 px-5 text-sm font-bold text-on-clay shadow-soft transition-colors hover:bg-clay-900"
             to="/onboarding"
           >
             Hoàn tất thông tin gia đình
@@ -735,6 +761,7 @@ export function WeeklyPlanPage({
       household !== null ? (
         <Button
           disabled={submitting}
+          className={state.status === "ready" ? "self-start" : ""}
           size="lg"
           type="button"
           variant={state.status === "ready" ? "outline" : "default"}
@@ -787,73 +814,6 @@ export function WeeklyPlanPage({
 
       {state.status === "ready" ? (
         <>
-          <section
-            className="rounded-3xl border border-herb-100 bg-gradient-to-br from-herb-50 to-paper-raised p-5 shadow-soft"
-            aria-label="Tổng quan ngân sách"
-          >
-            <p className="flex items-center gap-2 text-sm font-semibold text-herb-700">
-              <Icon name="basket" className="size-4" />
-              Ước tính giỏ mua cho 7 bữa chính
-            </p>
-            <p className="mt-2 text-2xl font-extrabold tracking-tight text-ink tabular-nums">
-              {formatVnd(state.value.plan.totalEstimatedCostVnd)} VND /{" "}
-              {formatVnd(state.value.budgetVnd)} VND
-            </p>
-            <BudgetMeter
-              budgetVnd={state.value.budgetVnd}
-              spentVnd={state.value.plan.totalEstimatedCostVnd}
-            />
-            {state.value.warnings.map((warning, index) => {
-              const copy = warningCopy(warning, state.value)
-              return copy === null ? null : (
-                <p
-                  className="mt-3 rounded-2xl bg-broth-50 px-3 py-2 text-sm font-medium text-broth-900"
-                  key={`${warning.code}:${index}`}
-                >
-                  {copy}
-                </p>
-              )
-            })}
-          </section>
-
-          {state.value.engineVersion !== "planner-engine-v6" && setupNotice === null ? (
-            <p className="rounded-2xl bg-paper-raised p-4 text-sm">
-              Thực đơn này dùng khẩu phần theo nhóm tuổi. Tạo lại tuần để áp dụng mục tiêu và cách
-              tính lượng thực phẩm mới.
-            </p>
-          ) : null}
-          {state.value.trust === undefined ? null : <PlanTrustPanel trust={state.value.trust} />}
-
-          {/* Not plain "Đi chợ": the navigation carries that name for the week's list in general,
-              and two links reading the same while leading to different places is a guess the
-              reader should not have to make. This one is the list for the plan on screen. */}
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-clay-700 px-6 text-base font-bold text-white shadow-soft transition-all hover:bg-clay-900 hover:shadow-lift"
-              to={`/shopping/${state.value.planId}`}
-            >
-              <Icon name="cart" className="size-5" />
-              Đi chợ cho kế hoạch này
-            </Link>
-            <Button
-              className="min-h-12 gap-2 rounded-full px-5 font-bold"
-              type="button"
-              variant="outline"
-              onClick={() => setShowFamilyModal(true)}
-            >
-              <Icon name="users" className="size-5 text-herb-700" />
-              Gia đình & Chia sẻ
-              {familyWishes.length > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-clay-100 px-2 py-0.5 text-xs font-bold text-clay-900">
-                  <Icon name="heart" className="size-3 text-clay-600" />
-                  {familyWishes.length}
-                </span>
-              )}
-            </Button>
-          </div>
-
-          <WeeklyRotationBalanceCard items={state.value.plan.items} weekStart={weekStart} />
-
           {(() => {
             const index = todayIndexIn(weekStart, today())
             const meal =
@@ -877,7 +837,7 @@ export function WeeklyPlanPage({
                     Hôm nay · {DAY_LABELS[meal.dayIndex]} ({todayLunar.formattedShort})
                   </p>
                   {todayLunar.isVegetarianDay && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-herb-700 px-2.5 py-0.5 text-xs font-bold text-white">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-herb-700 px-2.5 py-0.5 text-xs font-bold text-on-herb">
                       <Icon name="leaf" className="size-3" />
                       {todayLunar.day === 15 ? "Hôm nay ngày Rằm" : "Hôm nay Mùng 1"}
                     </span>
@@ -923,6 +883,71 @@ export function WeeklyPlanPage({
             )
           })()}
 
+          <section
+            className="rounded-3xl border border-edge bg-paper-raised p-5 sm:p-6"
+            aria-label="Tổng quan ngân sách"
+          >
+            <p className="flex items-center gap-2 text-sm font-semibold text-herb-700">
+              <Icon name="basket" className="size-4" />
+              Ước tính giỏ mua cho 7 bữa chính
+            </p>
+            <p className="mt-2 text-2xl font-extrabold tracking-tight text-ink tabular-nums">
+              {formatVnd(state.value.plan.totalEstimatedCostVnd)} VND /{" "}
+              {formatVnd(state.value.budgetVnd)} VND
+            </p>
+            <BudgetMeter
+              budgetVnd={state.value.budgetVnd}
+              spentVnd={state.value.plan.totalEstimatedCostVnd}
+            />
+            {state.value.warnings.map((warning, index) => {
+              const copy = warningCopy(warning, state.value)
+              return copy === null ? null : (
+                <p
+                  className="mt-3 rounded-2xl bg-broth-50 px-3 py-2 text-sm font-medium text-broth-900"
+                  key={`${warning.code}:${index}`}
+                >
+                  {copy}
+                </p>
+              )
+            })}
+          </section>
+
+          {state.value.engineVersion !== "planner-engine-v6" && setupNotice === null ? (
+            <p className="rounded-2xl bg-paper-raised p-4 text-sm">
+              Thực đơn này dùng khẩu phần theo nhóm tuổi. Tạo lại tuần để áp dụng mục tiêu và cách
+              tính lượng thực phẩm mới.
+            </p>
+          ) : null}
+          {state.value.trust === undefined ? null : <PlanTrustPanel trust={state.value.trust} />}
+
+          {/* Not plain "Đi chợ": the navigation carries that name for the week's list in general,
+              and two links reading the same while leading to different places is a guess the
+              reader should not have to make. This one is the list for the plan on screen. */}
+          <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center">
+            <Link
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-clay-700 px-5 text-sm font-bold text-on-clay transition-colors hover:bg-clay-900 sm:px-6"
+              to={`/shopping/${state.value.planId}`}
+            >
+              <Icon name="cart" className="size-5" />
+              Đi chợ cho kế hoạch này
+            </Link>
+            <Button
+              className="min-h-12 gap-2 rounded-full px-5 font-bold"
+              type="button"
+              variant="outline"
+              onClick={() => setShowFamilyModal(true)}
+            >
+              <Icon name="users" className="size-5 text-herb-700" />
+              Gia đình & Chia sẻ
+              {familyWishes.length > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-clay-100 px-2 py-0.5 text-xs font-bold text-clay-900">
+                  <Icon name="heart" className="size-3 text-clay-700" />
+                  {familyWishes.length}
+                </span>
+              )}
+            </Button>
+          </div>
+
           <ol
             className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
             aria-label="Bảy bữa chính trong tuần"
@@ -940,13 +965,13 @@ export function WeeklyPlanPage({
                 return (
                   <li
                     aria-label={`Bữa chính ${DAY_LABELS[item.dayIndex]}`}
-                    className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft transition-shadow hover:shadow-lift"
+                    className="flex min-w-0 flex-col rounded-3xl border border-edge bg-paper-raised p-5 sm:p-6"
                     key={item.dayIndex}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <h2 className="inline-flex rounded-full bg-herb-100 px-3 py-0.5 text-xs font-bold tracking-wide text-herb-900 uppercase">
+                          <h2 className="inline-flex rounded-full bg-herb-50 px-3 py-1 text-xs font-bold tracking-wide text-herb-900">
                             {DAY_LABELS[item.dayIndex]}
                           </h2>
                           <span className="text-xs font-semibold text-ink-soft">
@@ -954,7 +979,7 @@ export function WeeklyPlanPage({
                           </span>
                           {lunar.isVegetarianDay && (
                             <span
-                              className="inline-flex items-center gap-1 rounded-full bg-herb-600 px-2 py-0.5 text-[11px] font-bold text-white"
+                              className="inline-flex items-center gap-1 rounded-full bg-herb-600 px-2 py-0.5 text-[11px] font-bold text-on-herb"
                               title={lunar.specialDayLabel ?? "Ngày ăn chay"}
                             >
                               <Icon name="leaf" className="size-3" />
@@ -991,7 +1016,10 @@ export function WeeklyPlanPage({
                             {proteinGroupLabel(protein)}
                           </span>
                         </div>
-                        <p className="mt-2 text-lg font-bold text-ink" data-testid="meal-name">
+                        <p
+                          className="mt-3 text-lg font-extrabold leading-snug text-ink"
+                          data-testid="meal-name"
+                        >
                           {item.mealOptionNameVi}
                         </p>
                         <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-soft">
@@ -1003,14 +1031,19 @@ export function WeeklyPlanPage({
                         disabled={submitting}
                         variant="outline"
                         type="button"
-                        onClick={() => void previewDay(item.dayIndex)}
+                        onClick={(event) => {
+                          void previewDay(item.dayIndex, event.currentTarget)
+                        }}
                       >
                         Đổi bữa
                       </Button>
                     </div>
                     <Link
                       aria-label={`Bắt đầu nấu ${DAY_LABELS[item.dayIndex]}: ${item.mealOptionNameVi}`}
-                      className={buttonVariants({ className: "mt-4 w-full gap-2" })}
+                      className={buttonVariants({
+                        variant: "outline",
+                        className: "mt-5 w-full gap-2"
+                      })}
                       to={`/plan/${item.dayIndex}/cook`}
                     >
                       <Icon name="pan" className="size-5" />
@@ -1033,9 +1066,11 @@ export function WeeklyPlanPage({
               })}
           </ol>
 
+          <WeeklyRotationBalanceCard items={state.value.plan.items} weekStart={weekStart} />
+
           {accessToken === undefined || renderAssistant === undefined ? null : (
             <details className="rounded-3xl border border-edge bg-paper-raised p-4 shadow-soft">
-              <summary className="cursor-pointer font-bold text-ink">
+              <summary ref={assistantSummaryRef} className="cursor-pointer font-bold text-ink">
                 Hỏi trợ lý về kế hoạch
               </summary>
               <p className="mt-2 text-xs leading-5 text-ink-soft">
@@ -1043,16 +1078,16 @@ export function WeeklyPlanPage({
                 thay thế vẫn do hệ thống tất định xử lý.
               </p>
               <div className="mt-3">
-                <Fragment key={`${state.value.planId}:${state.value.revisionId}`}>
-                  {renderAssistant({
-                    accessToken,
-                    planId: state.value.planId,
-                    expectedRevisionId: state.value.revisionId,
-                    onPreviewDay: (dayIndex) => {
-                      void previewDay(dayIndex)
-                    }
-                  })}
-                </Fragment>
+                <AssistantSlot
+                  key={`${state.value.planId}:${state.value.revisionId}`}
+                  renderer={renderAssistant}
+                  accessToken={accessToken}
+                  planId={state.value.planId}
+                  expectedRevisionId={state.value.revisionId}
+                  onPreviewDay={(dayIndex) => {
+                    void previewDay(dayIndex)
+                  }}
+                />
               </div>
             </details>
           )}
@@ -1079,11 +1114,18 @@ export function WeeklyPlanPage({
         </div>
       ) : null}
       {preview.status === "ready" ? (
-        <section
-          className="sticky bottom-3 rounded-3xl border border-herb-200 bg-paper-raised p-4 shadow-lift"
+        <dialog
+          ref={previewDialogRef}
+          className="fixed inset-x-4 top-auto bottom-[calc(var(--app-nav-height)+0.75rem)] m-0 mx-auto max-h-[calc(100svh-var(--app-nav-height)-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-3xl border border-herb-200 bg-paper-raised p-4 text-ink shadow-lift backdrop:bg-black/25 backdrop:backdrop-blur-[2px] sm:p-5 lg:left-auto lg:right-8 lg:mx-0 lg:w-[min(42rem,calc(100vw-19rem))]"
           aria-label="Xem trước bữa thay thế"
+          onCancel={(event) => {
+            event.preventDefault()
+            if (!submitting) setPreview({ status: "idle" })
+          }}
         >
-          <h2 className="font-bold text-ink">Xem trước thay đổi</h2>
+          <h2 ref={previewHeadingRef} tabIndex={-1} className="font-bold text-ink">
+            Xem trước thay đổi
+          </h2>
           {(() => {
             const current =
               state.status === "ready"
@@ -1099,7 +1141,7 @@ export function WeeklyPlanPage({
               <>
                 {isFamilyWished && (
                   <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-clay-100 px-3 py-1 text-xs font-bold text-clay-900">
-                    <Icon name="heart" className="size-3.5 text-clay-600" />
+                    <Icon name="heart" className="size-3.5 text-clay-700" />
                     Món này được người nhà bình chọn trong tuần!
                   </div>
                 )}
@@ -1111,7 +1153,7 @@ export function WeeklyPlanPage({
               </>
             )
           })()}
-          <div className="mt-3 flex gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             <Button disabled={submitting} type="button" onClick={() => void applyPreview()}>
               Áp dụng bữa thay thế
             </Button>
@@ -1124,7 +1166,7 @@ export function WeeklyPlanPage({
               Hủy thay đổi
             </Button>
           </div>
-        </section>
+        </dialog>
       ) : null}
 
       {household !== null && state.status === "ready" && (

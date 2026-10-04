@@ -121,11 +121,12 @@ function HouseholdSettingsEditor({
             key={item.step}
             type="button"
             className={[
-              "rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm",
+              "min-h-11 rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:text-sm",
               state.step === item.step
-                ? "bg-herb-100 text-herb-900 ring-1 ring-inset ring-herb-300"
+                ? "bg-herb-100 text-herb-900 ring-1 ring-inset ring-herb-200"
                 : "bg-paper-raised text-ink-soft hover:bg-paper-sunken hover:text-ink"
             ].join(" ")}
+            aria-current={state.step === item.step ? "step" : undefined}
             onClick={() => dispatch({ type: "go-to-step", step: item.step as 1 | 2 | 3 | 4 | 5 })}
           >
             {item.step}. {item.label}

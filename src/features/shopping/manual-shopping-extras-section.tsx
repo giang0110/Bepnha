@@ -24,7 +24,7 @@ export function ManualShoppingExtrasSection({ revisionId }: Readonly<{ revisionI
 
   return (
     <section
-      className="grid gap-3 rounded-2xl border border-dashed border-edge-strong p-4"
+      className="grid min-w-0 gap-3 rounded-2xl border border-dashed border-edge-strong p-4"
       data-print="hide"
     >
       <div>
@@ -33,12 +33,12 @@ export function ManualShoppingExtrasSection({ revisionId }: Readonly<{ revisionI
           Chỉ lưu trên thiết bị này, không tính vào ngân sách hay số lượng của kế hoạch.
         </p>
       </div>
-      <form className="flex gap-2" onSubmit={submit}>
+      <form className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]" onSubmit={submit}>
         <label className="sr-only" htmlFor="manual-shopping-extra">
           Món mua thêm
         </label>
         <input
-          className="min-h-11 min-w-0 flex-1 rounded-full border border-edge-strong bg-paper-raised px-4 text-ink"
+          className="min-h-11 w-full min-w-0 rounded-full border border-edge-strong bg-paper-raised px-4 text-ink"
           id="manual-shopping-extra"
           maxLength={80}
           placeholder="Ví dụ: túi rác"

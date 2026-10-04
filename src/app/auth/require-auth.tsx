@@ -28,9 +28,9 @@ export function RequireAuth() {
       {/* Order matters: the skip link must precede the navigation so the first Tab reaches it. */}
       <AppSkipLink />
       <OfflineBanner />
-      <div className="min-h-screen bg-paper-sunken text-ink lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <div className="min-h-screen bg-paper text-ink lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
         <AppNav />
-        <div className="min-w-0 pb-24 lg:pb-0">
+        <div className="min-w-0 pb-[calc(var(--app-nav-height)+1.5rem)] lg:pb-0">
           <Outlet />
           <div className="mx-auto w-full max-w-6xl px-4 pb-8 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between border-t border-edge pt-5">

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /**
  * Nunito, self-hosted.
@@ -47,9 +48,9 @@
     "Nunito", ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, -apple-system, sans-serif;
 
   /* Paper — page and raised surfaces. */
-  --color-paper: #fdf8f1;
-  --color-paper-raised: #fffdfa;
-  --color-paper-sunken: #f6efe4;
+  --color-paper: #fbf8f2;
+  --color-paper-raised: #fffefa;
+  --color-paper-sunken: #f5f0e7;
 
   /* Ink — text, warm rather than blue-black. */
   --color-ink: #2c2420;
@@ -64,6 +65,7 @@
   --color-herb-600: #4a7f37;
   --color-herb-700: #3b652c;
   --color-herb-900: #24401c;
+  --color-on-herb: #ffffff;
 
   /* Clay — the second warm accent, for highlights that are not the primary action.
      White text needs clay-700 or darker: clay-500 reaches only 3.07:1 and fails AA. */
@@ -73,6 +75,7 @@
   --color-clay-500: #d97a4a;
   --color-clay-700: #a9502a;
   --color-clay-900: #6e3218;
+  --color-on-clay: #ffffff;
 
   /* Broth — cautions that are not failures. */
   --color-broth-50: #fdf6e3;
@@ -91,8 +94,8 @@
   --color-edge: #e8ddcd;
   --color-edge-strong: #d6c6b0;
 
-  --shadow-soft: 0 1px 2px rgb(107 93 84 / 0.05), 0 6px 20px -8px rgb(107 93 84 / 0.18);
-  --shadow-lift: 0 2px 4px rgb(107 93 84 / 0.06), 0 14px 34px -14px rgb(107 93 84 / 0.28);
+  --shadow-soft: 0 1px 3px rgb(107 93 84 / 0.04), 0 4px 12px -6px rgb(107 93 84 / 0.12);
+  --shadow-lift: 0 2px 5px rgb(107 93 84 / 0.05), 0 10px 24px -12px rgb(107 93 84 / 0.2);
 }
 
 html.dark {
@@ -114,6 +117,7 @@ html.dark {
   --color-herb-600: #74b85a;
   --color-herb-700: #8ecf75;
   --color-herb-900: #dcecd3;
+  --color-on-herb: #172412;
 
   /* Clay accents in dark mode */
   --color-clay-50: #2d1a12;
@@ -122,6 +126,7 @@ html.dark {
   --color-clay-500: #d97a4a;
   --color-clay-700: #e88d61;
   --color-clay-900: #fadfd0;
+  --color-on-clay: #30180e;
 
   /* Broth accents in dark mode */
   --color-broth-50: #2a2310;
@@ -145,6 +150,7 @@ html.dark {
 }
 
 :root {
+  --app-nav-height: calc(4.5rem + env(safe-area-inset-bottom, 0px));
   font-family: var(--font-sans);
   color: var(--color-ink);
   background: var(--color-paper);
@@ -155,6 +161,7 @@ html.dark {
 
 html {
   background: var(--color-paper);
+  scroll-padding-block: 1rem calc(var(--app-nav-height) + 1rem);
 }
 
 body {
@@ -173,11 +180,28 @@ body {
   overflow-wrap: anywhere;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
+@layer base {
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+/* Avoid automatic input zoom on phones without restricting browser zoom. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --app-nav-height: 0px;
+  }
 }
 
 ::selection {

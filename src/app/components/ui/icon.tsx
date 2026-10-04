@@ -12,6 +12,8 @@
  */
 
 const PATHS = {
+  arrowRight: "M5 12h14m-5-5 5 5-5 5",
+  shield: "M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Zm-4 9 3 3 5-6",
   /** A bowl of rice: the app's own mark. */
   bowl: "M3.5 11h17a8.5 8.5 0 0 1-17 0Zm2.2-2.2c.9-1.6 3.2-2.8 6.3-2.8s5.4 1.2 6.3 2.8M12 6V4M2 21h20",
   basket:

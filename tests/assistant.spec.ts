@@ -181,6 +181,11 @@ test("mobile assistant remains advisory and deterministic replacement requires e
   await expect(page.getByRole("heading", { name: "Trợ lý Bếp Nhà" })).toHaveCount(0)
 
   await page.getByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }).click()
+  const mealTrigger = page.getByRole("button", { name: "Đổi bữa" }).nth(2)
+  await mealTrigger.click()
+  await expect(page.getByRole("dialog", { name: "Xem trước bữa thay thế" })).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(mealTrigger).toBeFocused()
   await page.getByText("Hỏi trợ lý về kế hoạch").click()
   await expect(page.getByRole("heading", { name: "Trợ lý Bếp Nhà" })).toBeVisible()
 
@@ -189,16 +194,24 @@ test("mobile assistant remains advisory and deterministic replacement requires e
 
   await page.getByRole("button", { name: "Bữa nào nên xem thử để đa dạng hơn?" }).click()
   await expect(page.getByText("Có thể xem thử Thứ Tư để tăng độ đa dạng.")).toBeVisible()
-  await page.getByRole("button", { name: "Xem bữa thay thế cho Thứ Tư" }).click()
+  const assistantTrigger = page.getByRole("button", { name: "Xem bữa thay thế cho Thứ Tư" })
+  await assistantTrigger.click()
 
-  expect(previewCalls).toBe(1)
+  expect(previewCalls).toBe(2)
   expect(applyCalls).toBe(0)
   await expect(page.getByText("Bữa thay thế", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Áp dụng bữa thay thế" })).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(assistantTrigger).toBeFocused()
+  expect(applyCalls).toBe(0)
+  await page.keyboard.press("Enter")
+  await expect(page.getByRole("dialog", { name: "Xem trước bữa thay thế" })).toBeVisible()
+  expect(previewCalls).toBe(3)
 
   await page.getByRole("button", { name: "Áp dụng bữa thay thế" }).click()
   expect(applyCalls).toBe(1)
   await expect(page.getByText("Có thể xem thử Thứ Tư để tăng độ đa dạng.")).toHaveCount(0)
+  await expect(page.getByText("Hỏi trợ lý về kế hoạch")).toBeFocused()
 
   assistantMode = "unavailable"
   await page.getByRole("button", { name: "Giải thích kế hoạch này" }).click()

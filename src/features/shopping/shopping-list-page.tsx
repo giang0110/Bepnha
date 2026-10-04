@@ -14,6 +14,7 @@ import type {
 } from "@/application/shopping/shopping-list-repository"
 import { ShoppingListRepositoryError } from "@/application/shopping/shopping-list-repository"
 import { AppPageShell } from "@/app/components/app-page-shell"
+import { PageHeader } from "@/app/components/page-header"
 import { Button } from "@/app/components/ui/button"
 import {
   GROCERY_CATEGORIES,
@@ -629,19 +630,14 @@ export function ShoppingListPage({ repository }: Props) {
 
   return (
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
-      <header className="grid gap-2">
-        <p className="flex items-center gap-1.5 text-sm font-extrabold text-herb-700">
-          <Icon name="bowl" className="size-4" />
-          Bếp Nhà
-        </p>
-        <h1 className="text-2xl font-extrabold tracking-tight text-ink">Đi chợ</h1>
-        <p className="text-sm text-ink-soft">
-          Số lượng và giá là ước tính theo đúng phiên bản kế hoạch đã lưu.
-        </p>
+      <PageHeader
+        title="Đi chợ"
+        description="Số lượng và giá là ước tính theo đúng phiên bản kế hoạch đã lưu."
+      >
         <Link className="text-sm font-medium text-herb-700 underline" data-print="hide" to="/plan">
           Quay lại kế hoạch tuần
         </Link>
-      </header>
+      </PageHeader>
 
       {state.status === "loading" ? <p role="status">Đang tải danh sách đi chợ…</p> : null}
       {state.status === "missing" ? (
@@ -676,16 +672,13 @@ export function ShoppingListPage({ repository }: Props) {
               to see, and a market is not a place for scrolling back up. The opaque strip is not
               decoration: a translucent card alone let the list show through the rounded corners
               beside it, so text slid past in the gap. */}
-          <div
-            className="sticky top-0 z-10 -mx-4 bg-paper-sunken px-4 pt-1 pb-2 sm:-mx-6 sm:px-6"
-            data-print="static"
-          >
+          <div className="sticky top-0 z-10 bg-paper pt-2 pb-2" data-print="static">
             <section
-              className="rounded-2xl bg-paper-raised p-4 shadow-soft"
+              className="rounded-2xl border border-edge bg-paper-raised p-4 shadow-soft sm:p-5"
               aria-label="Tổng quan đi chợ"
             >
               <p className="text-sm text-ink-soft">Tổng ước tính / ngân sách 7 bữa chính</p>
-              <p className="text-xl font-bold text-ink">
+              <p className="mt-1 text-xl font-extrabold leading-snug text-ink tabular-nums">
                 {formatVnd(state.value.totalEstimatedCostVnd)} VND /{" "}
                 {formatVnd(state.value.budgetVnd)} VND
               </p>
@@ -741,10 +734,11 @@ export function ShoppingListPage({ repository }: Props) {
 
           <div className="flex flex-wrap items-center gap-2" data-print="hide">
             <Button
+              aria-pressed={oneHandMode}
               type="button"
               variant={oneHandMode ? "default" : "outline"}
               className={
-                oneHandMode ? "bg-herb-700 font-bold text-white ring-2 ring-herb-500/40" : ""
+                oneHandMode ? "bg-herb-700 font-bold text-on-herb ring-2 ring-herb-500/40" : ""
               }
               onClick={toggleOneHandMode}
               data-testid="toggle-one-hand-mode"
@@ -785,15 +779,14 @@ export function ShoppingListPage({ repository }: Props) {
             data-print="hide"
           >
             <div
-              className="flex flex-wrap items-center gap-1 rounded-xl bg-paper-sunken p-1 text-xs sm:text-sm font-medium"
-              role="tablist"
+              className="flex flex-wrap items-center gap-1 rounded-2xl border border-edge bg-paper-sunken p-1 text-xs font-medium sm:text-sm"
+              role="group"
               aria-label="Điểm mua"
             >
               <button
                 type="button"
-                role="tab"
-                aria-selected={destinationFilter === "all"}
-                className={`rounded-lg px-3 py-1.5 transition-colors ${
+                aria-pressed={destinationFilter === "all"}
+                className={`min-h-11 rounded-xl px-3 py-2 transition-colors ${
                   destinationFilter === "all"
                     ? "bg-paper-raised font-bold text-ink shadow-soft"
                     : "text-ink-soft hover:text-ink"
@@ -805,9 +798,8 @@ export function ShoppingListPage({ repository }: Props) {
               </button>
               <button
                 type="button"
-                role="tab"
-                aria-selected={destinationFilter === "wet_market"}
-                className={`rounded-lg px-3 py-1.5 transition-colors ${
+                aria-pressed={destinationFilter === "wet_market"}
+                className={`min-h-11 rounded-xl px-3 py-2 transition-colors ${
                   destinationFilter === "wet_market"
                     ? "bg-paper-raised font-bold text-herb-700 shadow-soft"
                     : "text-ink-soft hover:text-ink"
@@ -819,9 +811,8 @@ export function ShoppingListPage({ repository }: Props) {
               </button>
               <button
                 type="button"
-                role="tab"
-                aria-selected={destinationFilter === "supermarket"}
-                className={`rounded-lg px-3 py-1.5 transition-colors ${
+                aria-pressed={destinationFilter === "supermarket"}
+                className={`min-h-11 rounded-xl px-3 py-2 transition-colors ${
                   destinationFilter === "supermarket"
                     ? "bg-paper-raised font-bold text-herb-700 shadow-soft"
                     : "text-ink-soft hover:text-ink"
@@ -835,13 +826,14 @@ export function ShoppingListPage({ repository }: Props) {
             </div>
 
             <div
-              className="flex items-center gap-1 rounded-xl bg-paper-sunken p-1 text-xs sm:text-sm font-medium"
+              className="flex flex-wrap items-center gap-1 rounded-2xl border border-edge bg-paper-sunken p-1 text-xs font-medium sm:text-sm"
               role="group"
               aria-label="Lọc trạng thái mua"
             >
               <button
                 type="button"
-                className={`rounded-lg px-2.5 py-1 transition-colors ${
+                aria-pressed={statusFilter === "all"}
+                className={`min-h-11 rounded-xl px-3 py-2 transition-colors ${
                   statusFilter === "all"
                     ? "bg-paper-raised font-semibold text-ink shadow-soft"
                     : "text-ink-soft hover:text-ink"
@@ -853,7 +845,8 @@ export function ShoppingListPage({ repository }: Props) {
               </button>
               <button
                 type="button"
-                className={`rounded-lg px-2.5 py-1 transition-colors ${
+                aria-pressed={statusFilter === "remaining"}
+                className={`min-h-11 rounded-xl px-3 py-2 transition-colors ${
                   statusFilter === "remaining"
                     ? "bg-paper-raised font-semibold text-herb-700 shadow-soft"
                     : "text-ink-soft hover:text-ink"
@@ -865,7 +858,8 @@ export function ShoppingListPage({ repository }: Props) {
               </button>
               <button
                 type="button"
-                className={`rounded-lg px-2.5 py-1 transition-colors ${
+                aria-pressed={statusFilter === "checked"}
+                className={`min-h-11 rounded-xl px-3 py-2 transition-colors ${
                   statusFilter === "checked"
                     ? "bg-paper-raised font-semibold text-ink shadow-soft"
                     : "text-ink-soft hover:text-ink"
@@ -880,7 +874,7 @@ export function ShoppingListPage({ repository }: Props) {
 
           {!isOnline && (
             <div
-              className="flex items-center justify-between gap-3 rounded-2xl border border-broth-300 bg-broth-50 p-3 text-xs text-broth-900 shadow-soft"
+              className="flex items-center justify-between gap-3 rounded-2xl border border-broth-200 bg-broth-50 p-3 text-xs text-broth-900 shadow-soft"
               role="status"
             >
               <div className="flex items-center gap-2">
