@@ -27,6 +27,7 @@ import { scoreWeeklyPlan, EMPTY_MEAL_OPTION_RATINGS } from "./score-week.js"
 import {
   searchBoundedWeek,
   selectFinalPlan,
+  mealSetKey,
   qualityLowerBound,
   violatesWeeklyHardRules
 } from "./search-week.js"
@@ -788,6 +789,7 @@ export function searchWeekV2(
     config: input.plannerConfig,
     emptyBasket: { lines: [], warnings: [], totalEstimatedCostVnd: 0 },
     basketFor: (selected) => purchaseBasketForV2(input, selected),
+    basketCacheKey: mealSetKey,
     qualityLowerBound: (selected) =>
       qualityLowerBound(
         selected,
