@@ -473,4 +473,62 @@ describe("PantryPage", () => {
     await user.click(screen.getByRole("button", { name: /Nấu được ngay/i }))
     expect(screen.getByTestId("leftover-dish-canh_ca_chua_trung")).toBeInTheDocument()
   })
+
+  test("displays shelf-life badges and allows sorting by urgency (ưu tiên dùng sớm)", async () => {
+    const user = userEvent.setup()
+    const riceItem = pantryItem({ pantryItemId: "item-rice", foodId: rice.foodId })
+    const vegItem = pantryItem({ pantryItemId: "item-veg", foodId: vegetable.foodId })
+    const porkItem = pantryItem({ pantryItemId: "item-pork", foodId: pork.foodId })
+
+    setup([riceItem, vegItem, porkItem])
+
+    // Wait for items to render
+    const vegCard = await screen.findByTestId("pantry-item-item-veg")
+    expect(within(vegCard).getByTestId("pantry-shelf-life-badge")).toHaveTextContent("1–3 ngày")
+    expect(within(vegCard).getByTestId("pantry-urgent-tag")).toHaveTextContent("Dùng sớm")
+
+    const porkCard = screen.getByTestId("pantry-item-item-pork")
+    expect(within(porkCard).getByTestId("pantry-shelf-life-badge")).toHaveTextContent(
+      "1–2 ngày mát"
+    )
+    expect(within(porkCard).getByTestId("pantry-urgent-tag")).toHaveTextContent("Dùng sớm")
+
+    const riceCard = screen.getByTestId("pantry-item-item-rice")
+    expect(within(riceCard).getByTestId("pantry-shelf-life-badge")).toHaveTextContent("Dài hạn")
+    expect(within(riceCard).queryByTestId("pantry-urgent-tag")).not.toBeInTheDocument()
+
+    // Test sorting by urgency toggle
+    const urgencyToggle = screen.getByTestId("pantry-sort-urgency-toggle")
+    expect(urgencyToggle).toHaveAttribute("aria-pressed", "false")
+    await user.click(urgencyToggle)
+    expect(urgencyToggle).toHaveAttribute("aria-pressed", "true")
+
+    // In urgency sort, the items list should place perishable items (veg & pork) before rice
+    const allCards = screen.getAllByTestId(/^pantry-item-item-/)
+    const cardNames = allCards.map((c) => c.querySelector("h2")?.textContent)
+    expect(cardNames[0]).not.toBe("Gạo")
+    expect(cardNames[2]).toBe("Gạo")
+  })
+
+  test("badges dishes rescuing urgent perishable ingredients in leftover meal suggestions", async () => {
+    const porkItem = pantryItem({
+      pantryItemId: "item-pork",
+      foodId: pork.foodId,
+      quantity: "500"
+    })
+    const eggItem = pantryItem({
+      pantryItemId: "item-egg",
+      foodId: egg.foodId,
+      quantity: "4"
+    })
+
+    setup([porkItem, eggItem])
+
+    // "Thịt kho trứng" uses Thịt ba chỉ (fresh meat = urgent perishable) and Trứng gà
+    expect(await screen.findByTestId("leftover-dish-thit_kho_trung")).toBeInTheDocument()
+    const thitKhoCard = screen.getByTestId("leftover-dish-thit_kho_trung")
+    expect(within(thitKhoCard).getByTestId("urgent-dish-badge-thit_kho_trung")).toBeInTheDocument()
+    expect(within(thitKhoCard).getByText(/Ưu tiên cứu đồ tươi/i)).toBeInTheDocument()
+    expect(within(thitKhoCard).getByText(/Thịt ba chỉ ⚡/i)).toBeInTheDocument()
+  })
 })

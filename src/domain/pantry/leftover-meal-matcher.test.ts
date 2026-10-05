@@ -89,5 +89,27 @@ describe("leftover-meal-matcher domain", () => {
     expect(summary.readyToCookCount).toBeGreaterThanOrEqual(1)
     expect(summary.adviceVi).toContain("Tủ bếp sẵn sàng nấu ngay")
     expect(summary.suggestedDishes.length).toBeGreaterThan(0)
+    expect(summary.urgentRescueCount).toBeGreaterThan(0)
+  })
+
+  test("prioritizes dishes using perishable fresh ingredients (leafy greens, meat) over durable staples", () => {
+    // Both "Rau muống xào tỏi" (leafy greens, score 5) and "Bắp cải xào" (durable cabbage, score 4) are ready_to_cook
+    const pantryItems = ["Rau muống", "Bắp cải", "Tỏi"]
+    const results = findLeftoverMealSuggestions(pantryItems)
+
+    const readyDishes = results.filter((d) => d.status === "ready_to_cook")
+    expect(readyDishes.length).toBeGreaterThanOrEqual(2)
+
+    // "Rau muống xào tỏi" uses urgent leafy greens, so its perishability priority score is higher
+    const rauMuongIndex = readyDishes.findIndex((d) => d.dishNameVi === "Rau muống xào tỏi")
+    const bapCaiIndex = readyDishes.findIndex((d) => d.dishNameVi === "Bắp cải xào")
+
+    expect(rauMuongIndex).toBeGreaterThanOrEqual(0)
+    expect(bapCaiIndex).toBeGreaterThanOrEqual(0)
+    expect(rauMuongIndex).toBeLessThan(bapCaiIndex)
+
+    const rauMuongDish = readyDishes[rauMuongIndex]!
+    expect(rauMuongDish.hasUrgentIngredients).toBe(true)
+    expect(rauMuongDish.urgentIngredients).toContain("Rau muống")
   })
 })

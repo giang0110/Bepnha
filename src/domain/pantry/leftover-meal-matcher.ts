@@ -1,3 +1,5 @@
+import { classifyFoodFreshness } from "./food-freshness"
+
 export type MatchStatus = "ready_to_cook" | "almost_ready" | "needs_ingredients"
 
 export interface CanonicalDishRecipe {
@@ -16,6 +18,9 @@ export interface LeftoverDishMatch {
   readonly matchedIngredients: readonly string[]
   readonly missingIngredients: readonly string[]
   readonly matchPercentage: number
+  readonly urgentIngredients: readonly string[]
+  readonly hasUrgentIngredients: boolean
+  readonly perishabilityPriorityScore: number
 }
 
 export const CANONICAL_DISH_RECIPES: readonly CanonicalDishRecipe[] = Object.freeze([
@@ -389,6 +394,11 @@ export function findLeftoverMealSuggestions(
     }
 
     const matchPercentage = Math.round((matched.length / recipe.primaryIngredients.length) * 100)
+    const urgentIngredients = matched.filter((ing) => classifyFoodFreshness(ing).isUrgent)
+    const perishabilityPriorityScore = matched.reduce(
+      (sum, ing) => sum + classifyFoodFreshness(ing).urgencyPriority,
+      0
+    )
 
     results.push({
       dishId: recipe.id,
@@ -397,11 +407,17 @@ export function findLeftoverMealSuggestions(
       status,
       matchedIngredients: matched,
       missingIngredients: missing,
-      matchPercentage
+      matchPercentage,
+      urgentIngredients,
+      hasUrgentIngredients: urgentIngredients.length > 0,
+      perishabilityPriorityScore
     })
   }
 
-  // Sort results: ready_to_cook first, then almost_ready, then needs_ingredients, by matchPercentage descending
+  // Sort results:
+  // 1. ready_to_cook first, then almost_ready, then needs_ingredients
+  // 2. Higher perishability priority score first (rescuing fragile fresh foods: meat, seafood, leafy greens before they spoil)
+  // 3. Higher match percentage descending
   const statusRank: Record<MatchStatus, number> = {
     ready_to_cook: 1,
     almost_ready: 2,
@@ -411,6 +427,10 @@ export function findLeftoverMealSuggestions(
   return results.sort((a, b) => {
     const rankDiff = statusRank[a.status] - statusRank[b.status]
     if (rankDiff !== 0) return rankDiff
+
+    const perishDiff = b.perishabilityPriorityScore - a.perishabilityPriorityScore
+    if (perishDiff !== 0) return perishDiff
+
     return b.matchPercentage - a.matchPercentage
   })
 }
@@ -418,6 +438,7 @@ export function findLeftoverMealSuggestions(
 export interface LeftoverEfficiencyReport {
   readonly readyToCookCount: number
   readonly almostReadyCount: number
+  readonly urgentRescueCount: number
   readonly suggestedDishes: readonly LeftoverDishMatch[]
   readonly adviceVi: string
 }
@@ -429,13 +450,14 @@ export function summarizeLeftoverEfficiency(
   const suggestions = findLeftoverMealSuggestions(availableFoodNames, recipes)
   const readyToCook = suggestions.filter((s) => s.status === "ready_to_cook")
   const almostReady = suggestions.filter((s) => s.status === "almost_ready")
+  const urgentRescueCount = suggestions.filter((s) => s.hasUrgentIngredients).length
 
   const adviceVi =
     readyToCook.length > 0
       ? `Tủ bếp sẵn sàng nấu ngay: Có ${readyToCook.length} món đủ nguyên liệu (${readyToCook
           .slice(0, 2)
           .map((d) => d.dishNameVi)
-          .join(", ")}). Ưu tiên nấu trước để chống lãng phí.`
+          .join(", ")}). Ưu tiên món dùng nguyên liệu tươi sống trước để chống hỏng.`
       : almostReady.length > 0
         ? `Tủ bếp sắp đủ nguyên liệu: Có ${almostReady.length} món chỉ thiếu 1 nguyên liệu (${almostReady
             .slice(0, 2)
@@ -446,6 +468,7 @@ export function summarizeLeftoverEfficiency(
   return {
     readyToCookCount: readyToCook.length,
     almostReadyCount: almostReady.length,
+    urgentRescueCount,
     suggestedDishes: suggestions.slice(0, 5),
     adviceVi
   }
