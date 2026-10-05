@@ -78,8 +78,8 @@
 
 - [x] Record confirmed defects, validated flows and limits: saved weeks are snapshots; production prices remain fixed-pack; kcal goals do not represent macro targets.
 - [x] Run `npm run verify:web`, planner performance gate, applicable browser and database checks.
-- [ ] Obtain independent code review, commit/push task files, create PR and verify CI at its exact head.
-- [ ] Use the existing authorization for merge/deploy of web fixes; verify production release and read-only smoke.
+- [x] Obtain independent code review, commit/push task files, create PR and verify CI at its exact head.
+- [x] Use the existing authorization for merge/deploy of web fixes; verify production release and read-only smoke.
 
 ## Execution record
 
@@ -88,3 +88,4 @@
 - All synthetic SQL reproductions are local and rolled back; no production household data was inspected.
 - Final local gates: 1,897 web tests in 199 files, six planner performance scenarios and 12 Chromium smoke tests passed. The separate pantry repair passed 571 assertions in 29 SQL files and four migration guard probes in rolled-back transactions.
 - Independent web review found a stored-output decimal precision defect; generated-snapshot regressions reproduced it, and calculated-output validation now preserves the original canonical finite decimals. Source-input precision restrictions remain unchanged.
+- Web PR #101 passed its exact-head CI and merged to main as `26fde62142f24fe79e79fa2f294ad920a0d9c598`. Vercel Production deployment succeeded and the read-only production smoke passed 15 tests. The zero-change pantry migration is prepared separately and remains unapplied pending explicit approval.
