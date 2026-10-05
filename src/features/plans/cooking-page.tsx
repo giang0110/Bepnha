@@ -36,6 +36,7 @@ import {
   speakCookingInstruction
 } from "./cooking-speech"
 import { loadCookingNote, saveCookingNote } from "./cooking-notes-store"
+import { extractMealPrePrepGroups, type PrePrepDishGroup } from "./cooking-pre-prep"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -182,6 +183,222 @@ function StepTimer({
         )}
       </div>
     </div>
+  )
+}
+
+function resumeTimer(
+  total: number,
+  pausedWith: number | null
+): { readonly progress: TimerProgressV1; readonly now: number } {
+  const carry = pausedWith ?? total
+  const current = Date.now()
+  return {
+    progress: { startedAt: current - (total - carry) * 1000, pausedWith: null },
+    now: current
+  }
+}
+
+function ActiveTimerBanner({
+  bgStep,
+  progress,
+  onProgress,
+  onJumpToStep
+}: Readonly<{
+  bgStep: CookingStep
+  progress: TimerProgressV1
+  onProgress: (progress: TimerProgressV1) => void
+  onJumpToStep: () => void
+}>) {
+  const total = (bgStep.timerMinutes ?? 0) * 60
+  const startedAt = progress.startedAt
+  const pausedWith = progress.pausedWith
+  const [now, setNow] = useState(() => Date.now())
+  const hasNotifiedRef = useRef(false)
+
+  const running = startedAt !== null && pausedWith === null
+
+  useEffect(() => {
+    if (!running) return
+    const id = setInterval(() => setNow(Date.now()), 500)
+    return () => clearInterval(id)
+  }, [running])
+
+  const remaining = secondsRemaining(total, startedAt, pausedWith, now)
+  const done = startedAt !== null && remaining <= 0
+
+  useEffect(() => {
+    if (done && !hasNotifiedRef.current) {
+      hasNotifiedRef.current = true
+      notifyTimerDone()
+    } else if (!done) {
+      hasNotifiedRef.current = false
+    }
+  }, [done])
+
+  const handleTogglePause = () => {
+    if (running) {
+      onProgress({ startedAt, pausedWith: remaining })
+    } else {
+      const resumed = resumeTimer(total, pausedWith)
+      onProgress(resumed.progress)
+      setNow(resumed.now)
+    }
+  }
+
+  return (
+    <div
+      aria-label={`Đang đếm giờ: ${bgStep.dishLabel} bước ${bgStep.stepNumber}`}
+      className={`flex items-center justify-between gap-3 rounded-2xl border p-3 shadow-soft transition-all ${
+        done
+          ? "border-chilli-300 bg-chilli-50 text-chilli-900 animate-pulse dark:border-chilli-800 dark:bg-chilli-950/40 dark:text-chilli-200"
+          : "border-herb-300 bg-herb-50 text-herb-900 dark:border-herb-800 dark:bg-herb-950/40 dark:text-herb-200"
+      }`}
+      role="status"
+    >
+      <div className="flex min-w-0 items-center gap-2.5">
+        <Icon
+          name={done ? "flame" : "clock"}
+          className={`size-4.5 shrink-0 ${done ? "text-chilli-600" : "text-herb-600"}`}
+        />
+        <div className="min-w-0 text-xs sm:text-sm">
+          <p className="truncate font-bold">
+            {bgStep.dishLabel} · Bước {bgStep.stepNumber}: {bgStep.instructionVi}
+          </p>
+          <p className="font-extrabold tabular-nums">
+            {done ? "Hết giờ!" : `${formatCountdown(remaining)} còn lại`}
+            {pausedWith !== null && !done ? " (Đang tạm dừng)" : ""}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        {!done && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 rounded-full px-2.5 text-xs font-semibold"
+            type="button"
+            onClick={handleTogglePause}
+          >
+            {running ? "Tạm dừng" : "Tiếp tục"}
+          </Button>
+        )}
+        <Button
+          size="sm"
+          className="h-8 rounded-full px-3 text-xs font-bold"
+          type="button"
+          onClick={onJumpToStep}
+        >
+          Xem bước
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function PrePrepModal({
+  dishGroups,
+  isOpen,
+  onClose
+}: Readonly<{
+  dishGroups: readonly PrePrepDishGroup[]
+  isOpen: boolean
+  onClose: () => void
+}>) {
+  const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(new Set())
+
+  if (!isOpen) return null
+
+  const allIngredients = dishGroups.flatMap((g) => g.ingredients)
+  const totalCount = allIngredients.length
+  const completedCount = allIngredients.filter((i) => checkedIds.has(i.recipeIngredientId)).length
+
+  const toggleChecked = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  return (
+    <dialog
+      className="fixed inset-x-4 top-auto bottom-[calc(var(--app-nav-height)+0.75rem)] m-0 mx-auto max-h-[calc(100svh-var(--app-nav-height)-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-3xl border border-herb-200 bg-paper-raised p-5 text-ink shadow-lift backdrop:bg-black/30 backdrop:backdrop-blur-xs sm:p-6 lg:left-auto lg:right-8 lg:mx-0 lg:w-[min(42rem,calc(100vw-19rem))]"
+      open
+      aria-label="Khâu sơ chế & Chuẩn bị nguyên liệu"
+      onCancel={(e) => {
+        e.preventDefault()
+        onClose()
+      }}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-edge pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Icon name="leaf" className="size-5 text-herb-700" />
+            <h2 className="text-lg font-bold text-ink">Sơ chế & Chuẩn bị nguyên liệu</h2>
+          </div>
+          <p className="mt-1 text-xs text-ink-soft sm:text-sm">
+            Rửa sạch, thái nhỏ và ướp sẵn các nguyên liệu trước khi bật bếp nấu
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-herb-100 px-3 py-1 text-xs font-bold text-herb-900 tabular-nums">
+          Đã sơ chế {completedCount}/{totalCount}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-5">
+        {dishGroups.map((group) => (
+          <div key={group.dishLabel} className="grid gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-herb-800">
+              {group.dishLabel}
+            </h3>
+            {group.ingredients.length === 0 ? (
+              <p className="text-xs text-ink-muted">Không có nguyên liệu cần sơ chế riêng.</p>
+            ) : (
+              <ul className="grid gap-1.5">
+                {group.ingredients.map((ingredient) => {
+                  const checked = checkedIds.has(ingredient.recipeIngredientId)
+                  return (
+                    <li key={ingredient.recipeIngredientId}>
+                      <label
+                        className={`flex cursor-pointer items-center gap-3 rounded-xl border p-2.5 transition-colors ${
+                          checked
+                            ? "border-herb-200 bg-herb-50/60 text-ink-soft dark:border-herb-900/40 dark:bg-herb-950/20"
+                            : "border-edge bg-paper-sunken/40 hover:bg-paper-sunken"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleChecked(ingredient.recipeIngredientId)}
+                          className="size-4.5 rounded accent-herb-600"
+                        />
+                        <span
+                          className={`min-w-0 flex-1 text-sm select-none ${
+                            checked
+                              ? "line-through text-ink-soft opacity-75"
+                              : "font-medium text-ink"
+                          }`}
+                        >
+                          {ingredient.label}
+                        </span>
+                      </label>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 flex justify-end">
+        <Button type="button" onClick={onClose}>
+          Đã sẵn sàng nấu
+        </Button>
+      </div>
+    </dialog>
   )
 }
 
@@ -485,6 +702,7 @@ export function CookingPage({
     if (typeof window === "undefined") return false
     return window.localStorage.getItem("bepnha:cooking:skip-rice") === "true"
   })
+  const [showPrePrep, setShowPrePrep] = useState(false)
 
   const toggleSkipRice = () => {
     setSkipRice((prev) => {
@@ -502,6 +720,23 @@ export function CookingPage({
       state.status === "ready" ? cookingSequence(state.item, labels, { skipStaple: skipRice }) : [],
     [labels, skipRice, state]
   )
+  const prePrepGroups = useMemo(
+    () =>
+      state.status === "ready"
+        ? extractMealPrePrepGroups(state.item, labels, { skipStaple: skipRice })
+        : [],
+    [labels, skipRice, state]
+  )
+  const backgroundTimers = useMemo(() => {
+    return steps
+      .map((s, sIndex) => ({ step: s, stepIndex: sIndex }))
+      .filter(({ step: s, stepIndex: sIndex }) => {
+        if (sIndex === index || s.timerMinutes === null) return false
+        const t = timers[s.key]
+        return Boolean(t && t.startedAt !== null)
+      })
+  }, [steps, index, timers])
+
   const hasStaple =
     state.status === "ready" && state.item.components.some((c) => c.mealRole === "staple")
   const progressScope = state.status === "ready" ? `${state.revisionId}:${String(dayIndex)}` : null
@@ -623,6 +858,18 @@ export function CookingPage({
               <Button
                 type="button"
                 size="sm"
+                variant={showPrePrep ? "default" : "outline"}
+                onClick={() => setShowPrePrep(true)}
+                className="flex items-center gap-1.5 rounded-full"
+                title="Xem danh sách sơ chế và chuẩn bị nguyên liệu"
+              >
+                <Icon name="leaf" className="size-4" />
+                <span>Sơ chế</span>
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
                 variant={counterMode ? "default" : "outline"}
                 onClick={() => setCounterMode((prev) => !prev)}
                 className="flex items-center gap-1.5 rounded-full"
@@ -705,6 +952,23 @@ export function CookingPage({
               </button>
             </div>
           ) : null}
+
+          {backgroundTimers.length > 0 && (
+            <div className="grid gap-2">
+              {backgroundTimers.map(({ step: bgStep, stepIndex: bgIndex }) => {
+                const progress = timers[bgStep.key] ?? { startedAt: null, pausedWith: null }
+                return (
+                  <ActiveTimerBanner
+                    key={bgStep.key}
+                    bgStep={bgStep}
+                    progress={progress}
+                    onProgress={(p) => setTimers((current) => ({ ...current, [bgStep.key]: p }))}
+                    onJumpToStep={() => setIndex(bgIndex)}
+                  />
+                )
+              })}
+            </div>
+          )}
 
           <div aria-hidden="true" className="flex gap-1">
             {steps.map((candidate, position) => (
@@ -795,6 +1059,12 @@ export function CookingPage({
           </div>
         </>
       )}
+
+      <PrePrepModal
+        dishGroups={prePrepGroups}
+        isOpen={showPrePrep}
+        onClose={() => setShowPrePrep(false)}
+      />
     </AppPageShell>
   )
 }
