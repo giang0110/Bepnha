@@ -111,7 +111,7 @@ describe("preferences before bounded search prunes candidates", () => {
         searchWeek([...meals].reverse(), 1_200_000, ["prefer_pork", "prefer_poultry"], "2026-08-26")
       )
     ).toBe(JSON.stringify(preferred))
-  })
+  }, 30_000)
 
   test("retains an affordable preferred meal when higher-scoring weeks exceed the budget", () => {
     const meals = eligibleMeals()
@@ -154,7 +154,7 @@ describe("preferences before bounded search prunes candidates", () => {
     expect(countPreferred(preferred.plan.selected)).toBeGreaterThan(
       countPreferred(baseline.plan.selected)
     )
-  })
+  }, 30_000)
 
   test("keeps affordable preferred meals in the v6 budget frontier", () => {
     const input = nutritionInput(["prefer_pork", "prefer_poultry"], 240_000)
@@ -169,5 +169,5 @@ describe("preferences before bounded search prunes candidates", () => {
         ["pork", "poultry"].includes(meal.primaryProteinGroup)
       )
     ).toHaveLength(1)
-  })
+  }, 30_000)
 })

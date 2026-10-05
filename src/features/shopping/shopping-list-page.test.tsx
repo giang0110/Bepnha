@@ -668,4 +668,75 @@ describe("ShoppingListPage", () => {
     expect(screen.queryByTestId("shopping-item-item-a")).not.toBeInTheDocument()
     expect(screen.getByTestId("shopping-item-item-b")).toBeInTheDocument()
   })
+
+  test("displays live cart spend tracker breakdown and floating widget", async () => {
+    const list = ready()
+    const { repo } = repository({
+      ...list,
+      items: [
+        { ...list.items[0]!, shoppingListItemId: "item-a", lineCostVnd: 50_000, checked: true },
+        { ...list.items[1]!, shoppingListItemId: "item-b", lineCostVnd: 70_000, checked: false }
+      ]
+    })
+    renderPage(repo)
+
+    // Top overview live cart summary
+    const summary = await screen.findByTestId("live-cart-summary")
+    expect(summary).toBeInTheDocument()
+    expect(within(summary).getByText("50.000 đ")).toBeInTheDocument()
+    expect(within(summary).getByText("70.000 đ")).toBeInTheDocument()
+    expect(within(summary).getByText("1/2 món")).toBeInTheDocument()
+
+    // Floating live cart tracker widget
+    const floatingTracker = screen.getByTestId("shopping-live-cart-tracker")
+    expect(floatingTracker).toBeInTheDocument()
+    expect(within(floatingTracker).getByText("50.000 đ")).toBeInTheDocument()
+    expect(within(floatingTracker).getByText("70.000 đ")).toBeInTheDocument()
+  })
+
+  test("filters shopping items instantly by search keyword and clears filter", async () => {
+    const user = userEvent.setup()
+    const { repo } = repository()
+    renderPage(repo)
+
+    expect(await screen.findByText("Rau muống")).toBeInTheDocument()
+    expect(screen.getByText("Nước mắm")).toBeInTheDocument()
+
+    // Type in search query
+    const searchInput = screen.getByTestId("shopping-search-input")
+    await user.type(searchInput, "Rau")
+
+    expect(screen.getByText("Rau muống")).toBeInTheDocument()
+    expect(screen.queryByText("Nước mắm")).not.toBeInTheDocument()
+
+    // Clear search query
+    const clearBtn = screen.getByRole("button", { name: "Xóa tìm kiếm" })
+    await user.click(clearBtn)
+
+    expect(screen.getByText("Rau muống")).toBeInTheDocument()
+    expect(screen.getByText("Nước mắm")).toBeInTheDocument()
+  })
+
+  test("filters shopping items by aisle category chip and toggles back", async () => {
+    const user = userEvent.setup()
+    const { repo } = repository()
+    renderPage(repo)
+
+    expect(await screen.findByText("Rau muống")).toBeInTheDocument()
+    expect(screen.getByText("Nước mắm")).toBeInTheDocument()
+
+    // Click fresh_produce category chip
+    const produceChip = screen.getByTestId("category-filter-fresh_produce")
+    await user.click(produceChip)
+
+    expect(screen.getByText("Rau muống")).toBeInTheDocument()
+    expect(screen.queryByText("Nước mắm")).not.toBeInTheDocument()
+
+    // Click "Tất cả quầy" chip to reset
+    const allAislesChip = screen.getByTestId("category-filter-all")
+    await user.click(allAislesChip)
+
+    expect(screen.getByText("Rau muống")).toBeInTheDocument()
+    expect(screen.getByText("Nước mắm")).toBeInTheDocument()
+  })
 })
