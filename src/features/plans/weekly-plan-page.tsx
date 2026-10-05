@@ -53,6 +53,10 @@ const FamilyCollaborationModal = lazy(async () => ({
   default: (await import("./family-collaboration-modal")).FamilyCollaborationModal
 }))
 
+const RecipePreviewModal = lazy(async () => ({
+  default: (await import("./recipe-preview-modal")).RecipePreviewModal
+}))
+
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
 function addDaysToIso(baseDate: string, days: number): string {
@@ -432,6 +436,7 @@ export function WeeklyPlanPage({
   const [weekStart, setWeekStart] = useState(() => currentWeekStart(today()))
   const [ratings, setRatings] = useState<MealRatings>({ liked: [], disliked: [] })
   const [showFamilyModal, setShowFamilyModal] = useState(false)
+  const [previewRecipeItem, setPreviewRecipeItem] = useState<PlanItemView | null>(null)
   const familyWishes = useFamilyWishlist(household?.householdId ?? null)
 
   const sortedPlanItems = useMemo(() => {
@@ -916,14 +921,29 @@ export function WeeklyPlanPage({
                     .map((component) => mealRoleLabel(component.mealRole))
                     .join(" · ")}
                 </p>
-                <Link
-                  aria-label={`Bắt đầu nấu bữa hôm nay: ${meal.mealOptionNameVi}`}
-                  className={buttonVariants({ size: "lg", className: "mt-4 w-full gap-2" })}
-                  to={`/plan/${meal.dayIndex}/cook`}
-                >
-                  <Icon name="pan" className="size-5" />
-                  Bắt đầu nấu
-                </Link>
+                <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 gap-2 bg-paper text-ink font-semibold"
+                    onClick={() => setPreviewRecipeItem(meal)}
+                    data-testid="preview-recipe-today"
+                  >
+                    <Icon name="note" className="size-4 text-herb-700" />
+                    Công thức & Sơ chế
+                  </Button>
+                  <Link
+                    aria-label={`Bắt đầu nấu bữa hôm nay: ${meal.mealOptionNameVi}`}
+                    className={buttonVariants({
+                      size: "default",
+                      className: "flex-1 gap-2 font-bold"
+                    })}
+                    to={`/plan/${meal.dayIndex}/cook`}
+                  >
+                    <Icon name="pan" className="size-4" />
+                    Bắt đầu nấu
+                  </Link>
+                </div>
               </section>
             )
           })()}
@@ -1081,17 +1101,30 @@ export function WeeklyPlanPage({
                       Đổi bữa
                     </Button>
                   </div>
-                  <Link
-                    aria-label={`Bắt đầu nấu ${DAY_LABELS[item.dayIndex]}: ${item.mealOptionNameVi}`}
-                    className={buttonVariants({
-                      variant: "outline",
-                      className: "mt-5 w-full gap-2"
-                    })}
-                    to={`/plan/${item.dayIndex}/cook`}
-                  >
-                    <Icon name="pan" className="size-5" />
-                    Bắt đầu nấu
-                  </Link>
+                  <div className="mt-5 flex flex-col sm:flex-row gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 gap-1.5 text-xs sm:text-sm font-semibold"
+                      onClick={() => setPreviewRecipeItem(item)}
+                      data-testid={`preview-recipe-${item.dayIndex}`}
+                    >
+                      <Icon name="note" className="size-4 text-herb-700" />
+                      Công thức & Sơ chế
+                    </Button>
+                    <Link
+                      aria-label={`Bắt đầu nấu ${DAY_LABELS[item.dayIndex]}: ${item.mealOptionNameVi}`}
+                      className={buttonVariants({
+                        variant: "outline",
+                        className: "flex-1 gap-1.5 text-xs sm:text-sm font-semibold"
+                      })}
+                      to={`/plan/${item.dayIndex}/cook`}
+                    >
+                      <Icon name="pan" className="size-4" />
+                      Bắt đầu nấu
+                    </Link>
+                  </div>
+
                   <MealDetails
                     item={item}
                     labels={labels}
@@ -1226,6 +1259,17 @@ export function WeeklyPlanPage({
             planItems={state.value.plan.items}
             weekStart={weekStart}
             onClose={() => setShowFamilyModal(false)}
+          />
+        </Suspense>
+      )}
+
+      {previewRecipeItem !== null && (
+        <Suspense fallback={null}>
+          <RecipePreviewModal
+            isOpen={previewRecipeItem !== null}
+            item={previewRecipeItem}
+            labels={labels}
+            onClose={() => setPreviewRecipeItem(null)}
           />
         </Suspense>
       )}
