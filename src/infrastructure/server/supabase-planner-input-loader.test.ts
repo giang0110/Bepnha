@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from "vitest"
 
 import { plannerCandidate } from "@/domain/planner/planner-test-fixture"
 import type { Database } from "@/infrastructure/supabase/database.types"
+import { storedLegacyRevision } from "@/test/stored-legacy-plan-fixture"
 
 import {
   createSupabasePlannerInputLoader,
@@ -56,6 +57,12 @@ function fixtureClient(
     throw new Error("invalid fixture")
   }
   const rpc = vi.fn((name: string) => {
+    if (name === "get_planner_generation_input") {
+      return Promise.resolve({
+        data: generationRaw(source.mealOption.mealOptionVersionId),
+        error: null
+      })
+    }
     if (name === "get_pantry") {
       return Promise.resolve({ data: pantry.rows, error: null })
     }
@@ -211,6 +218,8 @@ function fixtureClient(
   })
   return {
     client: { rpc, from } as unknown as SupabaseClient<Database>,
+    rpc,
+    from,
     source
   }
 }
@@ -234,6 +243,114 @@ function generationRaw(mealOptionVersionId: string) {
 }
 
 describe("Supabase planner input loader", () => {
+  test.each([undefined, {}, { allergen_soy: "ingredient_only" }])(
+    "hydrates replacement with the saved household projection and strictness %j",
+    async (strictness) => {
+      const stored = storedLegacyRevision()
+      const household = stored.revision.input_snapshot.household as unknown as Record<
+        string,
+        unknown
+      >
+      household.hardRuleCodes = ["allergen_soy"]
+      household.softPreferenceCodes = ["prefer_poultry"]
+      if (strictness !== undefined) household.allergenStrictness = strictness
+      const { client } = fixtureClient()
+      const result = await createSupabasePlannerInputLoader(client).hydrateReplacement(
+        stored,
+        client as never
+      )
+      expect(result).toMatchObject({
+        historicalHouseholdSetup: {
+          householdId: "household-1",
+          householdSetupVersion: 1,
+          memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }],
+          hardRuleCodes: ["allergen_soy"],
+          softPreferenceCodes: ["prefer_poultry"],
+          allergenStrictness: strictness ?? {},
+          weeklyPlanBudgetVnd: 700_000,
+          maxElapsedMinutes: 30
+        },
+        householdInputFingerprint: stored.revision.input_fingerprint,
+        input: { householdSetupVersion: 3, hardRuleCodes: ["exclude_pork"] }
+      })
+    }
+  )
+
+  test.each([
+    [
+      "absent household",
+      (household: Record<string, unknown>) => {
+        delete household.memberGroups
+      }
+    ],
+    [
+      "invalid members",
+      (household: Record<string, unknown>) => {
+        household.memberGroups = []
+      }
+    ],
+    [
+      "invalid household identity",
+      (household: Record<string, unknown>) => {
+        household.householdId = "other-household"
+      }
+    ],
+    [
+      "invalid version",
+      (household: Record<string, unknown>) => {
+        household.setupVersion = 0
+      }
+    ],
+    [
+      "unknown hard rule",
+      (household: Record<string, unknown>) => {
+        household.hardRuleCodes = ["unrecognized"]
+      }
+    ],
+    [
+      "preference as hard rule",
+      (household: Record<string, unknown>) => {
+        household.hardRuleCodes = ["prefer_fish"]
+      }
+    ],
+    [
+      "exclusion as preference",
+      (household: Record<string, unknown>) => {
+        household.softPreferenceCodes = ["exclude_pork"]
+      }
+    ],
+    [
+      "invalid strictness",
+      (household: Record<string, unknown>) => {
+        household.hardRuleCodes = ["allergen_soy"]
+        household.allergenStrictness = { allergen_soy: "not-strict" }
+      }
+    ],
+    [
+      "null strictness",
+      (household: Record<string, unknown>) => {
+        household.allergenStrictness = null
+      }
+    ],
+    [
+      "invalid budget",
+      (household: Record<string, unknown>) => {
+        household.weeklyPlanBudgetVnd = 0
+      }
+    ]
+  ] as const)(
+    "rejects %s in replacement history before consulting live catalog",
+    async (_, corrupt) => {
+      const stored = storedLegacyRevision()
+      corrupt(stored.revision.input_snapshot.household)
+      const { client, rpc, from } = fixtureClient()
+      await expect(
+        createSupabasePlannerInputLoader(client).hydrateReplacement(stored, client as never)
+      ).rejects.toThrow()
+      expect(rpc).not.toHaveBeenCalled()
+      expect(from).not.toHaveBeenCalled()
+    }
+  )
   test("pins replacement hydration to the historical exact price book instead of a current pointer", () => {
     expect(
       readHistoricalPlannerPriceBookId({

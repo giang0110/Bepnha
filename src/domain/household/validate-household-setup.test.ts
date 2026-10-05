@@ -163,6 +163,31 @@ describe("validateHouseholdSetup", () => {
     expectInvalid({ ...validInput, ruleCodes: [hard, soft] }, "CONFLICTING_RULE_TARGET")
   })
 
+  test.each([
+    ["diet_vegetarian", "prefer_pork"],
+    ["diet_vegetarian", "prefer_beef"],
+    ["diet_vegetarian", "prefer_poultry"],
+    ["diet_vegetarian", "prefer_fish"],
+    ["diet_vegetarian", "prefer_seafood"],
+    ["exclude_seafood", "prefer_fish"],
+    ["allergen_soy", "prefer_tofu"]
+  ] as const)("rejects a preference excluded by a broader hard rule: %s/%s", (hard, soft) => {
+    expectInvalid({ ...validInput, ruleCodes: [hard, soft] }, "CONFLICTING_RULE_TARGET")
+  })
+
+  test("keeps compatible protein preferences and selected allergy strictness", () => {
+    const value = expectValid({
+      ...validInput,
+      ruleCodes: ["prefer_pork", "prefer_poultry", "allergen_peanut"],
+      allergenStrictness: { allergen_peanut: "ingredient_only" }
+    })
+    expect(value.ruleCodes).toEqual(["allergen_peanut", "prefer_pork", "prefer_poultry"])
+    expect(value.allergenStrictness).toEqual({ allergen_peanut: "ingredient_only" })
+    expect(
+      expectValid({ ...validInput, ruleCodes: ["diet_vegetarian", "prefer_tofu", "prefer_soup"] })
+    ).toMatchObject({ ruleCodes: ["diet_vegetarian", "prefer_tofu", "prefer_soup"] })
+  })
+
   test("returns byte-equivalent normalized values across repeated calls", () => {
     const input = {
       ...validInput,
@@ -170,7 +195,7 @@ describe("validateHouseholdSetup", () => {
         { memberKind: "elderly", ageBand: "elderly", memberCount: 1 },
         { memberKind: "adult", ageBand: "adult", memberCount: 2 }
       ],
-      ruleCodes: ["prefer_tofu", "allergen_soy"]
+      ruleCodes: ["prefer_tofu", "allergen_peanut"]
     }
 
     expect(JSON.stringify(expectValid(input))).toBe(JSON.stringify(expectValid(input)))

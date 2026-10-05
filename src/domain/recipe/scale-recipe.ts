@@ -82,6 +82,13 @@ export function conversionIsConsistent(conversion: FoodFactUnitConversion): bool
     return false
   }
 
+  if (
+    conversion.foodBaseDimension === "mass" &&
+    !grossGrams.value.equals(baseQuantity.value.times(baseFactor.value))
+  ) {
+    return false
+  }
+
   return conversion.sourceDimension !== "mass" || grossGrams.value.equals(sourceFactor.value)
 }
 

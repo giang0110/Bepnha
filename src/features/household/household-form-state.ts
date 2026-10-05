@@ -1,6 +1,11 @@
 import type { MemberProfileV1, HouseholdNutritionSetupV1 } from "@/domain/household/member-profile"
 import { validateMemberProfiles } from "@/domain/household/validate-member-profiles"
 import { parseMemberMeasurementInput } from "./member-profile-input"
+import { parseVnd } from "./budget-vnd"
+import {
+  validateHouseholdSetup,
+  type HouseholdSetupValidationResult
+} from "@/domain/household/validate-household-setup"
 export interface MemberProfileDraft extends Omit<
   MemberProfileV1,
   "heightCm" | "weightKg" | "ageYears"
@@ -85,6 +90,18 @@ export function nutritionSetupFromForm(
         }
       }
     : { ok: false }
+}
+
+export function validateHouseholdForm(state: HouseholdFormState): HouseholdSetupValidationResult {
+  const nutrition = nutritionSetupFromForm(state)
+  return validateHouseholdSetup({
+    nutritionSetup: nutrition.ok ? nutrition.value : null,
+    memberGroups: memberGroupsFromCounts(state.memberCounts),
+    weeklyPlanBudgetVnd: parseVnd(state.budgetInput),
+    maxElapsedMinutes: state.maxElapsedMinutes,
+    ruleCodes: [...state.hardRuleCodes, ...state.preferenceCodes],
+    allergenStrictness: state.allergenStrictness
+  })
 }
 import {
   DEFAULT_ALLERGEN_STRICTNESS,

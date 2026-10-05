@@ -56,6 +56,7 @@ function repository(overrides: Partial<PlannerRepository> = {}): PlannerReposito
         planVersion: 1,
         currentRevisionId: "revision-1",
         householdSetupVersion: 1,
+        historicalHouseholdSetup: generationInput(),
         householdInputFingerprint: "household-fingerprint"
       }
     }),
@@ -207,6 +208,140 @@ describe("planner use cases", () => {
       })
     ).resolves.toEqual({ ok: false, error: { code: "STALE_PLAN_VERSION" } })
     expect(conflict.persistRevision).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    { hardRuleCodes: ["exclude_poultry"] },
+    { softPreferenceCodes: ["prefer_pork"] },
+    { memberGroups: [{ memberKind: "adult" as const, ageBand: "adult" as const, memberCount: 3 }] },
+    { weeklyPlanBudgetVnd: 300_000 },
+    { maxElapsedMinutes: 20 }
+  ])("requires regeneration for a same-version household edit: %j", async (change) => {
+    const current = generationInput()
+    const alternative = plannerCandidate("tofu-alternative-v1")
+    const input = {
+      ...current,
+      ...change,
+      candidates: [
+        ...current.candidates,
+        {
+          ...alternative,
+          ingredientLineage: alternative.ingredientLineage.map((line) => ({
+            ...line,
+            categoryAncestry: ["tofu"]
+          })),
+          mealOption: {
+            ...alternative.mealOption,
+            tags: alternative.mealOption.tags.map((tag) =>
+              tag.kind === "protein_hint" ? { ...tag, code: "tofu" } : tag
+            )
+          }
+        }
+      ]
+    }
+    const repo = repository({
+      loadReplacementInput: vi.fn().mockResolvedValue({
+        ok: true,
+        value: {
+          input,
+          currentPlan: readyPlan(),
+          planVersion: 1,
+          currentRevisionId: "revision-1",
+          householdSetupVersion: 1,
+          historicalHouseholdSetup: current,
+          householdInputFingerprint: "frozen-input-fingerprint"
+        }
+      })
+    })
+    const command = {
+      actorUserId: "user-1",
+      planId: "plan-1",
+      targetDayIndex: 2,
+      expectedPlanVersion: 1,
+      expectedCurrentRevisionId: "revision-1"
+    }
+    const failure = { ok: false, error: { code: "PLAN_INPUT_CHANGED_REGENERATION_REQUIRED" } }
+    await expect(previewMealReplacementUseCase(repo, hasher, command)).resolves.toEqual(failure)
+    await expect(
+      applyMealReplacement(repo, hasher, {
+        ...command,
+        previewFingerprint: "ignored-after-household-change",
+        idempotencyKey: "00000000-0000-0000-0000-000000000004"
+      })
+    ).resolves.toEqual(failure)
+    expect(repo.persistRevision).not.toHaveBeenCalled()
+  })
+
+  test("compares canonical household rules and compatible default strictness", async () => {
+    const current = {
+      ...generationInput(),
+      hardRuleCodes: ["allergen_peanut", "allergen_tree_nut"],
+      allergenStrictness: {
+        allergen_peanut: "strict" as const,
+        allergen_tree_nut: "strict" as const
+      },
+      softPreferenceCodes: ["prefer_poultry", "prefer_soup"]
+    }
+    const repo = repository({
+      loadReplacementInput: vi.fn().mockResolvedValue({
+        ok: true,
+        value: {
+          input: current,
+          currentPlan: readyPlan(),
+          planVersion: 1,
+          currentRevisionId: "revision-1",
+          householdSetupVersion: 1,
+          historicalHouseholdSetup: {
+            ...current,
+            hardRuleCodes: [...current.hardRuleCodes].reverse(),
+            softPreferenceCodes: [...current.softPreferenceCodes].reverse(),
+            allergenStrictness: undefined
+          },
+          householdInputFingerprint: "frozen-input-fingerprint"
+        }
+      })
+    })
+    await expect(
+      previewMealReplacementUseCase(repo, hasher, {
+        actorUserId: "user-1",
+        planId: "plan-1",
+        targetDayIndex: 2,
+        expectedPlanVersion: 1
+      })
+    ).resolves.toMatchObject({ ok: true })
+  })
+
+  test("requires regeneration if allergy strictness changes without a version change", async () => {
+    const current = {
+      ...generationInput(),
+      hardRuleCodes: ["allergen_peanut"],
+      allergenStrictness: { allergen_peanut: "strict" as const }
+    }
+    const repo = repository({
+      loadReplacementInput: vi.fn().mockResolvedValue({
+        ok: true,
+        value: {
+          input: current,
+          currentPlan: readyPlan(),
+          planVersion: 1,
+          currentRevisionId: "revision-1",
+          householdSetupVersion: 1,
+          historicalHouseholdSetup: {
+            ...current,
+            allergenStrictness: { allergen_peanut: "ingredient_only" }
+          },
+          householdInputFingerprint: "frozen-input-fingerprint"
+        }
+      })
+    })
+    await expect(
+      previewMealReplacementUseCase(repo, hasher, {
+        actorUserId: "user-1",
+        planId: "plan-1",
+        targetDayIndex: 2,
+        expectedPlanVersion: 1
+      })
+    ).resolves.toEqual({ ok: false, error: { code: "PLAN_INPUT_CHANGED_REGENERATION_REQUIRED" } })
   })
 
   test("regenerating a planned week replaces its current revision rather than claiming to be first", async () => {

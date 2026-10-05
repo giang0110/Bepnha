@@ -61,6 +61,15 @@ function authoritativeInput(): ReplacementAuthoritativeInput {
     planVersion: 3,
     currentRevisionId: "revision-secret-id",
     householdSetupVersion: 4,
+    historicalHouseholdSetup: {
+      householdId: "household-secret-id",
+      householdSetupVersion: 4,
+      memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 2 }],
+      hardRuleCodes: [],
+      softPreferenceCodes: [],
+      weeklyPlanBudgetVnd: 700_000,
+      maxElapsedMinutes: 60
+    },
     householdInputFingerprint: "fingerprint-secret"
   }
 }

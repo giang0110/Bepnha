@@ -89,6 +89,36 @@ describe("Supabase household repository load", () => {
       createSupabaseHouseholdRepository(malformed.client).loadOwn()
     ).rejects.toMatchObject({ code: "INVALID_STORED_DATA" })
   })
+
+  it.each([
+    ["diet_vegetarian", "prefer_pork"],
+    ["diet_vegetarian", "prefer_beef"],
+    ["diet_vegetarian", "prefer_poultry"],
+    ["diet_vegetarian", "prefer_fish"],
+    ["diet_vegetarian", "prefer_seafood"],
+    ["exclude_seafood", "prefer_fish"],
+    ["allergen_soy", "prefer_tofu"]
+  ])("keeps previously saved %s/%s readable for correction", async (hard, preference) => {
+    const stored = {
+      ...storedNutrition,
+      household_food_rules: [hard, preference].map((code) => ({
+        rule_code: code,
+        ...(code === "allergen_soy" ? { allergen_strictness: "ingredient_only" } : {}),
+        household_rule_options: { code }
+      }))
+    }
+    const rpcClient = {
+      rpc: vi.fn(() => Promise.resolve({ data: stored, error: null }))
+    } as unknown as SupabaseClient<Database>
+    for (const client of [rpcClient, clientWithLoad({ data: stored, error: null }).client]) {
+      const household = await createSupabaseHouseholdRepository(client).loadOwn()
+      expect(household).toMatchObject({
+        ruleCodes: [hard, preference],
+        nutritionSetup: nutritionInput.nutritionSetup,
+        allergenStrictness: hard === "allergen_soy" ? { allergen_soy: "ingredient_only" } : {}
+      })
+    }
+  })
 })
 
 describe("Supabase household repository save", () => {

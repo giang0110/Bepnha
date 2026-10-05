@@ -1,6 +1,6 @@
 import { Button } from "@/app/components/ui/button"
 import {
-  HOUSEHOLD_RULE_OPTION_BY_CODE,
+  hardRuleConflictsWithPreference,
   HOUSEHOLD_RULE_OPTIONS,
   type HouseholdRuleCode
 } from "@/domain/household/household-rules"
@@ -32,14 +32,10 @@ export function PreferencesTimeStep({
   onToggle
 }: PreferencesTimeStepProps) {
   const selected = new Set(selectedCodes)
-  const hardTargets = new Set(
-    hardRuleCodes
-      .map((code) => HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode))
-      .filter((option) => option !== undefined)
-      .map((option) => option.targetKey)
-  )
+  const blockedPreference = (code: HouseholdRuleCode) =>
+    hardRuleCodes.some((hard) => hardRuleConflictsWithPreference(hard, code))
   const conflicts = PREFERENCE_OPTIONS.filter(
-    (option) => selected.has(option.code) && hardTargets.has(option.targetKey)
+    (option) => selected.has(option.code) && blockedPreference(option.code)
   )
 
   return (
@@ -58,7 +54,7 @@ export function PreferencesTimeStep({
       <fieldset className="grid gap-3">
         <legend className="mb-2 font-semibold">Món muốn ưu tiên</legend>
         {PREFERENCE_OPTIONS.map((option) => {
-          const blocked = hardTargets.has(option.targetKey)
+          const blocked = blockedPreference(option.code)
           return (
             <label
               key={option.code}
