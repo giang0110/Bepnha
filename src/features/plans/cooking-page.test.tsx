@@ -446,4 +446,59 @@ describe("CookingPage", () => {
     expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
     expect(window.localStorage.getItem("bepnha:cooking:skip-rice")).toBe("false")
   })
+
+  test("shows background timer banner when navigating away from a running timer and jumps back", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await screen.findByText("Vo gạo.")
+    await user.click(screen.getByRole("button", { name: "Bước tiếp" }))
+
+    // Now on step 2: "Ướp gà với gia vị." (15 mins timer)
+    expect(await screen.findByText("Ướp gà với gia vị.")).toBeInTheDocument()
+    const startTimerBtn = screen.getByRole("button", { name: "Bắt đầu" })
+    await user.click(startTimerBtn)
+
+    // Navigate to step 3: "Chiên vàng đều hai mặt."
+    await user.click(screen.getByRole("button", { name: "Bước tiếp" }))
+    expect(await screen.findByText("Chiên vàng đều hai mặt.")).toBeInTheDocument()
+
+    // Background timer banner for step 2 should be visible
+    expect(
+      screen.getByRole("status", { name: /Đang đếm giờ: Món mặn bước 1/i })
+    ).toBeInTheDocument()
+
+    // Clicking "Xem bước" in the background timer jumps back to step 2
+    const jumpBtn = screen.getByRole("button", { name: "Xem bước" })
+    await user.click(jumpBtn)
+    expect(await screen.findByText("Ướp gà với gia vị.")).toBeInTheDocument()
+  })
+
+  test("opens pre-prep modal, allows checking ingredients, and closes", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await screen.findByText("Vo gạo.")
+    const prepBtn = screen.getByRole("button", { name: "Sơ chế" })
+    await user.click(prepBtn)
+
+    // Modal dialog is open
+    expect(
+      screen.getByRole("dialog", { name: "Khâu sơ chế & Chuẩn bị nguyên liệu" })
+    ).toBeInTheDocument()
+    expect(screen.getByText("Sơ chế & Chuẩn bị nguyên liệu")).toBeInTheDocument()
+    expect(screen.getByText(/Đã sơ chế 0\//i)).toBeInTheDocument()
+
+    // Toggle ingredient checkbox
+    const checkbox = screen.getByRole("checkbox")
+    expect(checkbox).not.toBeChecked()
+    await user.click(checkbox)
+    expect(checkbox).toBeChecked()
+    expect(screen.getByText(/Đã sơ chế 1\//i)).toBeInTheDocument()
+
+    // Close modal
+    const closeBtn = screen.getByRole("button", { name: "Đã sẵn sàng nấu" })
+    await user.click(closeBtn)
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
 })
