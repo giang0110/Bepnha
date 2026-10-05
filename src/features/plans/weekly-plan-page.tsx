@@ -1,5 +1,5 @@
 import { MemberPortionsPanel } from "./member-portions-panel"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Link } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
@@ -46,9 +46,12 @@ import {
 } from "@/domain/planner/meal-rotation-insights"
 import { detectDishThermalAffinity } from "@/domain/planner/seasonal-weather-insights"
 import { solarToVietnameseLunar } from "@/domain/planner/vietnamese-lunar-calendar"
-import { FamilyCollaborationModal } from "./family-collaboration-modal"
 import { useFamilyWishlist } from "./family-wishlist-store"
 import { WeeklyRotationBalanceCard } from "./weekly-rotation-balance-card"
+
+const FamilyCollaborationModal = lazy(async () => ({
+  default: (await import("./family-collaboration-modal")).FamilyCollaborationModal
+}))
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -431,6 +434,18 @@ export function WeeklyPlanPage({
   const [showFamilyModal, setShowFamilyModal] = useState(false)
   const familyWishes = useFamilyWishlist(household?.householdId ?? null)
 
+  const sortedPlanItems = useMemo(() => {
+    if (state.status !== "ready") return []
+    return [...state.value.plan.items].sort((left, right) => left.dayIndex - right.dayIndex)
+  }, [state])
+
+  const todayIndex = useMemo(() => todayIndexIn(weekStart, today()), [weekStart, today])
+  const todayMeal = useMemo(
+    () =>
+      todayIndex === null ? undefined : sortedPlanItems.find((c) => c.dayIndex === todayIndex),
+    [todayIndex, sortedPlanItems]
+  )
+
   useEffect(() => {
     if (preview.status !== "ready") return
     const dialog = previewDialogRef.current
@@ -754,24 +769,58 @@ export function WeeklyPlanPage({
         </div>
       )}
 
-      {(state.status === "idle" ||
-        state.status === "generating" ||
-        (state.status === "error" && state.origin === "action") ||
-        state.status === "ready") &&
+      {(state.status === "idle" || state.status === "generating") && household !== null ? (
+        <section
+          aria-label="Tạo kế hoạch tuần"
+          className="flex flex-col items-center justify-center rounded-3xl border border-herb-200 bg-gradient-to-b from-herb-50/70 to-paper-sunken/50 p-6 text-center shadow-soft sm:p-10"
+        >
+          <div className="mb-4 inline-flex size-14 items-center justify-center rounded-2xl bg-herb-100 text-herb-700 shadow-sm">
+            <Icon name="soup" className="size-7" />
+          </div>
+          <h2 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
+            Sẵn sàng cho thực đơn tuần mới!
+          </h2>
+          <p className="mt-2 max-w-lg text-sm text-ink-soft sm:text-base leading-relaxed">
+            BepNha sẽ tự động cân đối dinh dưỡng, xoay vòng chất đạm hợp lý, và tối ưu chi phí đi
+            chợ cho 7 bữa cơm nhà ấm cúng.
+          </p>
+          <div className="my-6 flex flex-wrap justify-center gap-2 text-xs text-ink-soft sm:gap-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-herb-200 bg-paper-raised px-3 py-1 font-medium shadow-2xs">
+              <Icon name="leaf" className="size-3.5 text-herb-600" />
+              Đủ canh, mặn, xào chuẩn vị
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-clay-200 bg-paper-raised px-3 py-1 font-medium shadow-2xs">
+              <Icon name="cart" className="size-3.5 text-clay-600" />
+              Tối ưu ngân sách gia đình
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-paper-raised px-3 py-1 font-medium shadow-2xs">
+              <Icon name="clock" className="size-3.5 text-ink-soft" />
+              Tiết kiệm thời gian chuẩn bị
+            </span>
+          </div>
+          <Button
+            disabled={submitting}
+            size="lg"
+            type="button"
+            className="px-8 font-bold"
+            onClick={() => void generate()}
+          >
+            {state.status === "generating" ? "Đang tạo kế hoạch…" : "Tạo kế hoạch 7 bữa chính"}
+          </Button>
+        </section>
+      ) : null}
+
+      {((state.status === "error" && state.origin === "action") || state.status === "ready") &&
       household !== null ? (
         <Button
           disabled={submitting}
-          className={state.status === "ready" ? "self-start" : ""}
+          className="self-start"
           size="lg"
           type="button"
-          variant={state.status === "ready" ? "outline" : "default"}
+          variant="outline"
           onClick={() => void generate()}
         >
-          {state.status === "generating"
-            ? "Đang tạo kế hoạch…"
-            : state.status === "ready"
-              ? "Tạo lại kế hoạch tuần"
-              : "Tạo kế hoạch 7 bữa chính"}
+          {state.status === "ready" ? "Tạo lại kế hoạch tuần" : "Tạo kế hoạch 7 bữa chính"}
         </Button>
       ) : null}
 
@@ -815,12 +864,8 @@ export function WeeklyPlanPage({
       {state.status === "ready" ? (
         <>
           {(() => {
-            const index = todayIndexIn(weekStart, today())
-            const meal =
-              index === null
-                ? undefined
-                : state.value.plan.items.find((candidate) => candidate.dayIndex === index)
-            if (meal === undefined) return null
+            if (todayMeal === undefined) return null
+            const meal = todayMeal
             const todaySolar = addDaysToIso(weekStart, meal.dayIndex)
             const todayLunar = solarToVietnameseLunar(todaySolar)
             const todayProtein = detectProteinGroup(meal.mealOptionNameVi)
@@ -952,118 +997,116 @@ export function WeeklyPlanPage({
             className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
             aria-label="Bảy bữa chính trong tuần"
           >
-            {[...state.value.plan.items]
-              .sort((left, right) => left.dayIndex - right.dayIndex)
-              .map((item) => {
-                const solarDate = addDaysToIso(weekStart, item.dayIndex)
-                const lunar = solarToVietnameseLunar(solarDate)
-                const protein = detectProteinGroup(item.mealOptionNameVi)
-                const thermal = detectDishThermalAffinity(item.mealOptionNameVi)
-                const isWeekend = item.dayIndex === 5 || item.dayIndex === 6
-                const celebratory =
-                  isWeekend && isWeekendDish(item.mealOptionNameVi, item.elapsedMinutes)
-                return (
-                  <li
-                    aria-label={`Bữa chính ${DAY_LABELS[item.dayIndex]}`}
-                    className="flex min-w-0 flex-col rounded-3xl border border-edge bg-paper-raised p-5 sm:p-6"
-                    key={item.dayIndex}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <h2 className="inline-flex rounded-full bg-herb-50 px-3 py-1 text-xs font-bold tracking-wide text-herb-900">
-                            {DAY_LABELS[item.dayIndex]}
-                          </h2>
-                          <span className="text-xs font-semibold text-ink-soft">
-                            {lunar.formattedShort}
+            {sortedPlanItems.map((item) => {
+              const solarDate = addDaysToIso(weekStart, item.dayIndex)
+              const lunar = solarToVietnameseLunar(solarDate)
+              const protein = detectProteinGroup(item.mealOptionNameVi)
+              const thermal = detectDishThermalAffinity(item.mealOptionNameVi)
+              const isWeekend = item.dayIndex === 5 || item.dayIndex === 6
+              const celebratory =
+                isWeekend && isWeekendDish(item.mealOptionNameVi, item.elapsedMinutes)
+              return (
+                <li
+                  aria-label={`Bữa chính ${DAY_LABELS[item.dayIndex]}`}
+                  className="flex min-w-0 flex-col rounded-3xl border border-edge bg-paper-raised p-5 sm:p-6"
+                  key={item.dayIndex}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <h2 className="inline-flex rounded-full bg-herb-50 px-3 py-1 text-xs font-bold tracking-wide text-herb-900">
+                          {DAY_LABELS[item.dayIndex]}
+                        </h2>
+                        <span className="text-xs font-semibold text-ink-soft">
+                          {lunar.formattedShort}
+                        </span>
+                        {lunar.isVegetarianDay && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-herb-600 px-2 py-0.5 text-[11px] font-bold text-on-herb"
+                            title={lunar.specialDayLabel ?? "Ngày ăn chay"}
+                          >
+                            <Icon name="leaf" className="size-3" />
+                            {lunar.day === 15 ? "Rằm" : "Mùng 1"}
                           </span>
-                          {lunar.isVegetarianDay && (
-                            <span
-                              className="inline-flex items-center gap-1 rounded-full bg-herb-600 px-2 py-0.5 text-[11px] font-bold text-on-herb"
-                              title={lunar.specialDayLabel ?? "Ngày ăn chay"}
-                            >
-                              <Icon name="leaf" className="size-3" />
-                              {lunar.day === 15 ? "Rằm" : "Mùng 1"}
-                            </span>
-                          )}
-                          {celebratory && (
-                            <span
-                              className="inline-flex items-center rounded-full bg-clay-100 px-2 py-0.5 text-[11px] font-bold text-clay-900"
-                              title="Món ngon sum họp cuối tuần"
-                            >
-                              Cuối tuần
-                            </span>
-                          )}
-                          {thermal === "cooling" && (
-                            <span
-                              className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700"
-                              title="Món thanh nhiệt, thanh mát"
-                            >
-                              <Icon name="leaf" className="size-3 text-blue-500" />
-                              Thanh nhiệt
-                            </span>
-                          )}
-                          {thermal === "warming" && (
-                            <span
-                              className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800"
-                              title="Món ấm nồng giữ nhiệt"
-                            >
-                              <Icon name="flame" className="size-3 text-amber-600" />
-                              Ấm nồng
-                            </span>
-                          )}
-                          <span className="inline-flex rounded-full bg-paper-sunken px-2 py-0.5 text-[11px] font-medium text-ink-soft">
-                            {proteinGroupLabel(protein)}
+                        )}
+                        {celebratory && (
+                          <span
+                            className="inline-flex items-center rounded-full bg-clay-100 px-2 py-0.5 text-[11px] font-bold text-clay-900"
+                            title="Món ngon sum họp cuối tuần"
+                          >
+                            Cuối tuần
                           </span>
-                        </div>
-                        <p
-                          className="mt-3 text-lg font-extrabold leading-snug text-ink"
-                          data-testid="meal-name"
-                        >
-                          {item.mealOptionNameVi}
-                        </p>
-                        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-soft">
-                          <Icon name="clock" className="size-4" />
-                          Tối đa {item.elapsedMinutes} phút
-                        </p>
+                        )}
+                        {thermal === "cooling" && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700"
+                            title="Món thanh nhiệt, thanh mát"
+                          >
+                            <Icon name="leaf" className="size-3 text-blue-500" />
+                            Thanh nhiệt
+                          </span>
+                        )}
+                        {thermal === "warming" && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+                            title="Món ấm nồng giữ nhiệt"
+                          >
+                            <Icon name="flame" className="size-3 text-amber-600" />
+                            Ấm nồng
+                          </span>
+                        )}
+                        <span className="inline-flex rounded-full bg-paper-sunken px-2 py-0.5 text-[11px] font-medium text-ink-soft">
+                          {proteinGroupLabel(protein)}
+                        </span>
                       </div>
-                      <Button
-                        disabled={submitting}
-                        variant="outline"
-                        type="button"
-                        onClick={(event) => {
-                          void previewDay(item.dayIndex, event.currentTarget)
-                        }}
+                      <p
+                        className="mt-3 text-lg font-extrabold leading-snug text-ink"
+                        data-testid="meal-name"
                       >
-                        Đổi bữa
-                      </Button>
+                        {item.mealOptionNameVi}
+                      </p>
+                      <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-soft">
+                        <Icon name="clock" className="size-4" />
+                        Tối đa {item.elapsedMinutes} phút
+                      </p>
                     </div>
-                    <Link
-                      aria-label={`Bắt đầu nấu ${DAY_LABELS[item.dayIndex]}: ${item.mealOptionNameVi}`}
-                      className={buttonVariants({
-                        variant: "outline",
-                        className: "mt-5 w-full gap-2"
-                      })}
-                      to={`/plan/${item.dayIndex}/cook`}
+                    <Button
+                      disabled={submitting}
+                      variant="outline"
+                      type="button"
+                      onClick={(event) => {
+                        void previewDay(item.dayIndex, event.currentTarget)
+                      }}
                     >
-                      <Icon name="pan" className="size-5" />
-                      Bắt đầu nấu
-                    </Link>
-                    <MealDetails
-                      item={item}
-                      labels={labels}
-                      rating={
-                        ratings.liked.includes(item.mealOptionId)
-                          ? "liked"
-                          : ratings.disliked.includes(item.mealOptionId)
-                            ? "disliked"
-                            : null
-                      }
-                      onRate={rateMeal}
-                    />
-                  </li>
-                )
-              })}
+                      Đổi bữa
+                    </Button>
+                  </div>
+                  <Link
+                    aria-label={`Bắt đầu nấu ${DAY_LABELS[item.dayIndex]}: ${item.mealOptionNameVi}`}
+                    className={buttonVariants({
+                      variant: "outline",
+                      className: "mt-5 w-full gap-2"
+                    })}
+                    to={`/plan/${item.dayIndex}/cook`}
+                  >
+                    <Icon name="pan" className="size-5" />
+                    Bắt đầu nấu
+                  </Link>
+                  <MealDetails
+                    item={item}
+                    labels={labels}
+                    rating={
+                      ratings.liked.includes(item.mealOptionId)
+                        ? "liked"
+                        : ratings.disliked.includes(item.mealOptionId)
+                          ? "disliked"
+                          : null
+                    }
+                    onRate={rateMeal}
+                  />
+                </li>
+              )
+            })}
           </ol>
 
           <WeeklyRotationBalanceCard items={state.value.plan.items} weekStart={weekStart} />
@@ -1169,20 +1212,22 @@ export function WeeklyPlanPage({
         </dialog>
       ) : null}
 
-      {household !== null && state.status === "ready" && (
-        <FamilyCollaborationModal
-          availableMealOptions={state.value.plan.items.map((i) => ({
-            id: i.mealOptionId,
-            nameVi: i.mealOptionNameVi
-          }))}
-          householdId={household.householdId}
-          householdName="Gia đình mình"
-          initialWishes={familyWishes}
-          isOpen={showFamilyModal}
-          planItems={state.value.plan.items}
-          weekStart={weekStart}
-          onClose={() => setShowFamilyModal(false)}
-        />
+      {household !== null && state.status === "ready" && showFamilyModal && (
+        <Suspense fallback={null}>
+          <FamilyCollaborationModal
+            availableMealOptions={state.value.plan.items.map((i) => ({
+              id: i.mealOptionId,
+              nameVi: i.mealOptionNameVi
+            }))}
+            householdId={household.householdId}
+            householdName="Gia đình mình"
+            initialWishes={familyWishes}
+            isOpen={showFamilyModal}
+            planItems={state.value.plan.items}
+            weekStart={weekStart}
+            onClose={() => setShowFamilyModal(false)}
+          />
+        </Suspense>
       )}
     </AppPageShell>
   )

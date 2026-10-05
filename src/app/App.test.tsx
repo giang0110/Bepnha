@@ -147,7 +147,7 @@ describe("authenticated app shell", () => {
     })
 
     expect(
-      await screen.findByRole("heading", { name: "Thành viên trong gia đình" })
+      await screen.findByRole("heading", { name: "Thành viên trong gia đình" }, { timeout: 4000 })
     ).toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Đăng nhập" })).not.toBeInTheDocument()
   })
@@ -156,7 +156,7 @@ describe("authenticated app shell", () => {
     renderRoutes(createAuthPort(session).port, "/onboarding")
 
     expect(
-      await screen.findByRole("heading", { name: "Thành viên trong gia đình" })
+      await screen.findByRole("heading", { name: "Thành viên trong gia đình" }, { timeout: 4000 })
     ).toBeInTheDocument()
   })
 

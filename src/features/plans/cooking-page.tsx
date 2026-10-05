@@ -104,11 +104,13 @@ function notifyTimerDone(): void {
 function StepTimer({
   minutes,
   progress,
-  onProgress
+  onProgress,
+  counterMode = false
 }: Readonly<{
   minutes: number
   progress?: TimerProgressV1
   onProgress: (progress: TimerProgressV1) => void
+  counterMode?: boolean | undefined
 }>) {
   const total = minutes * 60
   const startedAt = progress?.startedAt ?? null
@@ -146,7 +148,9 @@ function StepTimer({
   return (
     <div className="rounded-3xl border border-edge bg-paper-raised p-4 text-center shadow-soft">
       <p
-        className={`text-5xl font-extrabold tabular-nums ${done ? "text-chilli-700" : "text-ink"}`}
+        className={`tabular-nums font-black transition-all ${
+          counterMode ? "py-2 text-6xl sm:text-7xl" : "text-5xl font-extrabold"
+        } ${done ? "text-chilli-700" : "text-ink"}`}
       >
         {formatCountdown(remaining)}
       </p>
@@ -266,6 +270,7 @@ function StepView({
           key={step.key}
           minutes={step.timerMinutes}
           onProgress={onTimerProgress}
+          counterMode={counterMode}
           {...(timerProgress === undefined ? {} : { progress: timerProgress })}
         />
       )}

@@ -279,9 +279,26 @@ function CategorySection({
   oneHandMode?: boolean
   onCheckedChange: (item: ShoppingListItem, checked: boolean) => void
 }>) {
+  const completedCount = items.filter((item) => item.checked).length
+  const totalCount = items.length
+  const allCompleted = totalCount > 0 && completedCount === totalCount
+
   return (
     <section className="grid gap-2" data-testid="shopping-category">
-      <h2 className="text-base font-semibold">{category.labelVi}</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">{category.labelVi}</h2>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${
+            allCompleted
+              ? "bg-herb-100 text-herb-800"
+              : completedCount > 0
+                ? "bg-paper-sunken text-ink"
+                : "bg-paper-sunken text-ink-soft"
+          }`}
+        >
+          {completedCount > 0 ? `${completedCount}/${totalCount}` : `${totalCount} món`}
+        </span>
+      </div>
       <ul className="grid gap-2">
         {items.map((item) => (
           <ShoppingItemRow
