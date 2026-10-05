@@ -469,6 +469,10 @@ export function ShoppingListPage({ repository }: Props) {
     })
   }
 
+  const [searchQuery, setSearchQuery] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState<string>("all")
+  const [isFloatingCartVisible, setIsFloatingCartVisible] = useState(true)
+
   const channelCounts = useMemo(() => {
     if (state.status !== "ready") {
       return { all: 0, wet_market: 0, supermarket: 0, remaining: 0, checked: 0 }
@@ -487,13 +491,32 @@ export function ShoppingListPage({ repository }: Props) {
     }
   }, [state])
 
+  const availableCategories = useMemo(() => {
+    if (state.status !== "ready") return []
+    const counts = new Map<string, number>()
+    for (const item of state.value.items) {
+      counts.set(item.groceryCategoryCode, (counts.get(item.groceryCategoryCode) ?? 0) + 1)
+    }
+    return GROCERY_CATEGORIES.map((category) => ({
+      category,
+      count: counts.get(category.code) ?? 0
+    })).filter((c) => c.count > 0)
+  }, [state])
+
   const displayedItems = useMemo(() => {
     if (state.status !== "ready") return []
     let items = state.value.items
     items = filterItemsByDestination(items, destinationFilter)
     items = filterItemsByCheckStatus(items, statusFilter)
+    if (categoryFilter !== "all") {
+      items = items.filter((item) => item.groceryCategoryCode === categoryFilter)
+    }
+    const q = searchQuery.trim().toLowerCase()
+    if (q !== "") {
+      items = items.filter((item) => item.foodNameVi.toLowerCase().includes(q))
+    }
     return items
-  }, [state, destinationFilter, statusFilter])
+  }, [state, destinationFilter, statusFilter, categoryFilter, searchQuery])
 
   const groups = useMemo(() => categoryGroups(displayedItems), [displayedItems])
 
@@ -744,6 +767,45 @@ export function ShoppingListPage({ repository }: Props) {
                       Đã lấy {formatVnd(progress.pickedUpCostVnd)} VND
                     </p>
                   )}
+
+                  <div
+                    className="mt-3.5 grid grid-cols-2 gap-2.5 sm:gap-3"
+                    data-testid="live-cart-summary"
+                  >
+                    <div className="flex items-center gap-2.5 rounded-xl border border-herb-200 bg-herb-50/70 p-2.5 dark:border-herb-900/40 dark:bg-herb-950/20 sm:p-3">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-herb-100 text-herb-700 dark:bg-herb-900/50 dark:text-herb-300">
+                        <Icon name="cart" className="size-4.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-herb-800 dark:text-herb-300 sm:text-xs">
+                          Đã nhặt vào giỏ
+                        </p>
+                        <p className="text-xs sm:text-sm font-extrabold text-ink tabular-nums">
+                          {formatVnd(progress.pickedUpCostVnd)} đ
+                        </p>
+                        <span className="text-[10px] text-ink-soft sm:text-[11px]">
+                          {progress.checkedCount}/{progress.totalCount} món
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 rounded-xl border border-edge bg-paper-sunken/60 p-2.5 sm:p-3">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-paper-raised text-ink-soft shadow-xs">
+                        <Icon name="basket" className="size-4.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-ink-soft sm:text-xs">
+                          Còn lại cần mua
+                        </p>
+                        <p className="text-xs sm:text-sm font-extrabold text-ink tabular-nums">
+                          {formatVnd(progress.remainingCostVnd)} đ
+                        </p>
+                        <span className="text-[10px] text-ink-soft sm:text-[11px]">
+                          {progress.totalCount - progress.checkedCount} món chờ
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </section>
@@ -889,6 +951,78 @@ export function ShoppingListPage({ repository }: Props) {
             </div>
           </div>
 
+          {/* Fast Search & Instant Aisle Category Filters */}
+          <div className="grid gap-2.5" data-print="hide">
+            <div className="relative flex items-center">
+              <span
+                className="pointer-events-none absolute left-3.5 text-xs text-ink-soft sm:text-sm"
+                aria-hidden="true"
+              >
+                🔍
+              </span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm nhanh nguyên liệu (thịt, rau, gia vị...)"
+                aria-label="Tìm nhanh nguyên liệu"
+                data-testid="shopping-search-input"
+                className="w-full rounded-2xl border border-edge bg-paper-sunken py-2.5 pr-9 pl-9 text-xs text-ink placeholder:text-ink-muted focus:border-herb-500 focus:bg-paper focus:outline-none sm:text-sm"
+              />
+              {searchQuery !== "" && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Xóa tìm kiếm"
+                  className="absolute right-3 text-xs font-bold text-ink-soft hover:text-ink"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {availableCategories.length > 1 && (
+              <div
+                className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none"
+                role="group"
+                aria-label="Lọc theo quầy hàng"
+              >
+                <button
+                  type="button"
+                  aria-pressed={categoryFilter === "all"}
+                  onClick={() => setCategoryFilter("all")}
+                  className={`shrink-0 rounded-full px-3 py-1.5 font-semibold transition-colors ${
+                    categoryFilter === "all"
+                      ? "bg-herb-700 text-on-herb shadow-xs"
+                      : "bg-paper-sunken text-ink-soft hover:bg-paper-raised hover:text-ink"
+                  }`}
+                  data-testid="category-filter-all"
+                >
+                  Tất cả quầy
+                </button>
+                {availableCategories.map(({ category, count }) => {
+                  const active = categoryFilter === category.code
+                  return (
+                    <button
+                      key={category.code}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setCategoryFilter(active ? "all" : category.code)}
+                      className={`shrink-0 rounded-full px-3 py-1.5 font-semibold transition-colors ${
+                        active
+                          ? "bg-herb-700 text-on-herb shadow-xs"
+                          : "bg-paper-sunken text-ink-soft hover:bg-paper-raised hover:text-ink"
+                      }`}
+                      data-testid={`category-filter-${category.code}`}
+                    >
+                      {category.labelVi} ({count})
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {!isOnline && (
             <div
               className="flex items-center justify-between gap-3 rounded-2xl border border-broth-200 bg-broth-50 p-3 text-xs text-broth-900 shadow-soft"
@@ -963,15 +1097,21 @@ export function ShoppingListPage({ repository }: Props) {
             >
               <Icon name="check" className="mx-auto mb-2 size-7 text-herb-600" />
               <p className="font-semibold text-ink">
-                {statusFilter === "remaining"
-                  ? "Tuyệt vời! Bạn đã lấy đủ mọi thứ trong danh mục này."
-                  : "Không có nguyên liệu nào phù hợp với bộ lọc hiện tại."}
+                {searchQuery !== ""
+                  ? `Không tìm thấy món nào với từ khóa "${searchQuery}".`
+                  : categoryFilter !== "all"
+                    ? "Không có nguyên liệu nào trong quầy này."
+                    : statusFilter === "remaining"
+                      ? "Tuyệt vời! Bạn đã lấy đủ mọi thứ trong danh mục này."
+                      : "Không có nguyên liệu nào phù hợp với bộ lọc hiện tại."}
               </p>
               <Button
                 type="button"
                 variant="outline"
                 className="mt-3"
                 onClick={() => {
+                  setSearchQuery("")
+                  setCategoryFilter("all")
                   setDestinationFilter("all")
                   setStatusFilter("all")
                 }}
@@ -999,6 +1139,65 @@ export function ShoppingListPage({ repository }: Props) {
             key={state.value.revisionId}
             revisionId={state.value.revisionId}
           />
+
+          {isFloatingCartVisible && progress !== null && progress.totalCount > 0 && (
+            <div
+              role="region"
+              aria-label="Giỏ hàng trực tiếp"
+              data-testid="shopping-live-cart-tracker"
+              className="fixed inset-x-4 bottom-[calc(var(--app-nav-height)+0.75rem)] z-30 mx-auto max-w-lg rounded-2xl border border-herb-300 bg-paper-raised/95 p-3 shadow-lift backdrop-blur-md dark:border-herb-800 sm:bottom-6"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-herb-100 text-herb-700 dark:bg-herb-900/60 dark:text-herb-300">
+                    <Icon name="cart" className="size-4" />
+                  </div>
+                  <div className="min-w-0 text-xs sm:text-sm">
+                    <p className="truncate font-bold text-ink">
+                      Đã nhặt:{" "}
+                      <span className="tabular-nums text-herb-700">
+                        {formatVnd(progress.pickedUpCostVnd)} đ
+                      </span>
+                      <span className="font-normal text-ink-soft">
+                        {" "}
+                        ({progress.checkedCount}/{progress.totalCount})
+                      </span>
+                    </p>
+                    <p className="truncate text-[11px] text-ink-soft sm:text-xs">
+                      Còn lại:{" "}
+                      <span className="font-semibold text-ink tabular-nums">
+                        {formatVnd(progress.remainingCostVnd)} đ
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter("remaining")
+                      if (typeof window !== "undefined") {
+                        window.scrollTo({ top: 0, behavior: "smooth" })
+                      }
+                    }}
+                    className="rounded-full bg-herb-50 px-2.5 py-1 text-xs font-bold text-herb-800 hover:bg-herb-100 dark:bg-herb-950 dark:text-herb-300"
+                  >
+                    Xem chưa mua
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsFloatingCartVisible(false)}
+                    className="p-1 text-xs font-bold text-ink-muted hover:text-ink"
+                    title="Ẩn thanh giỏ hàng nổi"
+                    aria-label="Ẩn thanh giỏ hàng nổi"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       ) : null}
     </AppPageShell>
