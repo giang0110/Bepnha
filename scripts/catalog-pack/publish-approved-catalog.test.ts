@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 
 import { expect, test } from "vitest"
 
@@ -25,7 +26,11 @@ globalThis.fetch = async (url) => {
     try {
       execFileSync(
         process.execPath,
-        ["--import", preload, "scripts/catalog-pack/publish-approved-catalog.ts"],
+        [
+          "--import",
+          pathToFileURL(preload).href,
+          "scripts/catalog-pack/publish-approved-catalog.ts"
+        ],
         {
           encoding: "utf8",
           timeout: 10_000,

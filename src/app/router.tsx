@@ -13,12 +13,26 @@ import { NotFoundPage } from "@/app/not-found-page"
 import type { AccountApi } from "@/application/account/account-deletion"
 import { AppPageShell } from "@/app/components/app-page-shell"
 import type { AssistantApi } from "@/features/assistant/assistant-api"
-import { ForgotPasswordPage } from "@/features/auth/forgot-password-page"
-import { ResetPasswordPage } from "@/features/auth/reset-password-page"
-import { SignInPage } from "@/features/auth/sign-in-page"
-import { PrivacyPage, TermsPage } from "@/features/legal/legal-page"
-import { SignUpPage } from "@/features/auth/sign-up-page"
 import type { PlannerApi } from "@/features/plans/planner-api"
+
+const ForgotPasswordPage = lazy(async () => ({
+  default: (await import("@/features/auth/forgot-password-page")).ForgotPasswordPage
+}))
+const ResetPasswordPage = lazy(async () => ({
+  default: (await import("@/features/auth/reset-password-page")).ResetPasswordPage
+}))
+const SignInPage = lazy(async () => ({
+  default: (await import("@/features/auth/sign-in-page")).SignInPage
+}))
+const SignUpPage = lazy(async () => ({
+  default: (await import("@/features/auth/sign-up-page")).SignUpPage
+}))
+const PrivacyPage = lazy(async () => ({
+  default: (await import("@/features/legal/legal-page")).PrivacyPage
+}))
+const TermsPage = lazy(async () => ({
+  default: (await import("@/features/legal/legal-page")).TermsPage
+}))
 
 const AccountSettingsPage = lazy(async () => ({
   default: (await import("@/features/account/account-settings-page")).AccountSettingsPage
@@ -95,12 +109,40 @@ export function AppRouter({
   return (
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
-      <Route path="/sign-in" element={<SignInPage />} />
-      <Route path="/sign-up" element={<SignUpPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route
+        path="/sign-in"
+        element={
+          <Suspense fallback={<ProtectedRouteFallback />}>
+            <SignInPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/sign-up"
+        element={
+          <Suspense fallback={<ProtectedRouteFallback />}>
+            <SignUpPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <Suspense fallback={<ProtectedRouteFallback />}>
+            <ForgotPasswordPage />
+          </Suspense>
+        }
+      />
       {/* Outside RequireAuth: an expired link leaves no session, and this page explains that
           instead of bouncing the user to sign-in with no idea what went wrong. */}
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route
+        path="/reset-password"
+        element={
+          <Suspense fallback={<ProtectedRouteFallback />}>
+            <ResetPasswordPage />
+          </Suspense>
+        }
+      />
       <Route element={<RequireAuth />}>
         <Route
           path="/onboarding"
@@ -211,8 +253,22 @@ export function AppRouter({
           }
         />
       </Route>
-      <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/terms" element={<TermsPage />} />
+      <Route
+        path="/privacy"
+        element={
+          <Suspense fallback={<ProtectedRouteFallback />}>
+            <PrivacyPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/terms"
+        element={
+          <Suspense fallback={<ProtectedRouteFallback />}>
+            <TermsPage />
+          </Suspense>
+        }
+      />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
