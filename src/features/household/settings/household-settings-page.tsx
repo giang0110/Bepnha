@@ -18,6 +18,7 @@ import { ReviewStep, type SaveState } from "../components/review-step"
 import {
   householdFormReducer,
   householdFormStateFromSetup,
+  validateHouseholdForm,
   nutritionSetupFromForm,
   memberGroupsFromCounts
 } from "../household-form-state"
@@ -55,6 +56,7 @@ function HouseholdSettingsEditor({
   const [state, dispatch] = useReducer(householdFormReducer, household, householdFormStateFromSetup)
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const nutritionValidation = nutritionSetupFromForm(state)
+  const setupValidation = validateHouseholdForm(state)
   const budgetVnd = parseVnd(state.budgetInput)
   const requestEpoch = useRef(0)
   useEffect(() => {
@@ -65,22 +67,11 @@ function HouseholdSettingsEditor({
   }, [repository])
 
   async function save() {
-    const nutrition = nutritionSetupFromForm(state)
-    if (budgetVnd === null || !nutrition.ok) return
+    const draft = validateHouseholdForm(state)
+    if (!draft.ok) return
     const epoch = requestEpoch.current
     setSaveState("saving")
-    const result = await saveHousehold(
-      repository,
-      {
-        nutritionSetup: nutrition.value,
-        memberGroups: memberGroupsFromCounts(state.memberCounts),
-        weeklyPlanBudgetVnd: budgetVnd,
-        maxElapsedMinutes: state.maxElapsedMinutes,
-        ruleCodes: [...state.hardRuleCodes, ...state.preferenceCodes],
-        allergenStrictness: state.allergenStrictness
-      },
-      household.version
-    )
+    const result = await saveHousehold(repository, draft.value, household.version)
     if (epoch !== requestEpoch.current) return
     if (result.ok) {
       toast.success("Đã lưu thay đổi thông tin gia đình!")
@@ -178,7 +169,7 @@ function HouseholdSettingsEditor({
           onToggle={(code, selected) => dispatch({ type: "toggle-rule", code, selected })}
         />
       ) : null}
-      {state.step === 5 && budgetVnd !== null ? (
+      {state.step === 5 ? (
         <>
           <ReviewStep
             nutritionSetup={nutritionValidation.ok ? nutritionValidation.value : undefined}
@@ -191,7 +182,8 @@ function HouseholdSettingsEditor({
             saveLabel="Lưu thay đổi"
             saveState={saveState}
             onBack={() => dispatch({ type: "go-to-step", step: 4 })}
-            canSave={nutritionValidation.ok}
+            canSave={setupValidation.ok}
+            validationErrors={setupValidation.ok ? [] : setupValidation.errors}
             onSave={() => void save()}
           />
           {saveState === "stale-error" ? (

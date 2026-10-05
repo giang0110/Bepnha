@@ -17,7 +17,7 @@ import {
   resolveAllergenStrictness,
   type AllergenStrictness
 } from "@/domain/household/allergen-strictness"
-import { validateHouseholdSetup } from "@/domain/household/validate-household-setup"
+import { validateStoredHouseholdSetup } from "@/domain/household/validate-household-setup"
 
 import type { Database } from "./database.types.js"
 
@@ -123,7 +123,7 @@ function mapStoredHousehold(value: unknown): HouseholdSetup {
     throw new HouseholdRepositoryError("INVALID_STORED_DATA")
   }
 
-  const validation = validateHouseholdSetup({
+  const validation = validateStoredHouseholdSetup({
     ...(value.nutritionSetup === undefined ? {} : { nutritionSetup: value.nutritionSetup }),
     memberGroups,
     weeklyPlanBudgetVnd,

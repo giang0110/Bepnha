@@ -9,19 +9,21 @@ import {
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode
 } from "../../domain/household/household-rules.js"
+import { validateStoredHouseholdSetup } from "../../domain/household/validate-household-setup.js"
+import type { ReplacementAuthoritativeInput } from "../../application/planner/planner-use-cases.js"
 import type {
   MealOptionRecipeInput,
   MealOptionTagInput
 } from "../../domain/meal-option/meal-option.js"
 import { PLANNER_CONFIG_V1 } from "../../domain/planner/planner-config.js"
 import type { PlannerCandidateInput, PlannerInputV1 } from "../../domain/planner/planner-input.js"
-import type { ReadyPlan } from "../../domain/planner/search-week.js"
 import type { FoodPriceInput } from "../../domain/pricing/pricing.js"
 import type { RecipeHeatLevel, RecipeStepInput } from "../../domain/recipe/recipe.js"
 import type { Database } from "../supabase/database.types.js"
 
 import { loadPantrySnapshot } from "./load-pantry-snapshot.js"
 import type { PlannerInputLoader } from "./supabase-planner-repository.js"
+import { readyLegacyPlanFromRevision } from "./stored-legacy-planner-plan.js"
 
 type UnknownRecord = Record<string, unknown>
 
@@ -573,26 +575,6 @@ async function generation(client: SupabaseClient<Database>, raw: unknown): Promi
   }
 }
 
-function readyPlanFromRevision(revision: UnknownRecord): ReadyPlan {
-  const calculation = object(revision.calculation_snapshot)
-  const items = array(calculation.items)
-  const selected = array(calculation.selectedMealOptions)
-  const purchaseBasket = object(calculation.purchaseBasket)
-  const score = object(calculation.score)
-  if (items.length !== 7 || selected.length !== 7 || !Array.isArray(purchaseBasket.lines)) {
-    throw new Error("INVALID_PLAN_SNAPSHOT")
-  }
-  return {
-    items: items as unknown as ReadyPlan["items"],
-    selected: selected as unknown as ReadyPlan["selected"],
-    purchaseBasket: purchaseBasket as unknown as ReadyPlan["purchaseBasket"],
-    totalEstimatedCostVnd: integer(revision.total_estimated_cost_vnd),
-    score: score as unknown as ReadyPlan["score"],
-    stableIdSequence: items.map((raw) => string(object(raw).mealOptionVersionId)).join("|"),
-    frontierMetrics: []
-  }
-}
-
 export function readHistoricalPlannerPriceBookId(revisionValue: unknown): string {
   const revision = object(revisionValue)
   const inputSnapshot = object(revision.input_snapshot)
@@ -603,6 +585,52 @@ export function readHistoricalPlannerPriceBookId(revisionValue: unknown): string
     if (first !== undefined) return string(object(first).priceBookId)
   }
   throw new Error("INVALID_PLAN_PRICE_BOOK_SNAPSHOT")
+}
+
+function historicalHouseholdSetup(
+  revision: UnknownRecord,
+  plan: UnknownRecord
+): ReplacementAuthoritativeInput["historicalHouseholdSetup"] {
+  const household = object(object(revision.input_snapshot).household)
+  const householdId = string(household.householdId)
+  const householdSetupVersion = integer(household.setupVersion)
+  const hardRuleCodes = stringArray(household.hardRuleCodes)
+  const softPreferenceCodes = stringArray(household.softPreferenceCodes)
+  if (
+    householdId !== string(plan.household_id) ||
+    householdSetupVersion < 1 ||
+    householdSetupVersion !== integer(revision.household_setup_version) ||
+    hardRuleCodes.some((code) => {
+      const option = HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)
+      return option === undefined || option.ruleKind === "soft_preference"
+    }) ||
+    softPreferenceCodes.some(
+      (code) =>
+        HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)?.ruleKind !== "soft_preference"
+    )
+  )
+    throw new Error("INVALID_PLAN_HOUSEHOLD_SNAPSHOT")
+  const validation = validateStoredHouseholdSetup({
+    memberGroups: household.memberGroups,
+    weeklyPlanBudgetVnd: household.weeklyPlanBudgetVnd,
+    maxElapsedMinutes: household.maxElapsedMinutes,
+    ruleCodes: [...hardRuleCodes, ...softPreferenceCodes],
+    // Only an absent old field means the historical default; malformed values fail safely.
+    ...(household.allergenStrictness === undefined
+      ? {}
+      : { allergenStrictness: object(household.allergenStrictness) })
+  })
+  if (!validation.ok) throw new Error("INVALID_PLAN_HOUSEHOLD_SNAPSHOT")
+  return {
+    householdId,
+    householdSetupVersion,
+    memberGroups: validation.value.memberGroups,
+    hardRuleCodes,
+    softPreferenceCodes,
+    allergenStrictness: validation.value.allergenStrictness ?? {},
+    weeklyPlanBudgetVnd: validation.value.weeklyPlanBudgetVnd,
+    maxElapsedMinutes: validation.value.maxElapsedMinutes
+  }
 }
 
 export function createSupabasePlannerInputLoader(
@@ -616,7 +644,8 @@ export function createSupabasePlannerInputLoader(
       const root = object(raw)
       const plan = object(root.plan)
       const revision = object(root.revision)
-      const currentPlan = readyPlanFromRevision(revision)
+      const currentPlan = readyLegacyPlanFromRevision(revision)
+      const historical = historicalHouseholdSetup(revision, plan)
       const generationRaw = await rpc(client, "get_planner_generation_input", {
         p_household_id: string(plan.household_id),
         p_week_start: string(plan.week_start),
@@ -633,6 +662,7 @@ export function createSupabasePlannerInputLoader(
         planVersion: integer(plan.version),
         currentRevisionId: string(plan.current_revision_id),
         householdSetupVersion: integer(revision.household_setup_version),
+        historicalHouseholdSetup: historical,
         householdInputFingerprint: string(revision.input_fingerprint)
       }
     }

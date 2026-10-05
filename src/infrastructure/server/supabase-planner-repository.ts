@@ -1,11 +1,10 @@
 import type {
-  CurrentPlanView,
   PersistPlannerRevisionCommand,
   PlannerRepository,
   ReplacementAuthoritativeInput
 } from "../../application/planner/planner-use-cases.js"
 import type { PlannerInputV1 } from "../../domain/planner/planner-input.js"
-import { buildPlanTrustView } from "../../application/planner/plan-trust.js"
+import { currentLegacyPlanFromStored } from "./stored-legacy-planner-plan.js"
 
 type DbError = { readonly code?: string; readonly message?: string }
 type RpcResult = Promise<{ readonly data: unknown; readonly error: DbError | null }>
@@ -40,55 +39,6 @@ function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null
-}
-
-function positiveInteger(value: unknown): number | null {
-  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : null
-}
-
-/**
- * Reads the stored revision rather than recomputing anything.
- *
- * Budget status is a decision the planner already made and persistence already checked against its
- * own invariant; deriving it again here from cost and budget would be a second opinion that can
- * disagree with the row. The row wins.
- */
-function currentPlanFrom(
-  raw: unknown,
-  plan: ReplacementAuthoritativeInput
-): CurrentPlanView | null {
-  const payload = record(raw)
-  const revision = payload === null ? null : record(payload.revision)
-  const planRow = payload === null ? null : record(payload.plan)
-  if (revision === null || planRow === null) return null
-
-  const planId = planRow.id
-  const revisionId = revision.id
-  const budgetVnd = positiveInteger(revision.budget_vnd)
-  const budgetStatus = revision.budget_status
-  const calculationDate = revision.calculation_date
-  if (
-    typeof planId !== "string" ||
-    typeof revisionId !== "string" ||
-    budgetVnd === null ||
-    typeof calculationDate !== "string" ||
-    (budgetStatus !== "within" && budgetStatus !== "over") ||
-    !Array.isArray(revision.warnings)
-  ) {
-    return null
-  }
-
-  return {
-    planId,
-    revisionId,
-    planVersion: plan.planVersion,
-    householdSetupVersion: plan.householdSetupVersion,
-    status: budgetStatus === "within" ? "ready_within_budget" : "ready_over_budget",
-    budgetVnd,
-    plan: plan.currentPlan,
-    warnings: revision.warnings as CurrentPlanView["warnings"],
-    trust: buildPlanTrustView(plan.currentPlan, calculationDate)
-  }
 }
 
 function persistenceFailure(error: DbError | null) {
@@ -147,9 +97,7 @@ export function createSupabasePlannerRepository(dependencies: Dependencies): Pla
       // generation, so it is an answer, not a refusal — the caller shows the generate button.
       if (data === null) return { ok: true as const, value: null }
       try {
-        const hydrated = await dependencies.loader.hydrateReplacement(data, dependencies.userClient)
-        const view = currentPlanFrom(data, hydrated)
-        return view === null ? unavailable : { ok: true as const, value: view }
+        return { ok: true as const, value: currentLegacyPlanFromStored(data) }
       } catch {
         return unavailable
       }
@@ -319,10 +267,14 @@ export function createSupabasePlannerRepositoryV2(
       )
       if (error) return versionedFailure(error)
       if (data === null) return { ok: true, value: null }
-      if (record(record(data)?.revision)?.engine_version !== "planner-engine-v6")
-        return dependencies.legacyRepository.loadCurrentPlan(input)
       try {
-        return { ok: true, value: dependencies.loader.readStored(data) }
+        return {
+          ok: true,
+          value:
+            record(record(data)?.revision)?.engine_version === "planner-engine-v6"
+              ? dependencies.loader.readStored(data)
+              : currentLegacyPlanFromStored(data)
+        }
       } catch (e) {
         return versionedFailure(e)
       }

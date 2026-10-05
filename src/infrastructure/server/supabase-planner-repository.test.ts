@@ -1,9 +1,9 @@
 import { describe, expect, test, vi } from "vitest"
 
 import type { PersistPlannerRevisionCommand } from "@/application/planner/planner-use-cases"
-import type { ReplacementAuthoritativeInput } from "@/application/planner/planner-use-cases"
 import { LEGACY_PLANNER_ENGINE_VERSION as PLANNER_ENGINE_VERSION } from "@/domain/planner/planner-engine-version"
 import { plannerInput } from "@/domain/planner/planner-test-fixture"
+import { storedLegacyRevision } from "@/test/stored-legacy-plan-fixture"
 
 import { createSupabasePlannerRepository } from "./supabase-planner-repository"
 
@@ -164,48 +164,19 @@ describe("Supabase planner repository", () => {
     })
   })
 
-  test("projects current-plan trust from the stored revision and hydrated immutable plan", async () => {
-    const currentPlan = {
-      items: [{ adultEquivalent: "2.55" }],
-      selected: [],
-      purchaseBasket: {
-        lines: [{ observedAt: "2026-08-20", freshness: "stale_usable" }],
-        warnings: [],
-        totalEstimatedCostVnd: 650_000
-      },
-      totalEstimatedCostVnd: 650_000,
-      score: { explanations: ["REUSE_DISTINCT_FOODS"] },
-      stableIdSequence: "stable",
-      frontierMetrics: []
-    } as unknown as ReplacementAuthoritativeInput["currentPlan"]
+  test("projects current-plan trust directly from the stored immutable revision", async () => {
+    const stored = storedLegacyRevision()
+    const hydrateReplacement = vi.fn(() => {
+      throw new Error("Mutation hydration is unavailable")
+    })
     const repository = createSupabasePlannerRepository({
       userClient: {
-        rpc: vi.fn(() =>
-          success({
-            plan: { id: "plan-1" },
-            revision: {
-              id: "revision-1",
-              budget_vnd: 700_000,
-              budget_status: "within",
-              warnings: [],
-              calculation_date: "2026-08-26"
-            }
-          })
-        )
+        rpc: vi.fn(() => success(stored))
       },
       secretClientFactory: vi.fn(),
       loader: {
         hydrateGeneration: vi.fn(),
-        hydrateReplacement: vi.fn(() =>
-          Promise.resolve({
-            input: plannerInput(),
-            currentPlan,
-            planVersion: 1,
-            currentRevisionId: "revision-1",
-            householdSetupVersion: 1,
-            householdInputFingerprint: "fingerprint"
-          })
-        )
+        hydrateReplacement
       }
     })
 
@@ -213,7 +184,7 @@ describe("Supabase planner repository", () => {
       repository.loadCurrentPlan({
         actorUserId: "user-1",
         householdId: "household-1",
-        weekStart: "2026-08-24"
+        weekStart: "2026-08-31"
       })
     ).resolves.toMatchObject({
       ok: true,
@@ -221,11 +192,12 @@ describe("Supabase planner repository", () => {
         householdSetupVersion: 1,
         trust: {
           calculationDate: "2026-08-26",
-          adultEquivalent: "2.55",
-          stalePriceCount: 1
+          adultEquivalent: "2",
+          stalePriceCount: 7
         }
       }
     })
+    expect(hydrateReplacement).not.toHaveBeenCalled()
   })
 
   test("maps stale and authorization database errors to typed failures", async () => {

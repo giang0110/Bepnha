@@ -197,3 +197,23 @@ export type HouseholdRuleCode = HouseholdRuleOption["code"]
 export const HOUSEHOLD_RULE_OPTION_BY_CODE = new Map<HouseholdRuleCode, HouseholdRuleOption>(
   HOUSEHOLD_RULE_OPTIONS.map((option) => [option.code, option])
 )
+
+/** Broader exclusions still conflict when their preference uses a narrower food target. */
+export function hardRuleConflictsWithPreference(hardCode: string, preferenceCode: string): boolean {
+  const hard = HOUSEHOLD_RULE_OPTION_BY_CODE.get(hardCode as HouseholdRuleCode)
+  const preference = HOUSEHOLD_RULE_OPTION_BY_CODE.get(preferenceCode as HouseholdRuleCode)
+  if (
+    hard === undefined ||
+    hard.ruleKind === "soft_preference" ||
+    preference?.ruleKind !== "soft_preference"
+  )
+    return false
+  if (hard.targetKey === preference.targetKey) return true
+  if (hard.code === "diet_vegetarian") {
+    return ["pork", "beef", "poultry", "fish", "seafood"].includes(preference.targetKey)
+  }
+  return (
+    (hard.code === "exclude_seafood" && preference.code === "prefer_fish") ||
+    (hard.code === "allergen_soy" && preference.code === "prefer_tofu")
+  )
+}

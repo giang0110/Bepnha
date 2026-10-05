@@ -787,6 +787,7 @@ export function searchWeekV2(
   const { complete, frontierMetrics } = searchBoundedWeek({
     eligible,
     config: input.plannerConfig,
+    budgetVnd: input.weeklyPlanBudgetVnd,
     emptyBasket: { lines: [], warnings: [], totalEstimatedCostVnd: 0 },
     basketFor: (selected) => purchaseBasketForV2(input, selected),
     basketCacheKey: mealSetKey,

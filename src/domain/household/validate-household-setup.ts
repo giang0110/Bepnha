@@ -4,20 +4,21 @@ import {
   CHILD_AGE_BANDS,
   type HouseholdMemberGroup,
   type HouseholdSetupInput
-} from "@/domain/household/household"
+} from "./household.js"
 import {
   DEFAULT_ALLERGEN_STRICTNESS,
   isAllergenStrictness,
   type AllergenStrictness
-} from "@/domain/household/allergen-strictness"
+} from "./allergen-strictness.js"
 import {
+  hardRuleConflictsWithPreference,
   HOUSEHOLD_RULE_OPTION_BY_CODE,
   type HouseholdRuleCode,
   type HouseholdRuleOption
-} from "@/domain/household/household-rules"
+} from "./household-rules.js"
 
-import { validateMemberProfiles } from "./validate-member-profiles"
-import type { HouseholdNutritionSetupV1 } from "./member-profile"
+import { validateMemberProfiles } from "./validate-member-profiles.js"
+import type { HouseholdNutritionSetupV1 } from "./member-profile.js"
 
 const childAgeBandSchema = z.enum(CHILD_AGE_BANDS)
 const memberGroupSchema = z.discriminatedUnion("memberKind", [
@@ -145,7 +146,8 @@ function normalizeMemberGroups(
 }
 
 function normalizeRuleCodes(
-  rawRuleCodes: readonly unknown[]
+  rawRuleCodes: readonly unknown[],
+  semanticConflicts: boolean
 ): readonly HouseholdRuleCode[] | HouseholdSetupValidationFailure {
   const selected = new Map<HouseholdRuleCode, HouseholdRuleOption>()
 
@@ -161,14 +163,16 @@ function normalizeRuleCodes(
   }
 
   const options = [...selected.values()]
-  const hardTargets = new Set<string>(
-    options
-      .filter((option) => option.ruleKind !== "soft_preference")
-      .map((option) => option.targetKey)
-  )
+  const hardRules = options.filter((option) => option.ruleKind !== "soft_preference")
   if (
     options.some(
-      (option) => option.ruleKind === "soft_preference" && hardTargets.has(option.targetKey)
+      (option) =>
+        option.ruleKind === "soft_preference" &&
+        hardRules.some((hard) =>
+          semanticConflicts
+            ? hardRuleConflictsWithPreference(hard.code, option.code)
+            : hard.targetKey === option.targetKey
+        )
     )
   ) {
     return invalid("CONFLICTING_RULE_TARGET", "ruleCodes")
@@ -186,6 +190,15 @@ function isValidationFailure(
 }
 
 export function validateHouseholdSetup(input: unknown): HouseholdSetupValidationResult {
+  return validateSetup(input, true)
+}
+
+/** Previously accepted semantic conflicts must remain readable so the household can fix them. */
+export function validateStoredHouseholdSetup(input: unknown): HouseholdSetupValidationResult {
+  return validateSetup(input, false)
+}
+
+function validateSetup(input: unknown, semanticConflicts: boolean): HouseholdSetupValidationResult {
   const shape = inputShapeSchema.safeParse(input)
   if (!shape.success) {
     return invalid("INVALID_INPUT", "input")
@@ -210,7 +223,7 @@ export function validateHouseholdSetup(input: unknown): HouseholdSetupValidation
     return invalid("INVALID_MAX_ELAPSED_MINUTES", "maxElapsedMinutes")
   }
 
-  const ruleCodes = normalizeRuleCodes(shape.data.ruleCodes)
+  const ruleCodes = normalizeRuleCodes(shape.data.ruleCodes, semanticConflicts)
   if (isValidationFailure(ruleCodes)) {
     return ruleCodes
   }

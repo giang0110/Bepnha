@@ -83,7 +83,10 @@ export function scaledPenalty(weight: number, numerator: number, denominator: nu
   return Math.min(weight, Math.max(0, value))
 }
 
-function preferenceMatches(option: ScoringMealOption, code: string): boolean {
+export function preferenceMatches(
+  option: Pick<ScoringMealOption, "roles" | "foodCategoryCodes">,
+  code: string
+): boolean {
   const rule = HOUSEHOLD_RULE_OPTION_BY_CODE.get(code as HouseholdRuleCode)
   if (rule === undefined || rule.ruleKind !== "soft_preference") return false
   if (code === "prefer_vegetable_forward") return option.roles.includes("vegetable")

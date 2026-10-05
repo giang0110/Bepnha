@@ -164,4 +164,58 @@ describe("HouseholdSettingsPage", () => {
     await user.click(screen.getByRole("button", { name: "5. Xem lại & Lưu" }))
     expect(screen.getByRole("heading", { name: "Kiểm tra thay đổi" })).toBeInTheDocument()
   })
+
+  it("explains conflicting rules at Review when direct tabs bypass the preference step", async () => {
+    const user = userEvent.setup()
+    const saveOwn = vi.fn<HouseholdRepository["saveOwn"]>()
+    renderSettings({
+      loadOwn: vi.fn().mockResolvedValue({ ...original, ruleCodes: ["prefer_pork"] }),
+      saveOwn
+    })
+    await screen.findByRole("heading", { name: "Chỉnh sửa thành viên" })
+    await user.click(screen.getByRole("button", { name: "3. Dị ứng & Loại trừ" }))
+    await user.click(screen.getByRole("checkbox", { name: "Không dùng thịt heo" }))
+    await user.click(screen.getByRole("button", { name: "5. Xem lại & Lưu" }))
+    expect(screen.getByRole("alert")).toHaveTextContent(/sở thích.*loại trừ/i)
+    expect(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeDisabled()
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }))
+    expect(saveOwn).not.toHaveBeenCalled()
+    await user.click(screen.getByRole("button", { name: "4. Sở thích & Thời gian" }))
+    await user.click(screen.getByRole("checkbox", { name: "Ưu tiên thịt heo" }))
+    await user.click(screen.getByRole("button", { name: "5. Xem lại & Lưu" }))
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeEnabled()
+  })
+
+  it("requires at least one member even when direct tabs bypass the member step", async () => {
+    const user = userEvent.setup()
+    const saveOwn = vi.fn<HouseholdRepository["saveOwn"]>()
+    renderSettings({
+      loadOwn: vi.fn().mockResolvedValue({
+        ...original,
+        memberGroups: [{ memberKind: "adult", ageBand: "adult", memberCount: 1 }]
+      }),
+      saveOwn
+    })
+    await screen.findByRole("heading", { name: "Chỉnh sửa thành viên" })
+    await user.click(screen.getByRole("button", { name: /xóa/i }))
+    await user.click(screen.getByRole("button", { name: "5. Xem lại & Lưu" }))
+    expect(screen.getByRole("alert")).toHaveTextContent(/1.*20.*thành viên.*Thành viên/i)
+    expect(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeDisabled()
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }))
+    expect(saveOwn).not.toHaveBeenCalled()
+  })
+
+  it("keeps invalid budgets actionable when direct tabs enter Review", async () => {
+    const user = userEvent.setup()
+    const saveOwn = vi.fn<HouseholdRepository["saveOwn"]>()
+    renderSettings({ loadOwn: vi.fn().mockResolvedValue(original), saveOwn })
+    await screen.findByRole("heading", { name: "Chỉnh sửa thành viên" })
+    await user.click(screen.getByRole("button", { name: "2. Ngân sách" }))
+    await user.clear(screen.getByRole("textbox", { name: "Ngân sách tuần (VND)" }))
+    await user.click(screen.getByRole("button", { name: "5. Xem lại & Lưu" }))
+    expect(screen.getByRole("alert")).toHaveTextContent(/ngân sách.*Ngân sách/i)
+    expect(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeDisabled()
+    expect(saveOwn).not.toHaveBeenCalled()
+  })
 })

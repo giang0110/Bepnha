@@ -1,7 +1,10 @@
 import type { ContentHasher } from "../shared/content-hasher.js"
 import { evaluatePlannerEligibility } from "../../domain/planner/evaluate-eligibility.js"
 import { LEGACY_PLANNER_ENGINE_VERSION as PLANNER_ENGINE_VERSION } from "../../domain/planner/planner-engine-version.js"
-import type { PlannerInputV1 } from "../../domain/planner/planner-input.js"
+import type {
+  NormalizedPlannerInputV1,
+  PlannerInputV1
+} from "../../domain/planner/planner-input.js"
 import type { PlannerFatalCode } from "../../domain/planner/planner-outcome.js"
 import {
   buildPlannerSnapshotPayloads,
@@ -52,6 +55,17 @@ export interface ReplacementAuthoritativeInput {
   readonly currentRevisionId: string
   readonly householdSetupVersion: number
   readonly householdInputFingerprint: string
+  readonly historicalHouseholdSetup: Pick<
+    PlannerInputV1,
+    | "householdId"
+    | "householdSetupVersion"
+    | "memberGroups"
+    | "hardRuleCodes"
+    | "allergenStrictness"
+    | "softPreferenceCodes"
+    | "weeklyPlanBudgetVnd"
+    | "maxElapsedMinutes"
+  >
 }
 
 export interface PersistPlannerRevisionCommand {
@@ -158,6 +172,19 @@ async function sha256(hasher: ContentHasher, value: unknown): Promise<string> {
   return hasher.sha256(canonicalUtf8(value))
 }
 
+function householdPlanBinding(input: NormalizedPlannerInputV1) {
+  return {
+    householdId: input.householdId,
+    setupVersion: input.householdSetupVersion,
+    memberGroups: input.memberGroups,
+    hardRuleCodes: input.hardRuleCodes,
+    allergenStrictness: input.allergenStrictness,
+    softPreferenceCodes: input.softPreferenceCodes,
+    weeklyPlanBudgetVnd: input.weeklyPlanBudgetVnd,
+    maxElapsedMinutes: input.maxElapsedMinutes
+  }
+}
+
 async function snapshots(
   hasher: ContentHasher,
   input: PlannerInputV1,
@@ -183,18 +210,7 @@ async function snapshots(
   if (!shopping.ok) return fatal(shopping.error.code)
   const source = buildPlannerSnapshotPayloads({
     engineVersion: PLANNER_ENGINE_VERSION,
-    household: {
-      householdId: normalized.value.householdId,
-      setupVersion: normalized.value.householdSetupVersion,
-      memberGroups: normalized.value.memberGroups,
-      hardRuleCodes: normalized.value.hardRuleCodes,
-      // Recorded with the plan: without it a replay cannot tell why a meal whose lineage is only
-      // `cross_contact_unverified` was offered.
-      allergenStrictness: normalized.value.allergenStrictness,
-      softPreferenceCodes: normalized.value.softPreferenceCodes,
-      weeklyPlanBudgetVnd: normalized.value.weeklyPlanBudgetVnd,
-      maxElapsedMinutes: normalized.value.maxElapsedMinutes
-    },
+    household: householdPlanBinding(normalized.value),
     weekStart: normalized.value.weekStart,
     timezone: normalized.value.timezone,
     calculationDate: normalized.value.calculationDate,
@@ -387,6 +403,23 @@ async function replacementPreview(
   }
   const normalized = normalizePlannerInput(loaded.value.input)
   if (!normalized.ok) return normalized
+  // Child rows can change through owner-authorized APIs without incrementing the parent version.
+  // Compare the frozen household setup before retaining six meals from that earlier setup.
+  if (loaded.value.historicalHouseholdSetup === undefined) {
+    return fatal("PLAN_INPUT_CHANGED_REGENERATION_REQUIRED")
+  }
+  const historical = normalizePlannerInput({
+    ...loaded.value.input,
+    ...loaded.value.historicalHouseholdSetup,
+    candidates: []
+  })
+  if (
+    !historical.ok ||
+    canonicalJson(householdPlanBinding(historical.value)) !==
+      canonicalJson(householdPlanBinding(normalized.value))
+  ) {
+    return fatal("PLAN_INPUT_CHANGED_REGENERATION_REQUIRED")
+  }
   const eligibility = evaluatePlannerEligibility(normalized.value)
   if (!eligibility.ok) return eligibility
   const preview = previewMealReplacement({

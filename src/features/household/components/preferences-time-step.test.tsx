@@ -2,7 +2,10 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
-import { HOUSEHOLD_RULE_OPTIONS } from "@/domain/household/household-rules"
+import {
+  HOUSEHOLD_RULE_OPTION_BY_CODE,
+  HOUSEHOLD_RULE_OPTIONS
+} from "@/domain/household/household-rules"
 
 import { PreferencesTimeStep } from "./preferences-time-step"
 
@@ -60,5 +63,52 @@ describe("PreferencesTimeStep", () => {
 
     await user.click(screen.getByRole("radio", { name: "45 phút" }))
     expect(screen.getByRole("radio", { name: "45 phút" })).toBeInTheDocument()
+  })
+
+  it.each([
+    ["diet_vegetarian", "prefer_pork"],
+    ["diet_vegetarian", "prefer_beef"],
+    ["diet_vegetarian", "prefer_poultry"],
+    ["diet_vegetarian", "prefer_fish"],
+    ["diet_vegetarian", "prefer_seafood"],
+    ["exclude_seafood", "prefer_fish"],
+    ["allergen_soy", "prefer_tofu"]
+  ] as const)("blocks %s from offering incompatible %s", (hard, preference) => {
+    render(
+      <PreferencesTimeStep
+        hardRuleCodes={[hard]}
+        maxElapsedMinutes={30}
+        selectedCodes={[]}
+        onBack={vi.fn()}
+        onContinue={vi.fn()}
+        onTimeChange={vi.fn()}
+        onToggle={vi.fn()}
+      />
+    )
+    expect(
+      screen.getByRole("checkbox", {
+        name: HOUSEHOLD_RULE_OPTION_BY_CODE.get(preference)!.labelVi
+      })
+    ).toBeDisabled()
+  })
+
+  it("lets a household remove an already-selected semantic conflict", async () => {
+    const user = userEvent.setup()
+    const onToggle = vi.fn()
+    render(
+      <PreferencesTimeStep
+        hardRuleCodes={["diet_vegetarian"]}
+        maxElapsedMinutes={30}
+        selectedCodes={["prefer_poultry"]}
+        onBack={vi.fn()}
+        onContinue={vi.fn()}
+        onTimeChange={vi.fn()}
+        onToggle={onToggle}
+      />
+    )
+    expect(screen.getByRole("alert")).toHaveTextContent(/gia cầm/i)
+    expect(screen.getByRole("button", { name: "Tiếp tục" })).toBeDisabled()
+    await user.click(screen.getByRole("checkbox", { name: "Ưu tiên thịt gia cầm" }))
+    expect(onToggle).toHaveBeenCalledWith("prefer_poultry", false)
   })
 })

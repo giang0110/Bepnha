@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest"
 
+import { REQUIRED_NUTRIENT_CODES } from "@/domain/catalog/catalog"
+import { calculateRecipeNutrition } from "@/domain/nutrition/calculate-recipe-nutrition"
 import { normalizeRecipeSteps } from "@/domain/recipe/recipe"
 import {
   projectIngredientDisplayQuantity,
@@ -201,6 +203,96 @@ describe("scaleRecipe", () => {
       )
     ).toEqual({ ok: false, error: { code: "DIMENSION_MISMATCH" } })
   })
+
+  test.each([
+    ["count", "unit-g", "1", "55"],
+    ["volume", "unit-g", "1", "55"],
+    ["count", "unit-kg", "1000", "0.055"],
+    ["volume", "unit-kg", "1000", "0.055"]
+  ] as const)(
+    "rejects %s to %s when base mass and nutrition mass disagree",
+    (sourceDimension, foodBaseUnitId, foodBaseUnitToDimensionBase, baseQuantityPerUnit) => {
+      const recipe = {
+        ...baseRecipe,
+        ingredients: [
+          {
+            ...baseRecipe.ingredients[0],
+            conversion: {
+              ...gramConversion,
+              unitId: `unit-${sourceDimension}`,
+              unitCode: sourceDimension === "count" ? "item" : "ml",
+              sourceDimension,
+              foodBaseUnitId,
+              foodBaseUnitToDimensionBase,
+              baseQuantityPerUnit,
+              grossGramsPerUnit: "110"
+            }
+          }
+        ]
+      }
+      const rejected = { ok: false, error: { code: "DIMENSION_MISMATCH" } }
+
+      expect(scaleRecipe(recipe, household)).toEqual(rejected)
+      expect(scaleRecipeForAdultEquivalent(recipe, "1.25")).toEqual(rejected)
+    }
+  )
+
+  test.each([
+    ["count", "unit-g", "1", "55", "55", "110", "110"],
+    ["count", "unit-kg", "1000", "0.055", "55", "0.11", "110"],
+    ["volume", "unit-g", "1", "0.92", "0.92", "1.84", "1.84"],
+    ["volume", "unit-kg", "1000", "0.00092", "0.92", "0.00184", "1.84"]
+  ] as const)(
+    "preserves physical mass and nutrition for a valid %s to %s conversion",
+    (
+      sourceDimension,
+      foodBaseUnitId,
+      foodBaseUnitToDimensionBase,
+      baseQuantityPerUnit,
+      grossGramsPerUnit,
+      baseQuantity,
+      grossGrams
+    ) => {
+      const scaled = expectScaled({
+        ...baseRecipe,
+        yieldAdultEquivalent: "3.4",
+        ingredients: [
+          {
+            ...baseRecipe.ingredients[0],
+            quantity: "2",
+            conversion: {
+              ...gramConversion,
+              unitId: `unit-${sourceDimension}`,
+              unitCode: sourceDimension === "count" ? "item" : "ml",
+              sourceDimension,
+              foodBaseUnitId,
+              foodBaseUnitToDimensionBase,
+              baseQuantityPerUnit,
+              grossGramsPerUnit
+            }
+          }
+        ]
+      })
+
+      expect(scaled.ingredients[0]).toMatchObject({ sourceQuantity: "2", baseQuantity, grossGrams })
+      const nutrition = calculateRecipeNutrition(
+        scaled.ingredients.map((ingredient) => ({
+          ...ingredient,
+          edibleFraction: "1",
+          nutrients: REQUIRED_NUTRIENT_CODES.map((nutrientCode) => ({
+            nutrientCode,
+            amountPer100g: nutrientCode === "energy_kcal" ? "100" : "0"
+          }))
+        }))
+      )
+      expect(nutrition.ok).toBe(true)
+      if (!nutrition.ok) throw new Error(nutrition.error.code)
+      expect(nutrition.value.totalEdibleGrams).toBe(grossGrams)
+      expect(
+        nutrition.value.nutrients.find((n) => n.nutrientCode === "energy_kcal")?.rawAmount
+      ).toBe(grossGrams)
+    }
+  )
 
   test("keeps raw quantities exact when display projection uses a minimum quantum", () => {
     const result = expectScaled({

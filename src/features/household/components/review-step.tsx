@@ -1,5 +1,6 @@
 import { Button } from "@/app/components/ui/button"
 import type { HouseholdMemberGroup } from "@/domain/household/household"
+import type { HouseholdSetupValidationError } from "@/domain/household/validate-household-setup"
 import { calculateAdultEquivalent } from "@/domain/portion/calculate-adult-equivalent"
 
 import { formatVnd } from "../budget-vnd"
@@ -15,7 +16,8 @@ export type SaveState =
 interface ReviewStepProps {
   nutritionSetup?: HouseholdNutritionSetupV1 | undefined
   canSave?: boolean
-  budgetVnd: number
+  budgetVnd: number | null
+  validationErrors?: readonly HouseholdSetupValidationError[]
   hardRuleCodes: readonly string[]
   heading?: string
   maxElapsedMinutes: number
@@ -38,10 +40,33 @@ function RuleList({ codes, empty }: Readonly<{ codes: readonly string[]; empty: 
   )
 }
 
+function validationMessage(error: HouseholdSetupValidationError): string {
+  switch (error.code) {
+    case "INVALID_MEMBER_TOTAL":
+      return "Gia đình cần từ 1 đến 20 thành viên. Kiểm tra ở bước Thành viên."
+    case "INVALID_MEMBER_GROUP":
+    case "DUPLICATE_MEMBER_GROUP":
+    case "INVALID_NUTRITION_SETUP":
+      return "Kiểm tra lại thông tin thành viên và tỷ lệ năng lượng ở bước Thành viên."
+    case "INVALID_BUDGET":
+      return "Nhập ngân sách từ 1 đến 100.000.000 VND ở bước Ngân sách."
+    case "INVALID_MAX_ELAPSED_MINUTES":
+      return "Chọn thời gian nấu từ 10 đến 180 phút ở bước Sở thích & Thời gian."
+    case "CONFLICTING_RULE_TARGET":
+      return "Sở thích đang mâu thuẫn với dị ứng hoặc loại trừ. Bỏ sở thích xung đột ở bước Sở thích & Thời gian hoặc kiểm tra bước Dị ứng & Loại trừ."
+    case "INVALID_ALLERGEN_STRICTNESS":
+    case "UNKNOWN_RULE_CODE":
+      return "Kiểm tra lại các lựa chọn ở bước Dị ứng & Loại trừ và Sở thích & Thời gian."
+    case "INVALID_INPUT":
+      return "Kiểm tra lại thông tin ở các bước thiết lập trước khi lưu."
+  }
+}
+
 export function ReviewStep({
   budgetVnd,
   nutritionSetup,
   canSave = true,
+  validationErrors = [],
   hardRuleCodes,
   heading = "Kiểm tra thông tin",
   maxElapsedMinutes,
@@ -106,12 +131,21 @@ export function ReviewStep({
           </ul>
         </div>
       ) : null}
-      {!canSave ? (
+      {validationErrors.map((error) => (
+        <p key={error.code} role="alert" className="text-sm text-chilli-700">
+          {validationMessage(error)}
+        </p>
+      ))}
+      {!canSave && validationErrors.length === 0 ? (
         <p role="alert">Kiểm tra lại thông tin thành viên và tỷ lệ năng lượng ở bước Thành viên.</p>
       ) : null}
       <div>
         <h2 className="font-bold text-ink">Ngân sách</h2>
-        <p>{formatVnd(budgetVnd)} VND cho 7 bữa chính</p>
+        <p>
+          {budgetVnd === null
+            ? "Chưa nhập ngân sách hợp lệ"
+            : `${formatVnd(budgetVnd)} VND cho 7 bữa chính`}
+        </p>
       </div>
       <div>
         <h2 className="font-bold text-ink">Dị ứng và loại trừ</h2>

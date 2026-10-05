@@ -13,6 +13,7 @@ import { PLANNER_CONFIG_V1, type PlannerConfigV1 } from "./planner-config.js"
 import type { PlannerWarning } from "./planner-outcome.js"
 import {
   EMPTY_MEAL_OPTION_RATINGS,
+  preferenceMatches,
   scaledPenalty,
   scoreWeeklyPlan,
   type MealOptionRatings,
@@ -169,7 +170,10 @@ export function calculateCompletedPlanCandidate(
 }
 
 export function qualityLowerBound(
-  selected: readonly Pick<EligibleMealOption, "mealOptionId" | "primaryProteinGroup" | "roles">[],
+  selected: readonly Pick<
+    EligibleMealOption,
+    "mealOptionId" | "primaryProteinGroup" | "roles" | "foodCategoryCodes"
+  >[],
   softPreferenceCodes: readonly string[],
   config: Omit<PlannerConfigV1, "version">,
   recentMealOptionIds: readonly string[] = [],
@@ -187,13 +191,12 @@ export function qualityLowerBound(
       (roles.has("vegetable") || roles.has("soup") ? 0 : 1)
     )
   }, 0)
-  const unmatched = softPreferenceCodes.reduce((sum, code) => {
-    if (code === "prefer_soup")
-      return sum + selected.filter((item) => !item.roles.includes("soup")).length
-    if (code === "prefer_vegetable_forward")
-      return sum + selected.filter((item) => !item.roles.includes("vegetable")).length
-    return sum
-  }, 0)
+  // Preference misses already incurred cannot disappear as the week fills. Count every rule
+  // with the final scorer's matcher so preferred protein branches survive frontier pruning.
+  const unmatched = softPreferenceCodes.reduce(
+    (sum, code) => sum + selected.filter((item) => !preferenceMatches(item, code)).length,
+    0
+  )
   // A partial week can only gain recently-cooked meals as it fills, never lose them, so counting
   // them here stays a lower bound while steering the frontier off repeats before depth 7.
   const recentlyCooked = new Set(recentMealOptionIds)
@@ -222,7 +225,11 @@ export function qualityLowerBound(
     scaledPenalty(config.scoringWeights.nutritionComposition, missingRoles, 21) +
     (softPreferenceCodes.length === 0
       ? 0
-      : scaledPenalty(1500, unmatched, softPreferenceCodes.length * 7))
+      : scaledPenalty(
+          config.scoringWeights.preferences,
+          unmatched,
+          softPreferenceCodes.length * config.dayCount
+        ))
   )
 }
 
@@ -236,9 +243,14 @@ export function mealSetKey(selected: readonly SearchMealIdentity[]): string {
 
 function qualityOrder<M extends SearchMealIdentity, B extends SearchBasket>(
   left: SearchState<M, B>,
-  right: SearchState<M, B>
+  right: SearchState<M, B>,
+  budgetVnd?: number
 ): number {
   return (
+    (budgetVnd === undefined
+      ? 0
+      : Number(left.basket.totalEstimatedCostVnd > budgetVnd) -
+        Number(right.basket.totalEstimatedCostVnd > budgetVnd)) ||
     left.qualityLowerBound - right.qualityLowerBound ||
     left.basket.totalEstimatedCostVnd - right.basket.totalEstimatedCostVnd ||
     compareText(left.stableIdSequence, right.stableIdSequence)
@@ -314,6 +326,7 @@ export function searchBoundedWeek<
 >(options: {
   readonly eligible: readonly M[]
   readonly config: Pick<PlannerConfigV1, "dayCount" | "frontier">
+  readonly budgetVnd?: number
   readonly emptyBasket: B
   readonly basketFor: (selected: readonly M[]) => B | null
   /** Opt in only when the basket depends on the meal set, independently of day order. */
@@ -368,7 +381,12 @@ export function searchBoundedWeek<
         })
       }
     }
-    const quality = [...expanded].sort(qualityOrder).slice(0, options.config.frontier.qualitySize)
+    // A costly prefix cannot become affordable by adding positive food requirements. Keep
+    // affordable quality branches before expensive ones; the cost frontier retains fallback
+    // branches when no complete week fits. Final ranking still uses the unchanged scorer.
+    const quality = [...expanded]
+      .sort((left, right) => qualityOrder(left, right, options.budgetVnd))
+      .slice(0, options.config.frontier.qualitySize)
     const cost = [...expanded].sort(costOrder).slice(0, options.config.frontier.costSize)
     const union = new Map<string, SearchState<M, B>>()
     for (const state of [...quality, ...cost]) union.set(state.stableIdSequence, state)
@@ -405,6 +423,7 @@ export function searchWeek(
   const { complete, frontierMetrics } = searchBoundedWeek({
     eligible: eligibleInput,
     config,
+    budgetVnd,
     emptyBasket: { lines: [], warnings: [], totalEstimatedCostVnd: 0 },
     basketFor: (selected) => basketFor(selected, calculationDate, freshnessConfig, deductionsInput),
     basketCacheKey: mealSetKey,
