@@ -24,6 +24,7 @@ import {
   storageZoneMetadata,
   type PantryStorageZone
 } from "@/domain/pantry/pantry-zones"
+import { classifyFoodFreshness, sortPantryByUrgency } from "@/domain/pantry/food-freshness"
 import { findLeftoverMealSuggestions } from "@/domain/pantry/leftover-meal-matcher"
 
 import { PantryQuantityPresets } from "./pantry-quantity-presets"
@@ -105,6 +106,7 @@ function PantryItemEditor({
   const foodName = optionName(option, item.foodId)
   const zone = pantryStorageZone(foodName)
   const meta = storageZoneMetadata(zone)
+  const freshness = classifyFoodFreshness(foodName)
   const badgeClasses: Record<"herb" | "clay" | "broth", string> = {
     herb: "bg-herb-50 text-herb-700 border-herb-200",
     clay: "bg-clay-50 text-clay-700 border-clay-200",
@@ -117,15 +119,43 @@ function PantryItemEditor({
       data-testid={`pantry-item-${item.pantryItemId}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-bold text-ink">{foodName}</h2>
-        <span
-          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${badgeClasses[meta.badgeColor]}`}
-        >
-          <Icon name={meta.iconName} className="size-3" />
-          {meta.labelVi}
-        </span>
+        <div className="flex items-center gap-2">
+          <h2 className="font-bold text-ink">{foodName}</h2>
+          {freshness.isUrgent ? (
+            <span
+              className="rounded-full bg-chilli-100 px-2 py-0.5 text-[10px] font-bold text-chilli-800 uppercase"
+              data-testid="pantry-urgent-tag"
+            >
+              Dùng sớm
+            </span>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${badgeClasses[meta.badgeColor]}`}
+          >
+            <Icon name={meta.iconName} className="size-3" />
+            {meta.labelVi}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${
+              freshness.isUrgent
+                ? "border-chilli-200 bg-chilli-50 text-chilli-800"
+                : freshness.urgencyPriority === 2
+                  ? "border-clay-200 bg-clay-50 text-clay-800"
+                  : "border-broth-200 bg-broth-50 text-broth-800"
+            }`}
+            data-testid="pantry-shelf-life-badge"
+            title={freshness.hintVi}
+          >
+            <Icon name={freshness.isUrgent ? "flame" : "leaf"} className="size-3" />
+            {freshness.shelfLifeVi}
+          </span>
+        </div>
       </div>
-      <p className="mt-1 text-xs text-ink-soft">{meta.freshnessHintVi}</p>
+      <p className="mt-1 text-xs text-ink-soft">
+        {freshness.isUrgent ? freshness.hintVi : meta.freshnessHintVi}
+      </p>
       <div className="mt-3 grid gap-3">
         <label className="grid gap-1 text-sm font-medium">
           <span>Số lượng {foodName}</span>
@@ -216,6 +246,7 @@ export function PantryPage({
   const [message, setMessage] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
   const [selectedZone, setSelectedZone] = useState<PantryStorageZone | "all">("all")
+  const [sortByUrgency, setSortByUrgency] = useState(false)
   const [leftoverFilterOnlyReady, setLeftoverFilterOnlyReady] = useState(false)
   const [recentFoodIds, setRecentFoodIds] = useState<readonly string[]>([])
   const activeHouseholdId = useRef<string | null>(null)
@@ -356,13 +387,22 @@ export function PantryPage({
 
   const displayedItems = useMemo(() => {
     if (state.status !== "ready") return []
-    if (selectedZone === "all") return state.items
-    return state.items.filter((item) => {
-      const opt = state.options.find((o) => o.foodId === item.foodId)
-      const name = opt?.foodNameVi ?? ""
-      return pantryStorageZone(name) === selectedZone
-    })
-  }, [selectedZone, state])
+    let list = state.items
+    if (selectedZone !== "all") {
+      list = list.filter((item) => {
+        const opt = state.options.find((o) => o.foodId === item.foodId)
+        const name = opt?.foodNameVi ?? ""
+        return pantryStorageZone(name) === selectedZone
+      })
+    }
+    if (sortByUrgency) {
+      list = sortPantryByUrgency(list, (item) => {
+        const opt = state.options.find((o) => o.foodId === item.foodId)
+        return opt?.foodNameVi ?? ""
+      })
+    }
+    return list
+  }, [selectedZone, sortByUrgency, state])
 
   async function reloadAfterConflict(householdId: string, options: readonly PantryFoodOption[]) {
     try {
@@ -532,47 +572,71 @@ export function PantryPage({
       {state.status === "ready" ? (
         <>
           {state.items.length > 0 && (
-            <nav
-              aria-label="Khu vực lưu trữ tủ bếp"
-              className="flex flex-wrap items-center gap-2 border-b border-edge pb-3"
-            >
-              <span className="mr-1 text-xs font-bold uppercase tracking-wider text-ink-soft">
-                Ngăn lưu trữ:
-              </span>
-              {PANTRY_STORAGE_ZONES.map((zone) => {
-                const isSelected = selectedZone === zone.id
-                const count =
-                  zone.id === "all"
-                    ? state.items.length
-                    : state.items.filter((item) => {
-                        const opt = state.options.find((o) => o.foodId === item.foodId)
-                        return pantryStorageZone(opt?.foodNameVi ?? "") === zone.id
-                      }).length
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge pb-3">
+              <nav
+                aria-label="Khu vực lưu trữ tủ bếp"
+                className="flex flex-wrap items-center gap-2"
+              >
+                <span className="mr-1 text-xs font-bold uppercase tracking-wider text-ink-soft">
+                  Ngăn lưu trữ:
+                </span>
+                {PANTRY_STORAGE_ZONES.map((zone) => {
+                  const isSelected = selectedZone === zone.id
+                  const count =
+                    zone.id === "all"
+                      ? state.items.length
+                      : state.items.filter((item) => {
+                          const opt = state.options.find((o) => o.foodId === item.foodId)
+                          return pantryStorageZone(opt?.foodNameVi ?? "") === zone.id
+                        }).length
 
-                return (
-                  <button
-                    key={zone.id}
-                    type="button"
-                    aria-pressed={isSelected}
-                    className={`flex min-h-11 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-colors ${
-                      isSelected
-                        ? "bg-herb-700 text-on-herb shadow-xs"
-                        : "border border-edge bg-paper-raised text-ink-soft hover:bg-paper-sunken"
-                    }`}
-                    onClick={() => setSelectedZone(zone.id)}
-                  >
-                    {zone.shortLabelVi}
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                        isSelected ? "bg-herb-50 text-herb-900" : "bg-paper-sunken text-ink"
+                  return (
+                    <button
+                      key={zone.id}
+                      type="button"
+                      aria-pressed={isSelected}
+                      className={`flex min-h-11 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-colors ${
+                        isSelected
+                          ? "bg-herb-700 text-on-herb shadow-xs"
+                          : "border border-edge bg-paper-raised text-ink-soft hover:bg-paper-sunken"
                       }`}
+                      onClick={() => setSelectedZone(zone.id)}
                     >
-                      {count}
-                    </span>
-                  </button>
+                      {zone.shortLabelVi}
+                      <span
+                        className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                          isSelected ? "bg-herb-50 text-herb-900" : "bg-paper-sunken text-ink"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  )
+                })}
+              </nav>
+
+              <button
+                type="button"
+                aria-pressed={sortByUrgency}
+                onClick={() => setSortByUrgency((prev) => !prev)}
+                className={`flex min-h-11 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-colors ${
+                  sortByUrgency
+                    ? "bg-chilli-700 text-white shadow-xs"
+                    : "border border-edge bg-paper-raised text-ink-soft hover:bg-paper-sunken hover:text-ink"
+                }`}
+                data-testid="pantry-sort-urgency-toggle"
+              >
+                <Icon name="flame" className="size-3.5" />
+                Ưu tiên dùng sớm (
+                {
+                  state.items.filter((item) => {
+                    const opt = state.options.find((o) => o.foodId === item.foodId)
+                    return classifyFoodFreshness(opt?.foodNameVi ?? "").isUrgent
+                  }).length
+                }
                 )
-              })}
-            </nav>
+              </button>
+            </div>
           )}
 
           {leftoverSuggestions.length > 0 && (
@@ -589,7 +653,8 @@ export function PantryPage({
                   <div>
                     <h2 className="text-base font-bold text-ink">Nấu vét tủ chống lãng phí</h2>
                     <p className="text-xs text-ink-soft">
-                      Món ăn Việt gợi ý nấu ngay từ nguyên liệu đang có sẵn trong tủ bếp
+                      Món ăn Việt gợi ý nấu ngay từ nguyên liệu đang có sẵn trong tủ bếp (ưu tiên
+                      nguyên liệu tươi cần dùng sớm)
                     </p>
                   </div>
                 </div>
@@ -629,9 +694,21 @@ export function PantryPage({
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-sm font-bold text-ink sm:text-base">
-                          {suggestion.dishNameVi}
-                        </h3>
+                        <div>
+                          <h3 className="text-sm font-bold text-ink sm:text-base">
+                            {suggestion.dishNameVi}
+                          </h3>
+                          {suggestion.hasUrgentIngredients ? (
+                            <span
+                              className="mt-1 inline-flex items-center gap-1 rounded-full bg-chilli-100 px-2 py-0.5 text-[10px] font-bold text-chilli-800"
+                              data-testid={`urgent-dish-badge-${suggestion.dishId}`}
+                            >
+                              <Icon name="flame" className="size-3" />
+                              Ưu tiên cứu đồ tươi
+                            </span>
+                          ) : null}
+                        </div>
+
                         {suggestion.status === "ready_to_cook" ? (
                           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-herb-100 px-2 py-0.5 text-xs font-bold text-herb-900">
                             <Icon name="check" className="size-3" />
@@ -644,14 +721,22 @@ export function PantryPage({
                         )}
                       </div>
                       <div className="mt-2.5 flex flex-wrap gap-1 text-xs">
-                        {suggestion.matchedIngredients.map((ing) => (
-                          <span
-                            key={ing}
-                            className="inline-flex items-center gap-0.5 rounded-lg bg-herb-50 px-2 py-0.5 font-medium text-herb-700"
-                          >
-                            ✓ {ing}
-                          </span>
-                        ))}
+                        {suggestion.matchedIngredients.map((ing) => {
+                          const isUrgent = suggestion.urgentIngredients.includes(ing)
+                          return (
+                            <span
+                              key={ing}
+                              className={`inline-flex items-center gap-0.5 rounded-lg px-2 py-0.5 font-medium ${
+                                isUrgent
+                                  ? "border border-chilli-200 bg-chilli-50 font-bold text-chilli-800"
+                                  : "bg-herb-50 text-herb-700"
+                              }`}
+                            >
+                              ✓ {ing}
+                              {isUrgent ? " ⚡" : ""}
+                            </span>
+                          )
+                        })}
                         {suggestion.missingIngredients.map((ing) => (
                           <span
                             key={ing}
