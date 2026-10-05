@@ -870,4 +870,21 @@ describe("WeeklyPlanPage", () => {
     expect(screen.getByText(/Món cả nhà thèm/i)).toBeInTheDocument()
     expect(screen.getByText(/Gửi thực đơn cho cả nhà/i)).toBeInTheDocument()
   })
+
+  test("opens recipe preview and prep modal when clicking Công thức & Sơ chế", async () => {
+    const user = userEvent.setup()
+    setup({
+      current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+    })
+
+    const previewButtons = await screen.findAllByRole("button", { name: /Công thức & Sơ chế/i })
+    expect(previewButtons.length).toBeGreaterThan(0)
+
+    await user.click(previewButtons[0]!)
+    expect(
+      await screen.findByRole("dialog", { name: /Chi tiết công thức và sơ chế/i })
+    ).toBeInTheDocument()
+    expect(screen.getByText("Nguyên liệu & Sơ chế")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Các bước nấu/i })).toBeInTheDocument()
+  })
 })
