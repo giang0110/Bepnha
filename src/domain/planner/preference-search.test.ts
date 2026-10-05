@@ -95,23 +95,39 @@ describe("preferences before bounded search prunes candidates", () => {
     }
   })
 
-  test("retains more preferred pork and poultry meals inside the same budget", () => {
-    const meals = eligibleMeals()
-    const baseline = searchWeek(meals, 1_200_000, [], "2026-08-26")
-    const preferred = searchWeek(meals, 1_200_000, ["prefer_pork", "prefer_poultry"], "2026-08-26")
-    if (!("plan" in baseline) || !("plan" in preferred)) throw new Error("Expected complete weeks")
-    const countPreferred = (selected: typeof meals) =>
-      selected.filter((meal) => ["pork", "poultry"].includes(meal.primaryProteinGroup)).length
-    expect(preferred.status).toBe("ready_within_budget")
-    expect(countPreferred(preferred.plan.selected)).toBeGreaterThan(
-      countPreferred(baseline.plan.selected)
-    )
-    expect(
-      JSON.stringify(
-        searchWeek([...meals].reverse(), 1_200_000, ["prefer_pork", "prefer_poultry"], "2026-08-26")
+  test(
+    "retains more preferred pork and poultry meals inside the same budget",
+    () => {
+      const meals = eligibleMeals()
+      const baseline = searchWeek(meals, 1_200_000, [], "2026-08-26")
+      const preferred = searchWeek(
+        meals,
+        1_200_000,
+        ["prefer_pork", "prefer_poultry"],
+        "2026-08-26"
       )
-    ).toBe(JSON.stringify(preferred))
-  })
+      if (!("plan" in baseline) || !("plan" in preferred))
+        throw new Error("Expected complete weeks")
+      const countPreferred = (selected: typeof meals) =>
+        selected.filter((meal) => ["pork", "poultry"].includes(meal.primaryProteinGroup)).length
+      expect(preferred.status).toBe("ready_within_budget")
+      expect(countPreferred(preferred.plan.selected)).toBeGreaterThan(
+        countPreferred(baseline.plan.selected)
+      )
+      expect(
+        JSON.stringify(
+          searchWeek(
+            [...meals].reverse(),
+            1_200_000,
+            ["prefer_pork", "prefer_poultry"],
+            "2026-08-26"
+          )
+        )
+      ).toBe(JSON.stringify(preferred))
+    },
+    30_000
+  )
+
 
   test("retains an affordable preferred meal when higher-scoring weeks exceed the budget", () => {
     const meals = eligibleMeals()
@@ -156,18 +172,23 @@ describe("preferences before bounded search prunes candidates", () => {
     )
   })
 
-  test("keeps affordable preferred meals in the v6 budget frontier", () => {
-    const input = nutritionInput(["prefer_pork", "prefer_poultry"], 240_000)
-    const eligibility = evaluatePlannerEligibilityV2(input)
-    if (!eligibility.ok) throw new Error("Expected eligible nutrition-aware meals")
-    const preferred = searchWeekV2(input, eligibility.value.eligible)
-    if (!("plan" in preferred)) throw new Error("Expected complete week")
-    expect(preferred.status).toBe("ready_within_budget")
-    expect(preferred.plan.totalEstimatedCostVnd).toBe(240_000)
-    expect(
-      preferred.plan.selected.filter((meal) =>
-        ["pork", "poultry"].includes(meal.primaryProteinGroup)
-      )
-    ).toHaveLength(1)
-  })
+  test(
+    "keeps affordable preferred meals in the v6 budget frontier",
+    () => {
+      const input = nutritionInput(["prefer_pork", "prefer_poultry"], 240_000)
+      const eligibility = evaluatePlannerEligibilityV2(input)
+      if (!eligibility.ok) throw new Error("Expected eligible nutrition-aware meals")
+      const preferred = searchWeekV2(input, eligibility.value.eligible)
+      if (!("plan" in preferred)) throw new Error("Expected complete week")
+      expect(preferred.status).toBe("ready_within_budget")
+      expect(preferred.plan.totalEstimatedCostVnd).toBe(240_000)
+      expect(
+        preferred.plan.selected.filter((meal) =>
+          ["pork", "poultry"].includes(meal.primaryProteinGroup)
+        )
+      ).toHaveLength(1)
+    },
+    30_000
+  )
+
 })

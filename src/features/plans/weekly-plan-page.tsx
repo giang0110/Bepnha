@@ -921,7 +921,7 @@ export function WeeklyPlanPage({
                     .map((component) => mealRoleLabel(component.mealRole))
                     .join(" · ")}
                 </p>
-                <div className="mt-4 flex gap-2">
+                <div className="mt-4 flex flex-col sm:flex-row gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -1101,7 +1101,7 @@ export function WeeklyPlanPage({
                       Đổi bữa
                     </Button>
                   </div>
-                  <div className="mt-5 flex gap-2">
+                  <div className="mt-5 flex flex-col sm:flex-row gap-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -1124,6 +1124,7 @@ export function WeeklyPlanPage({
                       Bắt đầu nấu
                     </Link>
                   </div>
+
                   <MealDetails
                     item={item}
                     labels={labels}
