@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Link, useParams } from "react-router"
+import { Link, useNavigate, useParams } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
 import type {
@@ -7,11 +7,24 @@ import type {
   MealRatingRepository
 } from "@/application/meal-rating/meal-rating-repository"
 import type { HouseholdRepository } from "@/application/household/household-repository"
-import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
+import {
+  PantryRepositoryError,
+  type PantryRepository
+} from "@/application/pantry/pantry-repository"
+import type {
+  PantryFoodOption,
+  PantryFoodOptionsRepository
+} from "@/application/pantry/pantry-food-options-repository"
 import { useAuth } from "@/app/auth/auth-context"
 import { AppPageShell } from "@/app/components/app-page-shell"
-import { Button, buttonVariants } from "@/app/components/ui/button"
+import { Button } from "@/app/components/ui/button"
 import { Icon } from "@/app/components/ui/icon"
+import { toast } from "@/app/components/ui/toast"
+import {
+  calculatePantryCookingDeduction,
+  type CookingPantryDeductionResultItem
+} from "@/domain/pantry/pantry-cooking-deduction"
+import { PantryCookingDeductionModal } from "./pantry-cooking-deduction-modal"
 
 import { cookingSequence, type CookingStep } from "./cooking-sequence"
 import {
@@ -53,6 +66,7 @@ interface Props {
    * than a control that cannot store the answer.
    */
   readonly mealRatingRepository?: MealRatingRepository
+  readonly pantryRepository?: PantryRepository
   readonly today?: () => Date
 }
 
@@ -595,9 +609,11 @@ export function CookingPage({
   householdRepository,
   plannerApi,
   mealRatingRepository,
+  pantryRepository,
   today
 }: Props) {
   const auth = useAuth()
+  const navigate = useNavigate()
   const params = useParams()
   const dayIndex = Number(params.dayIndex)
   const accessToken = auth.session?.accessToken
@@ -606,6 +622,14 @@ export function CookingPage({
   const [householdId, setHouseholdId] = useState<string | null>(null)
   const [rating, setRating] = useState<MealRating | null>(null)
   const [labels, setLabels] = useState<IngredientLabels>(EMPTY_INGREDIENT_LABELS)
+  const [rawFoodOptions, setRawFoodOptions] = useState<readonly PantryFoodOption[]>([])
+  const [deductionItems, setDeductionItems] = useState<readonly CookingPantryDeductionResultItem[]>(
+    []
+  )
+  const [showDeductionModal, setShowDeductionModal] = useState(false)
+  const [isDeductingPantry, setIsDeductingPantry] = useState(false)
+  const [deductionError, setDeductionError] = useState<string | null>(null)
+  const [checkingPantry, setCheckingPantry] = useState(false)
   const [index, setIndex] = useState(0)
   const [timers, setTimers] = useState<Readonly<Record<string, TimerProgressV1>>>({})
   const [loadedProgressScope, setLoadedProgressScope] = useState<string | null>(null)
@@ -618,7 +642,10 @@ export function CookingPage({
     void foodOptionsRepository
       .load()
       .then((options) => {
-        if (!cancelled) setLabels(ingredientLabels(options))
+        if (!cancelled) {
+          setRawFoodOptions(options)
+          setLabels(ingredientLabels(options))
+        }
       })
       .catch(() => undefined)
     return () => {
@@ -808,6 +835,95 @@ export function CookingPage({
   }, [go])
 
   const dayLabel = DAY_LABELS[dayIndex] ?? "Bữa chính"
+
+  const finishCooking = async () => {
+    if (state.status !== "ready") return
+
+    if (pantryRepository !== undefined && householdId !== null) {
+      setCheckingPantry(true)
+      try {
+        const pantryItems = await pantryRepository.load(householdId)
+        const deductions = calculatePantryCookingDeduction(
+          pantryItems,
+          state.item.scaledIngredients,
+          rawFoodOptions
+        )
+        if (deductions.length > 0) {
+          setDeductionItems(deductions)
+          setDeductionError(null)
+          setShowDeductionModal(true)
+          setCheckingPantry(false)
+          return
+        }
+      } catch {
+        // Fallback to completing meal if pantry check fails
+      }
+      setCheckingPantry(false)
+    }
+
+    clearCookingProgress(window.localStorage, state.revisionId, dayIndex)
+    setLoadedProgressScope(null)
+    toast.success("Bữa cơm đã hoàn thành!")
+    void navigate("/plan")
+  }
+
+  const handleConfirmDeduction = async (
+    selectedItems: readonly CookingPantryDeductionResultItem[]
+  ) => {
+    if (pantryRepository === undefined || householdId === null || state.status !== "ready") return
+    if (selectedItems.length === 0) {
+      clearCookingProgress(window.localStorage, state.revisionId, dayIndex)
+      setLoadedProgressScope(null)
+      setShowDeductionModal(false)
+      void navigate("/plan")
+      return
+    }
+
+    setIsDeductingPantry(true)
+    setDeductionError(null)
+
+    try {
+      for (const item of selectedItems) {
+        if (item.action === "remove") {
+          await pantryRepository.remove(item.pantryItemId, item.expectedVersion)
+        } else {
+          await pantryRepository.upsert({
+            householdId,
+            foodId: item.foodId,
+            foodFactVersionId: item.foodFactVersionId,
+            unitId: item.unitId,
+            quantity: item.remainingQuantity,
+            expectedVersion: item.expectedVersion
+          })
+        }
+      }
+
+      clearCookingProgress(window.localStorage, state.revisionId, dayIndex)
+      setLoadedProgressScope(null)
+      setShowDeductionModal(false)
+      toast.success(`Đã trừ kho tủ bếp cho ${selectedItems.length} nguyên liệu!`)
+      void navigate("/plan")
+    } catch (err: unknown) {
+      if (err instanceof PantryRepositoryError && err.code === "VERSION_CONFLICT") {
+        setDeductionError(
+          "Dữ liệu tủ bếp đã thay đổi trên thiết bị khác. Vui lòng thử lại hoặc bỏ qua."
+        )
+      } else {
+        setDeductionError("Không thể cập nhật tủ bếp lúc này. Bạn có thể thử lại hoặc bỏ qua.")
+      }
+    } finally {
+      setIsDeductingPantry(false)
+    }
+  }
+
+  const handleSkipDeduction = () => {
+    if (state.status === "ready") {
+      clearCookingProgress(window.localStorage, state.revisionId, dayIndex)
+      setLoadedProgressScope(null)
+    }
+    setShowDeductionModal(false)
+    void navigate("/plan")
+  }
 
   return (
     <AppPageShell
@@ -1048,21 +1164,15 @@ export function CookingPage({
               Bước trước
             </Button>
             {index === steps.length - 1 ? (
-              <Link
-                className={buttonVariants({
-                  size: "lg",
-                  className: `flex-1 ${counterMode ? "min-h-16 text-lg font-extrabold sm:text-xl" : ""}`
-                })}
-                to="/plan"
-                onClick={() => {
-                  if (state.status === "ready") {
-                    clearCookingProgress(window.localStorage, state.revisionId, dayIndex)
-                    setLoadedProgressScope(null)
-                  }
-                }}
+              <Button
+                className={`flex-1 ${counterMode ? "min-h-16 text-lg font-extrabold sm:text-xl" : ""}`}
+                disabled={checkingPantry}
+                size="lg"
+                type="button"
+                onClick={() => void finishCooking()}
               >
-                Nấu xong
-              </Link>
+                {checkingPantry ? "Đang đối chiếu kho…" : "Nấu xong"}
+              </Button>
             ) : (
               <Button
                 className={`flex-1 ${counterMode ? "min-h-16 text-lg font-extrabold sm:text-xl" : ""}`}
@@ -1081,6 +1191,15 @@ export function CookingPage({
         dishGroups={prePrepGroups}
         isOpen={showPrePrep}
         onClose={() => setShowPrePrep(false)}
+      />
+
+      <PantryCookingDeductionModal
+        items={deductionItems}
+        isOpen={showDeductionModal}
+        isSubmitting={isDeductingPantry}
+        errorMessage={deductionError}
+        onConfirm={(selected) => void handleConfirmDeduction(selected)}
+        onSkip={handleSkipDeduction}
       />
     </AppPageShell>
   )

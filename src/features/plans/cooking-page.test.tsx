@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 import type { MealRatingRepository } from "@/application/meal-rating/meal-rating-repository"
 import type { HouseholdRepository } from "@/application/household/household-repository"
 import type { PantryFoodOptionsRepository } from "@/application/pantry/pantry-food-options-repository"
+import type { PantryRepository } from "@/application/pantry/pantry-repository"
 import { AuthContext } from "@/app/auth/auth-context"
 import type { HouseholdSetup } from "@/domain/household/household"
 
@@ -125,7 +126,8 @@ function setup(
   apiOverrides: Partial<PlannerApi> = {},
   dayIndex = "1",
   mealRatingRepository?: MealRatingRepository,
-  skipRice: boolean | null = false
+  skipRice: boolean | null = false,
+  pantryRepository?: PantryRepository
 ) {
   if (skipRice !== null) {
     window.localStorage.setItem("bepnha:cooking:skip-rice", String(skipRice))
@@ -148,7 +150,7 @@ function setup(
         foodNameVi: "Gạo tẻ",
         foodFactVersionId: "fact-0",
         baseUnitId: GAM,
-        units: [{ unitId: GAM, unitCode: "g", unitNameVi: "gam" }]
+        units: [{ unitId: GAM, unitCode: "g", unitNameVi: "gam", baseQuantityPerUnit: "1" }]
       }
     ])
   }
@@ -176,10 +178,12 @@ function setup(
                 householdRepository={householdRepository}
                 plannerApi={api}
                 {...(mealRatingRepository === undefined ? {} : { mealRatingRepository })}
+                {...(pantryRepository === undefined ? {} : { pantryRepository })}
                 today={() => new Date("2026-08-27T00:00:00+07:00")}
               />
             }
           />
+          <Route path="/plan" element={<div data-testid="plan-screen">Kế hoạch tuần</div>} />
         </Routes>
       </AuthContext.Provider>
     </MemoryRouter>
@@ -219,7 +223,7 @@ describe("CookingPage", () => {
     expect(screen.getByText("Chiên vàng đều hai mặt.")).toBeInTheDocument()
     // The last step offers the way out rather than a fourth step that does not exist.
     expect(screen.queryByRole("button", { name: "Bước tiếp" })).not.toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Nấu xong" })).toHaveAttribute("href", "/plan")
+    expect(screen.getByRole("button", { name: "Nấu xong" })).toBeInTheDocument()
   })
 
   test("shows the conditions and the named ingredients the step carries", async () => {
@@ -346,7 +350,7 @@ describe("CookingPage", () => {
     }
 
     // The question is an offer, not a toll. Someone carrying a hot pan should be able to walk away.
-    expect(await screen.findByRole("link", { name: "Nấu xong" })).toHaveAttribute("href", "/plan")
+    expect(await screen.findByRole("button", { name: "Nấu xong" })).toBeInTheDocument()
   })
 
   test("toggles counter stand mode to enlarge view and navigation buttons", async () => {
@@ -522,5 +526,106 @@ describe("CookingPage", () => {
     const closeBtn = screen.getByRole("button", { name: "Đã sẵn sàng nấu" })
     await user.click(closeBtn)
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  test("shows pantry deduction modal on 'Nấu xong' when ingredients match pantry, and updates inventory on confirm", async () => {
+    const user = userEvent.setup()
+    const load = vi.fn().mockResolvedValue([
+      {
+        pantryItemId: "pantry-gao",
+        householdId: household.householdId,
+        foodId: GAO,
+        foodFactVersionId: "fact-0",
+        quantity: "1000",
+        unitId: GAM,
+        baseQuantity: "1000",
+        baseUnitId: GAM,
+        version: 1,
+        updatedAt: "2026-08-26T00:00:00Z"
+      }
+    ])
+    const upsert = vi.fn().mockResolvedValue({
+      pantryItemId: "pantry-gao",
+      householdId: household.householdId,
+      foodId: GAO,
+      foodFactVersionId: "fact-0",
+      quantity: "200",
+      unitId: GAM,
+      baseQuantity: "200",
+      baseUnitId: GAM,
+      version: 2,
+      updatedAt: "2026-08-27T00:00:00Z"
+    })
+    const remove = vi.fn()
+    const pantryRepository: PantryRepository = { load, upsert, remove }
+
+    setup({}, "1", undefined, false, pantryRepository)
+
+    // Navigate to the last step
+    expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Bước tiếp" }))
+    await user.click(screen.getByRole("button", { name: "Bước tiếp" }))
+
+    const finishButton = screen.getByRole("button", { name: "Nấu xong" })
+    await user.click(finishButton)
+
+    // Modal should appear with matched pantry item (Gạo tẻ: 1000g available, 800g used -> 200g remaining)
+    expect(await screen.findByRole("dialog", { name: /Xác nhận trừ kho/ })).toBeInTheDocument()
+    expect(screen.getByText("Gạo tẻ")).toBeInTheDocument()
+    expect(screen.getByText(/Còn 200 gam/)).toBeInTheDocument()
+
+    // Confirm deduction
+    const confirmButton = screen.getByRole("button", { name: /Xác nhận trừ kho/ })
+    await user.click(confirmButton)
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        householdId: household.householdId,
+        foodId: GAO,
+        quantity: "200",
+        expectedVersion: 1
+      })
+    )
+    expect(await screen.findByTestId("plan-screen")).toBeInTheDocument()
+  })
+
+  test("skips pantry deduction when cook clicks skip in deduction modal", async () => {
+    const user = userEvent.setup()
+    const load = vi.fn().mockResolvedValue([
+      {
+        pantryItemId: "pantry-gao",
+        householdId: household.householdId,
+        foodId: GAO,
+        foodFactVersionId: "fact-0",
+        quantity: "1000",
+        unitId: GAM,
+        baseQuantity: "1000",
+        baseUnitId: GAM,
+        version: 1,
+        updatedAt: "2026-08-26T00:00:00Z"
+      }
+    ])
+    const upsert = vi.fn()
+    const remove = vi.fn()
+    const pantryRepository: PantryRepository = { load, upsert, remove }
+
+    setup({}, "1", undefined, false, pantryRepository)
+
+    expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Bước tiếp" }))
+    await user.click(screen.getByRole("button", { name: "Bước tiếp" }))
+
+    const finishButton = screen.getByRole("button", { name: "Nấu xong" })
+    await user.click(finishButton)
+
+    expect(await screen.findByRole("dialog", { name: /Xác nhận trừ kho/ })).toBeInTheDocument()
+
+    // Click skip
+    const skipButton = screen.getByRole("button", { name: "Bỏ qua (về kế hoạch)" })
+    await user.click(skipButton)
+
+    expect(upsert).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+    expect(await screen.findByTestId("plan-screen")).toBeInTheDocument()
   })
 })
