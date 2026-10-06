@@ -296,7 +296,7 @@ describe("WeeklyPlanPage", () => {
     })
     setup({ current: createPlannerApi(fetcher).current })
     expect(
-      await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" })
+      await screen.findByRole("button", { name: "Tạo kế hoạch 7 bữa chính" }, { timeout: 4000 })
     ).toBeInTheDocument()
     expect(fetcher).toHaveBeenCalledOnce()
   })

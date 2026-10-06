@@ -97,4 +97,75 @@ describe("Supabase pantry food options repository", () => {
       "PANTRY_FOOD_OPTIONS_UNAVAILABLE"
     )
   })
+
+  test("caches and deduplicates catalog loads across multiple calls on the same repository instance", async () => {
+    const foods = queryResult([
+      {
+        id: "food-a",
+        name_vi: "Gạo",
+        current_fact_version_id: "fact-a",
+        base_unit_id: "unit-g"
+      }
+    ])
+    const conversions = queryResult([{ food_fact_version_id: "fact-a", unit_id: "unit-g" }])
+    const units = queryResult([{ id: "unit-g", code: "g", name_vi: "gam" }])
+    units.select.mockResolvedValue({
+      data: [{ id: "unit-g", code: "g", name_vi: "gam" }],
+      error: null
+    })
+
+    const from = vi.fn((table: string) => {
+      if (table === "food_quantity_policy_versions") return queryResult([])
+      if (table === "foods") return foods
+      if (table === "food_fact_unit_conversions") return conversions
+      return units
+    })
+    const client = { from } as unknown as SupabaseClient<Database>
+    const repo = createSupabasePantryFoodOptionsRepository(client)
+
+    const [first, second] = await Promise.all([repo.load(), repo.load()])
+    const third = await repo.load()
+
+    expect(first).toEqual(second)
+    expect(second).toEqual(third)
+    // foods table should only have been queried once
+    const foodCalls = from.mock.calls.filter(([tbl]) => tbl === "foods")
+    expect(foodCalls.length).toBe(1)
+  })
+
+  test("does not cache rejections and permits retrying after failure", async () => {
+    let callCount = 0
+    const from = vi.fn((table: string) => {
+      callCount++
+      if (callCount === 1) {
+        return queryResult(null, { code: "XX000" })
+      }
+      if (table === "food_quantity_policy_versions") return queryResult([])
+      if (table === "foods") {
+        return queryResult([
+          {
+            id: "food-a",
+            name_vi: "Gạo",
+            current_fact_version_id: "fact-a",
+            base_unit_id: "unit-g"
+          }
+        ])
+      }
+      if (table === "food_fact_unit_conversions") {
+        return queryResult([{ food_fact_version_id: "fact-a", unit_id: "unit-g" }])
+      }
+      const units = queryResult([{ id: "unit-g", code: "g", name_vi: "gam" }])
+      units.select.mockResolvedValue({
+        data: [{ id: "unit-g", code: "g", name_vi: "gam" }],
+        error: null
+      })
+      return units
+    })
+    const client = { from } as unknown as SupabaseClient<Database>
+    const repo = createSupabasePantryFoodOptionsRepository(client)
+
+    await expect(repo.load()).rejects.toThrow("PANTRY_FOOD_OPTIONS_UNAVAILABLE")
+    const successResult = await repo.load()
+    expect(successResult).toHaveLength(1)
+  })
 })

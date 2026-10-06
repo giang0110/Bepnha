@@ -3,7 +3,7 @@ import {
   purchaseRemainderLabel,
   shoppingAmountLabel
 } from "./purchase-quantity-label"
-import { useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useParams, useSearchParams } from "react-router"
 
 import type {
@@ -124,7 +124,7 @@ function staleWarningCopy(value: ReadyShoppingList): string | null {
   return `Giá ước tính có dữ liệu cũ nhưng vẫn dùng được, quan sát ngày ${dates.join(", ")}.`
 }
 
-function ShoppingItemRow({
+const ShoppingItemRow = memo(function ShoppingItemRow({
   item,
   pending,
   queued,
@@ -262,9 +262,9 @@ function ShoppingItemRow({
       </div>
     </li>
   )
-}
+})
 
-function CategorySection({
+const CategorySection = memo(function CategorySection({
   category,
   items,
   pendingIds,
@@ -313,7 +313,7 @@ function CategorySection({
       </ul>
     </section>
   )
-}
+})
 
 export function ShoppingListPage({ repository }: Props) {
   const { planId = "" } = useParams<{ planId: string }>()
@@ -470,6 +470,7 @@ export function ShoppingListPage({ repository }: Props) {
   }
 
   const [searchQuery, setSearchQuery] = useState("")
+  const deferredSearchQuery = useDeferredValue(searchQuery)
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [isFloatingCartVisible, setIsFloatingCartVisible] = useState(true)
 
@@ -511,12 +512,12 @@ export function ShoppingListPage({ repository }: Props) {
     if (categoryFilter !== "all") {
       items = items.filter((item) => item.groceryCategoryCode === categoryFilter)
     }
-    const q = searchQuery.trim().toLowerCase()
+    const q = deferredSearchQuery.trim().toLowerCase()
     if (q !== "") {
       items = items.filter((item) => item.foodNameVi.toLowerCase().includes(q))
     }
     return items
-  }, [state, destinationFilter, statusFilter, categoryFilter, searchQuery])
+  }, [state, destinationFilter, statusFilter, categoryFilter, deferredSearchQuery])
 
   const groups = useMemo(() => categoryGroups(displayedItems), [displayedItems])
 
@@ -638,6 +639,14 @@ export function ShoppingListPage({ repository }: Props) {
       })
     }
   }
+
+  const setCheckedRef = useRef(setChecked)
+  useEffect(() => {
+    setCheckedRef.current = setChecked
+  })
+  const handleItemCheckedChange = useCallback((entry: ShoppingListItem, checked: boolean) => {
+    void setCheckedRef.current(entry, checked)
+  }, [])
 
   const staleCopy = state.status === "ready" ? staleWarningCopy(state.value) : null
   const alertCopy = mutationError ?? staleCopy
@@ -1129,7 +1138,7 @@ export function ShoppingListPage({ repository }: Props) {
                   oneHandMode={oneHandMode}
                   pendingIds={pendingIds}
                   queuedIds={queuedIds}
-                  onCheckedChange={(entry, checked) => void setChecked(entry, checked)}
+                  onCheckedChange={handleItemCheckedChange}
                 />
               ))}
             </div>
