@@ -22,9 +22,9 @@ const original: HouseholdSetup = {
   onboardingCompletedAt: "2026-08-26T00:00:00Z"
 }
 
-function renderSettings(repository: HouseholdRepository) {
+function renderSettings(repository: HouseholdRepository, initialUrl = "/settings/household") {
   return render(
-    <MemoryRouter initialEntries={["/settings/household"]}>
+    <MemoryRouter initialEntries={[initialUrl]}>
       <Routes>
         <Route
           path="/settings/household"
@@ -216,6 +216,74 @@ describe("HouseholdSettingsPage", () => {
     await user.click(screen.getByRole("button", { name: "5. Xem lại & Lưu" }))
     expect(screen.getByRole("alert")).toHaveTextContent(/ngân sách.*Ngân sách/i)
     expect(screen.getByRole("button", { name: "Lưu thay đổi" })).toBeDisabled()
+    expect(saveOwn).not.toHaveBeenCalled()
+  })
+
+  it("opens directly at target section via ?tab deep link parameter", async () => {
+    const repository: HouseholdRepository = {
+      loadOwn: vi.fn().mockResolvedValue(original),
+      saveOwn: vi.fn()
+    }
+    renderSettings(repository, "/settings/household?tab=budget")
+
+    expect(await screen.findByRole("heading", { name: "Chỉnh sửa ngân sách" })).toBeInTheDocument()
+    expect(screen.getByText("Đã đồng bộ")).toBeInTheDocument()
+  })
+
+  it("updates dirty indicator and allows quick saving directly from budget step", async () => {
+    const user = userEvent.setup()
+    const updated: HouseholdSetup = {
+      ...original,
+      weeklyPlanBudgetVnd: 1_500_000,
+      version: 5
+    }
+    const loadOwn = vi
+      .fn<HouseholdRepository["loadOwn"]>()
+      .mockResolvedValueOnce(original)
+      .mockResolvedValueOnce(updated)
+    const saveOwn = vi.fn<HouseholdRepository["saveOwn"]>(() =>
+      Promise.resolve({ ok: true, household: updated })
+    )
+
+    renderSettings({ loadOwn, saveOwn }, "/settings/household?tab=budget")
+    expect(await screen.findByRole("heading", { name: "Chỉnh sửa ngân sách" })).toBeInTheDocument()
+    expect(screen.getByText("Đã đồng bộ")).toBeInTheDocument()
+
+    const budgetInput = screen.getByRole("textbox", { name: "Ngân sách tuần (VND)" })
+    await user.clear(budgetInput)
+    await user.type(budgetInput, "1500000")
+
+    expect(screen.getByText("Chưa lưu thay đổi")).toBeInTheDocument()
+
+    // Save directly using "Lưu nhanh" without stepping through rules or review
+    await user.click(screen.getByRole("button", { name: "Lưu nhanh" }))
+
+    expect(saveOwn).toHaveBeenCalledWith(
+      expect.objectContaining({ weeklyPlanBudgetVnd: 1_500_000 }),
+      4
+    )
+    expect(await screen.findByRole("heading", { name: "Gia đình của bạn" })).toBeInTheDocument()
+    expect(screen.getByText("1.500.000 VND")).toBeInTheDocument()
+  })
+
+  it("redirects quick save to Review step when form has validation errors", async () => {
+    const user = userEvent.setup()
+    const saveOwn = vi.fn<HouseholdRepository["saveOwn"]>()
+    renderSettings(
+      { loadOwn: vi.fn().mockResolvedValue(original), saveOwn },
+      "/settings/household?tab=budget"
+    )
+
+    expect(await screen.findByRole("heading", { name: "Chỉnh sửa ngân sách" })).toBeInTheDocument()
+
+    const budgetInput = screen.getByRole("textbox", { name: "Ngân sách tuần (VND)" })
+    await user.clear(budgetInput)
+
+    await user.click(screen.getByRole("button", { name: "Lưu nhanh" }))
+
+    // Should redirect to Step 5 Review to show validation errors
+    expect(await screen.findByRole("heading", { name: "Kiểm tra thay đổi" })).toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent(/ngân sách.*Ngân sách/i)
     expect(saveOwn).not.toHaveBeenCalled()
   })
 })

@@ -54,6 +54,25 @@ export function BudgetStep({
         />
       </div>
       <p className="text-sm text-ink-soft">Nhập số tiền từ 1 đến 100.000.000 VND.</p>
+      {valid && parsed !== null ? (
+        <div className="rounded-2xl border border-herb-200 bg-herb-50/60 p-3 text-xs text-herb-900 shadow-soft dark:border-herb-800/40 dark:bg-herb-950/30 dark:text-herb-200">
+          <p className="font-semibold text-herb-800 dark:text-herb-300">
+            Ước tính định mức theo bữa:
+          </p>
+          <ul className="mt-1 list-disc pl-4 space-y-0.5 text-ink-soft">
+            <li>
+              Nấu cả 7 ngày: ~
+              <strong className="text-ink">{formatVnd(Math.round(parsed / 7))} đ</strong> / bữa
+              chính
+            </li>
+            <li>
+              Nấu 5 ngày (T2–T6): ~
+              <strong className="text-ink">{formatVnd(Math.round(parsed / 5))} đ</strong> / bữa
+              chính
+            </li>
+          </ul>
+        </div>
+      ) : null}
       {showError ? (
         <p role="alert" className="text-sm text-chilli-700">
           Ngân sách phải là số VND hợp lệ trong giới hạn.
