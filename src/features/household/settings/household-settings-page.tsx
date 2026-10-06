@@ -1,5 +1,5 @@
-import { useEffect, useRef, useReducer, useState } from "react"
-import { Link, useNavigate } from "react-router"
+import { useEffect, useMemo, useReducer, useRef, useState } from "react"
+import { Link, useNavigate, useSearchParams } from "react-router"
 
 import { loadHousehold, type LoadHouseholdResult } from "@/application/household/load-household"
 import type { HouseholdRepository } from "@/application/household/household-repository"
@@ -38,6 +38,31 @@ function resultToPageState(result: LoadHouseholdResult): PageState {
     : { status: "error", reason: result.reason }
 }
 
+const TAB_MAP: Record<string, 1 | 2 | 3 | 4 | 5> = {
+  members: 1,
+  budget: 2,
+  allergies: 3,
+  time: 4,
+  preferences: 4,
+  review: 5
+}
+
+const STEP_TO_TAB: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: "members",
+  2: "budget",
+  3: "allergies",
+  4: "time",
+  5: "review"
+}
+
+const TAB_TITLES: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: "Thành viên",
+  2: "Ngân sách",
+  3: "Dị ứng & Loại trừ",
+  4: "Sở thích & Thời gian",
+  5: "Xem lại & Lưu"
+}
+
 interface HouseholdSettingsEditorProps {
   household: HouseholdSetup
   repository: HouseholdRepository
@@ -53,12 +78,30 @@ function HouseholdSettingsEditor({
   onReload,
   onSaved
 }: HouseholdSettingsEditorProps) {
-  const [state, dispatch] = useReducer(householdFormReducer, household, householdFormStateFromSetup)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const initialStep: 1 | 2 | 3 | 4 | 5 = useMemo(() => {
+    if (tabParam && tabParam in TAB_MAP) {
+      const step = TAB_MAP[tabParam]
+      if (step !== undefined) return step
+    }
+    return 1
+  }, [tabParam])
+
+  const [initialFormState] = useState(() => householdFormStateFromSetup(household))
+  const [state, dispatch] = useReducer(householdFormReducer, initialFormState, (initial) => {
+    if (initialStep !== 1) {
+      return { ...initial, step: initialStep }
+    }
+    return initial
+  })
+
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const nutritionValidation = nutritionSetupFromForm(state)
   const setupValidation = validateHouseholdForm(state)
   const budgetVnd = parseVnd(state.budgetInput)
   const requestEpoch = useRef(0)
+
   useEffect(() => {
     requestEpoch.current += 1
     return () => {
@@ -66,9 +109,75 @@ function HouseholdSettingsEditor({
     }
   }, [repository])
 
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab && tab in TAB_MAP) {
+      const targetStep = TAB_MAP[tab]
+      if (targetStep !== undefined && state.step !== targetStep) {
+        dispatch({ type: "go-to-step", step: targetStep })
+      }
+    }
+  }, [searchParams, state.step])
+
+  function goToStep(nextStep: 1 | 2 | 3 | 4 | 5) {
+    dispatch({ type: "go-to-step", step: nextStep })
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set("tab", STEP_TO_TAB[nextStep])
+        return next
+      },
+      { replace: true }
+    )
+  }
+
+  const isDirty = useMemo(() => {
+    const initial = initialFormState
+    if (state.budgetInput.trim() !== initial.budgetInput.trim()) return true
+    if (state.maxElapsedMinutes !== initial.maxElapsedMinutes) return true
+    if (state.mealEnergyShareInput.trim() !== initial.mealEnergyShareInput.trim()) return true
+    if (JSON.stringify(state.memberCounts) !== JSON.stringify(initial.memberCounts)) return true
+    if (
+      JSON.stringify([...state.hardRuleCodes].sort()) !==
+      JSON.stringify([...initial.hardRuleCodes].sort())
+    )
+      return true
+    if (
+      JSON.stringify([...state.preferenceCodes].sort()) !==
+      JSON.stringify([...initial.preferenceCodes].sort())
+    )
+      return true
+    if (JSON.stringify(state.allergenStrictness) !== JSON.stringify(initial.allergenStrictness))
+      return true
+
+    if (state.memberProfiles.length !== initial.memberProfiles.length) return true
+    for (let i = 0; i < state.memberProfiles.length; i++) {
+      const p1 = state.memberProfiles[i]
+      const p2 = initial.memberProfiles[i]
+      if (!p1 || !p2) return true
+      if (
+        p1.memberKind !== p2.memberKind ||
+        p1.sortOrder !== p2.sortOrder ||
+        p1.label !== p2.label ||
+        p1.heightInput !== p2.heightInput ||
+        p1.weightInput !== p2.weightInput ||
+        p1.ageInput !== p2.ageInput ||
+        p1.sexForEquation !== p2.sexForEquation ||
+        p1.activityLevel !== p2.activityLevel ||
+        p1.goal !== p2.goal
+      ) {
+        return true
+      }
+    }
+    return false
+  }, [state, initialFormState])
+
   async function save() {
     const draft = validateHouseholdForm(state)
-    if (!draft.ok) return
+    if (!draft.ok) {
+      goToStep(5)
+      return
+    }
     const epoch = requestEpoch.current
     setSaveState("saving")
     const result = await saveHousehold(repository, draft.value, household.version)
@@ -78,6 +187,7 @@ function HouseholdSettingsEditor({
       onSaved()
       return
     }
+    goToStep(5)
     if (result.reason === "STALE_HOUSEHOLD_VERSION") setSaveState("stale-error")
     else if (result.reason === "UNAUTHORIZED") setSaveState("auth-error")
     else if (result.reason === "DEPENDENCY_SCHEMA_NOT_READY") setSaveState("schema-error")
@@ -90,14 +200,43 @@ function HouseholdSettingsEditor({
       tabIndex={-1}
       className="mx-auto min-h-screen w-full max-w-4xl overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
     >
-      <div className="mb-4 rounded-2xl border border-edge bg-paper-raised p-4 shadow-soft sm:flex sm:items-center sm:justify-between sm:gap-4">
-        <div className="mb-3 sm:mb-0">
-          <p className="text-sm font-medium text-herb-700">Chỉnh sửa gia đình</p>
-          <p className="mt-1 text-sm text-ink-soft">Bước {state.step}/5</p>
+      <div className="sticky top-0 z-20 mb-6 rounded-2xl border border-edge bg-paper-raised/95 p-3.5 backdrop-blur-md shadow-soft sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div>
+              <p className="text-sm font-bold text-ink">Chỉnh sửa gia đình</p>
+              <p className="text-xs text-ink-soft">
+                Bước {state.step}/5 · {TAB_TITLES[state.step]}
+              </p>
+            </div>
+            {isDirty ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Chưa lưu thay đổi
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-herb-300 bg-herb-50 px-2.5 py-0.5 text-xs font-semibold text-herb-900 dark:border-herb-700/60 dark:bg-herb-950/40 dark:text-herb-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-herb-600" />
+                Đã đồng bộ
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+              Hủy chỉnh sửa
+            </Button>
+            {state.step !== 5 ? (
+              <Button
+                type="button"
+                size="sm"
+                disabled={saveState === "saving"}
+                onClick={() => void save()}
+              >
+                {saveState === "saving" ? "Đang lưu…" : "Lưu nhanh"}
+              </Button>
+            ) : null}
+          </div>
         </div>
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Hủy chỉnh sửa
-        </Button>
       </div>
 
       <nav aria-label="Các bước cài đặt" className="mb-6 flex flex-wrap gap-1.5 sm:gap-2">
@@ -118,7 +257,7 @@ function HouseholdSettingsEditor({
                 : "bg-paper-raised text-ink-soft hover:bg-paper-sunken hover:text-ink"
             ].join(" ")}
             aria-current={state.step === item.step ? "step" : undefined}
-            onClick={() => dispatch({ type: "go-to-step", step: item.step as 1 | 2 | 3 | 4 | 5 })}
+            onClick={() => goToStep(item.step as 1 | 2 | 3 | 4 | 5)}
           >
             {item.step}. {item.label}
           </button>
@@ -132,16 +271,16 @@ function HouseholdSettingsEditor({
           counts={state.memberCounts}
           heading="Chỉnh sửa thành viên"
           onChange={(key, count) => dispatch({ type: "set-member-count", key, count })}
-          onContinue={() => dispatch({ type: "go-to-step", step: 2 })}
+          onContinue={() => goToStep(2)}
         />
       ) : null}
       {state.step === 2 ? (
         <BudgetStep
           heading="Chỉnh sửa ngân sách"
           value={state.budgetInput}
-          onBack={() => dispatch({ type: "go-to-step", step: 1 })}
+          onBack={() => goToStep(1)}
           onChange={(value) => dispatch({ type: "set-budget", value })}
-          onContinue={() => dispatch({ type: "go-to-step", step: 3 })}
+          onContinue={() => goToStep(3)}
         />
       ) : null}
       {state.step === 3 ? (
@@ -149,8 +288,8 @@ function HouseholdSettingsEditor({
           heading="Chỉnh sửa dị ứng và loại trừ"
           selectedCodes={state.hardRuleCodes}
           allergenStrictness={state.allergenStrictness}
-          onBack={() => dispatch({ type: "go-to-step", step: 2 })}
-          onContinue={() => dispatch({ type: "go-to-step", step: 4 })}
+          onBack={() => goToStep(2)}
+          onContinue={() => goToStep(4)}
           onToggle={(code, selected) => dispatch({ type: "toggle-rule", code, selected })}
           onStrictnessChange={(code, strictness) =>
             dispatch({ type: "set-allergen-strictness", code, strictness })
@@ -163,8 +302,8 @@ function HouseholdSettingsEditor({
           heading="Chỉnh sửa sở thích và thời gian"
           maxElapsedMinutes={state.maxElapsedMinutes}
           selectedCodes={state.preferenceCodes}
-          onBack={() => dispatch({ type: "go-to-step", step: 3 })}
-          onContinue={() => dispatch({ type: "go-to-step", step: 5 })}
+          onBack={() => goToStep(3)}
+          onContinue={() => goToStep(5)}
           onTimeChange={(minutes) => dispatch({ type: "set-max-elapsed-minutes", minutes })}
           onToggle={(code, selected) => dispatch({ type: "toggle-rule", code, selected })}
         />
@@ -181,13 +320,28 @@ function HouseholdSettingsEditor({
             preferenceCodes={state.preferenceCodes}
             saveLabel="Lưu thay đổi"
             saveState={saveState}
-            onBack={() => dispatch({ type: "go-to-step", step: 4 })}
+            onBack={() => goToStep(4)}
             canSave={setupValidation.ok}
             validationErrors={setupValidation.ok ? [] : setupValidation.errors}
             onSave={() => void save()}
           />
           {saveState === "stale-error" ? (
-            <Button className="mt-3 w-full" type="button" variant="outline" onClick={onReload}>
+            <Button
+              className="mt-3 w-full"
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setSearchParams(
+                  (prev) => {
+                    const next = new URLSearchParams(prev)
+                    next.delete("tab")
+                    return next
+                  },
+                  { replace: true }
+                )
+                onReload()
+              }}
+            >
               Tải lại thông tin mới nhất
             </Button>
           ) : null}

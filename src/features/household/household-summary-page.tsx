@@ -114,7 +114,15 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft">
-          <h2 className="font-bold text-ink">Thành viên</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-ink">Thành viên</h2>
+            <Link
+              to="/settings/household?tab=members"
+              className="text-xs font-semibold text-herb-700 hover:text-herb-900 hover:underline"
+            >
+              Sửa nhanh
+            </Link>
+          </div>
           <ul className="mt-3 grid gap-2 text-sm text-ink-soft">
             {state.household.memberGroups.map((group) => (
               <li key={`${group.memberKind}:${group.ageBand}`}>{memberGroupLabel(group)}</li>
@@ -160,7 +168,15 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
         </section>
 
         <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft">
-          <h2 className="font-bold text-ink">Ngân sách</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-ink">Ngân sách</h2>
+            <Link
+              to="/settings/household?tab=budget"
+              className="text-xs font-semibold text-herb-700 hover:text-herb-900 hover:underline"
+            >
+              Sửa nhanh
+            </Link>
+          </div>
           <p className="mt-3 text-2xl font-semibold tracking-tight">
             {formatVnd(state.household.weeklyPlanBudgetVnd)} VND
           </p>
@@ -168,7 +184,15 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
         </section>
 
         <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft">
-          <h2 className="font-bold text-ink">Thời gian nấu tối đa</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-ink">Thời gian nấu tối đa</h2>
+            <Link
+              to="/settings/household?tab=time"
+              className="text-xs font-semibold text-herb-700 hover:text-herb-900 hover:underline"
+            >
+              Sửa nhanh
+            </Link>
+          </div>
           <p className="mt-3 text-2xl font-semibold tracking-tight">
             {state.household.maxElapsedMinutes} phút
           </p>
@@ -176,7 +200,15 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
         </section>
 
         <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft md:col-span-1 xl:col-span-2">
-          <h2 className="font-bold text-ink">Dị ứng và loại trừ</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-ink">Dị ứng và loại trừ</h2>
+            <Link
+              to="/settings/household?tab=allergies"
+              className="text-xs font-semibold text-herb-700 hover:text-herb-900 hover:underline"
+            >
+              Sửa nhanh
+            </Link>
+          </div>
           {hardCodes.length === 0 ? (
             <p className="mt-3 text-sm text-ink-soft">Không chọn</p>
           ) : (
@@ -194,7 +226,15 @@ export function HouseholdSummaryPage({ repository }: HouseholdSummaryPageProps) 
         </section>
 
         <section className="rounded-3xl border border-edge bg-paper-raised p-5 shadow-soft">
-          <h2 className="font-bold text-ink">Sở thích</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-ink">Sở thích</h2>
+            <Link
+              to="/settings/household?tab=preferences"
+              className="text-xs font-semibold text-herb-700 hover:text-herb-900 hover:underline"
+            >
+              Sửa nhanh
+            </Link>
+          </div>
           {preferenceCodes.length === 0 ? (
             <p className="mt-3 text-sm text-ink-soft">Không chọn</p>
           ) : (
