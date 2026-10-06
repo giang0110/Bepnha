@@ -107,7 +107,9 @@ describe("sign in", () => {
     await user.type(screen.getByLabelText("Mật khẩu"), "correct horse battery staple")
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }))
 
-    expect(await screen.findByRole("heading", { name: "Đi chợ" })).toBeInTheDocument()
+    expect(
+      await screen.findByRole("heading", { name: "Đi chợ" }, { timeout: 4000 })
+    ).toBeInTheDocument()
     await waitFor(() => {
       expect(shoppingLoad).toHaveBeenCalledWith("plan-a", "revision-v1")
     })

@@ -1,5 +1,5 @@
 import { pantryQuantityIsWhole } from "./whole-unit-quantity"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
@@ -88,7 +88,7 @@ function sortItems(
   })
 }
 
-function PantryItemEditor({
+const PantryItemEditor = memo(function PantryItemEditor({
   item,
   option,
   pending,
@@ -104,9 +104,9 @@ function PantryItemEditor({
   const [quantity, setQuantity] = useState(item.quantity)
   const [unitId, setUnitId] = useState(item.unitId)
   const foodName = optionName(option, item.foodId)
-  const zone = pantryStorageZone(foodName)
-  const meta = storageZoneMetadata(zone)
-  const freshness = classifyFoodFreshness(foodName)
+  const zone = useMemo(() => pantryStorageZone(foodName), [foodName])
+  const meta = useMemo(() => storageZoneMetadata(zone), [zone])
+  const freshness = useMemo(() => classifyFoodFreshness(foodName), [foodName])
   const badgeClasses: Record<"herb" | "clay" | "broth", string> = {
     herb: "bg-herb-50 text-herb-700 border-herb-200",
     clay: "bg-clay-50 text-clay-700 border-clay-200",
@@ -230,7 +230,7 @@ function PantryItemEditor({
       </div>
     </li>
   )
-}
+})
 
 export function PantryPage({
   householdRepository,
@@ -242,6 +242,7 @@ export function PantryPage({
   const [selectedUnitId, setSelectedUnitId] = useState("")
   const [newQuantity, setNewQuantity] = useState("0")
   const [searchQuery, setSearchQuery] = useState("")
+  const deferredSearchQuery = useDeferredValue(searchQuery)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
@@ -304,7 +305,7 @@ export function PantryPage({
   const availableOptions = useMemo(() => {
     if (state.status !== "ready") return []
     const existingFoodIds = new Set(state.items.map((item) => item.foodId))
-    const query = searchQuery
+    const query = deferredSearchQuery
       .trim()
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "")
@@ -320,7 +321,7 @@ export function PantryPage({
         .toLowerCase()
       return name.includes(query)
     })
-  }, [searchQuery, state])
+  }, [deferredSearchQuery, state])
 
   const recentOptions = useMemo(() => {
     if (state.status !== "ready") return []
@@ -474,6 +475,24 @@ export function PantryPage({
       setPendingKey(null)
     }
   }
+
+  const saveExistingRef = useRef(saveExisting)
+  const removeExistingRef = useRef(removeExisting)
+  useEffect(() => {
+    saveExistingRef.current = saveExisting
+    removeExistingRef.current = removeExisting
+  })
+
+  const handleSaveExisting = useCallback(
+    (item: PantryItemRecord, quantity: string, unitId: string) => {
+      void saveExistingRef.current(item, quantity, unitId)
+    },
+    []
+  )
+
+  const handleRemoveExisting = useCallback((item: PantryItemRecord) => {
+    void removeExistingRef.current(item)
+  }, [])
 
   async function addItem() {
     if (
@@ -913,8 +932,8 @@ export function PantryPage({
                     key={`${item.pantryItemId}:${item.version}`}
                     option={option}
                     pending={pendingKey === item.pantryItemId}
-                    onRemove={(entry) => void removeExisting(entry)}
-                    onSave={(entry, quantity, unitId) => void saveExisting(entry, quantity, unitId)}
+                    onRemove={handleRemoveExisting}
+                    onSave={handleSaveExisting}
                   />
                 )
               })}

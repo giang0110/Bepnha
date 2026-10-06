@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { memo, useMemo, useState } from "react"
 import { Icon } from "@/app/components/ui/icon"
 import {
   analyzeWeeklyRotation,
@@ -18,18 +18,32 @@ interface Props {
   readonly availableFoodNames?: readonly string[]
 }
 
-export function WeeklyRotationBalanceCard({ items, weekStart, availableFoodNames }: Props) {
+export const WeeklyRotationBalanceCard = memo(function WeeklyRotationBalanceCard({
+  items,
+  weekStart,
+  availableFoodNames
+}: Props) {
   const [weatherOverride, setWeatherOverride] = useState<WeatherTendency | undefined>(undefined)
 
-  const report = analyzeWeeklyRotation(items, weekStart)
-  const seasonalReport = analyzeSeasonalBalance(items, weekStart, weatherOverride)
-  const leftoverReport =
-    availableFoodNames && availableFoodNames.length > 0
-      ? summarizeLeftoverEfficiency(availableFoodNames)
-      : null
+  const report = useMemo(() => analyzeWeeklyRotation(items, weekStart), [items, weekStart])
+  const seasonalReport = useMemo(
+    () => analyzeSeasonalBalance(items, weekStart, weatherOverride),
+    [items, weekStart, weatherOverride]
+  )
+  const leftoverReport = useMemo(
+    () =>
+      availableFoodNames && availableFoodNames.length > 0
+        ? summarizeLeftoverEfficiency(availableFoodNames)
+        : null,
+    [availableFoodNames]
+  )
 
-  const activeProteins = (Object.entries(report.proteinCounts) as [ProteinGroup, number][]).filter(
-    ([group, count]) => group !== "other" && count > 0
+  const activeProteins = useMemo(
+    () =>
+      (Object.entries(report.proteinCounts) as [ProteinGroup, number][]).filter(
+        ([group, count]) => group !== "other" && count > 0
+      ),
+    [report.proteinCounts]
   )
 
   return (
@@ -219,4 +233,4 @@ export function WeeklyRotationBalanceCard({ items, weekStart, availableFoodNames
       )}
     </section>
   )
-}
+})
