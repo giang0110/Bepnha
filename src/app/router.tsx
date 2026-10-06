@@ -216,6 +216,7 @@ export function AppRouter({
                 foodOptionsRepository={pantryFoodOptionsRepository}
                 householdRepository={householdRepository}
                 {...(mealRatingRepository === undefined ? {} : { mealRatingRepository })}
+                pantryRepository={pantryRepository}
                 plannerApi={plannerApi}
               />
             </Suspense>
