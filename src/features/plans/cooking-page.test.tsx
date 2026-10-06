@@ -72,7 +72,7 @@ function item(dayIndex: number): PlanItemView {
         recipe: {
           recipeId: "com",
           recipeVersionId: "com-v1",
-          ingredients: [],
+          ingredients: [{ recipeIngredientId: "ri-gao-com", foodId: GAO }],
           steps: [
             {
               order: 1,
@@ -80,7 +80,7 @@ function item(dayIndex: number): PlanItemView {
               timerMinutes: null,
               heatLevel: null,
               temperatureCelsius: null,
-              ingredientIds: []
+              ingredientIds: ["ri-gao-com"]
             }
           ]
         }
@@ -89,6 +89,14 @@ function item(dayIndex: number): PlanItemView {
     scaledIngredients: [
       {
         sourceId: "meal-recipe-main:ri-gao",
+        foodId: GAO,
+        foodFactVersionId: "fact-0",
+        baseUnitId: GAM,
+        baseQuantity: "400",
+        grossGrams: "400"
+      },
+      {
+        sourceId: "meal-recipe-staple:ri-gao-com",
         foodId: GAO,
         foodFactVersionId: "fact-0",
         baseUnitId: GAM,
@@ -116,8 +124,12 @@ function ready(): PlannerReadyResponse {
 function setup(
   apiOverrides: Partial<PlannerApi> = {},
   dayIndex = "1",
-  mealRatingRepository?: MealRatingRepository
+  mealRatingRepository?: MealRatingRepository,
+  skipRice: boolean | null = false
 ) {
+  if (skipRice !== null) {
+    window.localStorage.setItem("bepnha:cooking:skip-rice", String(skipRice))
+  }
   const api: PlannerApi = {
     generate: vi.fn(),
     current: vi.fn().mockResolvedValue({ ok: true, value: ready() }),
@@ -429,22 +441,30 @@ describe("CookingPage", () => {
     expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
   })
 
-  test("toggles skipping rice steps and remembers preference in localStorage", async () => {
+  test("defaults to skipping rice with estimate banner and toggles preference in localStorage", async () => {
     const user = userEvent.setup()
-    setup()
+    // pass null to simulate default unconfigured state (no prior localStorage)
+    setup({}, "1", undefined, null)
 
-    await screen.findByText("Vo gạo.")
-    const skipRiceBtn = screen.getByRole("button", { name: "Bỏ qua bước nấu cơm" })
-    await user.click(skipRiceBtn)
-
+    // Unconfigured state: skips rice by default, starts on main dish
+    expect(await screen.findByText("Ướp gà với gia vị.")).toBeInTheDocument()
     expect(screen.queryByText("Vo gạo.")).not.toBeInTheDocument()
-    expect(screen.getByText("Ướp gà với gia vị.")).toBeInTheDocument()
-    expect(window.localStorage.getItem("bepnha:cooking:skip-rice")).toBe("true")
+    expect(screen.getByText(/Nồi cơm điện:/i)).toBeInTheDocument()
+    expect(screen.getByText(/Nhớ cắm nồi:/i)).toBeInTheDocument()
+    expect(screen.getByText(/Gạo tẻ — 400 g \(~2,5 bát\/cốc đong\)/i)).toBeInTheDocument()
 
+    // Clicking "Hiện lại bước nấu cơm" reveals rice step
     const showRiceBtn = screen.getByRole("button", { name: "Hiện lại bước nấu cơm" })
     await user.click(showRiceBtn)
     expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
     expect(window.localStorage.getItem("bepnha:cooking:skip-rice")).toBe("false")
+
+    // Clicking "Bỏ qua bước nấu cơm" hides it again and remembers in localStorage
+    const skipRiceBtn = screen.getByRole("button", { name: "Bỏ qua bước nấu cơm" })
+    await user.click(skipRiceBtn)
+    expect(screen.queryByText("Vo gạo.")).not.toBeInTheDocument()
+    expect(screen.getByText("Ướp gà với gia vị.")).toBeInTheDocument()
+    expect(window.localStorage.getItem("bepnha:cooking:skip-rice")).toBe("true")
   })
 
   test("shows background timer banner when navigating away from a running timer and jumps back", async () => {
@@ -487,14 +507,16 @@ describe("CookingPage", () => {
       screen.getByRole("dialog", { name: "Khâu sơ chế & Chuẩn bị nguyên liệu" })
     ).toBeInTheDocument()
     expect(screen.getByText("Sơ chế & Chuẩn bị nguyên liệu")).toBeInTheDocument()
-    expect(screen.getByText(/Đã sơ chế 0\//i)).toBeInTheDocument()
+    expect(screen.getByText(/Đã sơ chế 0\/2/i)).toBeInTheDocument()
 
     // Toggle ingredient checkbox
-    const checkbox = screen.getByRole("checkbox")
-    expect(checkbox).not.toBeChecked()
-    await user.click(checkbox)
-    expect(checkbox).toBeChecked()
-    expect(screen.getByText(/Đã sơ chế 1\//i)).toBeInTheDocument()
+    const [firstCheckbox] = screen.getAllByRole("checkbox")
+    expect(firstCheckbox).toBeDefined()
+    if (!firstCheckbox) throw new Error("Expected at least one ingredient checkbox")
+    expect(firstCheckbox).not.toBeChecked()
+    await user.click(firstCheckbox)
+    expect(firstCheckbox).toBeChecked()
+    expect(screen.getByText(/Đã sơ chế 1\/2/i)).toBeInTheDocument()
 
     // Close modal
     const closeBtn = screen.getByRole("button", { name: "Đã sẵn sàng nấu" })

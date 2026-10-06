@@ -38,6 +38,29 @@ describe("pantry-zones domain", () => {
     expect(pantryStorageZone("Tiêu xay")).toBe("ambient")
   })
 
+  test("classifies dried proteins, dried mushrooms, and Chinese sausages as ambient zone (tủ đồ khô)", () => {
+    expect(pantryStorageZone("Tôm khô Cà Mau")).toBe("ambient")
+    expect(pantryStorageZone("Cá khô")).toBe("ambient")
+    expect(pantryStorageZone("Cá cơm khô")).toBe("ambient")
+    expect(pantryStorageZone("Mực khô")).toBe("ambient")
+    expect(pantryStorageZone("Tép khô")).toBe("ambient")
+    expect(pantryStorageZone("Khô bò")).toBe("ambient")
+    expect(pantryStorageZone("Khô gà")).toBe("ambient")
+    expect(pantryStorageZone("Nấm hương khô")).toBe("ambient")
+    expect(pantryStorageZone("Mộc nhĩ")).toBe("ambient")
+    expect(pantryStorageZone("Nấm mèo")).toBe("ambient")
+    expect(pantryStorageZone("Lạp xưởng Mai Quế Lộ")).toBe("ambient")
+    expect(pantryStorageZone("Măng khô")).toBe("ambient")
+  })
+
+  test("classifies Vietnamese eggplants and produce as chilled zone rather than frozen", () => {
+    expect(pantryStorageZone("Cà bát")).toBe("chilled")
+    expect(pantryStorageZone("Cà dừa")).toBe("chilled")
+    expect(pantryStorageZone("Su hào")).toBe("chilled")
+    expect(pantryStorageZone("Cần tây")).toBe("chilled")
+    expect(pantryStorageZone("Dưa chuột")).toBe("chilled")
+  })
+
   test("returns clear freshness hints and visual metadata for each zone", () => {
     const chilled = storageZoneMetadata("chilled")
     expect(chilled.labelVi).toBe("Ngăn mát")

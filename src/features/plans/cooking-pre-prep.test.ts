@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest"
 
-import { extractMealPrePrepGroups } from "./cooking-pre-prep"
+import {
+  extractMealPrePrepGroups,
+  extractStapleRiceSummary,
+  formatRiceHouseholdEstimateVi
+} from "./cooking-pre-prep"
 import type { PlanItemView } from "./planner-api"
 import type { IngredientLabels } from "./ingredient-labels"
 
@@ -111,7 +115,7 @@ describe("extractMealPrePrepGroups", () => {
     expect(groups).toHaveLength(2)
     expect(groups[0]?.dishLabel).toBe("Cơm")
     expect(groups[0]?.ingredients).toHaveLength(1)
-    expect(groups[0]?.ingredients[0]?.label).toBe("Gạo tẻ — 400 g")
+    expect(groups[0]?.ingredients[0]?.label).toBe("Gạo tẻ — 400 g (~2,5 bát/cốc đong)")
 
     expect(groups[1]?.dishLabel).toBe("Món mặn")
     expect(groups[1]?.ingredients).toHaveLength(2)
@@ -123,5 +127,17 @@ describe("extractMealPrePrepGroups", () => {
     const groups = extractMealPrePrepGroups(mockItem, mockLabels, { skipStaple: true })
     expect(groups).toHaveLength(1)
     expect(groups[0]?.dishLabel).toBe("Món mặn")
+  })
+
+  test("formats rice grams into household cup/bowl estimate", () => {
+    expect(formatRiceHouseholdEstimateVi(150)).toBe("~1 bát/cốc đong")
+    expect(formatRiceHouseholdEstimateVi(300)).toBe("~2 bát/cốc đong")
+    expect(formatRiceHouseholdEstimateVi(400)).toBe("~2,5 bát/cốc đong")
+    expect(formatRiceHouseholdEstimateVi(0)).toBe("")
+  })
+
+  test("extracts staple rice summary with household estimate for banner display", () => {
+    const summary = extractStapleRiceSummary(mockItem, mockLabels)
+    expect(summary).toBe("Gạo tẻ — 400 g (~2,5 bát/cốc đong)")
   })
 })

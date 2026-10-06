@@ -90,6 +90,58 @@ describe("food-freshness domain", () => {
     }
   })
 
+  test("classifies dried proteins and mushrooms as long shelf life dry goods", () => {
+    const driedFoods = [
+      "Tôm khô Cà Mau",
+      "Cá khô",
+      "Cá cơm khô",
+      "Mực khô",
+      "Tép khô",
+      "Khô bò",
+      "Khô gà lá chanh",
+      "Lạp xưởng Mai Quế Lộ",
+      "Nấm hương khô",
+      "Mộc nhĩ",
+      "Nấm mèo",
+      "Măng khô",
+      "Rong biển khô"
+    ]
+
+    for (const item of driedFoods) {
+      const info = classifyFoodFreshness(item)
+      expect(info.category, `Expected ${item} to be dry_and_spices`).toBe("dry_and_spices")
+      expect(info.isUrgent, `Expected ${item} to not be urgent`).toBe(false)
+      expect(info.urgencyPriority).toBe(1)
+      expect(info.shelfLifeVi).toContain("vài tháng")
+    }
+  })
+
+  test("distinguishes dried food from braised meat/fish dishes (kho vs khô)", () => {
+    // Braised leftovers contain fresh meat/seafood and must remain perishable
+    const braisedDishes = ["Thịt kho tàu", "Thịt ba chỉ kho tiêu", "Cá kho tộ", "Cá bống kho"]
+    for (const item of braisedDishes) {
+      const info = classifyFoodFreshness(item)
+      expect(info.category, `Expected ${item} to be fresh_meat_seafood`).toBe("fresh_meat_seafood")
+      expect(info.isUrgent).toBe(true)
+    }
+  })
+
+  test("correctly classifies Vietnamese eggplant varieties and northern produce without misidentifying as fish", () => {
+    const eggplants = ["Cà bát muối", "Cà bát tươi", "Cà dừa", "Su hào"]
+    for (const item of eggplants) {
+      const info = classifyFoodFreshness(item)
+      expect(info.category, `Expected ${item} to be root_vegetable_egg`).toBe("root_vegetable_egg")
+      expect(info.isUrgent).toBe(false)
+    }
+
+    const greens = ["Cần tây", "Dưa chuột"]
+    for (const item of greens) {
+      const info = classifyFoodFreshness(item)
+      expect(info.category, `Expected ${item} to be leafy_vegetable`).toBe("leafy_vegetable")
+      expect(info.isUrgent).toBe(true)
+    }
+  })
+
   test("sorts pantry items prioritizing urgent fresh ingredients first", () => {
     const items = [
       { name: "Nước mắm" },

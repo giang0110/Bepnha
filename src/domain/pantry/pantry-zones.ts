@@ -1,3 +1,5 @@
+import { isDriedPantryFood } from "./food-freshness"
+
 export type PantryStorageZone = "chilled" | "frozen" | "ambient"
 
 export interface StorageZoneOption {
@@ -50,6 +52,9 @@ const CHILLED_PATTERNS: readonly RegExp[] = Object.freeze([
   /\bca rot\b/u,
   /\bca tim\b/u,
   /\bca phao\b/u,
+  /\bca bat\b/u,
+  /\bca dua\b/u,
+  /\bca dang\b/u,
   /\bbap cai\b/u,
   /\bdau cove\b/u,
   /\bdau co ve\b/u,
@@ -67,11 +72,16 @@ const CHILLED_PATTERNS: readonly RegExp[] = Object.freeze([
   /\bbi\b/u,
   /\bmuop\b/u,
   /\bsu su\b/u,
+  /\bsu hao\b/u,
   /\bkhoai\b/u,
+  /\bcan tay\b/u,
+  /\brau can\b/u,
+  /\bcan nuoc\b/u,
   /\bgia do\b/u,
   /\bgia\b/u,
   /\bnam\b/u,
   /\bdua leo\b/u,
+  /\bdua chuot\b/u,
   /\bxa lach\b/u,
   /\bhanh la\b/u,
   /\brau ngo\b/u,
@@ -115,6 +125,11 @@ function normalizeName(name: string): string {
 
 export function pantryStorageZone(foodNameVi: string): PantryStorageZone {
   const normalized = normalizeName(foodNameVi)
+
+  // Dried shelf-stable proteins and produce are stored in ambient dry pantry (Tủ đồ khô)
+  if (isDriedPantryFood(foodNameVi, normalized)) {
+    return "ambient"
+  }
 
   for (const pattern of CHILLED_PATTERNS) {
     if (pattern.test(normalized)) return "chilled"
