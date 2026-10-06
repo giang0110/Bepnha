@@ -36,7 +36,11 @@ import {
   speakCookingInstruction
 } from "./cooking-speech"
 import { loadCookingNote, saveCookingNote } from "./cooking-notes-store"
-import { extractMealPrePrepGroups, type PrePrepDishGroup } from "./cooking-pre-prep"
+import {
+  extractMealPrePrepGroups,
+  extractStapleRiceSummary,
+  type PrePrepDishGroup
+} from "./cooking-pre-prep"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -699,8 +703,9 @@ export function CookingPage({
   const [speaking, setSpeaking] = useState(false)
 
   const [skipRice, setSkipRice] = useState(() => {
-    if (typeof window === "undefined") return false
-    return window.localStorage.getItem("bepnha:cooking:skip-rice") === "true"
+    if (typeof window === "undefined") return true
+    const saved = window.localStorage.getItem("bepnha:cooking:skip-rice")
+    return saved === null ? true : saved === "true"
   })
   const [showPrePrep, setShowPrePrep] = useState(false)
 
@@ -721,11 +726,12 @@ export function CookingPage({
     [labels, skipRice, state]
   )
   const prePrepGroups = useMemo(
-    () =>
-      state.status === "ready"
-        ? extractMealPrePrepGroups(state.item, labels, { skipStaple: skipRice })
-        : [],
-    [labels, skipRice, state]
+    () => (state.status === "ready" ? extractMealPrePrepGroups(state.item, labels) : []),
+    [labels, state]
+  )
+  const stapleRiceSummary = useMemo(
+    () => (state.status === "ready" ? extractStapleRiceSummary(state.item, labels) : null),
+    [labels, state]
   )
   const backgroundTimers = useMemo(() => {
     return steps
@@ -937,10 +943,21 @@ export function CookingPage({
               <div className="flex items-center gap-2">
                 <Icon name="bowl" className="size-4 shrink-0 text-herb-700 dark:text-herb-400" />
                 <span>
-                  <strong>Cơm điện:</strong>{" "}
-                  {skipRice
-                    ? "Đã bỏ qua các bước cắm cơm điện (nhớ cắm nồi cơm trước khi nấu)."
-                    : "Đang hiển thị bước cắm cơm chi tiết."}
+                  <strong>Nồi cơm điện:</strong>{" "}
+                  {skipRice ? (
+                    <>
+                      Đã ẩn các bước cắm cơm.{" "}
+                      {stapleRiceSummary ? (
+                        <span className="font-semibold text-herb-800 dark:text-herb-300">
+                          Nhớ cắm nồi: {stapleRiceSummary} trước khi bật bếp.
+                        </span>
+                      ) : (
+                        "Nhớ cắm nồi cơm trước khi nấu."
+                      )}
+                    </>
+                  ) : (
+                    "Đang hiển thị bước cắm cơm chi tiết."
+                  )}
                 </span>
               </div>
               <button

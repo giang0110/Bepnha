@@ -50,6 +50,31 @@ const FRESHNESS_METADATA: Readonly<Record<FreshnessCategory, FoodFreshnessInfo>>
   }
 })
 
+// Dried shelf-stable proteins and produce (pantry staples lasting months)
+// Using \p{L}\p{N} boundaries because standard ASCII \b does not match Unicode characters like "ô"
+const DRIED_FOOD_REGEX =
+  /(?:^|[^\p{L}\p{N}])(khô|sấy khô|mộc nhĩ|nấm mèo|lạp xưởng|măng khô|rong biển khô|tảo xoắn khô|bóng bì)(?:[^\p{L}\p{N}]|$)/iu
+
+const UNACCENTED_DRIED_REGEX =
+  /(?:^|[^\p{L}\p{N}])(tom kho|muc kho|tep kho|kho bo|kho ga|kho muc|kho ca|ca com kho|ca chi vang kho|lap xuong|moc nhi|nam meo|mang kho|bong bi|say kho)(?:[^\p{L}\p{N}]|$)/u
+
+// Cooked braised leftovers with explicit diacritic "kho" (thịt kho, cá kho) must NOT be treated as dried
+const BRAISED_DISH_REGEX =
+  /(?:^|[^\p{L}\p{N}])(thịt kho|cá kho|trứng kho|kho tộ|kho tiêu|kho tàu|kho gừng|kho riềng)(?:[^\p{L}\p{N}]|$)/iu
+
+export function isDriedPantryFood(foodNameVi: string, norm: string): boolean {
+  if (BRAISED_DISH_REGEX.test(foodNameVi)) {
+    return false
+  }
+  if (DRIED_FOOD_REGEX.test(foodNameVi)) {
+    return true
+  }
+  if (UNACCENTED_DRIED_REGEX.test(norm)) {
+    return true
+  }
+  return false
+}
+
 // Fresh meats, poultry, fish, seafood
 const FRESH_PROTEIN_PATTERNS: readonly RegExp[] = Object.freeze([
   /\bthit\b/u,
@@ -91,22 +116,29 @@ const LEAFY_VEG_PATTERNS: readonly RegExp[] = Object.freeze([
   /\brau ngo\b/u,
   /\bngo ri\b/u,
   /\bmui\b/u,
+  /\bcan tay\b/u,
+  /\brau can\b/u,
+  /\bcan nuoc\b/u,
   /\bgia do\b/u,
   /\bgia\b/u,
   /\bnam rom\b/u,
   /\bnam tuoi\b/u,
   /\bdau hu\b/u,
   /\btofu\b/u,
-  /\bdua leo\b/u
+  /\bdua leo\b/u,
+  /\bdua chuot\b/u
 ])
 
 // Durable root vegetables, squash, pumpkin, onions, garlic, eggs
-// Checked before fresh protein so "cà rốt / cà chua" (ca) and "trứng gà / trứng vịt" (ga / vit) match here
+// Checked before fresh protein so "cà rốt / cà chua / cà bát" (ca) and "trứng gà / trứng vịt" (ga / vit) match here
 const ROOT_VEG_EGG_PATTERNS: readonly RegExp[] = Object.freeze([
   /\bca chua\b/u,
   /\bca rot\b/u,
   /\bca tim\b/u,
   /\bca phao\b/u,
+  /\bca bat\b/u,
+  /\bca dua\b/u,
+  /\bca dang\b/u,
   /\bbap cai\b/u,
   /\bdau cove\b/u,
   /\bdau co ve\b/u,
@@ -115,6 +147,7 @@ const ROOT_VEG_EGG_PATTERNS: readonly RegExp[] = Object.freeze([
   /\bbi\b/u,
   /\bmuop\b/u,
   /\bsu su\b/u,
+  /\bsu hao\b/u,
   /\bkhoai tay\b/u,
   /\bkhoai lang\b/u,
   /\bkhoai\b/u,
@@ -137,6 +170,11 @@ function normalizeVietnamese(text: string): string {
 
 export function classifyFoodFreshness(foodNameVi: string): FoodFreshnessInfo {
   const norm = normalizeVietnamese(foodNameVi)
+
+  // 0. Check Dried foods first (tôm khô, cá khô, mực khô, nấm hương khô, mộc nhĩ, lạp xưởng)
+  if (isDriedPantryFood(foodNameVi, norm)) {
+    return FRESHNESS_METADATA.dry_and_spices
+  }
 
   // Cabbage (bắp cải) is a sturdy head vegetable lasting 1-2 weeks, unlike fragile loose leafy greens
   if (/\bbap cai\b/u.test(norm)) {
