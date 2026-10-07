@@ -24,11 +24,18 @@ import {
   storageZoneMetadata,
   type PantryStorageZone
 } from "@/domain/pantry/pantry-zones"
-import { classifyFoodFreshness, sortPantryByUrgency } from "@/domain/pantry/food-freshness"
+import { classifyFoodFreshness } from "@/domain/pantry/food-freshness"
 import { findLeftoverMealSuggestions } from "@/domain/pantry/leftover-meal-matcher"
 
 import { PantryQuantityPresets } from "./pantry-quantity-presets"
 import { loadRecentPantryFoods, rememberRecentPantryFood } from "./recent-pantry-foods"
+import {
+  evaluateExpiry,
+  isPantryItemUrgent,
+  loadPantryExpiries,
+  savePantryExpiry,
+  sortPantryItemsByUrgency
+} from "./pantry-expiry-store"
 
 interface Props {
   readonly householdRepository: HouseholdRepository
@@ -92,12 +99,16 @@ const PantryItemEditor = memo(function PantryItemEditor({
   item,
   option,
   pending,
+  expiryDate,
+  onSaveExpiry,
   onSave,
   onRemove
 }: Readonly<{
   item: PantryItemRecord
   option: PantryFoodOption
   pending: boolean
+  expiryDate?: string | undefined
+  onSaveExpiry?: ((pantryItemId: string, date: string) => void) | undefined
   onSave: (item: PantryItemRecord, quantity: string, unitId: string) => void
   onRemove: (item: PantryItemRecord) => void
 }>) {
@@ -107,6 +118,7 @@ const PantryItemEditor = memo(function PantryItemEditor({
   const zone = useMemo(() => pantryStorageZone(foodName), [foodName])
   const meta = useMemo(() => storageZoneMetadata(zone), [zone])
   const freshness = useMemo(() => classifyFoodFreshness(foodName), [foodName])
+  const expiry = useMemo(() => (expiryDate ? evaluateExpiry(expiryDate) : null), [expiryDate])
   const badgeClasses: Record<"herb" | "clay" | "broth", string> = {
     herb: "bg-herb-50 text-herb-700 border-herb-200",
     clay: "bg-clay-50 text-clay-700 border-clay-200",
@@ -131,6 +143,22 @@ const PantryItemEditor = memo(function PantryItemEditor({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          {expiry !== null ? (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                expiry.status === "expired"
+                  ? "border-chilli-300 bg-chilli-50 text-chilli-800"
+                  : expiry.status === "expiring_soon"
+                    ? "border-amber-300 bg-amber-50 text-amber-800"
+                    : "border-herb-300 bg-herb-50 text-herb-800"
+              }`}
+              data-testid={`pantry-expiry-badge-${item.pantryItemId}`}
+              title={`Hạn dùng: ${expiry.expiryDate}`}
+            >
+              <Icon name="calendar" className="size-3" />
+              {expiry.labelVi}
+            </span>
+          ) : null}
           <span
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${badgeClasses[meta.badgeColor]}`}
           >
@@ -194,6 +222,19 @@ const PantryItemEditor = memo(function PantryItemEditor({
             ))}
           </select>
         </label>
+        <label className="grid gap-1 text-sm font-medium">
+          <span>Hạn sử dụng (tùy chọn)</span>
+          <input
+            aria-label={`Hạn sử dụng ${foodName}`}
+            className="min-h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
+            disabled={pending}
+            type="date"
+            value={expiryDate ?? ""}
+            onChange={(event) => {
+              onSaveExpiry?.(item.pantryItemId, event.currentTarget.value)
+            }}
+          />
+        </label>
         {!pantryQuantityIsWhole(option, quantity, unitId, item.foodFactVersionId) ? (
           <p role="alert" className="text-sm text-chilli-700">
             Thực phẩm này phải nhập nguyên đơn vị. Giữ đúng lượng thực tế, ví dụ 3 trứng thay vì
@@ -250,6 +291,7 @@ export function PantryPage({
   const [sortByUrgency, setSortByUrgency] = useState(false)
   const [leftoverFilterOnlyReady, setLeftoverFilterOnlyReady] = useState(false)
   const [recentFoodIds, setRecentFoodIds] = useState<readonly string[]>([])
+  const [expiries, setExpiries] = useState<Record<string, string>>({})
   const activeHouseholdId = useRef<string | null>(null)
 
   useEffect(() => {
@@ -276,6 +318,12 @@ export function PantryPage({
         if (!active) return
         activeHouseholdId.current = householdResult.household.householdId
         setRecentFoodIds(loadRecentPantryFoods(householdResult.household.householdId))
+        setExpiries(
+          loadPantryExpiries(
+            typeof window !== "undefined" ? window.localStorage : undefined,
+            householdResult.household.householdId
+          )
+        )
         setState({
           status: "ready",
           householdId: householdResult.household.householdId,
@@ -397,13 +445,17 @@ export function PantryPage({
       })
     }
     if (sortByUrgency) {
-      list = sortPantryByUrgency(list, (item) => {
-        const opt = state.options.find((o) => o.foodId === item.foodId)
-        return opt?.foodNameVi ?? ""
-      })
+      list = sortPantryItemsByUrgency(
+        list,
+        (item) => {
+          const opt = state.options.find((o) => o.foodId === item.foodId)
+          return opt?.foodNameVi ?? ""
+        },
+        (item) => expiries[item.pantryItemId]
+      )
     }
     return list
-  }, [selectedZone, sortByUrgency, state])
+  }, [expiries, selectedZone, sortByUrgency, state])
 
   async function reloadAfterConflict(householdId: string, options: readonly PantryFoodOption[]) {
     try {
@@ -460,6 +512,13 @@ export function PantryPage({
     setMessage(null)
     try {
       await pantryRepository.remove(item.pantryItemId, item.version)
+      const updatedExpiries = savePantryExpiry(
+        typeof window !== "undefined" ? window.localStorage : undefined,
+        state.householdId,
+        item.pantryItemId,
+        ""
+      )
+      setExpiries(updatedExpiries)
       setState({
         ...state,
         items: state.items.filter((entry) => entry.pantryItemId !== item.pantryItemId)
@@ -493,6 +552,20 @@ export function PantryPage({
   const handleRemoveExisting = useCallback((item: PantryItemRecord) => {
     void removeExistingRef.current(item)
   }, [])
+
+  const handleSaveExpiry = useCallback(
+    (pantryItemId: string, date: string) => {
+      if (state.status !== "ready") return
+      const updated = savePantryExpiry(
+        typeof window !== "undefined" ? window.localStorage : undefined,
+        state.householdId,
+        pantryItemId,
+        date
+      )
+      setExpiries(updated)
+    },
+    [state]
+  )
 
   async function addItem() {
     if (
@@ -650,7 +723,7 @@ export function PantryPage({
                 {
                   state.items.filter((item) => {
                     const opt = state.options.find((o) => o.foodId === item.foodId)
-                    return classifyFoodFreshness(opt?.foodNameVi ?? "").isUrgent
+                    return isPantryItemUrgent(opt?.foodNameVi ?? "", expiries[item.pantryItemId])
                   }).length
                 }
                 )
@@ -932,6 +1005,8 @@ export function PantryPage({
                     key={`${item.pantryItemId}:${item.version}`}
                     option={option}
                     pending={pendingKey === item.pantryItemId}
+                    expiryDate={expiries[item.pantryItemId]}
+                    onSaveExpiry={handleSaveExpiry}
                     onRemove={handleRemoveExisting}
                     onSave={handleSaveExisting}
                   />

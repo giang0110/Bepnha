@@ -531,4 +531,23 @@ describe("PantryPage", () => {
     expect(within(thitKhoCard).getByText(/Ưu tiên cứu đồ tươi/i)).toBeInTheDocument()
     expect(within(thitKhoCard).getByText(/Thịt ba chỉ ⚡/i)).toBeInTheDocument()
   })
+
+  test("allows setting an expiry date and displays freshness/expiry badge", async () => {
+    const user = userEvent.setup()
+    const eggItem = pantryItem({
+      pantryItemId: "item-egg",
+      foodId: egg.foodId,
+      quantity: "4"
+    })
+    setup([eggItem])
+
+    expect(await screen.findByRole("heading", { name: "Tủ bếp" })).toBeInTheDocument()
+
+    const expiryInput = screen.getByLabelText(/Hạn sử dụng Trứng gà/i)
+    expect(expiryInput).toHaveValue("")
+
+    await user.type(expiryInput, "2099-12-31")
+    expect(screen.getByTestId("pantry-expiry-badge-item-egg")).toBeInTheDocument()
+    expect(screen.getByTestId("pantry-expiry-badge-item-egg")).toHaveTextContent(/Còn/i)
+  })
 })
