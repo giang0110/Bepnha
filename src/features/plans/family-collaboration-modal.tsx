@@ -413,7 +413,7 @@ export function FamilyCollaborationModal({
                 variant="outline"
                 onClick={handleDownloadIcs}
               >
-                <Icon name="clock" className="size-4" />
+                <Icon name="calendar" className="size-4 text-herb-700" />
                 Xuất file Lịch (.ics) cho điện thoại
               </Button>
             </div>
