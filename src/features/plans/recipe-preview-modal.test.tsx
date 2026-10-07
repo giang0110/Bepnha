@@ -146,4 +146,38 @@ describe("RecipePreviewModal", () => {
     await user.click(closeBtn)
     expect(handleClose).toHaveBeenCalledTimes(1)
   })
+
+  test("renders and edits family cooking notes in notes tab", async () => {
+    localStorage.clear()
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter>
+        <RecipePreviewModal
+          isOpen={true}
+          item={mockItem}
+          labels={EMPTY_INGREDIENT_LABELS}
+          initialTab="notes"
+          onClose={vi.fn()}
+        />
+      </MemoryRouter>
+    )
+
+    // Should open directly in notes tab
+    expect(screen.getByText(/Mẹo & Ghi chú của gia đình/i)).toBeInTheDocument()
+    expect(screen.getByText(/Chưa có ghi chú khẩu vị cho món này/i)).toBeInTheDocument()
+
+    // Add note
+    const addBtn = screen.getByRole("button", { name: /\+ Thêm ghi chú/i })
+    await user.click(addBtn)
+
+    const textarea = screen.getByPlaceholderText(/Ví dụ: Giảm 1 thìa đường/i)
+    await user.type(textarea, "Ướp thêm sả 15 phút")
+
+    const saveBtn = screen.getByRole("button", { name: "Lưu ghi chú" })
+    await user.click(saveBtn)
+
+    expect(screen.getByText("Ướp thêm sả 15 phút")).toBeInTheDocument()
+    expect(screen.getByText(/Đã lưu ghi chú cho món này/i)).toBeInTheDocument()
+  })
 })

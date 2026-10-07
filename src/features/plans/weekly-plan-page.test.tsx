@@ -16,6 +16,7 @@ import {
   type PlannerReadyResponse
 } from "./planner-api"
 import { WeeklyPlanPage, type WeeklyPlanAssistantRenderer } from "./weekly-plan-page"
+import { saveCookingNote } from "./cooking-notes-store"
 
 const household: HouseholdSetup = {
   householdId: "20000000-0000-0000-0000-000000000001",
@@ -899,5 +900,25 @@ describe("WeeklyPlanPage", () => {
       expect(link).toHaveAttribute("href", expect.stringContaining("calendar.google.com"))
       expect(link).toHaveAttribute("target", "_blank")
     }
+  })
+
+  test("displays Ghi chú riêng badge when dish has cooking note and opens modal to notes tab", async () => {
+    localStorage.clear()
+    saveCookingNote(localStorage, "meal-0", "Bớt mặn cho ông bà")
+
+    const user = userEvent.setup()
+    setup({
+      current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+    })
+
+    const noteBadge = await screen.findByTestId("meal-note-badge-0")
+    expect(noteBadge).toBeInTheDocument()
+    expect(noteBadge).toHaveTextContent("Ghi chú riêng")
+
+    await user.click(noteBadge)
+    expect(
+      await screen.findByRole("dialog", { name: /Chi tiết công thức và sơ chế/i })
+    ).toBeInTheDocument()
+    expect(screen.getByText("Bớt mặn cho ông bà")).toBeInTheDocument()
   })
 })
