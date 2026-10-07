@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router"
 
 import { loadHousehold } from "@/application/household/load-household"
@@ -54,6 +54,13 @@ import {
   extractStapleRiceSummary,
   type PrePrepDishGroup
 } from "./cooking-pre-prep"
+import {
+  isTimerSoundEnabled,
+  playKitchenTimerChime,
+  setTimerSoundEnabled,
+  startTimerAlarmLoop,
+  triggerVibration
+} from "./cooking-timer-alarm"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -81,38 +88,6 @@ type LoadState =
       readonly mealName: string
     }
 
-function notifyTimerDone(): void {
-  if (typeof window === "undefined") return
-  try {
-    if (
-      typeof navigator !== "undefined" &&
-      "vibrate" in navigator &&
-      typeof navigator.vibrate === "function"
-    ) {
-      navigator.vibrate([200, 100, 200, 100, 300])
-    }
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (AudioContextClass) {
-      const ctx = new AudioContextClass()
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = "sine"
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime)
-      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15)
-      gain.gain.setValueAtTime(0.2, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start()
-      osc.stop(ctx.currentTime + 0.5)
-    }
-  } catch {
-    // Autoplay or audio context permission restricted
-  }
-}
-
 /**
  * The countdown for one step.
  *
@@ -135,7 +110,8 @@ function StepTimer({
   const startedAt = progress?.startedAt ?? null
   const pausedWith = progress?.pausedWith ?? null
   const [now, setNow] = useState(() => Date.now())
-  const hasNotifiedRef = useRef(false)
+  const [alarmDismissed, setAlarmDismissed] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(() => isTimerSoundEnabled())
 
   const running = startedAt !== null && pausedWith === null
 
@@ -147,36 +123,85 @@ function StepTimer({
 
   const remaining = secondsRemaining(total, startedAt, pausedWith, now)
   const done = startedAt !== null && remaining <= 0
+  const alarmActive = done && !alarmDismissed
 
   useEffect(() => {
-    if (done && !hasNotifiedRef.current) {
-      hasNotifiedRef.current = true
-      notifyTimerDone()
-    } else if (!done) {
-      hasNotifiedRef.current = false
+    if (!alarmActive) return
+    const stop = startTimerAlarmLoop({
+      isSoundEnabled: () => soundEnabled
+    })
+    return () => {
+      stop()
     }
-  }, [done])
+  }, [alarmActive, soundEnabled])
+
+  const stopAlarm = () => {
+    setAlarmDismissed(true)
+  }
 
   const start = () => {
+    setAlarmDismissed(false)
     const carry = pausedWith ?? total
     const current = Date.now()
     onProgress({ startedAt: current - (total - carry) * 1000, pausedWith: null })
     setNow(current)
   }
 
+  const handleReset = () => {
+    setAlarmDismissed(false)
+    onProgress({ startedAt: null, pausedWith: null })
+  }
+
+  const handleToggleSound = () => {
+    const next = !soundEnabled
+    setSoundEnabled(next)
+    if (typeof window !== "undefined") {
+      setTimerSoundEnabled(window.localStorage, next)
+    }
+    toast.info(next ? "Đã bật chuông báo đếm giờ" : "Đã tắt chuông báo đếm giờ")
+  }
+
+  const handleTestSound = () => {
+    playKitchenTimerChime()
+    triggerVibration([100, 50, 100])
+    toast.info("Đang thử chuông báo")
+  }
+
   return (
-    <div className="rounded-3xl border border-edge bg-paper-raised p-4 text-center shadow-soft">
+    <div
+      className={`rounded-3xl border p-4 text-center shadow-soft transition-colors ${
+        done && alarmActive
+          ? "border-chilli-300 bg-chilli-50/50 dark:border-chilli-800 dark:bg-chilli-950/20"
+          : "border-edge bg-paper-raised"
+      }`}
+    >
       <p
         className={`tabular-nums font-black transition-all ${
           counterMode ? "py-2 text-6xl sm:text-7xl" : "text-5xl font-extrabold"
-        } ${done ? "text-chilli-700" : "text-ink"}`}
+        } ${done ? "text-chilli-700 animate-pulse" : "text-ink"}`}
       >
         {formatCountdown(remaining)}
       </p>
       <p className="mt-1 text-sm font-semibold text-ink-soft" role="status">
-        {done ? "Hết giờ" : `Hẹn giờ ${minutes} phút`}
+        {done
+          ? alarmActive
+            ? "🔔 Hết giờ! Đang báo chuông"
+            : "Hết giờ"
+          : `Hẹn giờ ${minutes} phút`}
       </p>
-      <div className="mt-3 flex justify-center gap-2">
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
+        {done && alarmActive ? (
+          <Button
+            type="button"
+            variant="destructive"
+            className="gap-1.5 font-bold animate-pulse"
+            data-testid="dismiss-alarm-btn"
+            onClick={stopAlarm}
+          >
+            <Icon name="speaker" className="size-4" />
+            Dừng chuông
+          </Button>
+        ) : null}
         {running ? (
           <Button
             type="button"
@@ -191,14 +216,35 @@ function StepTimer({
           </Button>
         )}
         {startedAt === null ? null : (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => onProgress({ startedAt: null, pausedWith: null })}
-          >
+          <Button type="button" variant="ghost" onClick={handleReset}>
             Đặt lại
           </Button>
         )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-center gap-3 border-t border-edge/60 pt-2.5 text-xs text-ink-soft">
+        <button
+          type="button"
+          onClick={handleToggleSound}
+          className="inline-flex items-center gap-1 font-medium hover:text-ink"
+          data-testid="toggle-timer-sound-btn"
+          title={soundEnabled ? "Tắt chuông báo" : "Bật chuông báo"}
+        >
+          <Icon
+            name="speaker"
+            className={`size-3.5 ${soundEnabled ? "text-herb-700" : "text-ink-muted opacity-50"}`}
+          />
+          <span>{soundEnabled ? "Chuông: Bật" : "Chuông: Tắt"}</span>
+        </button>
+        <span className="text-edge-strong">·</span>
+        <button
+          type="button"
+          onClick={handleTestSound}
+          className="hover:text-ink hover:underline"
+          data-testid="test-timer-sound-btn"
+        >
+          Thử chuông
+        </button>
       </div>
     </div>
   )
@@ -231,7 +277,7 @@ function ActiveTimerBanner({
   const startedAt = progress.startedAt
   const pausedWith = progress.pausedWith
   const [now, setNow] = useState(() => Date.now())
-  const hasNotifiedRef = useRef(false)
+  const [alarmDismissed, setAlarmDismissed] = useState(false)
 
   const running = startedAt !== null && pausedWith === null
 
@@ -243,17 +289,24 @@ function ActiveTimerBanner({
 
   const remaining = secondsRemaining(total, startedAt, pausedWith, now)
   const done = startedAt !== null && remaining <= 0
+  const alarmActive = done && !alarmDismissed
 
   useEffect(() => {
-    if (done && !hasNotifiedRef.current) {
-      hasNotifiedRef.current = true
-      notifyTimerDone()
-    } else if (!done) {
-      hasNotifiedRef.current = false
+    if (!alarmActive) return
+    const stop = startTimerAlarmLoop({
+      isSoundEnabled: () => isTimerSoundEnabled()
+    })
+    return () => {
+      stop()
     }
-  }, [done])
+  }, [alarmActive])
+
+  const stopAlarm = () => {
+    setAlarmDismissed(true)
+  }
 
   const handleTogglePause = () => {
+    setAlarmDismissed(false)
     if (running) {
       onProgress({ startedAt, pausedWith: remaining })
     } else {
@@ -283,13 +336,29 @@ function ActiveTimerBanner({
             {bgStep.dishLabel} · Bước {bgStep.stepNumber}: {bgStep.instructionVi}
           </p>
           <p className="font-extrabold tabular-nums">
-            {done ? "Hết giờ!" : `${formatCountdown(remaining)} còn lại`}
+            {done
+              ? alarmActive
+                ? "🔔 Hết giờ! Đang báo chuông"
+                : "Hết giờ!"
+              : `${formatCountdown(remaining)} còn lại`}
             {pausedWith !== null && !done ? " (Đang tạm dừng)" : ""}
           </p>
         </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        {done && alarmActive ? (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-8 rounded-full px-3 text-xs font-bold animate-pulse"
+            type="button"
+            data-testid="banner-dismiss-alarm-btn"
+            onClick={stopAlarm}
+          >
+            Dừng chuông
+          </Button>
+        ) : null}
         {!done && (
           <Button
             size="sm"

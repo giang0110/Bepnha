@@ -628,4 +628,56 @@ describe("CookingPage", () => {
     expect(remove).not.toHaveBeenCalled()
     expect(await screen.findByTestId("plan-screen")).toBeInTheDocument()
   })
+
+  test("manages kitchen timer sound toggle and sound test button", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    expect(await screen.findByText("Vo gạo.")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Bước tiếp" }))
+    expect(screen.getByText("15:00")).toBeInTheDocument()
+
+    const testSoundBtn = screen.getByTestId("test-timer-sound-btn")
+    expect(testSoundBtn).toBeInTheDocument()
+    await user.click(testSoundBtn)
+
+    const toggleSoundBtn = screen.getByTestId("toggle-timer-sound-btn")
+    expect(toggleSoundBtn).toHaveTextContent("Chuông: Bật")
+    await user.click(toggleSoundBtn)
+    expect(toggleSoundBtn).toHaveTextContent("Chuông: Tắt")
+    await user.click(toggleSoundBtn)
+    expect(toggleSoundBtn).toHaveTextContent("Chuông: Bật")
+  })
+
+  test("shows dismiss alarm button when timer finishes and dismisses on click", async () => {
+    const user = userEvent.setup()
+
+    window.localStorage.setItem(
+      "bepnha:cooking-progress:v1",
+      JSON.stringify({
+        version: "cooking-progress-v1",
+        revisionId: "50000000-0000-0000-0000-000000000001",
+        dayIndex: 1,
+        stepKey: "1:1",
+        timers: {
+          "1:1": {
+            startedAt: Date.now() - 1000 * 1000,
+            pausedWith: null
+          }
+        }
+      })
+    )
+
+    setup()
+
+    expect(await screen.findByText("0:00")).toBeInTheDocument()
+    expect(screen.getByText(/Hết giờ/i)).toBeInTheDocument()
+
+    const dismissBtn = await screen.findByTestId("dismiss-alarm-btn")
+    expect(dismissBtn).toBeInTheDocument()
+    expect(dismissBtn).toHaveTextContent("Dừng chuông")
+
+    await user.click(dismissBtn)
+    expect(screen.queryByTestId("dismiss-alarm-btn")).not.toBeInTheDocument()
+  })
 })
