@@ -311,6 +311,11 @@ function isPreview(value: unknown): value is PlannerPreviewResponse {
 }
 
 export function createPlannerApi(fetcher: Fetcher = fetch): PlannerApi {
+  const currentPlanCache = new Map<
+    string,
+    { readonly value: PlannerReadyResponse | null; readonly expiresAt: number }
+  >()
+
   async function post<T>(
     url: string,
     accessToken: string,
@@ -368,16 +373,40 @@ export function createPlannerApi(fetcher: Fetcher = fetch): PlannerApi {
   }
 
   return {
-    generate: (token, input) => post("/api/plans/generate", token, input, isReady),
+    generate: async (token, input) => {
+      currentPlanCache.clear()
+      const result = await post("/api/plans/generate", token, input, isReady)
+      if (result.ok) {
+        currentPlanCache.set(`${input.householdId}:${input.weekStart}`, {
+          value: result.value,
+          expiresAt: Date.now() + 30_000
+        })
+      }
+      return result
+    },
     current: async (token, input) => {
+      const cacheKey = `${input.householdId}:${input.weekStart}`
+      const cached = currentPlanCache.get(cacheKey)
+      if (cached !== undefined && cached.expiresAt > Date.now()) {
+        return { ok: true, value: cached.value }
+      }
+
       const result = await get<PlannerReadyResponse | null>(
         `/api/plans/current?householdId=${encodeURIComponent(input.householdId)}&weekStart=${encodeURIComponent(input.weekStart)}`,
         token,
         (value): value is PlannerReadyResponse | null => isEmptyWeek(value) || isCurrent(value)
       )
-      return result.ok && isEmptyWeek(result.value) ? { ok: true, value: null } : result
+      if (result.ok) {
+        const value = isEmptyWeek(result.value) ? null : result.value
+        currentPlanCache.set(cacheKey, { value, expiresAt: Date.now() + 30_000 })
+        return { ok: true, value }
+      }
+      return result
     },
     preview: (token, input) => post("/api/plans/replacements-preview", token, input, isPreview),
-    apply: (token, input) => post("/api/plans/replacements-apply", token, input, isReady)
+    apply: async (token, input) => {
+      currentPlanCache.clear()
+      return post("/api/plans/replacements-apply", token, input, isReady)
+    }
   }
 }

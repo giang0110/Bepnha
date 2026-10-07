@@ -30,6 +30,8 @@ function NavGlyph({ index }: Readonly<{ index: number }>) {
   )
 }
 
+import { prefetchRoute } from "./route-prefetch"
+
 /**
  * Mobile uses a persistent bottom bar; desktop turns the same landmark into a calm left rail.
  * The route order is stable because accessibility and navigation tests intentionally pin it.
@@ -61,6 +63,15 @@ export function AppNav() {
           <li key={link.to}>
             <NavLink
               to={link.to}
+              onMouseEnter={() => {
+                void prefetchRoute(link.to)
+              }}
+              onTouchStart={() => {
+                void prefetchRoute(link.to)
+              }}
+              onFocus={() => {
+                void prefetchRoute(link.to)
+              }}
               className={({ isActive }) =>
                 [
                   "flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 text-xs font-semibold transition-colors",

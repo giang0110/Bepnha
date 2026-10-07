@@ -185,19 +185,51 @@ function saveFailure(error: { code?: string; message?: string }): SaveHouseholdR
 export function createSupabaseHouseholdRepository(
   client: SupabaseClient<Database>
 ): HouseholdRepository {
+  let cachedHousehold: {
+    readonly value: HouseholdSetup | null
+    readonly expiresAt: number
+  } | null = null
+  let pendingLoad: Promise<HouseholdSetup | null> | null = null
+
   return {
     async loadOwn() {
-      const snapshot = await client.rpc("get_household_setup_v2")
-      if (snapshot.error === null)
-        return snapshot.data === null ? null : mapStoredHousehold(snapshot.data)
-      if (!SCHEMA_GAP_CODES.has(snapshot.error.code)) throw loadFailure(snapshot.error)
-      const { data, error } = await client.from("households").select(HOUSEHOLD_SELECT).maybeSingle()
-      if (error !== null) {
-        throw loadFailure(error)
+      if (cachedHousehold !== null && cachedHousehold.expiresAt > Date.now()) {
+        return cachedHousehold.value
       }
-      return data === null ? null : mapStoredHousehold(data)
+      if (pendingLoad !== null) {
+        return pendingLoad
+      }
+
+      pendingLoad = (async () => {
+        try {
+          const snapshot = await client.rpc("get_household_setup_v2")
+          let result: HouseholdSetup | null = null
+          if (snapshot.error === null) {
+            result = snapshot.data === null ? null : mapStoredHousehold(snapshot.data)
+          } else if (!SCHEMA_GAP_CODES.has(snapshot.error.code)) {
+            throw loadFailure(snapshot.error)
+          } else {
+            const { data, error } = await client
+              .from("households")
+              .select(HOUSEHOLD_SELECT)
+              .maybeSingle()
+            if (error !== null) {
+              throw loadFailure(error)
+            }
+            result = data === null ? null : mapStoredHousehold(data)
+          }
+
+          cachedHousehold = { value: result, expiresAt: Date.now() + 30_000 }
+          return result
+        } finally {
+          pendingLoad = null
+        }
+      })()
+
+      return pendingLoad
     },
     async saveOwn(input, expectedVersion) {
+      cachedHousehold = null
       const args = {
         p_expected_version: expectedVersion as number,
         p_weekly_plan_budget_vnd: input.weeklyPlanBudgetVnd,
@@ -230,8 +262,8 @@ export function createSupabaseHouseholdRepository(
         return { ok: false, reason: "DEPENDENCY_UNAVAILABLE" }
       }
       const parent = data as UnknownRecord
-      return {
-        ok: true,
+      const saved = {
+        ok: true as const,
         household: mapStoredHousehold({
           ...parent,
           ...(input.nutritionSetup === undefined ? {} : { nutritionSetup: input.nutritionSetup }),
@@ -247,6 +279,8 @@ export function createSupabaseHouseholdRepository(
           }))
         })
       }
+      cachedHousehold = { value: saved.household, expiresAt: Date.now() + 30_000 }
+      return saved
     }
   }
 }

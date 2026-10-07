@@ -167,3 +167,38 @@ test("v6 API rejects unknown versions, malformed portions and accidental body pr
     )
   }
 })
+
+test("caches current plan responses and invalidates on plan changes", async () => {
+  const fetcher = vi.fn().mockResolvedValue({
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        status: "ready_within_budget",
+        planId: "p",
+        revisionId: "r",
+        planVersion: 1,
+        budgetVnd: 700000,
+        warnings: [],
+        plan: { totalEstimatedCostVnd: 100, items: [] }
+      })
+  })
+  const api = createPlannerApi(fetcher)
+
+  // First read fetches over network
+  const first = await api.current("token", { householdId: "h1", weekStart: "2026-10-05" })
+  expect(first.ok).toBe(true)
+  expect(fetcher).toHaveBeenCalledTimes(1)
+
+  // Second read uses in-memory cache
+  const second = await api.current("token", { householdId: "h1", weekStart: "2026-10-05" })
+  expect(second.ok).toBe(true)
+  expect(fetcher).toHaveBeenCalledTimes(1)
+
+  // Generate clears cache and updates with new result
+  await api.generate("token", { householdId: "h1", weekStart: "2026-10-05", idempotencyKey: "k" })
+  expect(fetcher).toHaveBeenCalledTimes(2)
+
+  // Reading again returns cached generated plan without new fetch
+  await api.current("token", { householdId: "h1", weekStart: "2026-10-05" })
+  expect(fetcher).toHaveBeenCalledTimes(2)
+})
