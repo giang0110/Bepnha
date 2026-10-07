@@ -236,3 +236,35 @@ describe("password change", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Đã đổi mật khẩu thành công.")
   })
 })
+
+describe("session management", () => {
+  it("renders the session management section and active session indicator", async () => {
+    renderAccountPage()
+
+    expect(await screen.findByRole("heading", { name: "Phiên đăng nhập & Thiết bị" })).toBeVisible()
+    expect(screen.getByText("Thiết bị hiện tại")).toBeVisible()
+    expect(screen.getByText("Đang hoạt động")).toBeVisible()
+    expect(screen.getByTestId("sign-out-others-btn")).toBeEnabled()
+    expect(screen.getByTestId("sign-out-all-btn")).toBeEnabled()
+  })
+
+  it("calls signOut with 'others' scope when clicking sign out from other devices", async () => {
+    const user = userEvent.setup()
+    const { signOut } = renderAccountPage()
+
+    const othersBtn = await screen.findByTestId("sign-out-others-btn")
+    await user.click(othersBtn)
+
+    expect(signOut).toHaveBeenCalledWith("others")
+  })
+
+  it("calls signOut with 'global' scope when clicking sign out all devices", async () => {
+    const user = userEvent.setup()
+    const { signOut } = renderAccountPage()
+
+    const allBtn = await screen.findByTestId("sign-out-all-btn")
+    await user.click(allBtn)
+
+    expect(signOut).toHaveBeenCalledWith("global")
+  })
+})

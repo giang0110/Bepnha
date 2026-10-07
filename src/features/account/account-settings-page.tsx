@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router"
 import type { AccountApi, DeleteAccountFailure } from "@/application/account/account-deletion"
 import { useAuth } from "@/app/auth/auth-context"
 import { Button } from "@/app/components/ui/button"
+import { Icon } from "@/app/components/ui/icon"
 import { toast } from "@/app/components/ui/toast"
 import { AppPageShell } from "@/app/components/app-page-shell"
 
@@ -102,6 +103,37 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
     }
   }
 
+  const [sessionActionBusy, setSessionActionBusy] = useState<"others" | "all" | null>(null)
+
+  async function handleSignOutOthers() {
+    setSessionActionBusy("others")
+    try {
+      const result = await auth.signOut("others")
+      if (result.ok) {
+        toast.success("Đã đăng xuất khỏi tất cả các thiết bị khác.")
+      } else {
+        toast.error("Không thể đăng xuất các thiết bị khác lúc này. Vui lòng thử lại sau.")
+      }
+    } finally {
+      setSessionActionBusy(null)
+    }
+  }
+
+  async function handleSignOutAll() {
+    setSessionActionBusy("all")
+    try {
+      const result = await auth.signOut("global")
+      if (result.ok) {
+        toast.success("Đã đăng xuất trên tất cả thiết bị.")
+        void navigate("/sign-in", { replace: true })
+      } else {
+        toast.error("Không thể đăng xuất lúc này. Vui lòng thử lại sau.")
+      }
+    } finally {
+      setSessionActionBusy(null)
+    }
+  }
+
   return (
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <header className="flex flex-col gap-2">
@@ -158,6 +190,53 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
             {passwordBusy ? "Đang cập nhật…" : "Cập nhật mật khẩu"}
           </Button>
         </form>
+      </section>
+
+      <section className="flex max-w-2xl flex-col gap-4 rounded-2xl border border-edge bg-paper-raised p-5 shadow-soft">
+        <div className="flex items-center gap-2.5">
+          <Icon name="shield" className="size-5 text-herb-700" />
+          <h2 className="text-lg font-semibold text-ink">Phiên đăng nhập & Thiết bị</h2>
+        </div>
+        <p className="text-sm text-ink-soft">
+          Quản lý các phiên đăng nhập của bạn trên các thiết bị khác. Nếu bạn nghi ngờ tài khoản bị
+          lộ hoặc quên đăng xuất trên thiết bị lạ, bạn có thể thu hồi phiên từ xa.
+        </p>
+
+        <div className="flex flex-col gap-3 rounded-xl border border-edge-subtle bg-paper p-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-ink">Thiết bị hiện tại</span>
+              <span className="text-xs text-ink-soft">Phiên làm việc trên trình duyệt này</span>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-herb-100 px-2.5 py-1 text-xs font-medium text-herb-800">
+              <span className="size-1.5 rounded-full bg-herb-600" />
+              Đang hoạt động
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11"
+            data-testid="sign-out-others-btn"
+            disabled={sessionActionBusy !== null}
+            onClick={() => void handleSignOutOthers()}
+          >
+            {sessionActionBusy === "others" ? "Đang xử lý…" : "Đăng xuất khỏi thiết bị khác"}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            className="h-11"
+            data-testid="sign-out-all-btn"
+            disabled={sessionActionBusy !== null}
+            onClick={() => void handleSignOutAll()}
+          >
+            {sessionActionBusy === "all" ? "Đang xử lý…" : "Đăng xuất tất cả thiết bị"}
+          </Button>
+        </div>
       </section>
 
       <section className="flex max-w-2xl flex-col gap-3 rounded-2xl border border-chilli-200 bg-paper-raised p-5 shadow-soft">

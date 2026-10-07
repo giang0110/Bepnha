@@ -27,12 +27,14 @@ export type PasswordUpdateResult =
   | { ok: true }
   | { ok: false; reason: "RECOVERY_SESSION_REQUIRED" | "RETRYABLE_FAILURE" | "WEAK_PASSWORD" }
 
+export type SignOutScope = "local" | "others" | "global"
+
 export interface AuthSessionPort {
   getSession(): Promise<AuthSession | null>
   onAuthStateChange(listener: (change: AuthSessionChange) => void): () => void
   requestPasswordReset(email: string, redirectTo: string): Promise<PasswordResetRequestResult>
   signIn(email: string, password: string): Promise<AuthOperationResult>
-  signOut(): Promise<{ ok: true } | { ok: false; reason: "RETRYABLE_FAILURE" }>
+  signOut(scope?: SignOutScope): Promise<{ ok: true } | { ok: false; reason: "RETRYABLE_FAILURE" }>
   signUp(email: string, password: string): Promise<AuthOperationResult>
   updatePassword(password: string): Promise<PasswordUpdateResult>
 }

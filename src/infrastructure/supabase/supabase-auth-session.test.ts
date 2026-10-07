@@ -19,6 +19,24 @@ describe("Supabase session sign-out", () => {
     expect(signOut).toHaveBeenCalledWith({ scope: "local" })
   })
 
+  test("signs out other sessions when requested", async () => {
+    const signOut = vi.fn(() => Promise.resolve({ error: null }))
+    const session = createSupabaseAuthSession(clientWith({ signOut }))
+
+    await expect(session.signOut("others")).resolves.toEqual({ ok: true })
+
+    expect(signOut).toHaveBeenCalledWith({ scope: "others" })
+  })
+
+  test("signs out all sessions globally when requested", async () => {
+    const signOut = vi.fn(() => Promise.resolve({ error: null }))
+    const session = createSupabaseAuthSession(clientWith({ signOut }))
+
+    await expect(session.signOut("global")).resolves.toEqual({ ok: true })
+
+    expect(signOut).toHaveBeenCalledWith({ scope: "global" })
+  })
+
   test("reports provider sign-out failures as retryable", async () => {
     const session = createSupabaseAuthSession(
       clientWith({ signOut: vi.fn(() => Promise.resolve({ error: { status: 503 } })) })
