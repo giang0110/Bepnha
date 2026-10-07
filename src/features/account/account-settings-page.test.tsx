@@ -85,6 +85,10 @@ async function emailField() {
   return await screen.findByLabelText("Nhập lại email của bạn để xác nhận")
 }
 
+async function passwordField() {
+  return await screen.findByLabelText("Mật khẩu tài khoản để xác thực lại")
+}
+
 describe("account deletion", () => {
   it("states plainly that deletion is immediate and irreversible", async () => {
     renderAccountPage()
@@ -93,18 +97,24 @@ describe("account deletion", () => {
     expect(document.body.textContent).toContain("ngay lập tức và không thể hoàn tác")
   })
 
-  it("keeps the action disabled until the signed-in email is retyped exactly", async () => {
+  it("keeps the action disabled until both email and password are provided", async () => {
     const user = userEvent.setup()
     renderAccountPage()
 
     expect(await deleteButton()).toBeDisabled()
 
-    const field = await emailField()
-    await user.type(field, "chu-nha@example.co")
+    const emailInput = await emailField()
+    const passInput = await passwordField()
+
+    await user.type(emailInput, "chu-nha@example.co")
+    await user.type(passInput, "my-pass")
     expect(await deleteButton()).toBeDisabled()
 
-    await user.type(field, "m")
+    await user.type(emailInput, "m")
     expect(await deleteButton()).toBeEnabled()
+
+    await user.clear(passInput)
+    expect(await deleteButton()).toBeDisabled()
   })
 
   it("sends the owner's own token and nothing identifying the account", async () => {
@@ -112,6 +122,7 @@ describe("account deletion", () => {
     const { deleteOwnAccount } = renderAccountPage()
 
     await user.type(await emailField(), OWNER_EMAIL)
+    await user.type(await passwordField(), "my-password")
     await user.click(await deleteButton())
 
     expect(deleteOwnAccount).toHaveBeenCalledWith("owner-token")
@@ -122,6 +133,7 @@ describe("account deletion", () => {
     const { signOut } = renderAccountPage()
 
     await user.type(await emailField(), OWNER_EMAIL)
+    await user.type(await passwordField(), "my-password")
     await user.click(await deleteButton())
 
     expect(signOut).toHaveBeenCalledOnce()
@@ -139,6 +151,7 @@ describe("account deletion", () => {
     )
 
     await user.type(await emailField(), OWNER_EMAIL)
+    await user.type(await passwordField(), "my-password")
     await user.click(await deleteButton())
 
     const alert = await screen.findByRole("alert")
@@ -154,6 +167,7 @@ describe("account deletion", () => {
     renderAccountPage(vi.fn(() => Promise.resolve({ ok: false, reason })))
 
     await user.type(await emailField(), OWNER_EMAIL)
+    await user.type(await passwordField(), "my-password")
     await user.click(await deleteButton())
 
     expect(await screen.findByRole("alert")).toHaveTextContent(expected)
@@ -169,12 +183,12 @@ describe("account deletion", () => {
     renderAccountPage(deleteOwnAccount, vi.fn(), signIn)
 
     await user.type(await emailField(), OWNER_EMAIL)
-    await user.type(screen.getByLabelText("Mật khẩu xác nhận bảo mật (tùy chọn)"), "wrong-pass")
+    await user.type(await passwordField(), "wrong-pass")
     await user.click(await deleteButton())
 
     expect(signIn).toHaveBeenCalledWith(OWNER_EMAIL, "wrong-pass")
     expect(deleteOwnAccount).not.toHaveBeenCalled()
-    expect(await screen.findByRole("alert")).toHaveTextContent("đăng nhập lại")
+    expect(await screen.findByRole("alert")).toHaveTextContent("Mật khẩu xác nhận không chính xác")
   })
 })
 
