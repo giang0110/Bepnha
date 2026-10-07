@@ -887,4 +887,17 @@ describe("WeeklyPlanPage", () => {
     expect(screen.getByText("Nguyên liệu & Sơ chế")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Các bước nấu/i })).toBeInTheDocument()
   })
+
+  test("renders Google Calendar links for each meal card and today's meal", async () => {
+    setup({
+      current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+    })
+
+    const calendarLinks = await screen.findAllByRole("link", { name: /Google Calendar/i })
+    expect(calendarLinks.length).toBeGreaterThan(0)
+    for (const link of calendarLinks) {
+      expect(link).toHaveAttribute("href", expect.stringContaining("calendar.google.com"))
+      expect(link).toHaveAttribute("target", "_blank")
+    }
+  })
 })

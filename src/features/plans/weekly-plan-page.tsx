@@ -46,6 +46,7 @@ import {
 } from "@/domain/planner/meal-rotation-insights"
 import { detectDishThermalAffinity } from "@/domain/planner/seasonal-weather-insights"
 import { solarToVietnameseLunar } from "@/domain/planner/vietnamese-lunar-calendar"
+import { generateGoogleCalendarUrl } from "@/domain/planner/calendar-export"
 import { useFamilyWishlist } from "./family-wishlist-store"
 import { WeeklyRotationBalanceCard } from "./weekly-rotation-balance-card"
 
@@ -932,6 +933,24 @@ export function WeeklyPlanPage({
                     <Icon name="note" className="size-4 text-herb-700" />
                     Công thức & Sơ chế
                   </Button>
+                  <a
+                    aria-label={`Thêm bữa hôm nay ${meal.mealOptionNameVi} vào Google Calendar`}
+                    className={buttonVariants({
+                      variant: "outline",
+                      className: "flex-1 gap-2 bg-paper font-semibold"
+                    })}
+                    data-testid="google-calendar-today"
+                    href={generateGoogleCalendarUrl({
+                      dateStr: todaySolar,
+                      mealName: meal.mealOptionNameVi,
+                      dishes: [meal.mealOptionNameVi]
+                    })}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <Icon name="calendar" className="size-4 text-herb-700" />
+                    Lịch Google
+                  </a>
                   <Link
                     aria-label={`Bắt đầu nấu bữa hôm nay: ${meal.mealOptionNameVi}`}
                     className={buttonVariants({
@@ -1090,16 +1109,33 @@ export function WeeklyPlanPage({
                         Tối đa {item.elapsedMinutes} phút
                       </p>
                     </div>
-                    <Button
-                      disabled={submitting}
-                      variant="outline"
-                      type="button"
-                      onClick={(event) => {
-                        void previewDay(item.dayIndex, event.currentTarget)
-                      }}
-                    >
-                      Đổi bữa
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        aria-label={`Thêm bữa ăn ${item.mealOptionNameVi} vào Google Calendar`}
+                        className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-edge bg-paper-raised text-ink-soft transition-colors hover:border-herb-300 hover:bg-herb-50/50 hover:text-herb-800"
+                        data-testid={`google-calendar-meal-${item.dayIndex}`}
+                        href={generateGoogleCalendarUrl({
+                          dateStr: solarDate,
+                          mealName: item.mealOptionNameVi,
+                          dishes: [item.mealOptionNameVi]
+                        })}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                        title="Thêm bữa ăn vào Google Calendar"
+                      >
+                        <Icon name="calendar" className="size-4 text-herb-700" />
+                      </a>
+                      <Button
+                        disabled={submitting}
+                        variant="outline"
+                        type="button"
+                        onClick={(event) => {
+                          void previewDay(item.dayIndex, event.currentTarget)
+                        }}
+                      >
+                        Đổi bữa
+                      </Button>
+                    </div>
                   </div>
                   <div className="mt-5 flex flex-col sm:flex-row gap-2">
                     <Button

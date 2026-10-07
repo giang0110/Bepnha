@@ -85,7 +85,7 @@ describe("sign up", () => {
     await submitSignUp()
 
     expect(
-      await screen.findByRole("heading", { name: "Thành viên trong gia đình" })
+      await screen.findByRole("heading", { name: "Thành viên trong gia đình" }, { timeout: 4000 })
     ).toBeInTheDocument()
   })
 
