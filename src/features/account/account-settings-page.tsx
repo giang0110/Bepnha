@@ -7,11 +7,12 @@ import { Button } from "@/app/components/ui/button"
 import { toast } from "@/app/components/ui/toast"
 import { AppPageShell } from "@/app/components/app-page-shell"
 
-const failureMessages: Record<DeleteAccountFailure, string> = {
+const failureMessages: Record<DeleteAccountFailure | "INVALID_PASSWORD", string> = {
   ACCOUNT_DELETE_UNAVAILABLE: "Chưa xoá được tài khoản. Vui lòng thử lại sau ít phút.",
   ACCOUNT_RETAINED_FOR_CATALOG_AUTHORSHIP:
     "Tài khoản này đã tạo dữ liệu thực phẩm dùng chung nên không thể tự xoá, vì việc đó sẽ làm mất nguồn gốc của dữ liệu đó. Vui lòng liên hệ người vận hành.",
-  UNAUTHORIZED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại rồi thử lại."
+  UNAUTHORIZED: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại rồi thử lại.",
+  INVALID_PASSWORD: "Mật khẩu xác nhận không chính xác. Vui lòng kiểm tra lại."
 }
 
 interface AccountSettingsPageProps {
@@ -29,25 +30,26 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
   const [typedEmail, setTypedEmail] = useState("")
   const [typedPassword, setTypedPassword] = useState("")
   const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState<DeleteAccountFailure | null>(null)
+  const [failure, setFailure] = useState<DeleteAccountFailure | "INVALID_PASSWORD" | null>(null)
 
   const email = auth.session?.identity.email ?? null
-  const confirmed = email !== null && typedEmail.trim() === email
+  const confirmed =
+    email !== null &&
+    typedEmail.trim().toLowerCase() === email.toLowerCase() &&
+    typedPassword.trim().length > 0
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!confirmed || auth.session === null) return
+    if (!confirmed || auth.session === null || email === null) return
 
     setBusy(true)
     setFailure(null)
 
-    if (typedPassword.trim() !== "" && email !== null) {
-      const authResult = await auth.signIn(email, typedPassword)
-      if (!authResult.ok) {
-        setBusy(false)
-        setFailure("UNAUTHORIZED")
-        return
-      }
+    const authResult = await auth.signIn(email, typedPassword)
+    if (!authResult.ok) {
+      setBusy(false)
+      setFailure("INVALID_PASSWORD")
+      return
     }
 
     const result = await accountApi.deleteOwnAccount(auth.session.accessToken)
@@ -179,12 +181,12 @@ export function AccountSettingsPage({ accountApi }: Readonly<AccountSettingsPage
             />
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium">
-            Mật khẩu xác nhận bảo mật (tùy chọn)
+            Mật khẩu tài khoản để xác thực lại
             <input
               className="h-11 rounded-xl border border-edge-strong bg-paper-raised px-3.5 transition-colors focus:border-herb-500"
               name="confirmDeletePassword"
               type="password"
-              placeholder="Nhập mật khẩu tài khoản..."
+              placeholder="Nhập mật khẩu tài khoản của bạn"
               autoComplete="current-password"
               value={typedPassword}
               onChange={(event) => setTypedPassword(event.target.value)}
