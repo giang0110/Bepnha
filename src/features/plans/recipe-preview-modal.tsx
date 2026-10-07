@@ -9,6 +9,7 @@ import { nutrientName, orderedNutrients } from "./nutrition-labels"
 import type { PlanItemView } from "./planner-api"
 import { stepConditions, stepIngredientNames } from "./step-details"
 import { MemberPortionsPanel } from "./member-portions-panel"
+import { FamilyCookingNotes } from "./family-cooking-notes"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -16,6 +17,7 @@ export interface RecipePreviewModalProps {
   readonly isOpen: boolean
   readonly item: PlanItemView | null
   readonly labels: IngredientLabels
+  readonly initialTab?: "ingredients" | "steps" | "nutrition" | "notes" | undefined
   readonly onClose: () => void
 }
 
@@ -23,9 +25,12 @@ export function RecipePreviewModal({
   isOpen,
   item,
   labels,
+  initialTab = "ingredients",
   onClose
 }: Readonly<RecipePreviewModalProps>) {
-  const [activeTab, setActiveTab] = useState<"ingredients" | "steps" | "nutrition">("ingredients")
+  const [activeTab, setActiveTab] = useState<"ingredients" | "steps" | "nutrition" | "notes">(
+    initialTab
+  )
 
   if (!isOpen || item === null) return null
 
@@ -109,6 +114,17 @@ export function RecipePreviewModal({
             }`}
           >
             Dinh dưỡng
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("notes")}
+            className={`border-b-2 px-4 py-2.5 transition-colors ${
+              activeTab === "notes"
+                ? "border-herb-700 text-herb-700 font-bold"
+                : "border-transparent text-ink-soft hover:text-ink"
+            }`}
+          >
+            Ghi chú & Mẹo
           </button>
         </div>
 
@@ -250,6 +266,25 @@ export function RecipePreviewModal({
                     </div>
                   ))}
                 </dl>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "notes" && (
+            <div className="grid gap-4">
+              <FamilyCookingNotes
+                mealOptionId={item.mealOptionId}
+                mealOptionNameVi={item.mealOptionNameVi}
+              />
+              <div className="rounded-2xl border border-clay-200 bg-clay-50/70 p-4 text-xs text-clay-900 dark:border-clay-900/40 dark:bg-clay-950/20 dark:text-clay-200">
+                <p className="font-bold flex items-center gap-1.5">
+                  <Icon name="note" className="size-4 text-clay-700" />
+                  Ghi nhớ bí quyết nấu ăn gia đình:
+                </p>
+                <p className="mt-1 text-ink-soft leading-relaxed">
+                  Ghi chú riêng của gia đình sẽ tự động đồng bộ khi bạn bắt đầu chế độ nấu ăn trên
+                  bếp, giúp bạn không bao giờ quên các khẩu vị đặc biệt của người thân!
+                </p>
               </div>
             </div>
           )}

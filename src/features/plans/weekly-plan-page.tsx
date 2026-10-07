@@ -49,6 +49,7 @@ import { solarToVietnameseLunar } from "@/domain/planner/vietnamese-lunar-calend
 import { generateGoogleCalendarUrl } from "@/domain/planner/calendar-export"
 import { useFamilyWishlist } from "./family-wishlist-store"
 import { WeeklyRotationBalanceCard } from "./weekly-rotation-balance-card"
+import { loadCookingNote } from "./cooking-notes-store"
 
 const FamilyCollaborationModal = lazy(async () => ({
   default: (await import("./family-collaboration-modal")).FamilyCollaborationModal
@@ -438,6 +439,10 @@ export function WeeklyPlanPage({
   const [ratings, setRatings] = useState<MealRatings>({ liked: [], disliked: [] })
   const [showFamilyModal, setShowFamilyModal] = useState(false)
   const [previewRecipeItem, setPreviewRecipeItem] = useState<PlanItemView | null>(null)
+  const [previewRecipeTab, setPreviewRecipeTab] = useState<
+    "ingredients" | "steps" | "nutrition" | "notes"
+  >("ingredients")
+  const [, setNotesVersion] = useState(0)
   const familyWishes = useFamilyWishlist(household?.householdId ?? null)
 
   const sortedPlanItems = useMemo(() => {
@@ -1097,6 +1102,22 @@ export function WeeklyPlanPage({
                         <span className="inline-flex rounded-full bg-paper-sunken px-2 py-0.5 text-[11px] font-medium text-ink-soft">
                           {proteinGroupLabel(protein)}
                         </span>
+                        {typeof window !== "undefined" &&
+                        Boolean(loadCookingNote(window.localStorage, item.mealOptionId)) ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewRecipeTab("notes")
+                              setPreviewRecipeItem(item)
+                            }}
+                            className="inline-flex items-center gap-1 rounded-full border border-herb-200 bg-herb-50 px-2 py-0.5 text-[11px] font-bold text-herb-800 transition-colors hover:bg-herb-100"
+                            data-testid={`meal-note-badge-${item.dayIndex}`}
+                            title="Món ăn có mẹo & ghi chú gia đình (Bấm để xem)"
+                          >
+                            <Icon name="note" className="size-3 text-herb-700" />
+                            Ghi chú riêng
+                          </button>
+                        ) : null}
                       </div>
                       <p
                         className="mt-3 text-lg font-extrabold leading-snug text-ink"
@@ -1142,7 +1163,10 @@ export function WeeklyPlanPage({
                       type="button"
                       variant="outline"
                       className="flex-1 gap-1.5 text-xs sm:text-sm font-semibold"
-                      onClick={() => setPreviewRecipeItem(item)}
+                      onClick={() => {
+                        setPreviewRecipeTab("ingredients")
+                        setPreviewRecipeItem(item)
+                      }}
                       data-testid={`preview-recipe-${item.dayIndex}`}
                     >
                       <Icon name="note" className="size-4 text-herb-700" />
@@ -1302,10 +1326,15 @@ export function WeeklyPlanPage({
       {previewRecipeItem !== null && (
         <Suspense fallback={null}>
           <RecipePreviewModal
+            key={`${previewRecipeItem.mealOptionId}-${previewRecipeTab}`}
             isOpen={previewRecipeItem !== null}
             item={previewRecipeItem}
             labels={labels}
-            onClose={() => setPreviewRecipeItem(null)}
+            initialTab={previewRecipeTab}
+            onClose={() => {
+              setPreviewRecipeItem(null)
+              setNotesVersion((v) => v + 1)
+            }}
           />
         </Suspense>
       )}

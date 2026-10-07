@@ -48,7 +48,7 @@ import {
   isSpeechSynthesisSupported,
   speakCookingInstruction
 } from "./cooking-speech"
-import { loadCookingNote, saveCookingNote } from "./cooking-notes-store"
+import { FamilyCookingNotes } from "./family-cooking-notes"
 import {
   extractMealPrePrepGroups,
   extractStapleRiceSummary,
@@ -508,86 +508,6 @@ function StepView({
           counterMode={counterMode}
           {...(timerProgress === undefined ? {} : { progress: timerProgress })}
         />
-      )}
-    </div>
-  )
-}
-
-function FamilyCookingNotes({ mealOptionId }: Readonly<{ mealOptionId: string }>) {
-  const [cookingNote, setCookingNote] = useState(
-    () => loadCookingNote(window.localStorage, mealOptionId) ?? ""
-  )
-  const [isEditingNote, setIsEditingNote] = useState(false)
-  const [noteSavedFeedback, setNoteSavedFeedback] = useState(false)
-
-  const handleSaveNote = useCallback(
-    (newNote: string) => {
-      saveCookingNote(window.localStorage, mealOptionId, newNote)
-      setCookingNote(newNote.trim())
-      setIsEditingNote(false)
-      setNoteSavedFeedback(true)
-      setTimeout(() => setNoteSavedFeedback(false), 2000)
-    },
-    [mealOptionId]
-  )
-
-  return (
-    <div className="rounded-2xl border border-edge bg-paper-raised p-4 shadow-soft">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Icon name="note" className="size-4 text-herb-700" />
-          <h3 className="text-sm font-bold text-ink">Mẹo & Ghi chú của gia đình</h3>
-        </div>
-        {!isEditingNote && (
-          <button
-            type="button"
-            onClick={() => setIsEditingNote(true)}
-            className="text-xs font-semibold text-herb-700 hover:underline"
-          >
-            {cookingNote ? "Sửa ghi chú" : "+ Thêm ghi chú"}
-          </button>
-        )}
-      </div>
-
-      {isEditingNote ? (
-        <div className="mt-2.5 grid gap-2">
-          <textarea
-            className="w-full rounded-xl border border-edge bg-paper p-2.5 text-sm text-ink placeholder:text-ink-muted focus:border-herb-500 focus:outline-none"
-            rows={3}
-            placeholder="Ví dụ: Giảm 1 thìa đường, chiên giòn hơn cho bé, ướp tiêu 15 phút..."
-            defaultValue={cookingNote}
-            id="cooking-note-input"
-          />
-          <div className="flex items-center justify-end gap-2">
-            <Button type="button" size="sm" variant="ghost" onClick={() => setIsEditingNote(false)}>
-              Hủy
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                const input = document.getElementById(
-                  "cooking-note-input"
-                ) as HTMLTextAreaElement | null
-                handleSaveNote(input?.value ?? "")
-              }}
-            >
-              Lưu ghi chú
-            </Button>
-          </div>
-        </div>
-      ) : cookingNote ? (
-        <p className="mt-2 text-sm whitespace-pre-wrap text-ink-soft">{cookingNote}</p>
-      ) : (
-        <p className="mt-1 text-xs text-ink-muted">
-          Chưa có ghi chú khẩu vị cho món này. Thêm mẹo để nhớ cho những lần nấu sau!
-        </p>
-      )}
-
-      {noteSavedFeedback && (
-        <p className="mt-1 text-xs font-bold text-herb-700" role="status">
-          ✓ Đã lưu ghi chú cho món này
-        </p>
       )}
     </div>
   )
