@@ -74,9 +74,9 @@ export function AuthProvider({
         }
         return result
       },
-      async signOut() {
-        const result = await port.signOut()
-        if (result.ok) {
+      async signOut(scope = "local") {
+        const result = await port.signOut(scope)
+        if (result.ok && scope !== "others") {
           setPasswordRecoveryReady(false)
           setSession(null)
           setStatus("signed-out")

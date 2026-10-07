@@ -93,10 +93,10 @@ export function createSupabaseAuthSession(client: SupabaseClient<Database>): Aut
       const { data, error } = await client.auth.signUp({ email, password })
       return mapAuthResult(data.session, error, error === null && data.session === null)
     },
-    async signOut() {
+    async signOut(scope = "local") {
       // A normal UI sign-out should clear only this browser session. Supabase defaults to
       // global sign-out, which would unexpectedly revoke the user's sessions on every device.
-      const { error } = await client.auth.signOut({ scope: "local" })
+      const { error } = await client.auth.signOut({ scope })
       return error === null ? { ok: true } : { ok: false, reason: "RETRYABLE_FAILURE" }
     },
     async requestPasswordReset(email, redirectTo) {
