@@ -122,4 +122,13 @@ describe("primary navigation", () => {
     await screen.findByRole("heading", { name: "Đăng nhập" })
     expect(screen.queryByRole("navigation", { name: "Điều hướng chính" })).toBeNull()
   })
+
+  it("prefetches route chunks on demand without throwing errors", async () => {
+    const { prefetchRoute } = await import("./route-prefetch")
+    await expect(prefetchRoute("/plan")).resolves.toBeDefined()
+    await expect(prefetchRoute("/shopping")).resolves.toBeDefined()
+    await expect(prefetchRoute("/pantry")).resolves.toBeDefined()
+    await expect(prefetchRoute("/settings")).resolves.toBeDefined()
+    expect(prefetchRoute("/unknown")).toBeUndefined()
+  })
 })

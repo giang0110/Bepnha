@@ -126,4 +126,31 @@ describe("Supabase pantry repository", () => {
       createSupabasePantryRepository(unavailable.client).load("household-1")
     ).rejects.toMatchObject({ code: "DEPENDENCY_UNAVAILABLE" })
   })
+
+  test("caches pantry items in memory within TTL and invalidates on write", async () => {
+    const { client, rpc } = fixtureClient((name) => {
+      if (name === "get_pantry") return { data: [row], error: null }
+      if (name === "delete_pantry_item") return { data: "pantry-1", error: null }
+      return { data: row, error: null }
+    })
+    const repository = createSupabasePantryRepository(client)
+
+    // First load calls RPC
+    const first = await repository.load("household-1")
+    expect(first).toHaveLength(1)
+    expect(rpc).toHaveBeenCalledTimes(1)
+
+    // Second load uses cache
+    const second = await repository.load("household-1")
+    expect(second).toEqual(first)
+    expect(rpc).toHaveBeenCalledTimes(1)
+
+    // Remove invalidates cache
+    await repository.remove("pantry-1", 2)
+    expect(rpc).toHaveBeenCalledTimes(2)
+
+    // Next load fetches fresh data from RPC
+    await repository.load("household-1")
+    expect(rpc).toHaveBeenCalledTimes(3)
+  })
 })

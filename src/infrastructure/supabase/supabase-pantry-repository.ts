@@ -93,14 +93,31 @@ function rpcQuantity(value: string): number {
 }
 
 export function createSupabasePantryRepository(client: SupabaseClient<Database>): PantryRepository {
+  let cachedHouseholdId: string | null = null
+  let cachedItems: readonly PantryItemRecord[] | null = null
+  let cachedExpiresAt = 0
+
   return {
     async load(householdId) {
+      if (
+        cachedHouseholdId === householdId &&
+        cachedItems !== null &&
+        cachedExpiresAt > Date.now()
+      ) {
+        return [...cachedItems]
+      }
+
       const { data, error } = await client.rpc("get_pantry", { p_household_id: householdId })
       if (error !== null) throw rpcFailure(error)
-      return parseRows(data)
+      const parsed = parseRows(data)
+      cachedHouseholdId = householdId
+      cachedItems = parsed
+      cachedExpiresAt = Date.now() + 30_000
+      return parsed
     },
 
     async upsert(input) {
+      cachedItems = null
       const { data, error } = await client.rpc("upsert_pantry_item", {
         p_household_id: input.householdId,
         p_food_id: input.foodId,
@@ -114,6 +131,7 @@ export function createSupabasePantryRepository(client: SupabaseClient<Database>)
     },
 
     async remove(pantryItemId, expectedVersion) {
+      cachedItems = null
       const { data, error } = await client.rpc("delete_pantry_item", {
         p_pantry_item_id: pantryItemId,
         p_expected_version: expectedVersion

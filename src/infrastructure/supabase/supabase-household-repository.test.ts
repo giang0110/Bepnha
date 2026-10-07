@@ -301,4 +301,34 @@ describe("versioned household profiles", () => {
       expect(rpc.mock.calls[0]?.[0]).toBe("save_household_setup_v2")
     }
   )
+
+  it("caches loadOwn in memory within TTL and updates cache on saveOwn", async () => {
+    const rpc = vi.fn<(...args: unknown[]) => Promise<unknown>>()
+    rpc
+      .mockResolvedValueOnce({ data: storedNutrition, error: null })
+      .mockResolvedValueOnce({ data: storedNutrition, error: null })
+    const repository = createSupabaseHouseholdRepository({
+      rpc
+    } as unknown as SupabaseClient<Database>)
+
+    // First read invokes RPC
+    const first = await repository.loadOwn()
+    expect(first).not.toBeNull()
+    expect(rpc).toHaveBeenCalledTimes(1)
+
+    // Second read re-uses memory cache, no new RPC
+    const second = await repository.loadOwn()
+    expect(second).toEqual(first)
+    expect(rpc).toHaveBeenCalledTimes(1)
+
+    // Save updates cache with the newly saved version
+    const saveResult = await repository.saveOwn(nutritionInput, 2)
+    expect(saveResult.ok).toBe(true)
+    expect(rpc).toHaveBeenCalledTimes(2)
+
+    // Subsequent read returns updated household from cache without needing another RPC
+    const afterSave = await repository.loadOwn()
+    expect(afterSave?.version).toBe(3)
+    expect(rpc).toHaveBeenCalledTimes(2)
+  })
 })
