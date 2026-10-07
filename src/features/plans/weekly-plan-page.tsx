@@ -15,6 +15,7 @@ import { AppPageShell } from "@/app/components/app-page-shell"
 import { PageHeader } from "@/app/components/page-header"
 import { Button, buttonVariants } from "@/app/components/ui/button"
 import { Icon } from "@/app/components/ui/icon"
+import { toast } from "@/app/components/ui/toast"
 import type { HouseholdSetup } from "@/domain/household/household"
 
 import { mealRoleLabel } from "./cooking-sequence"
@@ -47,9 +48,14 @@ import {
 import { detectDishThermalAffinity } from "@/domain/planner/seasonal-weather-insights"
 import { solarToVietnameseLunar } from "@/domain/planner/vietnamese-lunar-calendar"
 import { generateGoogleCalendarUrl } from "@/domain/planner/calendar-export"
+import {
+  formatWeeklyPlanShareText,
+  type WeeklyPlanShareDishItem
+} from "@/domain/planner/weekly-plan-share-text"
 import { useFamilyWishlist } from "./family-wishlist-store"
 import { WeeklyRotationBalanceCard } from "./weekly-rotation-balance-card"
 import { loadCookingNote } from "./cooking-notes-store"
+import { shareText } from "./share-text"
 
 const FamilyCollaborationModal = lazy(async () => ({
   default: (await import("./family-collaboration-modal")).FamilyCollaborationModal
@@ -681,6 +687,35 @@ export function WeeklyPlanPage({
     }
   }
 
+  async function handleSharePlan() {
+    if (state.status !== "ready") return
+
+    const items: WeeklyPlanShareDishItem[] = state.value.plan.items.map((item) => {
+      const dishes = item.mealOptionNameVi
+        .split(/[,+]/)
+        .map((d) => d.trim())
+        .filter(Boolean)
+      return {
+        dayIndex: item.dayIndex,
+        mealName: item.mealOptionNameVi,
+        dishes: dishes.length > 0 ? dishes : [item.mealOptionNameVi]
+      }
+    })
+
+    const text = formatWeeklyPlanShareText({
+      weekStart,
+      items
+    })
+
+    const title = `Thực đơn Bếp Nhà tuần ${formatWeekRange(weekStart)}`
+    const outcome = await shareText(text, title, navigator)
+    if (outcome === "copied") {
+      toast.success("Đã sao chép thực đơn tuần vào bộ nhớ tạm!")
+    } else if (outcome === "unavailable") {
+      toast.error("Không thể chia sẻ hoặc sao chép trên thiết bị này.")
+    }
+  }
+
   if (state.status === "loading_household") {
     return (
       <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
@@ -702,10 +737,24 @@ export function WeeklyPlanPage({
 
   return (
     <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
-      <PageHeader
-        title="Kế hoạch tuần"
-        description="Ngân sách chỉ áp dụng cho 7 bữa chính nấu cho cả gia đình."
-      />
+      <div className="border-b border-edge pb-4 mb-2" data-print="only">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-extrabold text-ink">Thực đơn Bếp Nhà</h1>
+            <p className="mt-1 text-sm font-medium text-ink-soft">
+              Tuần {formatWeekRange(weekStart)}
+            </p>
+          </div>
+          <p className="text-xs font-semibold text-herb-700">bepnha.app</p>
+        </div>
+      </div>
+
+      <div data-print="hide">
+        <PageHeader
+          title="Kế hoạch tuần"
+          description="Ngân sách chỉ áp dụng cho 7 bữa chính nấu cho cả gia đình."
+        />
+      </div>
 
       {/* Which week, said out loud. The page used to answer for the Monday ahead without ever
           naming it, so a household mid-week was looking at a different week from the one they
@@ -713,6 +762,7 @@ export function WeeklyPlanPage({
       <div
         aria-label="Tuần đang xem"
         className="flex w-full max-w-lg items-center gap-1 rounded-2xl border border-edge bg-paper-sunken p-1 text-sm"
+        data-print="hide"
         role="group"
       >
         {(
@@ -826,6 +876,7 @@ export function WeeklyPlanPage({
         <Button
           disabled={submitting}
           className="self-start"
+          data-print="hide"
           size="lg"
           type="button"
           variant="outline"
@@ -836,7 +887,7 @@ export function WeeklyPlanPage({
       ) : null}
 
       {state.status === "error" ? (
-        <div className="grid justify-items-start gap-3" role="alert">
+        <div className="grid justify-items-start gap-3" role="alert" data-print="hide">
           <p>{errorCopy(state.code)}</p>
           <SupportReference correlationId={state.correlationId} />
           {/* Reading the week again is the right offer for a read that failed. Generating is not:
@@ -887,6 +938,7 @@ export function WeeklyPlanPage({
               <section
                 aria-label={`Bữa hôm nay, ${DAY_LABELS[meal.dayIndex]}`}
                 className="rounded-3xl border border-herb-200 bg-herb-50 p-5 shadow-soft"
+                data-print="hide"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xs font-bold tracking-wide text-herb-900 uppercase">
@@ -975,6 +1027,7 @@ export function WeeklyPlanPage({
           <section
             className="rounded-3xl border border-edge bg-paper-raised p-5 sm:p-6"
             aria-label="Tổng quan ngân sách"
+            data-print="hide"
           >
             <p className="flex items-center gap-2 text-sm font-semibold text-herb-700">
               <Icon name="basket" className="size-4" />
@@ -1002,17 +1055,21 @@ export function WeeklyPlanPage({
           </section>
 
           {state.value.engineVersion !== "planner-engine-v6" && setupNotice === null ? (
-            <p className="rounded-2xl bg-paper-raised p-4 text-sm">
+            <p className="rounded-2xl bg-paper-raised p-4 text-sm" data-print="hide">
               Thực đơn này dùng khẩu phần theo nhóm tuổi. Tạo lại tuần để áp dụng mục tiêu và cách
               tính lượng thực phẩm mới.
             </p>
           ) : null}
-          {state.value.trust === undefined ? null : <PlanTrustPanel trust={state.value.trust} />}
+          {state.value.trust === undefined ? null : (
+            <div data-print="hide">
+              <PlanTrustPanel trust={state.value.trust} />
+            </div>
+          )}
 
           {/* Not plain "Đi chợ": the navigation carries that name for the week's list in general,
               and two links reading the same while leading to different places is a guess the
               reader should not have to make. This one is the list for the plan on screen. */}
-          <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center">
+          <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-center" data-print="hide">
             <Link
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-clay-700 px-5 text-sm font-bold text-on-clay transition-colors hover:bg-clay-900 sm:px-6"
               to={`/shopping/${state.value.planId}`}
@@ -1034,6 +1091,26 @@ export function WeeklyPlanPage({
                   {familyWishes.length}
                 </span>
               )}
+            </Button>
+            <Button
+              className="min-h-12 gap-2 rounded-full px-5 font-bold"
+              data-testid="share-plan-button"
+              type="button"
+              variant="outline"
+              onClick={() => void handleSharePlan()}
+            >
+              <Icon name="share" className="size-5 text-herb-700" />
+              Chia sẻ thực đơn
+            </Button>
+            <Button
+              className="min-h-12 gap-2 rounded-full px-5 font-bold"
+              data-testid="print-plan-button"
+              type="button"
+              variant="outline"
+              onClick={() => window.print()}
+            >
+              <Icon name="printer" className="size-5 text-herb-700" />
+              In thực đơn
             </Button>
           </div>
 
@@ -1130,7 +1207,7 @@ export function WeeklyPlanPage({
                         Tối đa {item.elapsedMinutes} phút
                       </p>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5" data-print="hide">
                       <a
                         aria-label={`Thêm bữa ăn ${item.mealOptionNameVi} vào Google Calendar`}
                         className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-edge bg-paper-raised text-ink-soft transition-colors hover:border-herb-300 hover:bg-herb-50/50 hover:text-herb-800"
@@ -1158,7 +1235,7 @@ export function WeeklyPlanPage({
                       </Button>
                     </div>
                   </div>
-                  <div className="mt-5 flex flex-col sm:flex-row gap-2">
+                  <div className="mt-5 flex flex-col sm:flex-row gap-2" data-print="hide">
                     <Button
                       type="button"
                       variant="outline"
@@ -1185,27 +1262,34 @@ export function WeeklyPlanPage({
                     </Link>
                   </div>
 
-                  <MealDetails
-                    item={item}
-                    labels={labels}
-                    rating={
-                      ratings.liked.includes(item.mealOptionId)
-                        ? "liked"
-                        : ratings.disliked.includes(item.mealOptionId)
-                          ? "disliked"
-                          : null
-                    }
-                    onRate={rateMeal}
-                  />
+                  <div data-print="hide">
+                    <MealDetails
+                      item={item}
+                      labels={labels}
+                      rating={
+                        ratings.liked.includes(item.mealOptionId)
+                          ? "liked"
+                          : ratings.disliked.includes(item.mealOptionId)
+                            ? "disliked"
+                            : null
+                      }
+                      onRate={rateMeal}
+                    />
+                  </div>
                 </li>
               )
             })}
           </ol>
 
-          <WeeklyRotationBalanceCard items={state.value.plan.items} weekStart={weekStart} />
+          <div data-print="hide">
+            <WeeklyRotationBalanceCard items={state.value.plan.items} weekStart={weekStart} />
+          </div>
 
           {accessToken === undefined || renderAssistant === undefined ? null : (
-            <details className="rounded-3xl border border-edge bg-paper-raised p-4 shadow-soft">
+            <details
+              className="rounded-3xl border border-edge bg-paper-raised p-4 shadow-soft"
+              data-print="hide"
+            >
               <summary ref={assistantSummaryRef} className="cursor-pointer font-bold text-ink">
                 Hỏi trợ lý về kế hoạch
               </summary>

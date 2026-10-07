@@ -40,6 +40,7 @@ export function AppNav() {
   return (
     <nav
       aria-label="Điều hướng chính"
+      data-print="hide"
       className="fixed inset-x-0 bottom-0 z-50 border-t border-edge bg-paper-raised/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgb(107_93_84_/_0.04)] backdrop-blur lg:sticky lg:top-0 lg:h-svh lg:border-r lg:border-t-0 lg:pb-0 lg:shadow-none"
     >
       <div className="hidden px-5 pb-5 pt-7 lg:block">
