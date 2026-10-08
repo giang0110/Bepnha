@@ -550,4 +550,88 @@ describe("PantryPage", () => {
     expect(screen.getByTestId("pantry-expiry-badge-item-egg")).toBeInTheDocument()
     expect(screen.getByTestId("pantry-expiry-badge-item-egg")).toHaveTextContent(/Còn/i)
   })
+
+  test("searches pantry items by Vietnamese text (accented and unaccented) and offers filter reset", async () => {
+    const user = userEvent.setup()
+    const riceItem = pantryItem({ pantryItemId: "item-rice", foodId: rice.foodId })
+    const vegItem = pantryItem({ pantryItemId: "item-veg", foodId: vegetable.foodId })
+    const porkItem = pantryItem({ pantryItemId: "item-pork", foodId: pork.foodId })
+
+    setup([riceItem, vegItem, porkItem])
+    expect(await screen.findByRole("heading", { name: "Tủ bếp" })).toBeInTheDocument()
+
+    const searchInput = screen.getByTestId("pantry-search-input")
+    expect(searchInput).toBeInTheDocument()
+
+    // Search with unaccented "gao" matches "Gạo"
+    await user.type(searchInput, "gao")
+    expect(screen.getByTestId("pantry-item-item-rice")).toBeInTheDocument()
+    expect(screen.queryByTestId("pantry-item-item-veg")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("pantry-item-item-pork")).not.toBeInTheDocument()
+
+    // Search with non-matching term displays empty state with reset button
+    await user.clear(searchInput)
+    await user.type(searchInput, "cá hồi")
+    expect(screen.getByTestId("pantry-empty-filter")).toBeInTheDocument()
+    expect(screen.getByText("Không tìm thấy thực phẩm nào phù hợp bộ lọc.")).toBeInTheDocument()
+
+    // Click reset button in empty state
+    await user.click(screen.getByRole("button", { name: "Xem lại tất cả thực phẩm" }))
+    expect(screen.getByTestId("pantry-item-item-rice")).toBeInTheDocument()
+    expect(screen.getByTestId("pantry-item-item-veg")).toBeInTheDocument()
+    expect(screen.getByTestId("pantry-item-item-pork")).toBeInTheDocument()
+  })
+
+  test("filters exclusively urgent perishable items using the urgent chip", async () => {
+    const user = userEvent.setup()
+    const riceItem = pantryItem({ pantryItemId: "item-rice", foodId: rice.foodId })
+    const vegItem = pantryItem({ pantryItemId: "item-veg", foodId: vegetable.foodId })
+    const porkItem = pantryItem({ pantryItemId: "item-pork", foodId: pork.foodId })
+
+    setup([riceItem, vegItem, porkItem])
+    expect(await screen.findByRole("heading", { name: "Tủ bếp" })).toBeInTheDocument()
+
+    // Both vegetable and pork are urgent perishable items
+    const urgentChip = screen.getByTestId("pantry-filter-urgent")
+    expect(urgentChip).toHaveTextContent("⚡ Dùng gấp")
+    expect(urgentChip).toHaveAttribute("aria-pressed", "false")
+
+    await user.click(urgentChip)
+    expect(urgentChip).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByTestId("pantry-item-item-veg")).toBeInTheDocument()
+    expect(screen.getByTestId("pantry-item-item-pork")).toBeInTheDocument()
+    expect(screen.queryByTestId("pantry-item-item-rice")).not.toBeInTheDocument()
+
+    // Toggle off restores all items
+    await user.click(urgentChip)
+    expect(urgentChip).toHaveAttribute("aria-pressed", "false")
+    expect(screen.getByTestId("pantry-item-item-rice")).toBeInTheDocument()
+  })
+
+  test("shares or copies pantry inventory when clicking the share button", async () => {
+    const user = userEvent.setup()
+    const riceItem = pantryItem({ pantryItemId: "item-rice", foodId: rice.foodId })
+    const vegItem = pantryItem({ pantryItemId: "item-veg", foodId: vegetable.foodId })
+
+    const writeTextMock = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: writeTextMock },
+      configurable: true,
+      writable: true
+    })
+
+    setup([riceItem, vegItem])
+    expect(await screen.findByRole("heading", { name: "Tủ bếp" })).toBeInTheDocument()
+
+    const shareBtn = screen.getByTestId("pantry-share-button")
+    expect(shareBtn).toBeInTheDocument()
+
+    await user.click(shareBtn)
+    expect(writeTextMock).toHaveBeenCalledTimes(1)
+    const callArgs = writeTextMock.mock.calls[0] ?? []
+    const sharedText = String(callArgs[0] ?? "")
+    expect(sharedText).toContain("KIỂM KÊ TỦ BẾP")
+    expect(sharedText).toContain("Gạo")
+    expect(sharedText).toContain("Rau muống")
+  })
 })

@@ -19,7 +19,6 @@ import { Button } from "@/app/components/ui/button"
 import { Icon } from "@/app/components/ui/icon"
 import { toast } from "@/app/components/ui/toast"
 import {
-  PANTRY_STORAGE_ZONES,
   pantryStorageZone,
   storageZoneMetadata,
   type PantryStorageZone
@@ -36,6 +35,13 @@ import {
   savePantryExpiry,
   sortPantryItemsByUrgency
 } from "./pantry-expiry-store"
+import { PantryInventoryFilterBar } from "./pantry-inventory-filter-bar"
+import { shareText } from "./share-text"
+import {
+  formatPantryInventoryText,
+  normalizeVietnameseSearchText,
+  type PantryInventoryEntry
+} from "@/domain/pantry/pantry-inventory-text"
 
 interface Props {
   readonly householdRepository: HouseholdRepository
@@ -289,6 +295,9 @@ export function PantryPage({
   const [reloadToken, setReloadToken] = useState(0)
   const [selectedZone, setSelectedZone] = useState<PantryStorageZone | "all">("all")
   const [sortByUrgency, setSortByUrgency] = useState(false)
+  const [pantryItemSearch, setPantryItemSearch] = useState("")
+  const deferredPantryItemSearch = useDeferredValue(pantryItemSearch)
+  const [urgentOnly, setUrgentOnly] = useState(false)
   const [leftoverFilterOnlyReady, setLeftoverFilterOnlyReady] = useState(false)
   const [recentFoodIds, setRecentFoodIds] = useState<readonly string[]>([])
   const [expiries, setExpiries] = useState<Record<string, string>>({})
@@ -434,16 +443,56 @@ export function PantryPage({
     return leftoverSuggestions.filter((s) => s.status === "ready_to_cook")
   }, [leftoverFilterOnlyReady, leftoverSuggestions])
 
+  const zoneCounts = useMemo(() => {
+    const counts: Record<PantryStorageZone | "all", number> = {
+      all: 0,
+      chilled: 0,
+      frozen: 0,
+      ambient: 0
+    }
+    if (state.status !== "ready") return counts
+    counts.all = state.items.length
+    for (const item of state.items) {
+      const opt = state.options.find((o) => o.foodId === item.foodId)
+      const zone = pantryStorageZone(opt?.foodNameVi ?? "")
+      counts[zone] = (counts[zone] ?? 0) + 1
+    }
+    return counts
+  }, [state])
+
+  const urgentCount = useMemo(() => {
+    if (state.status !== "ready") return 0
+    return state.items.filter((item) => {
+      const opt = state.options.find((o) => o.foodId === item.foodId)
+      return isPantryItemUrgent(opt?.foodNameVi ?? "", expiries[item.pantryItemId])
+    }).length
+  }, [expiries, state])
+
   const displayedItems = useMemo(() => {
     if (state.status !== "ready") return []
     let list = state.items
-    if (selectedZone !== "all") {
+    if (urgentOnly) {
+      list = list.filter((item) => {
+        const opt = state.options.find((o) => o.foodId === item.foodId)
+        return isPantryItemUrgent(opt?.foodNameVi ?? "", expiries[item.pantryItemId])
+      })
+    } else if (selectedZone !== "all") {
       list = list.filter((item) => {
         const opt = state.options.find((o) => o.foodId === item.foodId)
         const name = opt?.foodNameVi ?? ""
         return pantryStorageZone(name) === selectedZone
       })
     }
+
+    const query = normalizeVietnameseSearchText(deferredPantryItemSearch)
+    if (query !== "") {
+      list = list.filter((item) => {
+        const opt = state.options.find((o) => o.foodId === item.foodId)
+        const name = normalizeVietnameseSearchText(opt?.foodNameVi ?? "")
+        return name.includes(query)
+      })
+    }
+
     if (sortByUrgency) {
       list = sortPantryItemsByUrgency(
         list,
@@ -455,7 +504,43 @@ export function PantryPage({
       )
     }
     return list
-  }, [expiries, selectedZone, sortByUrgency, state])
+  }, [deferredPantryItemSearch, expiries, selectedZone, sortByUrgency, state, urgentOnly])
+
+  const handleResetFilters = useCallback(() => {
+    setPantryItemSearch("")
+    setSelectedZone("all")
+    setUrgentOnly(false)
+  }, [])
+
+  const handleShareInventory = useCallback(async () => {
+    if (state.status !== "ready" || state.items.length === 0) return
+    const entries: PantryInventoryEntry[] = state.items.map((item) => {
+      const opt = state.options.find((o) => o.foodId === item.foodId)
+      const unit = opt?.units.find((u) => u.unitId === item.unitId)
+      const foodNameVi = opt?.foodNameVi ?? `Thực phẩm ${item.foodId}`
+      const expiryDate = expiries[item.pantryItemId]
+      const expiry = expiryDate ? evaluateExpiry(expiryDate) : null
+      return {
+        foodNameVi,
+        quantity: item.quantity,
+        unitName: unit?.unitNameVi ?? unit?.unitCode ?? "đơn vị",
+        zone: pantryStorageZone(foodNameVi),
+        isUrgent: isPantryItemUrgent(foodNameVi, expiryDate),
+        expiryLabel: expiry?.labelVi ?? null
+      }
+    })
+
+    const text = formatPantryInventoryText({ entries })
+    const result = await shareText(text, "Kiểm kê Tủ bếp - Bếp Nhà")
+
+    if (result === "shared") {
+      toast.success("Đã chia sẻ danh sách tủ bếp!")
+    } else if (result === "copied") {
+      toast.success("Đã sao chép danh sách tủ bếp vào bộ nhớ tạm!")
+    } else {
+      toast.error("Thiết bị chưa hỗ trợ chia sẻ hoặc sao chép tự động.")
+    }
+  }, [expiries, state])
 
   async function reloadAfterConflict(householdId: string, options: readonly PantryFoodOption[]) {
     try {
@@ -664,71 +749,22 @@ export function PantryPage({
       {state.status === "ready" ? (
         <>
           {state.items.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-edge pb-3">
-              <nav
-                aria-label="Khu vực lưu trữ tủ bếp"
-                className="flex flex-wrap items-center gap-2"
-              >
-                <span className="mr-1 text-xs font-bold uppercase tracking-wider text-ink-soft">
-                  Ngăn lưu trữ:
-                </span>
-                {PANTRY_STORAGE_ZONES.map((zone) => {
-                  const isSelected = selectedZone === zone.id
-                  const count =
-                    zone.id === "all"
-                      ? state.items.length
-                      : state.items.filter((item) => {
-                          const opt = state.options.find((o) => o.foodId === item.foodId)
-                          return pantryStorageZone(opt?.foodNameVi ?? "") === zone.id
-                        }).length
-
-                  return (
-                    <button
-                      key={zone.id}
-                      type="button"
-                      aria-pressed={isSelected}
-                      className={`flex min-h-11 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-colors ${
-                        isSelected
-                          ? "bg-herb-700 text-on-herb shadow-xs"
-                          : "border border-edge bg-paper-raised text-ink-soft hover:bg-paper-sunken"
-                      }`}
-                      onClick={() => setSelectedZone(zone.id)}
-                    >
-                      {zone.shortLabelVi}
-                      <span
-                        className={`rounded-full px-1.5 py-0.5 text-[10px] ${
-                          isSelected ? "bg-herb-50 text-herb-900" : "bg-paper-sunken text-ink"
-                        }`}
-                      >
-                        {count}
-                      </span>
-                    </button>
-                  )
-                })}
-              </nav>
-
-              <button
-                type="button"
-                aria-pressed={sortByUrgency}
-                onClick={() => setSortByUrgency((prev) => !prev)}
-                className={`flex min-h-11 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-colors ${
-                  sortByUrgency
-                    ? "bg-chilli-700 text-white shadow-xs"
-                    : "border border-edge bg-paper-raised text-ink-soft hover:bg-paper-sunken hover:text-ink"
-                }`}
-                data-testid="pantry-sort-urgency-toggle"
-              >
-                <Icon name="flame" className="size-3.5" />
-                Ưu tiên dùng sớm (
-                {
-                  state.items.filter((item) => {
-                    const opt = state.options.find((o) => o.foodId === item.foodId)
-                    return isPantryItemUrgent(opt?.foodNameVi ?? "", expiries[item.pantryItemId])
-                  }).length
-                }
-                )
-              </button>
-            </div>
+            <PantryInventoryFilterBar
+              searchQuery={pantryItemSearch}
+              onSearchChange={setPantryItemSearch}
+              activeZone={selectedZone}
+              onZoneChange={setSelectedZone}
+              urgentOnly={urgentOnly}
+              onUrgentToggle={() => setUrgentOnly((prev) => !prev)}
+              sortByUrgency={sortByUrgency}
+              onSortByUrgencyToggle={() => setSortByUrgency((prev) => !prev)}
+              totalCount={state.items.length}
+              matchCount={displayedItems.length}
+              urgentCount={urgentCount}
+              zoneCounts={zoneCounts}
+              onShareInventory={() => void handleShareInventory()}
+              onResetFilters={handleResetFilters}
+            />
           )}
 
           {leftoverSuggestions.length > 0 && (
@@ -991,9 +1027,21 @@ export function PantryPage({
               làm tròn gói mua.
             </p>
           ) : displayedItems.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-edge-strong bg-paper-raised p-4 text-sm text-ink-soft">
-              Không có thực phẩm nào trong ngăn lưu trữ này.
-            </p>
+            <div
+              className="rounded-2xl border border-dashed border-edge-strong bg-paper-raised p-6 text-center text-sm text-ink-soft"
+              data-testid="pantry-empty-filter"
+            >
+              <p className="font-medium text-ink">Không tìm thấy thực phẩm nào phù hợp bộ lọc.</p>
+              <p className="mt-1 text-xs">
+                Thử tìm với từ khóa khác hoặc xóa bộ lọc để xem toàn bộ thực phẩm đang có trong tủ
+                bếp.
+              </p>
+              <div className="mt-3">
+                <Button type="button" variant="outline" onClick={handleResetFilters}>
+                  Xem lại tất cả thực phẩm
+                </Button>
+              </div>
+            </div>
           ) : (
             <ul className="grid gap-3 md:grid-cols-2" aria-label="Thực phẩm đang có">
               {displayedItems.map((item) => {
