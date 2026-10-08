@@ -739,4 +739,42 @@ describe("ShoppingListPage", () => {
     expect(screen.getByText("Rau muống")).toBeInTheDocument()
     expect(screen.getByText("Nước mắm")).toBeInTheDocument()
   })
+
+  test("bulk checks and unchecks all displayed items", async () => {
+    const user = userEvent.setup()
+    const { repo, setChecked } = repository()
+    renderPage(repo)
+
+    expect(await screen.findByText("Rau muống")).toBeInTheDocument()
+
+    const checkAllBtn = screen.getByTestId("bulk-check-all")
+    expect(checkAllBtn).toBeInTheDocument()
+
+    // Click bulk check all
+    await user.click(checkAllBtn)
+    expect(setChecked).toHaveBeenCalled()
+
+    const uncheckAllBtn = screen.getByTestId("bulk-uncheck-all")
+    expect(uncheckAllBtn).toBeInTheDocument()
+
+    // Click bulk uncheck all
+    await user.click(uncheckAllBtn)
+    expect(setChecked).toHaveBeenCalled()
+  })
+
+  test("toggles all items in a category section", async () => {
+    const user = userEvent.setup()
+    const { repo, setChecked } = repository()
+    renderPage(repo)
+
+    expect(await screen.findByText("Rau muống")).toBeInTheDocument()
+
+    // Find batch toggle button for eggs_tofu_dairy (which has 2 items)
+    const categoryBatchBtn = screen.getByTestId("batch-toggle-eggs_tofu_dairy")
+    expect(categoryBatchBtn).toBeInTheDocument()
+
+    await user.click(categoryBatchBtn)
+    expect(setChecked).toHaveBeenCalledWith("tofu-b", true)
+    expect(setChecked).toHaveBeenCalledWith("tofu-a", true)
+  })
 })

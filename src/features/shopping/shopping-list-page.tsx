@@ -270,7 +270,8 @@ const CategorySection = memo(function CategorySection({
   pendingIds,
   queuedIds,
   oneHandMode = false,
-  onCheckedChange
+  onCheckedChange,
+  onBatchChange
 }: Readonly<{
   category: GroceryCategoryDefinition
   items: readonly ShoppingListItem[]
@@ -278,6 +279,7 @@ const CategorySection = memo(function CategorySection({
   queuedIds: ReadonlySet<string>
   oneHandMode?: boolean
   onCheckedChange: (item: ShoppingListItem, checked: boolean) => void
+  onBatchChange?: (items: readonly ShoppingListItem[], checked: boolean) => void
 }>) {
   const completedCount = items.filter((item) => item.checked).length
   const totalCount = items.length
@@ -287,17 +289,30 @@ const CategorySection = memo(function CategorySection({
     <section className="grid gap-2" data-testid="shopping-category">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-base font-semibold">{category.labelVi}</h2>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${
-            allCompleted
-              ? "bg-herb-100 text-herb-800"
-              : completedCount > 0
-                ? "bg-paper-sunken text-ink"
-                : "bg-paper-sunken text-ink-soft"
-          }`}
-        >
-          {completedCount > 0 ? `${completedCount}/${totalCount}` : `${totalCount} món`}
-        </span>
+        <div className="flex items-center gap-2">
+          {items.length > 1 && onBatchChange ? (
+            <button
+              type="button"
+              className="text-xs font-semibold text-herb-700 hover:text-herb-900 transition-colors"
+              onClick={() => onBatchChange(items, !allCompleted)}
+              data-testid={`batch-toggle-${category.code}`}
+              title={allCompleted ? "Bỏ chọn toàn bộ quầy này" : "Đánh dấu đã mua cả quầy"}
+            >
+              {allCompleted ? "Bỏ chọn quầy" : "Chọn cả quầy"}
+            </button>
+          ) : null}
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${
+              allCompleted
+                ? "bg-herb-100 text-herb-800"
+                : completedCount > 0
+                  ? "bg-paper-sunken text-ink"
+                  : "bg-paper-sunken text-ink-soft"
+            }`}
+          >
+            {completedCount > 0 ? `${completedCount}/${totalCount}` : `${totalCount} món`}
+          </span>
+        </div>
       </div>
       <ul className="grid gap-2">
         {items.map((item) => (
@@ -640,6 +655,85 @@ export function ShoppingListPage({ repository }: Props) {
     }
   }
 
+  async function setBatchChecked(itemsToToggle: readonly ShoppingListItem[], checked: boolean) {
+    if (state.status !== "ready") return
+    const itemsNeedUpdate = itemsToToggle.filter((item) => item.checked !== checked)
+    if (itemsNeedUpdate.length === 0) return
+
+    const idsToChange = new Set(itemsNeedUpdate.map((i) => i.shoppingListItemId))
+    setMutationError(null)
+    setPendingIds((current) => {
+      const next = new Set(current)
+      idsToChange.forEach((id) => next.add(id))
+      return next
+    })
+
+    setState({
+      status: "ready",
+      value: {
+        ...state.value,
+        items: state.value.items.map((entry) =>
+          idsToChange.has(entry.shoppingListItemId)
+            ? { ...entry, checked, checkedAt: checked ? entry.checkedAt : null }
+            : entry
+        )
+      }
+    })
+
+    await Promise.allSettled(
+      itemsNeedUpdate.map(async (item) => {
+        try {
+          const result = await repository.setChecked(item.shoppingListItemId, checked)
+          setState((current) =>
+            current.status !== "ready"
+              ? current
+              : {
+                  status: "ready",
+                  value: {
+                    ...current.value,
+                    items: current.value.items.map((entry) =>
+                      entry.shoppingListItemId === result.shoppingListItemId
+                        ? { ...entry, checked: result.checked, checkedAt: result.checkedAt }
+                        : entry
+                    )
+                  }
+                }
+          )
+          discardQueuedShoppingCheck(window.localStorage, {
+            revisionId: state.value.revisionId,
+            shoppingListItemId: item.shoppingListItemId
+          })
+          setQueuedIds((current) => {
+            const next = new Set(current)
+            next.delete(item.shoppingListItemId)
+            return next
+          })
+        } catch {
+          if (typeof window !== "undefined") {
+            queueShoppingCheck(window.localStorage, {
+              revisionId: state.value.revisionId,
+              shoppingListItemId: item.shoppingListItemId,
+              checked
+            })
+            setQueuedIds((current) => new Set(current).add(item.shoppingListItemId))
+          }
+        }
+      })
+    )
+
+    setPendingIds((current) => {
+      const next = new Set(current)
+      idsToChange.forEach((id) => next.delete(id))
+      return next
+    })
+
+    toast.success(
+      checked
+        ? `Đã đánh dấu ${itemsNeedUpdate.length} món đã mua.`
+        : `Đã bỏ chọn ${itemsNeedUpdate.length} món.`
+    )
+  }
+
   const setCheckedRef = useRef(setChecked)
   useEffect(() => {
     setCheckedRef.current = setChecked
@@ -647,6 +741,17 @@ export function ShoppingListPage({ repository }: Props) {
   const handleItemCheckedChange = useCallback((entry: ShoppingListItem, checked: boolean) => {
     void setCheckedRef.current(entry, checked)
   }, [])
+
+  const setBatchCheckedRef = useRef(setBatchChecked)
+  useEffect(() => {
+    setBatchCheckedRef.current = setBatchChecked
+  })
+  const handleBatchCheckedChange = useCallback(
+    (itemsToToggle: readonly ShoppingListItem[], checked: boolean) => {
+      void setBatchCheckedRef.current(itemsToToggle, checked)
+    },
+    []
+  )
 
   const staleCopy = state.status === "ready" ? staleWarningCopy(state.value) : null
   const alertCopy = mutationError ?? staleCopy
@@ -1032,6 +1137,41 @@ export function ShoppingListPage({ repository }: Props) {
             )}
           </div>
 
+          {displayedItems.length > 0 && (
+            <div
+              className="flex items-center justify-between gap-3 rounded-2xl border border-edge/60 bg-paper-sunken/60 px-3.5 py-2 text-xs"
+              data-print="hide"
+            >
+              <span className="text-ink-soft">
+                Đang hiển thị{" "}
+                <strong className="font-bold text-ink">{displayedItems.length}</strong> món
+              </span>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1 px-2.5 text-xs font-semibold text-herb-700 hover:bg-herb-50 hover:text-herb-900"
+                  type="button"
+                  data-testid="bulk-check-all"
+                  onClick={() => void setBatchChecked(displayedItems, true)}
+                >
+                  <Icon name="check" className="size-3.5" />
+                  Chọn tất cả
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1 px-2.5 text-xs font-semibold text-ink-soft hover:bg-paper-raised hover:text-ink"
+                  type="button"
+                  data-testid="bulk-uncheck-all"
+                  onClick={() => void setBatchChecked(displayedItems, false)}
+                >
+                  Bỏ chọn tất cả
+                </Button>
+              </div>
+            </div>
+          )}
+
           {!isOnline && (
             <div
               className="flex items-center justify-between gap-3 rounded-2xl border border-broth-200 bg-broth-50 p-3 text-xs text-broth-900 shadow-soft"
@@ -1139,6 +1279,7 @@ export function ShoppingListPage({ repository }: Props) {
                   pendingIds={pendingIds}
                   queuedIds={queuedIds}
                   onCheckedChange={handleItemCheckedChange}
+                  onBatchChange={handleBatchCheckedChange}
                 />
               ))}
             </div>
