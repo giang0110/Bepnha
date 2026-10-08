@@ -269,6 +269,12 @@ summary {
     display: inline-block !important;
   }
 
+  div[data-print="only"],
+  header[data-print="only"],
+  section[data-print="only"] {
+    display: block !important;
+  }
+
   progress {
     display: none !important;
   }

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { describe, expect, test, vi } from "vitest"
@@ -920,5 +920,52 @@ describe("WeeklyPlanPage", () => {
       await screen.findByRole("dialog", { name: /Chi tiết công thức và sơ chế/i })
     ).toBeInTheDocument()
     expect(screen.getByText("Bớt mặn cho ông bà")).toBeInTheDocument()
+  })
+
+  function withNavigator(overrides: Record<string, unknown>) {
+    const added = Object.keys(overrides)
+    for (const key of added) {
+      Object.defineProperty(navigator, key, {
+        configurable: true,
+        value: overrides[key]
+      })
+    }
+    return () => {
+      for (const key of added) {
+        Reflect.deleteProperty(navigator, key)
+      }
+    }
+  }
+
+  test("renders Chia sẻ thực đơn and In thực đơn buttons, invoking share and print appropriately", async () => {
+    const printSpy = vi.spyOn(window, "print").mockImplementation(() => {})
+    const share = vi.fn().mockResolvedValue(undefined)
+    const restore = withNavigator({ share })
+
+    try {
+      const user = userEvent.setup()
+      setup({
+        current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+      })
+
+      const shareBtn = await screen.findByTestId("share-plan-button")
+      expect(shareBtn).toBeInTheDocument()
+      await user.click(shareBtn)
+      await waitFor(() => {
+        expect(share).toHaveBeenCalledTimes(1)
+      })
+      const firstCallArgs = share.mock.calls[0]
+      const sharedData = (firstCallArgs?.[0] ?? {}) as { title?: string; text?: string }
+      expect(sharedData.title).toContain("Thực đơn Bếp Nhà")
+      expect(sharedData.text).toContain("📋 Thực đơn Bếp Nhà")
+
+      const printBtn = await screen.findByTestId("print-plan-button")
+      expect(printBtn).toBeInTheDocument()
+      await user.click(printBtn)
+      expect(printSpy).toHaveBeenCalledOnce()
+    } finally {
+      restore()
+      printSpy.mockRestore()
+    }
   })
 })
