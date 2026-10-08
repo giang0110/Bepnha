@@ -38,6 +38,7 @@ import type {
 import { MealRatingControl } from "./meal-rating-control"
 import { PlanTrustPanel } from "./plan-trust-panel"
 import { ReplacementComparison } from "./replacement-comparison"
+import { WeeklyNutritionOverviewPanel } from "./weekly-nutrition-overview"
 import { stepConditions, stepIngredientNames } from "./step-details"
 import { currentWeekStart, nextWeekStart } from "./week-start"
 import {
@@ -1065,6 +1066,8 @@ export function WeeklyPlanPage({
               <PlanTrustPanel trust={state.value.trust} />
             </div>
           )}
+
+          <WeeklyNutritionOverviewPanel items={sortedPlanItems} />
 
           {/* Not plain "Đi chợ": the navigation carries that name for the week's list in general,
               and two links reading the same while leading to different places is a guess the

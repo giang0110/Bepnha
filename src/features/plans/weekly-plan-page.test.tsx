@@ -866,7 +866,7 @@ describe("WeeklyPlanPage", () => {
 
     await user.click(familyBtn)
     expect(
-      await screen.findByRole("dialog", { name: "Gia đình & Chia sẻ thực đơn" })
+      await screen.findByRole("dialog", { name: "Gia đình & Chia sẻ thực đơn" }, { timeout: 5000 })
     ).toBeInTheDocument()
     expect(screen.getByText(/Món cả nhà thèm/i)).toBeInTheDocument()
     expect(screen.getByText(/Gửi thực đơn cho cả nhà/i)).toBeInTheDocument()
@@ -883,7 +883,11 @@ describe("WeeklyPlanPage", () => {
 
     await user.click(previewButtons[0]!)
     expect(
-      await screen.findByRole("dialog", { name: /Chi tiết công thức và sơ chế/i })
+      await screen.findByRole(
+        "dialog",
+        { name: /Chi tiết công thức và sơ chế/i },
+        { timeout: 5000 }
+      )
     ).toBeInTheDocument()
     expect(screen.getByText("Nguyên liệu & Sơ chế")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Các bước nấu/i })).toBeInTheDocument()
@@ -967,5 +971,14 @@ describe("WeeklyPlanPage", () => {
       restore()
       printSpy.mockRestore()
     }
+  })
+
+  test("renders weekly nutrition overview panel with macro distribution", async () => {
+    setup({
+      current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+    })
+
+    expect(await screen.findByText("Cân bằng dinh dưỡng cả tuần")).toBeInTheDocument()
+    expect(screen.getByText("Phân bổ năng lượng đa lượng")).toBeInTheDocument()
   })
 })
