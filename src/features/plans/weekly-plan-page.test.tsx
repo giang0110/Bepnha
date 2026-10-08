@@ -981,4 +981,96 @@ describe("WeeklyPlanPage", () => {
     expect(await screen.findByText("Cân bằng dinh dưỡng cả tuần")).toBeInTheDocument()
     expect(screen.getByText("Phân bổ năng lượng đa lượng")).toBeInTheDocument()
   })
+
+  test("filters meals by search keyword and resets correctly", async () => {
+    const user = userEvent.setup()
+    const customItems = [
+      item(0, "Cá hồi áp chảo"),
+      item(1, "Thịt kho tàu"),
+      item(2, "Canh chua cá lóc"),
+      item(3, "Gà hấp lá chanh"),
+      item(4, "Bò xào bông cải"),
+      item(5, "Đậu sốt cà chua"),
+      item(6, "Sườn ram mặn")
+    ]
+    setup({
+      current: vi.fn().mockResolvedValue({
+        ok: true,
+        value: ready({
+          plan: { items: customItems, totalEstimatedCostVnd: 700_000 }
+        })
+      })
+    })
+
+    const list = await screen.findByRole("list", { name: "Bảy bữa chính trong tuần" })
+    expect(within(list).getByText("Cá hồi áp chảo")).toBeInTheDocument()
+    expect(within(list).getByText("Thịt kho tàu")).toBeInTheDocument()
+    expect(within(list).getByText("Gà hấp lá chanh")).toBeInTheDocument()
+
+    // 1. Type keyword in search input
+    const searchInput = screen.getByTestId("meal-search-input")
+    await user.type(searchInput, "cá")
+
+    expect(within(list).getByText("Cá hồi áp chảo")).toBeInTheDocument()
+    expect(within(list).getByText("Canh chua cá lóc")).toBeInTheDocument()
+    expect(within(list).queryByText("Thịt kho tàu")).not.toBeInTheDocument()
+    expect(within(list).queryByText("Gà hấp lá chanh")).not.toBeInTheDocument()
+    expect(screen.getByText(/Hiển thị/)).toHaveTextContent("2/7 bữa")
+
+    // 2. Click reset filter button
+    const resetBtn = screen.getByTestId("filter-reset-button")
+    await user.click(resetBtn)
+
+    expect(within(list).getByText("Thịt kho tàu")).toBeInTheDocument()
+    expect(within(list).getByText("Gà hấp lá chanh")).toBeInTheDocument()
+  })
+
+  test("filters meals by category chip and shows empty state when no match", async () => {
+    const user = userEvent.setup()
+    const customItems = [
+      item(0, "Cá hồi áp chảo"),
+      item(1, "Thịt kho tàu"),
+      item(2, "Canh bí đao thịt bằm"),
+      item(3, "Gà hấp lá chanh"),
+      item(4, "Bò xào bông cải"),
+      item(5, "Đậu sốt cà chua"),
+      item(6, "Sườn ram mặn")
+    ]
+    setup({
+      current: vi.fn().mockResolvedValue({
+        ok: true,
+        value: ready({
+          plan: { items: customItems, totalEstimatedCostVnd: 700_000 }
+        })
+      })
+    })
+
+    const list = await screen.findByRole("list", { name: "Bảy bữa chính trong tuần" })
+    expect(within(list).getByText("Cá hồi áp chảo")).toBeInTheDocument()
+
+    // 1. Filter by seafood chip
+    const seafoodChip = screen.getByTestId("filter-chip-seafood")
+    await user.click(seafoodChip)
+
+    expect(within(list).getByText("Cá hồi áp chảo")).toBeInTheDocument()
+    expect(within(list).queryByText("Thịt kho tàu")).not.toBeInTheDocument()
+
+    // 2. Type keyword with no matches to test empty state
+    const searchInput = screen.getByTestId("meal-search-input")
+    await user.type(searchInput, "món không tồn tại")
+
+    expect(screen.getByTestId("empty-filter-results")).toBeInTheDocument()
+    expect(screen.getByText("Không tìm thấy bữa ăn phù hợp")).toBeInTheDocument()
+
+    // 3. Click Xem lại cả 7 bữa from empty state
+    const seeAllBtn = within(screen.getByTestId("empty-filter-results")).getByRole("button", {
+      name: "Xem lại cả 7 bữa"
+    })
+    await user.click(seeAllBtn)
+
+    const restoredList = screen.getByRole("list", { name: "Bảy bữa chính trong tuần" })
+    expect(within(restoredList).getByText("Cá hồi áp chảo")).toBeInTheDocument()
+    expect(within(restoredList).getByText("Thịt kho tàu")).toBeInTheDocument()
+    expect(within(restoredList).getByText("Gà hấp lá chanh")).toBeInTheDocument()
+  })
 })
