@@ -1476,26 +1476,6 @@ export function WeeklyPlanPage({
                           disabled={submitting}
                           variant="outline"
                           type="button"
-                          onClick={() => {
-                            if (isEatOut) {
-                              handleCancelEatOut(item.dayIndex)
-                            } else {
-                              handleOpenEatOutModal(item)
-                            }
-                          }}
-                          data-testid={`mark-eat-out-btn-${item.dayIndex}`}
-                          title={
-                            isEatOut
-                              ? "Hủy ăn ngoài, chuyển về nấu tại nhà"
-                              : "Đánh dấu ngày ăn ngoài / nghỉ nấu"
-                          }
-                        >
-                          {isEatOut ? "Nấu lại" : "Ăn ngoài 🍜"}
-                        </Button>
-                        <Button
-                          disabled={submitting}
-                          variant="outline"
-                          type="button"
                           onClick={(event) => {
                             void previewDay(item.dayIndex, event.currentTarget)
                           }}
@@ -1510,7 +1490,7 @@ export function WeeklyPlanPage({
                         className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3 text-sm text-amber-900"
                         data-testid={`eat-out-banner-${item.dayIndex}`}
                       >
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <span className="text-base" aria-hidden="true">
                               🍜
@@ -1519,7 +1499,7 @@ export function WeeklyPlanPage({
                               <p className="font-semibold text-xs sm:text-sm">
                                 Nghỉ nấu / Ăn ngoài gia đình
                               </p>
-                              <p className="text-xs text-amber-800">
+                              <p className="text-xs text-amber-800 break-words">
                                 {eatOutRecord.reasonNote ||
                                   "Thưởng thức ẩm thực bên ngoài hoặc nghỉ ngơi"}
                               </p>
@@ -1538,6 +1518,26 @@ export function WeeklyPlanPage({
                       </div>
                     )}
                     <div className="mt-5 flex flex-col sm:flex-row gap-2" data-print="hide">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1 gap-1.5 text-xs sm:text-sm font-semibold"
+                        onClick={() => {
+                          if (isEatOut) {
+                            handleCancelEatOut(item.dayIndex)
+                          } else {
+                            handleOpenEatOutModal(item)
+                          }
+                        }}
+                        data-testid={`mark-eat-out-btn-${item.dayIndex}`}
+                        title={
+                          isEatOut
+                            ? "Hủy ăn ngoài, chuyển về nấu tại nhà"
+                            : "Đánh dấu ngày ăn ngoài / nghỉ nấu"
+                        }
+                      >
+                        {isEatOut ? "Nấu lại" : "Ăn ngoài 🍜"}
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"
