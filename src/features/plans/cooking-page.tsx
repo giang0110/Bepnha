@@ -61,6 +61,7 @@ import {
   startTimerAlarmLoop,
   triggerVibration
 } from "./cooking-timer-alarm"
+import { CondimentPairingCard } from "./condiment-pairing-card"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -489,6 +490,55 @@ function PrePrepModal({
   )
 }
 
+function CondimentModal({
+  mealName,
+  dishNames,
+  dishRoles,
+  isOpen,
+  onClose
+}: Readonly<{
+  mealName: string
+  dishNames: readonly string[]
+  dishRoles: readonly string[]
+  isOpen: boolean
+  onClose: () => void
+}>) {
+  if (!isOpen) return null
+
+  return (
+    <dialog
+      className="fixed inset-x-4 top-auto bottom-[calc(var(--app-nav-height)+0.75rem)] m-0 mx-auto max-h-[calc(100svh-var(--app-nav-height)-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-3xl border border-amber-200 bg-paper-raised p-5 text-ink shadow-lift backdrop:bg-black/30 backdrop:backdrop-blur-xs sm:p-6 lg:left-auto lg:right-8 lg:mx-0 lg:w-[min(42rem,calc(100vw-19rem))]"
+      open
+      aria-label="Gợi ý nước chấm & Ăn kèm chuẩn vị"
+    >
+      <div className="flex items-center justify-between border-b border-edge/60 pb-3">
+        <h2 className="text-base font-extrabold text-ink flex items-center gap-2">
+          <Icon name="bowl" className="size-5 text-amber-700" />
+          <span>Nước chấm & Ăn kèm chuẩn vị</span>
+        </h2>
+        <Button size="sm" variant="ghost" onClick={onClose} aria-label="Đóng bảng gợi ý nước chấm">
+          ✕
+        </Button>
+      </div>
+
+      <div className="mt-4">
+        <CondimentPairingCard
+          compact
+          mealNameVi={mealName}
+          dishNames={dishNames}
+          dishRoles={dishRoles}
+        />
+      </div>
+
+      <div className="mt-5 border-t border-edge/60 pt-3">
+        <Button size="default" variant="outline" className="w-full" onClick={onClose}>
+          Đã xong, quay lại nấu
+        </Button>
+      </div>
+    </dialog>
+  )
+}
+
 function StepView({
   step,
   timerProgress,
@@ -724,6 +774,7 @@ export function CookingPage({
     return saved === null ? true : saved === "true"
   })
   const [showPrePrep, setShowPrePrep] = useState(false)
+  const [showCondiments, setShowCondiments] = useState(false)
 
   const toggleSkipRice = () => {
     setSkipRice((prev) => {
@@ -981,6 +1032,18 @@ export function CookingPage({
               <Button
                 type="button"
                 size="sm"
+                variant={showCondiments ? "default" : "outline"}
+                onClick={() => setShowCondiments(true)}
+                className="flex items-center gap-1.5 rounded-full"
+                title="Xem gợi ý nước chấm và đồ ăn kèm chuẩn vị"
+              >
+                <Icon name="bowl" className="size-4 text-amber-700" />
+                <span>Nước chấm</span>
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
                 variant={counterMode ? "default" : "outline"}
                 onClick={() => setCounterMode((prev) => !prev)}
                 className="flex items-center gap-1.5 rounded-full"
@@ -1181,6 +1244,18 @@ export function CookingPage({
         isOpen={showPrePrep}
         onClose={() => setShowPrePrep(false)}
       />
+
+      {state.status === "ready" && (
+        <CondimentModal
+          dishNames={state.item.components
+            .map((c) => (c.recipe.steps.length > 0 ? c.recipe.recipeId : ""))
+            .filter(Boolean)}
+          dishRoles={state.item.components.map((c) => c.mealRole)}
+          isOpen={showCondiments}
+          mealName={state.mealName}
+          onClose={() => setShowCondiments(false)}
+        />
+      )}
 
       <PantryCookingDeductionModal
         items={deductionItems}

@@ -1094,4 +1094,17 @@ describe("WeeklyPlanPage", () => {
     expect(screen.getByText(/Chuẩn bị & Rã đông sớm/i)).toBeInTheDocument()
     expect(screen.getByTestId("share-prep-reminder-btn")).toBeInTheDocument()
   })
+
+  test("opens condiments tab in recipe preview from today card", async () => {
+    const user = userEvent.setup()
+    setup({
+      current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+    })
+
+    const condimentBtn = await screen.findByTestId("preview-condiments-today")
+    expect(condimentBtn).toBeInTheDocument()
+    await user.click(condimentBtn)
+
+    expect(screen.getByText(/Gợi ý nước chấm & ăn kèm chuẩn vị/i)).toBeInTheDocument()
+  })
 })

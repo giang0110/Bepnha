@@ -467,7 +467,7 @@ export function WeeklyPlanPage({
   const [showFamilyModal, setShowFamilyModal] = useState(false)
   const [previewRecipeItem, setPreviewRecipeItem] = useState<PlanItemView | null>(null)
   const [previewRecipeTab, setPreviewRecipeTab] = useState<
-    "ingredients" | "steps" | "nutrition" | "notes"
+    "ingredients" | "steps" | "nutrition" | "notes" | "condiments"
   >("ingredients")
   const [, setNotesVersion] = useState(0)
   const familyWishes = useFamilyWishlist(household?.householdId ?? null)
@@ -1059,11 +1059,27 @@ export function WeeklyPlanPage({
                     type="button"
                     variant="outline"
                     className="flex-1 gap-2 bg-paper text-ink font-semibold"
-                    onClick={() => setPreviewRecipeItem(meal)}
+                    onClick={() => {
+                      setPreviewRecipeTab("ingredients")
+                      setPreviewRecipeItem(meal)
+                    }}
                     data-testid="preview-recipe-today"
                   >
                     <Icon name="note" className="size-4 text-herb-700" />
                     Công thức & Sơ chế
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2 bg-paper text-ink font-semibold"
+                    onClick={() => {
+                      setPreviewRecipeTab("condiments")
+                      setPreviewRecipeItem(meal)
+                    }}
+                    data-testid="preview-condiments-today"
+                  >
+                    <Icon name="bowl" className="size-4 text-amber-700" />
+                    Nước chấm
                   </Button>
                   <a
                     aria-label={`Thêm bữa hôm nay ${meal.mealOptionNameVi} vào Google Calendar`}
