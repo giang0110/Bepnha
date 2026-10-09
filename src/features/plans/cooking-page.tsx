@@ -63,6 +63,7 @@ import {
 } from "./cooking-timer-alarm"
 import { CondimentPairingCard } from "./condiment-pairing-card"
 import { LeftoverStorageGuideCard } from "./leftover-storage-guide-card"
+import { KitchenMeasurementModal } from "./kitchen-measurement-modal"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -777,6 +778,7 @@ export function CookingPage({
   const [showPrePrep, setShowPrePrep] = useState(false)
   const [showCondiments, setShowCondiments] = useState(false)
   const [showStorageGuide, setShowStorageGuide] = useState(false)
+  const [showMeasurementConverter, setShowMeasurementConverter] = useState(false)
 
   const toggleSkipRice = () => {
     setSkipRice((prev) => {
@@ -1070,6 +1072,19 @@ export function CookingPage({
               <Button
                 type="button"
                 size="sm"
+                variant={showMeasurementConverter ? "default" : "outline"}
+                onClick={() => setShowMeasurementConverter((prev) => !prev)}
+                className="flex items-center gap-1.5 rounded-full"
+                title="Quy đổi thìa, bát, gam, ml và ước lượng gia vị bếp Việt"
+                data-testid="cooking-measurement-converter-btn"
+              >
+                <span>⚖️</span>
+                <span>Quy đổi</span>
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
                 variant={counterMode ? "default" : "outline"}
                 onClick={() => setCounterMode((prev) => !prev)}
                 className="flex items-center gap-1.5 rounded-full"
@@ -1300,6 +1315,11 @@ export function CookingPage({
         errorMessage={deductionError}
         onConfirm={(selected) => void handleConfirmDeduction(selected)}
         onSkip={handleSkipDeduction}
+      />
+
+      <KitchenMeasurementModal
+        isOpen={showMeasurementConverter}
+        onClose={() => setShowMeasurementConverter(false)}
       />
     </AppPageShell>
   )

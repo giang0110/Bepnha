@@ -12,6 +12,7 @@ import { MemberPortionsPanel } from "./member-portions-panel"
 import { FamilyCookingNotes } from "./family-cooking-notes"
 import { CondimentPairingCard } from "./condiment-pairing-card"
 import { LeftoverStorageGuideCard } from "./leftover-storage-guide-card"
+import { KitchenMeasurementModal } from "./kitchen-measurement-modal"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -34,6 +35,7 @@ export function RecipePreviewModal({
   const [activeTab, setActiveTab] = useState<
     "ingredients" | "steps" | "nutrition" | "notes" | "condiments" | "storage"
   >(initialTab)
+  const [showConverter, setShowConverter] = useState(false)
 
   if (!isOpen || item === null) return null
 
@@ -158,15 +160,29 @@ export function RecipePreviewModal({
         <div className="flex-1 overflow-y-auto p-5 sm:p-6">
           {activeTab === "ingredients" && (
             <div className="grid gap-4">
-              <div>
-                <h3 className="flex items-center gap-2 text-sm font-bold text-ink">
-                  <Icon name="leaf" className="size-4 text-herb-600" />
-                  Nguyên liệu đã định lượng theo khẩu phần
-                </h3>
-                <p className="mt-1 text-xs text-ink-soft">
-                  Lượng thực phẩm đã được tính toán chính xác cho {item.adultEquivalent} suất ăn gia
-                  đình.
-                </p>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-ink">
+                    <Icon name="leaf" className="size-4 text-herb-600" />
+                    Nguyên liệu đã định lượng theo khẩu phần
+                  </h3>
+                  <p className="mt-1 text-xs text-ink-soft">
+                    Lượng thực phẩm đã được tính toán chính xác cho {item.adultEquivalent} suất ăn
+                    gia đình.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowConverter(true)}
+                  className="shrink-0 rounded-full text-xs h-8 px-3 gap-1.5"
+                  data-testid="preview-measurement-converter-btn"
+                  title="Mở bảng quy đổi đơn vị đo lường thìa, bát, gam, ml"
+                >
+                  <span>⚖️</span>
+                  <span>Quy đổi</span>
+                </Button>
               </div>
 
               <ul className="grid gap-2 sm:grid-cols-2">
@@ -361,6 +377,8 @@ export function RecipePreviewModal({
           </Link>
         </div>
       </div>
+
+      <KitchenMeasurementModal isOpen={showConverter} onClose={() => setShowConverter(false)} />
     </div>
   )
 }
