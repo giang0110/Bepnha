@@ -1107,4 +1107,52 @@ describe("WeeklyPlanPage", () => {
 
     expect(screen.getByText(/Gợi ý nước chấm & ăn kèm chuẩn vị/i)).toBeInTheDocument()
   })
+
+  test("allows marking an eat-out day, shows banner and tag, and reverts back to cooking", async () => {
+    const user = userEvent.setup()
+    setup({
+      current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+    })
+
+    const markBtn = await screen.findByTestId("mark-eat-out-btn-0")
+    expect(markBtn).toBeInTheDocument()
+    expect(markBtn).toHaveTextContent("Ăn ngoài 🍜")
+
+    // Click to open modal
+    await user.click(markBtn)
+    expect(screen.getByTestId("eat-out-modal")).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId("eat-out-modal")).getByRole("heading", {
+        name: /Đánh dấu ăn ngoài/i
+      })
+    ).toBeInTheDocument()
+
+    // Select a quick reason chip e.g. "Ăn tiệc / Liên hoan"
+    const partyChip = screen.getByTestId("eat-out-reason-chip-Ăn tiệc / Liên hoan")
+    await user.click(partyChip)
+
+    // Confirm
+    const confirmBtn = screen.getByTestId("confirm-eat-out-btn")
+    await user.click(confirmBtn)
+
+    // Modal closed
+    expect(screen.queryByTestId("eat-out-modal")).not.toBeInTheDocument()
+
+    // Banner & tag visible on meal 0
+    expect(screen.getByTestId("meal-eat-out-tag-0")).toBeInTheDocument()
+    expect(screen.getByTestId("eat-out-banner-0")).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId("eat-out-banner-0")).getByText(/Ăn tiệc \/ Liên hoan/i)
+    ).toBeInTheDocument()
+    expect(screen.getByTestId("mark-eat-out-btn-0")).toHaveTextContent("Nấu lại")
+
+    // Click Nấu lại to revert
+    const cancelBtn = screen.getByTestId("cancel-eat-out-btn-0")
+    await user.click(cancelBtn)
+
+    // Banner & tag removed
+    expect(screen.queryByTestId("meal-eat-out-tag-0")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("eat-out-banner-0")).not.toBeInTheDocument()
+    expect(screen.getByTestId("mark-eat-out-btn-0")).toHaveTextContent("Ăn ngoài 🍜")
+  })
 })

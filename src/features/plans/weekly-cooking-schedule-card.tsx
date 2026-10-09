@@ -7,18 +7,27 @@ import {
 
 export interface WeeklyCookingScheduleCardProps {
   readonly items: readonly DayCookingTimeInput[]
+  readonly eatOutDays?: readonly number[] | undefined
   readonly onSelectDay?: (dayIndex: number) => void
 }
 
 export const WeeklyCookingScheduleCard = memo(function WeeklyCookingScheduleCard({
   items,
+  eatOutDays,
   onSelectDay
 }: WeeklyCookingScheduleCardProps) {
   const [expanded, setExpanded] = useState(true)
 
-  const summary = useMemo(() => analyzeWeeklyCookingTime(items), [items])
+  const eatOutSet = useMemo(() => new Set(eatOutDays ?? []), [eatOutDays])
+  const cookingItems = useMemo(
+    () => items.filter((item) => !eatOutSet.has(item.dayIndex)),
+    [items, eatOutSet]
+  )
 
-  if (summary.days.length === 0) {
+  const summary = useMemo(() => analyzeWeeklyCookingTime(cookingItems), [cookingItems])
+  const fullSummary = useMemo(() => analyzeWeeklyCookingTime(items), [items])
+
+  if (fullSummary.days.length === 0) {
     return null
   }
 
@@ -68,7 +77,11 @@ export const WeeklyCookingScheduleCard = memo(function WeeklyCookingScheduleCard
           <p className="mt-1 text-sm font-extrabold text-ink tabular-nums sm:text-base">
             {summary.formattedTotalTimeVi}
           </p>
-          <span className="text-[10px] text-ink-muted sm:text-[11px]">7 bữa chính tuần</span>
+          <span className="text-[10px] text-ink-muted sm:text-[11px]">
+            {eatOutSet.size > 0
+              ? `${cookingItems.length} ngày nấu · ${eatOutSet.size} ngày ăn ngoài`
+              : "7 bữa chính tuần"}
+          </span>
         </div>
 
         <div className="rounded-2xl border border-edge bg-paper-sunken/60 p-3 sm:p-3.5">
@@ -108,7 +121,38 @@ export const WeeklyCookingScheduleCard = memo(function WeeklyCookingScheduleCard
             </div>
 
             <div className="grid gap-2">
-              {summary.days.map((day) => {
+              {fullSummary.days.map((day) => {
+                const isEatOut = eatOutSet.has(day.dayIndex)
+
+                if (isEatOut) {
+                  return (
+                    <button
+                      key={day.dayIndex}
+                      type="button"
+                      onClick={() => onSelectDay?.(day.dayIndex)}
+                      className="group flex flex-col gap-1.5 rounded-xl border border-amber-200/60 bg-amber-50/40 p-2 text-left transition-colors hover:border-amber-300 dark:border-amber-900/40 dark:bg-amber-950/20 sm:p-2.5"
+                      data-testid={`cooking-schedule-day-${day.dayIndex}`}
+                    >
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="font-bold text-ink">{day.dayLabelVi}</span>
+                          <span className="truncate text-amber-800 dark:text-amber-300">
+                            — Ăn ngoài / Nghỉ nấu
+                          </span>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 dark:bg-amber-900/50 dark:text-amber-300">
+                            Ăn ngoài 🍜
+                          </span>
+                          <span className="font-bold text-amber-900/80 dark:text-amber-300/80 text-[11px]">
+                            Nghỉ nấu
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                }
+
                 const percent = Math.min(100, Math.round((day.elapsedMinutes / maxMinutes) * 100))
 
                 const barColor =

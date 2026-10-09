@@ -75,4 +75,17 @@ describe("WeeklyCookingScheduleCard", () => {
     expect(toggleBtn).toHaveAttribute("aria-expanded", "true")
     expect(screen.getByTestId("cooking-schedule-timeline")).toBeInTheDocument()
   })
+
+  test("renders eat-out days on schedule timeline and recalculates cooking duration", () => {
+    render(<WeeklyCookingScheduleCard items={sampleItems} eatOutDays={[5, 6]} />)
+
+    // 5 home-cooking days: 25+35+20+40+30 = 150 mins -> 2 giờ 30 phút
+    expect(screen.getByText("2 giờ 30 phút")).toBeInTheDocument()
+    expect(screen.getByText("5 ngày nấu · 2 ngày ăn ngoài")).toBeInTheDocument()
+
+    // Saturday & Sunday have "Ăn ngoài 🍜" badge
+    const saturdayBtn = screen.getByTestId("cooking-schedule-day-5")
+    expect(saturdayBtn).toHaveTextContent("Ăn ngoài 🍜")
+    expect(saturdayBtn).toHaveTextContent("Nghỉ nấu")
+  })
 })
