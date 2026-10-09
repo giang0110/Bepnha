@@ -103,4 +103,20 @@ describe("DailyPrepDefrostCard", () => {
 
     expect(handleShare).toHaveBeenCalledWith("Thứ Hai", "Cá diêu hồng rán giòn", sampleTasks)
   })
+
+  test("renders eat-out message when isEatOut is true", () => {
+    render(
+      <DailyPrepDefrostCard
+        revisionId="rev-1"
+        dayIndex={5}
+        dayLabelVi="Thứ Bảy"
+        mealOptionNameVi="Lẩu gà lá é"
+        tasks={sampleTasks}
+        isEatOut={true}
+      />
+    )
+
+    expect(screen.getByText(/Thứ Bảy: Gia đình ăn ngoài \/ nghỉ nấu/i)).toBeInTheDocument()
+    expect(screen.getByText(/Không cần rã đông hoặc chuẩn bị nguyên liệu sớm/i)).toBeInTheDocument()
+  })
 })

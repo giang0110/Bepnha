@@ -10,6 +10,7 @@ export interface DailyPrepDefrostCardProps {
   readonly dayLabelVi: string
   readonly mealOptionNameVi: string
   readonly tasks: readonly PrepTask[]
+  readonly isEatOut?: boolean | undefined
   readonly onShareReminder?: (
     dayLabelVi: string,
     mealNameVi: string,
@@ -23,6 +24,7 @@ export const DailyPrepDefrostCard = memo(function DailyPrepDefrostCard({
   dayLabelVi,
   mealOptionNameVi,
   tasks,
+  isEatOut,
   onShareReminder
 }: DailyPrepDefrostCardProps) {
   const currentKey = `${revisionId}:${dayIndex}`
@@ -42,6 +44,30 @@ export const DailyPrepDefrostCard = memo(function DailyPrepDefrostCard({
       dayIndex
     )
   }, [revisionId, dayIndex, currentKey, completedOverride])
+
+  if (isEatOut) {
+    return (
+      <section
+        aria-label="Chuẩn bị và rã đông sớm"
+        className="grid gap-3.5 rounded-3xl border border-amber-200 bg-amber-50/60 p-5 dark:border-amber-900/40 dark:bg-amber-950/20 sm:p-6"
+        data-testid="daily-prep-defrost-card"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+            <span className="text-lg">🍜</span>
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-ink">
+              {dayLabelVi}: Gia đình ăn ngoài / nghỉ nấu
+            </h3>
+            <p className="text-xs text-ink-soft">
+              Hôm nay không cần rã đông hoặc chuẩn bị nguyên liệu sớm từ sáng.
+            </p>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   if (tasks.length === 0) {
     return null

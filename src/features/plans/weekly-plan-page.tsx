@@ -77,6 +77,8 @@ import { useFamilyWishlist } from "./family-wishlist-store"
 import { WeeklyRotationBalanceCard } from "./weekly-rotation-balance-card"
 import { loadCookingNote } from "./cooking-notes-store"
 import { shareText } from "./share-text"
+import { loadEatOutDays, toggleEatOutDay, type EatOutDayRecord } from "./eat-out-store"
+import { EatOutModal } from "./eat-out-modal"
 
 const FamilyCollaborationModal = lazy(async () => ({
   default: (await import("./family-collaboration-modal")).FamilyCollaborationModal
@@ -471,6 +473,25 @@ export function WeeklyPlanPage({
   >("ingredients")
   const [, setNotesVersion] = useState(0)
   const familyWishes = useFamilyWishlist(household?.householdId ?? null)
+  const currentRevisionId = state.status === "ready" ? state.value.revisionId : null
+  const [eatOutRecordsOverride, setEatOutRecordsOverride] = useState<{
+    readonly revisionId: string
+    readonly records: readonly EatOutDayRecord[]
+  } | null>(null)
+  const [eatOutModalTarget, setEatOutModalTarget] = useState<PlanItemView | null>(null)
+
+  const eatOutRecords = useMemo(() => {
+    if (!currentRevisionId) return []
+    if (eatOutRecordsOverride && eatOutRecordsOverride.revisionId === currentRevisionId) {
+      return eatOutRecordsOverride.records
+    }
+    return loadEatOutDays(
+      typeof window !== "undefined" ? window.localStorage : undefined,
+      currentRevisionId
+    )
+  }, [currentRevisionId, eatOutRecordsOverride])
+
+  const eatOutDayIndices = useMemo(() => eatOutRecords.map((r) => r.dayIndex), [eatOutRecords])
 
   const [mealSearchQuery, setMealSearchQuery] = useState("")
   const deferredMealSearchQuery = useDeferredValue(mealSearchQuery)
@@ -789,6 +810,47 @@ export function WeeklyPlanPage({
       }
     },
     []
+  )
+
+  const handleOpenEatOutModal = useCallback((item: PlanItemView) => {
+    setEatOutModalTarget(item)
+  }, [])
+
+  const handleConfirmEatOut = useCallback(
+    (reason: string) => {
+      if (!eatOutModalTarget || state.status !== "ready") return
+      const next = toggleEatOutDay(
+        typeof window !== "undefined" ? window.localStorage : undefined,
+        state.value.revisionId,
+        eatOutModalTarget.dayIndex,
+        reason
+      )
+      setEatOutRecordsOverride({
+        revisionId: state.value.revisionId,
+        records: next
+      })
+      const targetLabel = DAY_LABELS[eatOutModalTarget.dayIndex]
+      setEatOutModalTarget(null)
+      toast.success(`Đã đánh dấu ${targetLabel} ăn ngoài / nghỉ nấu!`)
+    },
+    [eatOutModalTarget, state]
+  )
+
+  const handleCancelEatOut = useCallback(
+    (dayIndex: number) => {
+      if (state.status !== "ready") return
+      const next = toggleEatOutDay(
+        typeof window !== "undefined" ? window.localStorage : undefined,
+        state.value.revisionId,
+        dayIndex
+      )
+      setEatOutRecordsOverride({
+        revisionId: state.value.revisionId,
+        records: next
+      })
+      toast.info(`Đã chuyển ${DAY_LABELS[dayIndex]} về nấu tại nhà.`)
+    },
+    [state]
   )
 
   if (state.status === "loading_household") {
@@ -1120,6 +1182,7 @@ export function WeeklyPlanPage({
                       dayLabelVi={DAY_LABELS[meal.dayIndex] ?? "Hôm nay"}
                       mealOptionNameVi={meal.mealOptionNameVi}
                       tasks={todayPrepTasks}
+                      isEatOut={eatOutDayIndices.includes(meal.dayIndex)}
                       onShareReminder={(dayLabel, mealName, tasks) =>
                         void handleSharePrepReminder(dayLabel, mealName, tasks)
                       }
@@ -1145,6 +1208,7 @@ export function WeeklyPlanPage({
                     dayLabelVi={DAY_LABELS[firstMeal.dayIndex] ?? "Thứ Hai"}
                     mealOptionNameVi={firstMeal.mealOptionNameVi}
                     tasks={firstMealPrepTasks}
+                    isEatOut={eatOutDayIndices.includes(firstMeal.dayIndex)}
                     onShareReminder={(dayLabel, mealName, tasks) =>
                       void handleSharePrepReminder(dayLabel, mealName, tasks)
                     }
@@ -1198,7 +1262,11 @@ export function WeeklyPlanPage({
           <WeeklyNutritionOverviewPanel items={sortedPlanItems} />
 
           <div data-print="hide">
-            <WeeklyCookingScheduleCard items={sortedPlanItems} onSelectDay={handleScrollToDay} />
+            <WeeklyCookingScheduleCard
+              items={sortedPlanItems}
+              eatOutDays={eatOutDayIndices}
+              onSelectDay={handleScrollToDay}
+            />
           </div>
 
           {/* Not plain "Đi chợ": the navigation carries that name for the week's list in general,
@@ -1295,6 +1363,8 @@ export function WeeklyPlanPage({
                 const isWeekend = item.dayIndex === 5 || item.dayIndex === 6
                 const celebratory =
                   isWeekend && isWeekendDish(item.mealOptionNameVi, item.elapsedMinutes)
+                const eatOutRecord = eatOutRecords.find((r) => r.dayIndex === item.dayIndex)
+                const isEatOut = eatOutRecord !== undefined
                 return (
                   <li
                     id={`meal-day-${item.dayIndex}`}
@@ -1311,6 +1381,15 @@ export function WeeklyPlanPage({
                           <span className="text-xs font-semibold text-ink-soft">
                             {lunar.formattedShort}
                           </span>
+                          {isEatOut && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900"
+                              title="Đã đánh dấu ngày ăn ngoài / nghỉ nấu"
+                              data-testid={`meal-eat-out-tag-${item.dayIndex}`}
+                            >
+                              <span>🍜</span> Ăn ngoài
+                            </span>
+                          )}
                           {lunar.isVegetarianDay && (
                             <span
                               className="inline-flex items-center gap-1 rounded-full bg-herb-600 px-2 py-0.5 text-[11px] font-bold text-on-herb"
@@ -1397,6 +1476,26 @@ export function WeeklyPlanPage({
                           disabled={submitting}
                           variant="outline"
                           type="button"
+                          onClick={() => {
+                            if (isEatOut) {
+                              handleCancelEatOut(item.dayIndex)
+                            } else {
+                              handleOpenEatOutModal(item)
+                            }
+                          }}
+                          data-testid={`mark-eat-out-btn-${item.dayIndex}`}
+                          title={
+                            isEatOut
+                              ? "Hủy ăn ngoài, chuyển về nấu tại nhà"
+                              : "Đánh dấu ngày ăn ngoài / nghỉ nấu"
+                          }
+                        >
+                          {isEatOut ? "Nấu lại" : "Ăn ngoài 🍜"}
+                        </Button>
+                        <Button
+                          disabled={submitting}
+                          variant="outline"
+                          type="button"
                           onClick={(event) => {
                             void previewDay(item.dayIndex, event.currentTarget)
                           }}
@@ -1405,6 +1504,39 @@ export function WeeklyPlanPage({
                         </Button>
                       </div>
                     </div>
+
+                    {isEatOut && (
+                      <div
+                        className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3 text-sm text-amber-900"
+                        data-testid={`eat-out-banner-${item.dayIndex}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base" aria-hidden="true">
+                              🍜
+                            </span>
+                            <div>
+                              <p className="font-semibold text-xs sm:text-sm">
+                                Nghỉ nấu / Ăn ngoài gia đình
+                              </p>
+                              <p className="text-xs text-amber-800">
+                                {eatOutRecord.reasonNote ||
+                                  "Thưởng thức ẩm thực bên ngoài hoặc nghỉ ngơi"}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs font-semibold text-amber-900 hover:bg-amber-200/60"
+                            onClick={() => handleCancelEatOut(item.dayIndex)}
+                            data-testid={`cancel-eat-out-btn-${item.dayIndex}`}
+                          >
+                            Nấu lại
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     <div className="mt-5 flex flex-col sm:flex-row gap-2" data-print="hide">
                       <Button
                         type="button"
@@ -1592,6 +1724,17 @@ export function WeeklyPlanPage({
             }}
           />
         </Suspense>
+      )}
+
+      {eatOutModalTarget !== null && (
+        <EatOutModal
+          isOpen={eatOutModalTarget !== null}
+          dayIndex={eatOutModalTarget.dayIndex}
+          dayLabelVi={DAY_LABELS[eatOutModalTarget.dayIndex] ?? "Hôm nay"}
+          mealOptionNameVi={eatOutModalTarget.mealOptionNameVi}
+          onClose={() => setEatOutModalTarget(null)}
+          onConfirm={handleConfirmEatOut}
+        />
       )}
     </AppPageShell>
   )
