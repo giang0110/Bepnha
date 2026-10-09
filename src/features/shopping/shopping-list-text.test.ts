@@ -158,4 +158,18 @@ describe("shoppingListText", () => {
     expect(text).not.toContain("Rau muống")
     expect(text).toContain("Tổng ước tính: 50.000 VND")
   })
+
+  test("appends actual expense and variance summary to text footer when recorded", () => {
+    const mixed = list([
+      item({ foodNameVi: "Rau muống", lineCostVnd: 15_000, checked: true }),
+      item({ foodNameVi: "Gạo tẻ", lineCostVnd: 50_000, checked: true })
+    ])
+
+    const text = shoppingListText(mixed, unitLabel, "all", {
+      actualCostVnd: 60_000,
+      labelVi: "Tiết kiệm 5.000 đ (7,7%)"
+    })
+
+    expect(text).toContain("💵 Thực chi thanh toán: 60.000 VND (Tiết kiệm 5.000 đ (7,7%))")
+  })
 })

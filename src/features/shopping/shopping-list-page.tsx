@@ -41,6 +41,14 @@ import {
 } from "./offline-shopping-store"
 import { shoppingListText } from "./shopping-list-text"
 import { shoppingProgress } from "./shopping-progress"
+import { ShoppingActualExpenseCard } from "./shopping-actual-expense-card"
+import {
+  clearActualExpense,
+  loadActualExpense,
+  saveActualExpense,
+  type StoredActualExpense
+} from "./shopping-actual-expense-store"
+import { calculateBudgetVariance } from "@/domain/shopping/shopping-actual-expense"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 const VI_COLLATOR = new Intl.Collator("vi", { sensitivity: "base" })
@@ -488,6 +496,46 @@ export function ShoppingListPage({ repository }: Props) {
   const deferredSearchQuery = useDeferredValue(searchQuery)
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [isFloatingCartVisible, setIsFloatingCartVisible] = useState(true)
+  const [expenseOverride, setExpenseOverride] = useState<{
+    revisionId: string
+    expense: StoredActualExpense | null
+  } | null>(null)
+
+  const actualExpense = useMemo(() => {
+    if (state.status !== "ready") return null
+    if (expenseOverride && expenseOverride.revisionId === state.value.revisionId) {
+      return expenseOverride.expense
+    }
+    return loadActualExpense(
+      typeof window !== "undefined" ? window.localStorage : undefined,
+      state.value.revisionId
+    )
+  }, [state, expenseOverride])
+
+  const handleSaveActualExpense = useCallback(
+    (amountVnd: number, note?: string) => {
+      if (state.status !== "ready") return
+      const saved = saveActualExpense(
+        typeof window !== "undefined" ? window.localStorage : undefined,
+        state.value.revisionId,
+        amountVnd,
+        note
+      )
+      setExpenseOverride({ revisionId: state.value.revisionId, expense: saved })
+      toast.success("Đã ghi nhận số tiền thanh toán thực tế!")
+    },
+    [state]
+  )
+
+  const handleClearActualExpense = useCallback(() => {
+    if (state.status !== "ready") return
+    clearActualExpense(
+      typeof window !== "undefined" ? window.localStorage : undefined,
+      state.value.revisionId
+    )
+    setExpenseOverride({ revisionId: state.value.revisionId, expense: null })
+    toast.info("Đã xóa ghi nhận thanh toán thực tế.")
+  }, [state])
 
   const channelCounts = useMemo(() => {
     if (state.status !== "ready") {
@@ -759,8 +807,18 @@ export function ShoppingListPage({ repository }: Props) {
 
   async function shareList(dest: ShoppingDestination = destinationFilter) {
     if (state.status !== "ready") return
+    const actualExpenseSummary = actualExpense
+      ? {
+          actualCostVnd: actualExpense.actualCostVnd,
+          labelVi: calculateBudgetVariance(
+            state.value.totalEstimatedCostVnd,
+            actualExpense.actualCostVnd,
+            state.value.budgetVnd
+          ).labelVi
+        }
+      : undefined
     const outcome = await shareText(
-      shoppingListText(state.value, unitLabel, dest),
+      shoppingListText(state.value, unitLabel, dest, actualExpenseSummary),
       dest === "wet_market"
         ? "Đi chợ (Chợ dân sinh) — Bếp Nhà"
         : dest === "supermarket"
@@ -923,6 +981,17 @@ export function ShoppingListPage({ repository }: Props) {
                 </div>
               )}
             </section>
+          </div>
+
+          <div data-print="hide">
+            <ShoppingActualExpenseCard
+              estimatedCostVnd={state.value.totalEstimatedCostVnd}
+              budgetVnd={state.value.budgetVnd}
+              pickedUpCostVnd={progress?.pickedUpCostVnd ?? 0}
+              actualExpense={actualExpense}
+              onSaveActualExpense={handleSaveActualExpense}
+              onClearActualExpense={handleClearActualExpense}
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-2" data-print="hide">

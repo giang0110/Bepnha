@@ -46,7 +46,8 @@ function line(item: ShoppingListItem, unitLabel: (baseUnitId: string) => string)
 export function shoppingListText(
   value: ReadyShoppingList,
   unitLabel: (baseUnitId: string) => string,
-  destination: ShoppingDestination = "all"
+  destination: ShoppingDestination = "all",
+  actualExpense?: { readonly actualCostVnd: number; readonly labelVi: string }
 ): string {
   const targetItems =
     destination === "all"
@@ -79,10 +80,14 @@ export function shoppingListText(
         : "Đi chợ — "
 
   const header = `${destinationPrefix}tuần từ ${formatWeekStart(value.weekStart)}`
-  const footer =
+  let footer =
     remaining === totalCost
       ? `Tổng ước tính: ${formatVnd(totalCost)} VND`
       : `Còn phải mua: ${formatVnd(remaining)} VND / tổng ${formatVnd(totalCost)} VND`
+
+  if (actualExpense) {
+    footer += `\n💵 Thực chi thanh toán: ${formatVnd(actualExpense.actualCostVnd)} VND (${actualExpense.labelVi})`
+  }
 
   return [header, ...sections, footer].join("\n\n")
 }

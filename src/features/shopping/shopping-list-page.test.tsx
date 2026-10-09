@@ -777,4 +777,29 @@ describe("ShoppingListPage", () => {
     expect(setChecked).toHaveBeenCalledWith("tofu-b", true)
     expect(setChecked).toHaveBeenCalledWith("tofu-a", true)
   })
+
+  test("records actual shopping expense and displays budget variance summary", async () => {
+    const user = userEvent.setup()
+    const { repo } = repository()
+    renderPage(repo)
+
+    const openBtn = await screen.findByTestId("open-actual-expense-btn")
+    expect(openBtn).toBeInTheDocument()
+
+    // Open form and enter actual expense
+    await user.click(openBtn)
+    const input = screen.getByTestId("actual-expense-input")
+    await user.clear(input)
+    await user.type(input, "650000")
+
+    await user.click(screen.getByTestId("save-actual-expense-btn"))
+
+    // Verify summary is rendered
+    expect(await screen.findByTestId("actual-expense-summary")).toBeInTheDocument()
+    expect(screen.getByText("650.000 đ")).toBeInTheDocument()
+
+    // Clear expense
+    await user.click(screen.getByTestId("clear-actual-expense-btn"))
+    expect(await screen.findByTestId("open-actual-expense-btn")).toBeInTheDocument()
+  })
 })
