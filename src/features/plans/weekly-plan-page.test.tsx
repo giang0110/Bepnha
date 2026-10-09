@@ -1084,4 +1084,14 @@ describe("WeeklyPlanPage", () => {
     expect(screen.getByTestId("cooking-schedule-timeline")).toBeInTheDocument()
     expect(screen.getByTestId("cooking-schedule-day-0")).toBeInTheDocument()
   })
+
+  test("renders daily prep and defrost card on weekly plan page", async () => {
+    setup({
+      current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+    })
+
+    expect(await screen.findByTestId("daily-prep-defrost-card")).toBeInTheDocument()
+    expect(screen.getByText(/Chuẩn bị & Rã đông sớm/i)).toBeInTheDocument()
+    expect(screen.getByTestId("share-prep-reminder-btn")).toBeInTheDocument()
+  })
 })
