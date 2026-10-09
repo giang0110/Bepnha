@@ -137,6 +137,12 @@ describe("RecipePreviewModal", () => {
     expect(screen.getByText("Chất đạm")).toBeInTheDocument()
     expect(screen.getByText("45 g")).toBeInTheDocument()
 
+    // Switch to condiments tab
+    const condimentsTab = screen.getByRole("button", { name: "Nước chấm & Ăn kèm" })
+    await user.click(condimentsTab)
+    expect(screen.getByText(/Gợi ý nước chấm & ăn kèm chuẩn vị/i)).toBeInTheDocument()
+    expect(screen.getByText(/Muối tiêu chanh lá chanh/i)).toBeInTheDocument()
+
     // Start cooking button links to the cook page
     const cookLink = screen.getByRole("link", { name: "Bắt đầu nấu bữa này" })
     expect(cookLink).toHaveAttribute("href", "/plan/2/cook")

@@ -10,6 +10,7 @@ import type { PlanItemView } from "./planner-api"
 import { stepConditions, stepIngredientNames } from "./step-details"
 import { MemberPortionsPanel } from "./member-portions-panel"
 import { FamilyCookingNotes } from "./family-cooking-notes"
+import { CondimentPairingCard } from "./condiment-pairing-card"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -17,7 +18,7 @@ export interface RecipePreviewModalProps {
   readonly isOpen: boolean
   readonly item: PlanItemView | null
   readonly labels: IngredientLabels
-  readonly initialTab?: "ingredients" | "steps" | "nutrition" | "notes" | undefined
+  readonly initialTab?: "ingredients" | "steps" | "nutrition" | "notes" | "condiments" | undefined
   readonly onClose: () => void
 }
 
@@ -28,9 +29,9 @@ export function RecipePreviewModal({
   initialTab = "ingredients",
   onClose
 }: Readonly<RecipePreviewModalProps>) {
-  const [activeTab, setActiveTab] = useState<"ingredients" | "steps" | "nutrition" | "notes">(
-    initialTab
-  )
+  const [activeTab, setActiveTab] = useState<
+    "ingredients" | "steps" | "nutrition" | "notes" | "condiments"
+  >(initialTab)
 
   if (!isOpen || item === null) return null
 
@@ -114,6 +115,17 @@ export function RecipePreviewModal({
             }`}
           >
             Dinh dưỡng
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("condiments")}
+            className={`border-b-2 px-4 py-2.5 transition-colors ${
+              activeTab === "condiments"
+                ? "border-herb-700 text-herb-700 font-bold"
+                : "border-transparent text-ink-soft hover:text-ink"
+            }`}
+          >
+            Nước chấm & Ăn kèm
           </button>
           <button
             type="button"
@@ -267,6 +279,18 @@ export function RecipePreviewModal({
                   ))}
                 </dl>
               </div>
+            </div>
+          )}
+
+          {activeTab === "condiments" && (
+            <div className="grid gap-4">
+              <CondimentPairingCard
+                mealNameVi={item.mealOptionNameVi}
+                dishNames={item.components
+                  .map((c) => (c.recipe.steps.length > 0 ? c.recipe.recipeId : ""))
+                  .filter(Boolean)}
+                dishRoles={item.components.map((c) => c.mealRole)}
+              />
             </div>
           )}
 

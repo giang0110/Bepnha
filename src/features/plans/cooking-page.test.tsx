@@ -680,4 +680,24 @@ describe("CookingPage", () => {
     await user.click(dismissBtn)
     expect(screen.queryByTestId("dismiss-alarm-btn")).not.toBeInTheDocument()
   })
+
+  test("opens condiment pairing modal, displays sauce recipes, and closes", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    expect(await screen.findByText("Cơm gà bữa 2")).toBeInTheDocument()
+
+    const condimentBtn = screen.getByRole("button", { name: /Nước chấm/i })
+    expect(condimentBtn).toBeInTheDocument()
+
+    await user.click(condimentBtn)
+
+    expect(screen.getByText(/Gợi ý nước chấm & ăn kèm chuẩn vị/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Nước chấm & Ăn kèm chuẩn vị/i).length).toBeGreaterThanOrEqual(1)
+
+    const closeBtn = screen.getByRole("button", { name: "Đã xong, quay lại nấu" })
+    await user.click(closeBtn)
+
+    expect(screen.queryByText(/Nước chấm & Ăn kèm chuẩn vị/i)).not.toBeInTheDocument()
+  })
 })
