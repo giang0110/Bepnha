@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { describe, expect, test, vi } from "vitest"
@@ -185,5 +185,36 @@ describe("RecipePreviewModal", () => {
 
     expect(screen.getByText("Ướp thêm sả 15 phút")).toBeInTheDocument()
     expect(screen.getByText(/Đã lưu ghi chú cho món này/i)).toBeInTheDocument()
+  })
+
+  test("renders leftover storage guide in storage tab and allows tab switching", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter>
+        <RecipePreviewModal
+          isOpen={true}
+          item={mockItem}
+          labels={EMPTY_INGREDIENT_LABELS}
+          initialTab="storage"
+          onClose={vi.fn()}
+        />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByTestId("leftover-storage-guide-card")).toBeInTheDocument()
+    expect(screen.getByText("Bảo quản & An toàn sau bữa ăn")).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId("leftover-storage-guide-card")).getByText("Cơm gà hấp lá chanh")
+    ).toBeInTheDocument()
+
+    // Switch to another tab and switch back to storage tab
+    const ingredientsTab = screen.getByRole("button", { name: "Nguyên liệu & Sơ chế" })
+    await user.click(ingredientsTab)
+    expect(screen.queryByTestId("leftover-storage-guide-card")).not.toBeInTheDocument()
+
+    const storageTab = screen.getByTestId("tab-storage")
+    await user.click(storageTab)
+    expect(screen.getByTestId("leftover-storage-guide-card")).toBeInTheDocument()
   })
 })

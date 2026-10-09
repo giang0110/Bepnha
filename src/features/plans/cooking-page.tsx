@@ -26,7 +26,7 @@ import {
 } from "@/domain/pantry/pantry-cooking-deduction"
 import { PantryCookingDeductionModal } from "./pantry-cooking-deduction-modal"
 
-import { cookingSequence, type CookingStep } from "./cooking-sequence"
+import { cookingSequence, mealRoleLabel, type CookingStep } from "./cooking-sequence"
 import {
   clearCookingProgress,
   loadCookingProgress,
@@ -62,6 +62,7 @@ import {
   triggerVibration
 } from "./cooking-timer-alarm"
 import { CondimentPairingCard } from "./condiment-pairing-card"
+import { LeftoverStorageGuideCard } from "./leftover-storage-guide-card"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -775,6 +776,7 @@ export function CookingPage({
   })
   const [showPrePrep, setShowPrePrep] = useState(false)
   const [showCondiments, setShowCondiments] = useState(false)
+  const [showStorageGuide, setShowStorageGuide] = useState(false)
 
   const toggleSkipRice = () => {
     setSkipRice((prev) => {
@@ -800,6 +802,17 @@ export function CookingPage({
     () => (state.status === "ready" ? extractStapleRiceSummary(state.item, labels) : null),
     [labels, state]
   )
+  const storageDishes = useMemo(() => {
+    if (state.status !== "ready") return []
+    const components = state.item.components
+    return components.map((c) => ({
+      name:
+        components.length === 1
+          ? state.mealName
+          : `${mealRoleLabel(c.mealRole)}: ${state.mealName}`,
+      role: c.mealRole
+    }))
+  }, [state])
   const backgroundTimers = useMemo(() => {
     return steps
       .map((s, sIndex) => ({ step: s, stepIndex: sIndex }))
@@ -1044,6 +1057,19 @@ export function CookingPage({
               <Button
                 type="button"
                 size="sm"
+                variant={showStorageGuide ? "default" : "outline"}
+                onClick={() => setShowStorageGuide((prev) => !prev)}
+                className="flex items-center gap-1.5 rounded-full"
+                title="Xem hướng dẫn bảo quản thức ăn thừa sau nấu"
+                data-testid="cooking-storage-guide-btn"
+              >
+                <span>🥡</span>
+                <span>Bảo quản</span>
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
                 variant={counterMode ? "default" : "outline"}
                 onClick={() => setCounterMode((prev) => !prev)}
                 className="flex items-center gap-1.5 rounded-full"
@@ -1203,6 +1229,16 @@ export function CookingPage({
               }}
             />
           ) : null}
+
+          {(showStorageGuide || index === steps.length - 1) && storageDishes.length > 0 && (
+            <div className="mt-4" data-testid="cooking-storage-guide-section">
+              <LeftoverStorageGuideCard
+                dishes={storageDishes}
+                title="Bảo quản thức ăn thừa sau nấu"
+                defaultExpanded={index === steps.length - 1 ? false : true}
+              />
+            </div>
+          )}
 
           <div className="mt-auto flex gap-3 pt-4">
             <Button
