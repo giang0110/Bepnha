@@ -11,6 +11,7 @@ import { stepConditions, stepIngredientNames } from "./step-details"
 import { MemberPortionsPanel } from "./member-portions-panel"
 import { FamilyCookingNotes } from "./family-cooking-notes"
 import { CondimentPairingCard } from "./condiment-pairing-card"
+import { LeftoverStorageGuideCard } from "./leftover-storage-guide-card"
 
 const DAY_LABELS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -18,7 +19,8 @@ export interface RecipePreviewModalProps {
   readonly isOpen: boolean
   readonly item: PlanItemView | null
   readonly labels: IngredientLabels
-  readonly initialTab?: "ingredients" | "steps" | "nutrition" | "notes" | "condiments" | undefined
+  readonly initialTab?:
+    "ingredients" | "steps" | "nutrition" | "notes" | "condiments" | "storage" | undefined
   readonly onClose: () => void
 }
 
@@ -30,7 +32,7 @@ export function RecipePreviewModal({
   onClose
 }: Readonly<RecipePreviewModalProps>) {
   const [activeTab, setActiveTab] = useState<
-    "ingredients" | "steps" | "nutrition" | "notes" | "condiments"
+    "ingredients" | "steps" | "nutrition" | "notes" | "condiments" | "storage"
   >(initialTab)
 
   if (!isOpen || item === null) return null
@@ -82,11 +84,11 @@ export function RecipePreviewModal({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-edge bg-paper px-6 pt-2 text-sm font-semibold">
+        <div className="flex overflow-x-auto border-b border-edge bg-paper px-4 sm:px-6 pt-2 text-sm font-semibold scrollbar-none">
           <button
             type="button"
             onClick={() => setActiveTab("ingredients")}
-            className={`border-b-2 px-4 py-2.5 transition-colors ${
+            className={`border-b-2 px-3 sm:px-4 py-2.5 transition-colors whitespace-nowrap ${
               activeTab === "ingredients"
                 ? "border-herb-700 text-herb-700 font-bold"
                 : "border-transparent text-ink-soft hover:text-ink"
@@ -97,7 +99,7 @@ export function RecipePreviewModal({
           <button
             type="button"
             onClick={() => setActiveTab("steps")}
-            className={`border-b-2 px-4 py-2.5 transition-colors ${
+            className={`border-b-2 px-3 sm:px-4 py-2.5 transition-colors whitespace-nowrap ${
               activeTab === "steps"
                 ? "border-herb-700 text-herb-700 font-bold"
                 : "border-transparent text-ink-soft hover:text-ink"
@@ -108,7 +110,7 @@ export function RecipePreviewModal({
           <button
             type="button"
             onClick={() => setActiveTab("nutrition")}
-            className={`border-b-2 px-4 py-2.5 transition-colors ${
+            className={`border-b-2 px-3 sm:px-4 py-2.5 transition-colors whitespace-nowrap ${
               activeTab === "nutrition"
                 ? "border-herb-700 text-herb-700 font-bold"
                 : "border-transparent text-ink-soft hover:text-ink"
@@ -119,7 +121,7 @@ export function RecipePreviewModal({
           <button
             type="button"
             onClick={() => setActiveTab("condiments")}
-            className={`border-b-2 px-4 py-2.5 transition-colors ${
+            className={`border-b-2 px-3 sm:px-4 py-2.5 transition-colors whitespace-nowrap ${
               activeTab === "condiments"
                 ? "border-herb-700 text-herb-700 font-bold"
                 : "border-transparent text-ink-soft hover:text-ink"
@@ -130,13 +132,25 @@ export function RecipePreviewModal({
           <button
             type="button"
             onClick={() => setActiveTab("notes")}
-            className={`border-b-2 px-4 py-2.5 transition-colors ${
+            className={`border-b-2 px-3 sm:px-4 py-2.5 transition-colors whitespace-nowrap ${
               activeTab === "notes"
                 ? "border-herb-700 text-herb-700 font-bold"
                 : "border-transparent text-ink-soft hover:text-ink"
             }`}
           >
             Ghi chú & Mẹo
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("storage")}
+            className={`border-b-2 px-3 sm:px-4 py-2.5 transition-colors whitespace-nowrap ${
+              activeTab === "storage"
+                ? "border-herb-700 text-herb-700 font-bold"
+                : "border-transparent text-ink-soft hover:text-ink"
+            }`}
+            data-testid="tab-storage"
+          >
+            Bảo quản thức ăn
           </button>
         </div>
 
@@ -310,6 +324,21 @@ export function RecipePreviewModal({
                   bếp, giúp bạn không bao giờ quên các khẩu vị đặc biệt của người thân!
                 </p>
               </div>
+            </div>
+          )}
+
+          {activeTab === "storage" && (
+            <div className="grid gap-4">
+              <LeftoverStorageGuideCard
+                dishes={item.components.map((c) => ({
+                  name:
+                    item.components.length === 1
+                      ? item.mealOptionNameVi
+                      : `${mealRoleLabel(c.mealRole)}: ${item.mealOptionNameVi}`,
+                  role: c.mealRole
+                }))}
+                defaultExpanded={true}
+              />
             </div>
           )}
         </div>

@@ -700,4 +700,33 @@ describe("CookingPage", () => {
 
     expect(screen.queryByText(/Nước chấm & Ăn kèm chuẩn vị/i)).not.toBeInTheDocument()
   })
+
+  test("toggles leftover storage guide from action button and renders on final step", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    expect(await screen.findByText("Cơm gà bữa 2")).toBeInTheDocument()
+
+    // Top bar storage button
+    const storageBtn = screen.getByTestId("cooking-storage-guide-btn")
+    expect(storageBtn).toBeInTheDocument()
+
+    // Click to show storage guide
+    await user.click(storageBtn)
+    expect(screen.getByTestId("cooking-storage-guide-section")).toBeInTheDocument()
+    expect(screen.getByTestId("leftover-storage-guide-card")).toBeInTheDocument()
+    expect(screen.getByText("Bảo quản thức ăn thừa sau nấu")).toBeInTheDocument()
+
+    // Toggle off
+    await user.click(storageBtn)
+    expect(screen.queryByTestId("cooking-storage-guide-section")).not.toBeInTheDocument()
+
+    // Advance to final step (step 3 of 3)
+    await user.click(screen.getByRole("button", { name: "Bước tiếp" }))
+    await user.click(screen.getByRole("button", { name: "Bước tiếp" }))
+
+    // Final step automatically presents leftover storage guide section
+    expect(screen.getByTestId("cooking-storage-guide-section")).toBeInTheDocument()
+    expect(screen.getByTestId("leftover-storage-guide-card")).toBeInTheDocument()
+  })
 })
