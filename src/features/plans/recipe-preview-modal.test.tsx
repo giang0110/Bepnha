@@ -217,4 +217,34 @@ describe("RecipePreviewModal", () => {
     await user.click(storageTab)
     expect(screen.getByTestId("leftover-storage-guide-card")).toBeInTheDocument()
   })
+
+  test("opens kitchen measurement converter from ingredients tab and closes", async () => {
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter>
+        <RecipePreviewModal
+          isOpen={true}
+          item={mockItem}
+          labels={EMPTY_INGREDIENT_LABELS}
+          initialTab="ingredients"
+          onClose={vi.fn()}
+        />
+      </MemoryRouter>
+    )
+
+    expect(screen.queryByTestId("kitchen-measurement-modal")).not.toBeInTheDocument()
+
+    const converterBtn = screen.getByTestId("preview-measurement-converter-btn")
+    await user.click(converterBtn)
+
+    expect(screen.getByTestId("kitchen-measurement-modal")).toBeInTheDocument()
+    expect(screen.getByText("Quy đổi đơn vị & Ước lượng bếp Việt")).toBeInTheDocument()
+
+    // Close the measurement modal
+    const measurementModal = screen.getByTestId("kitchen-measurement-modal")
+    const closeBtn = within(measurementModal).getByRole("button", { name: "Đóng" })
+    await user.click(closeBtn)
+    expect(screen.queryByTestId("kitchen-measurement-modal")).not.toBeInTheDocument()
+  })
 })

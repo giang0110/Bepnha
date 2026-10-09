@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router"
 import { beforeEach, describe, expect, test, vi } from "vitest"
@@ -728,5 +728,28 @@ describe("CookingPage", () => {
     // Final step automatically presents leftover storage guide section
     expect(screen.getByTestId("cooking-storage-guide-section")).toBeInTheDocument()
     expect(screen.getByTestId("leftover-storage-guide-card")).toBeInTheDocument()
+  })
+
+  test("toggles kitchen measurement converter from action bar and closes", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    expect(await screen.findByText("Cơm gà bữa 2")).toBeInTheDocument()
+
+    expect(screen.queryByTestId("kitchen-measurement-modal")).not.toBeInTheDocument()
+
+    const converterBtn = screen.getByTestId("cooking-measurement-converter-btn")
+    expect(converterBtn).toBeInTheDocument()
+
+    // Open converter modal
+    await user.click(converterBtn)
+    expect(screen.getByTestId("kitchen-measurement-modal")).toBeInTheDocument()
+    expect(screen.getByText("Quy đổi đơn vị & Ước lượng bếp Việt")).toBeInTheDocument()
+
+    // Close modal
+    const measurementModal = screen.getByTestId("kitchen-measurement-modal")
+    const closeBtn = within(measurementModal).getByRole("button", { name: "Đóng" })
+    await user.click(closeBtn)
+    expect(screen.queryByTestId("kitchen-measurement-modal")).not.toBeInTheDocument()
   })
 })
