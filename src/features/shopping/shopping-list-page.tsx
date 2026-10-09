@@ -978,20 +978,20 @@ export function ShoppingListPage({ repository }: Props) {
                       </div>
                     </div>
                   </div>
-
-                  <div className="mt-3">
-                    <ShoppingActualExpenseCard
-                      estimatedCostVnd={state.value.totalEstimatedCostVnd}
-                      budgetVnd={state.value.budgetVnd}
-                      pickedUpCostVnd={progress.pickedUpCostVnd}
-                      actualExpense={actualExpense}
-                      onSaveActualExpense={handleSaveActualExpense}
-                      onClearActualExpense={handleClearActualExpense}
-                    />
-                  </div>
                 </div>
               )}
             </section>
+          </div>
+
+          <div data-print="hide">
+            <ShoppingActualExpenseCard
+              estimatedCostVnd={state.value.totalEstimatedCostVnd}
+              budgetVnd={state.value.budgetVnd}
+              pickedUpCostVnd={progress?.pickedUpCostVnd ?? 0}
+              actualExpense={actualExpense}
+              onSaveActualExpense={handleSaveActualExpense}
+              onClearActualExpense={handleClearActualExpense}
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-2" data-print="hide">
