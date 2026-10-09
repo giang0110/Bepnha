@@ -2,6 +2,7 @@ import { MemberPortionsPanel } from "./member-portions-panel"
 import {
   lazy,
   Suspense,
+  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -48,6 +49,7 @@ import { MealRatingControl } from "./meal-rating-control"
 import { PlanTrustPanel } from "./plan-trust-panel"
 import { ReplacementComparison } from "./replacement-comparison"
 import { WeeklyNutritionOverviewPanel } from "./weekly-nutrition-overview"
+import { WeeklyCookingScheduleCard } from "./weekly-cooking-schedule-card"
 import { stepConditions, stepIngredientNames } from "./step-details"
 import { currentWeekStart, nextWeekStart } from "./week-start"
 import {
@@ -761,6 +763,13 @@ export function WeeklyPlanPage({
     }
   }
 
+  const handleScrollToDay = useCallback((dayIndex: number) => {
+    const el = document.getElementById(`meal-day-${dayIndex}`)
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [])
+
   if (state.status === "loading_household") {
     return (
       <AppPageShell className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-6 text-ink sm:px-6 lg:px-8 lg:py-8">
@@ -1113,6 +1122,10 @@ export function WeeklyPlanPage({
 
           <WeeklyNutritionOverviewPanel items={sortedPlanItems} />
 
+          <div data-print="hide">
+            <WeeklyCookingScheduleCard items={sortedPlanItems} onSelectDay={handleScrollToDay} />
+          </div>
+
           {/* Not plain "Đi chợ": the navigation carries that name for the week's list in general,
               and two links reading the same while leading to different places is a guess the
               reader should not have to make. This one is the list for the plan on screen. */}
@@ -1209,6 +1222,7 @@ export function WeeklyPlanPage({
                   isWeekend && isWeekendDish(item.mealOptionNameVi, item.elapsedMinutes)
                 return (
                   <li
+                    id={`meal-day-${item.dayIndex}`}
                     aria-label={`Bữa chính ${DAY_LABELS[item.dayIndex]}`}
                     className="flex min-w-0 flex-col rounded-3xl border border-edge bg-paper-raised p-5 sm:p-6"
                     key={item.dayIndex}

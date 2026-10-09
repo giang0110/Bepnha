@@ -1073,4 +1073,15 @@ describe("WeeklyPlanPage", () => {
     expect(within(restoredList).getByText("Thịt kho tàu")).toBeInTheDocument()
     expect(within(restoredList).getByText("Gà hấp lá chanh")).toBeInTheDocument()
   })
+
+  test("renders weekly cooking schedule card with total time and timeline", async () => {
+    setup({
+      current: vi.fn().mockResolvedValue({ ok: true, value: ready() })
+    })
+
+    expect(await screen.findByTestId("weekly-cooking-schedule-card")).toBeInTheDocument()
+    expect(screen.getByText("Thời gian nấu & Lịch trình tuần")).toBeInTheDocument()
+    expect(screen.getByTestId("cooking-schedule-timeline")).toBeInTheDocument()
+    expect(screen.getByTestId("cooking-schedule-day-0")).toBeInTheDocument()
+  })
 })
