@@ -50,6 +50,9 @@ import { PlanTrustPanel } from "./plan-trust-panel"
 import { ReplacementComparison } from "./replacement-comparison"
 import { WeeklyNutritionOverviewPanel } from "./weekly-nutrition-overview"
 import { WeeklyCookingScheduleCard } from "./weekly-cooking-schedule-card"
+import { DailyPrepDefrostCard } from "./daily-prep-defrost-card"
+import { extractPlanItemPrepTasks } from "./daily-prep-adapter"
+import { generatePrepShareMessage, type PrepTask } from "@/domain/planner/meal-prep-defrost"
 import { stepConditions, stepIngredientNames } from "./step-details"
 import { currentWeekStart, nextWeekStart } from "./week-start"
 import {
@@ -509,6 +512,10 @@ export function WeeklyPlanPage({
       todayIndex === null ? undefined : sortedPlanItems.find((c) => c.dayIndex === todayIndex),
     [todayIndex, sortedPlanItems]
   )
+  const todayPrepTasks = useMemo(() => {
+    if (!todayMeal) return []
+    return extractPlanItemPrepTasks(todayMeal, labels)
+  }, [todayMeal, labels])
 
   useEffect(() => {
     if (preview.status !== "ready") return
@@ -769,6 +776,20 @@ export function WeeklyPlanPage({
       el.scrollIntoView({ behavior: "smooth", block: "start" })
     }
   }, [])
+
+  const handleSharePrepReminder = useCallback(
+    async (dayLabelVi: string, mealNameVi: string, tasks: readonly PrepTask[]) => {
+      const message = generatePrepShareMessage(dayLabelVi, mealNameVi, tasks)
+      const title = `Lời nhắc chuẩn bị bữa cơm ${dayLabelVi} — Bếp Nhà`
+      const outcome = await shareText(message, title, navigator)
+      if (outcome === "copied") {
+        toast.success("Đã sao chép lời nhắc chuẩn bị & rã đông vào bộ nhớ tạm!")
+      } else if (outcome === "unavailable") {
+        toast.error("Không thể chia sẻ trên thiết bị này.")
+      }
+    },
+    []
+  )
 
   if (state.status === "loading_household") {
     return (
@@ -1074,9 +1095,47 @@ export function WeeklyPlanPage({
                     Bắt đầu nấu
                   </Link>
                 </div>
+
+                {todayPrepTasks.length > 0 && (
+                  <div className="mt-4 border-t border-herb-200/80 pt-4" data-print="hide">
+                    <DailyPrepDefrostCard
+                      revisionId={state.value.revisionId}
+                      dayIndex={meal.dayIndex}
+                      dayLabelVi={DAY_LABELS[meal.dayIndex] ?? "Hôm nay"}
+                      mealOptionNameVi={meal.mealOptionNameVi}
+                      tasks={todayPrepTasks}
+                      onShareReminder={(dayLabel, mealName, tasks) =>
+                        void handleSharePrepReminder(dayLabel, mealName, tasks)
+                      }
+                    />
+                  </div>
+                )}
               </section>
             )
           })()}
+
+          {todayMeal === undefined &&
+            sortedPlanItems.length > 0 &&
+            (() => {
+              const firstMeal = sortedPlanItems[0]
+              if (!firstMeal) return null
+              const firstMealPrepTasks = extractPlanItemPrepTasks(firstMeal, labels)
+              if (firstMealPrepTasks.length === 0) return null
+              return (
+                <div data-print="hide">
+                  <DailyPrepDefrostCard
+                    revisionId={state.value.revisionId}
+                    dayIndex={firstMeal.dayIndex}
+                    dayLabelVi={DAY_LABELS[firstMeal.dayIndex] ?? "Thứ Hai"}
+                    mealOptionNameVi={firstMeal.mealOptionNameVi}
+                    tasks={firstMealPrepTasks}
+                    onShareReminder={(dayLabel, mealName, tasks) =>
+                      void handleSharePrepReminder(dayLabel, mealName, tasks)
+                    }
+                  />
+                </div>
+              )
+            })()}
 
           <section
             className="rounded-3xl border border-edge bg-paper-raised p-5 sm:p-6"
